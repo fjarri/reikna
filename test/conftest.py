@@ -17,7 +17,9 @@ def pytest_addoption(parser):
         default="yes", choices=["no", "yes", "both"])
 
 def pytest_funcarg__env(request):
-    return request.param()
+    env = request.param()
+    request.addfinalizer(lambda: env.release())
+    return env
 
 def pytest_funcarg__double(request):
     return request.param
