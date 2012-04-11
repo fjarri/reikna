@@ -3,4 +3,6 @@ temp/*
 *.tmproj
 tigger.egg-info/*
 tigger/version.py
+test/htmlcov/*
+test/.coverage
 
