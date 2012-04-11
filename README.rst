@@ -1,6 +1,6 @@
-==========================================================
-Codename Tigger: pure Python library with GPGPU algorithms
-==========================================================
+===============
+Codename Tigger
+===============
 
 Tigger is the attempt to combine all the algorithms I am currently using in my projects into one library.
 In particular, PyFFT will be merged into this project too.
@@ -13,3 +13,11 @@ My goals are:
 
 The project is in the prototype stage now, and everything is subject to change.
 It may even disappear completely if, for example, it is decided that it should be joined with Compyte.
+
+----------------
+v0.0.1 (planned)
+----------------
+
+* Add the following algorithms: matrix multiplication, transposition, 3D permutation, FFT, DHT, reduction.
+* Add pre- and post-processing for algorithms.
+* Add basic documentation.
