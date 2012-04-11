@@ -3,6 +3,8 @@ import pyopencl as cl
 import pyopencl.array as clarray
 import sys
 
+import tigger.cluda as cluda
+
 
 class OclEnvironment:
 
@@ -70,7 +72,7 @@ class OclModule:
 
     def __init__(self, env, template, **kwds):
         self._env = env
-        src = template.render(env=env.params, **kwds)
+        src = cluda.render(template, env, **kwds)
         options = "-cl-mad-enable -cl-fast-relaxed-math" if env.fast_math else ""
 
         try:

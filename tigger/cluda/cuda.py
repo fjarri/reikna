@@ -5,6 +5,8 @@ import pycuda.gpuarray as gpuarray
 import pycuda.driver as cuda
 from pycuda.compiler import SourceModule
 
+import tigger.cluda as cluda
+
 
 class CudaEnvironment:
 
@@ -80,7 +82,7 @@ class CudaModule:
 
     def __init__(self, env, template, **kwds):
         self._env = env
-        src = template.render(env=env.params, **kwds)
+        src = cluda.render(template, env, **kwds)
         options = ['-use_fast_math'] if self._env.fast_math else []
 
         try:

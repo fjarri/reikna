@@ -1,3 +1,12 @@
+from tigger.cluda import helpers
+import os.path
+from mako.template import Template
+
+_PRELUDE = open(os.path.join(os.path.split(__file__)[0], 'prelude.cu.mako')).read()
+
+def render(template_str, env, **kwds):
+    return Template(_PRELUDE + template_str).render(env=env.params, helpers=helpers, **kwds)
+
 def supportsCuda():
     try:
         import pycuda.driver

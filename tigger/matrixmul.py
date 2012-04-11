@@ -1,9 +1,9 @@
 import numpy
 import helpers
 from .helpers import *
+from .cluda.helpers import *
 
-
-TEMPLATE = loadTemplate(__file__)
+TEMPLATE = loadTemplateFor(__file__)
 
 
 class MatrixMul(Computation):
@@ -77,7 +77,7 @@ class MatrixMul(Computation):
 
         dp.blocks_per_matrix = numpy.int32(min_blocks(bp.a_height, block_size))
         dp.block_size = block_size
-        dp.module = self._env.compile(TEMPLATE, bp=bp, dp=dp, helpers=helpers)
+        dp.module = self._env.compile(TEMPLATE, bp=bp, dp=dp)
         dp.kernel_matrixmul = dp.module.matrixmul
 
         dp.grid = (

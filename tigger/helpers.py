@@ -1,5 +1,4 @@
 import numpy
-from mako.template import Template
 import os, os.path
 
 product = lambda x: reduce(lambda x1, x2: x1 * x2, x, 1)
@@ -22,10 +21,10 @@ class AttrDict(dict):
         return False
 
 
-def loadTemplate(filename):
+def loadTemplateFor(filename):
     name, ext = os.path.splitext(filename)
     template = name + ".cu.mako"
-    return Template(filename=template)
+    return open(template).read()
 
 
 class Computation:
@@ -79,28 +78,4 @@ def log2(n):
             pos += pow
     return pos
 
-def is_complex(dtype):
-    return dtype.name in ['complex64', 'complex128']
-
-def is_double(dtype):
-    return dtype.name in ['float64', 'complex128']
-
-def ctype(dtype):
-    return dict(
-        uint8='unsigned char',
-        float32='float',
-        float64='double',
-    )[dtype.name]
-
-def complex_ctr(dtype):
-    return 'COMPLEX_CTR(' + ctype(dtype) + ')'
-
-def zero_ctr(dtype):
-    if is_complex(dtype):
-        return complex_ctr(dtype) + '(0, 0)'
-    else:
-        return '0'
-
-def cast(dtype):
-    return lambda x: numpy.array([x]).astype(dtype)[0]
 
