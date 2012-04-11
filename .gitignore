@@ -2,4 +2,5 @@
 temp/*
 *.tmproj
 tigger.egg-info/*
+tigger/version.py
 
