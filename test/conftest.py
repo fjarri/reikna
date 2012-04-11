@@ -1,5 +1,6 @@
 from itertools import product
 import tigger.cluda as cluda
+import numpy
 
 pytest_plugins = ['pytest_returnvalues']
 
@@ -66,7 +67,7 @@ def pytest_generate_tests(metafunc):
         ds = lambda dv: 'dp' if dv else 'sp'
 
         if d == "supported":
-            vals = [(e, dv) for e, dv in product(envs, [False, True]) if not dv or e().supportsDouble()]
+            vals = [(e, dv) for e, dv in product(envs, [False, True]) if not dv or e().supportsDtype(numpy.float64)]
         else:
             dv = d == 'yes'
             vals = [(e, dv) for e in envs]
