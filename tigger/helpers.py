@@ -29,16 +29,11 @@ def loadTemplateFor(filename):
 
 class Computation:
 
-    def __init__(self, env, debug=False, enqueue_to=None):
+    def __init__(self, env, debug=False):
         self._env = env
         self._debug = debug
-        self._queue = enqueue_to
 
         self._basis = AttrDict(**self._get_default_basis())
-
-    def enqueue_to(self, target):
-        self._queue = target
-        return self
 
     def prepare(self, **kwds):
         if self._basis.needsUpdate(kwds):
