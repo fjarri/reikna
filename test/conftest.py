@@ -6,8 +6,8 @@ pytest_plugins = ['pytest_returnvalues']
 
 
 def pytest_addoption(parser):
-    parser.addoption("--platform", action="store",
-        help="Platform: cuda/ocl/supported",
+    parser.addoption("--api", action="store",
+        help="API: cuda/ocl/supported",
         default="supported", choices=["cuda", "ocl", "supported"])
     parser.addoption("--double", action="store",
         help="Use doubles: no/yes/supported",
@@ -27,33 +27,33 @@ def pytest_funcarg__double(request):
 def pytest_generate_tests(metafunc):
 
     if 'env' in metafunc.funcargnames:
-        p = metafunc.config.option.platform
+        api = metafunc.config.option.api
         fm = metafunc.config.option.fast_math
 
-        def check_platform(name):
+        def check_api(name):
             return dict(cuda=cluda.supportsCuda, ocl=cluda.supportsOcl)[name]()
 
         class EnvCreator:
-            def __init__(self, name, fast_math):
+            def __init__(self, api, fast_math):
                 self.fast_math = fast_math
-                self.name = name
-                ctr = dict(cuda=cluda.createCuda, ocl=cluda.createOcl)[name]
+                self.api = api
+                ctr = dict(cuda=cluda.createCuda, ocl=cluda.createOcl)[api]
                 self.create = lambda: ctr(fast_math=fm)
 
             def __call__(self):
                 return self.create()
 
             def __str__(self):
-                return self.name + (",fm" if self.fast_math else "")
+                return self.api + (",fm" if self.fast_math else "")
 
-        if p == "supported":
-            ps = []
+        if api == "supported":
+            apis = []
             for name in ('cuda', 'ocl'):
-                if check_platform(name): ps.append(name)
+                if check_api(name): apis.append(name)
         else:
-            if not check_platform(p):
-                raise Exception("Requested platform " + p + " is not supported.")
-            ps = [p]
+            if not check_api(api):
+                raise Exception("Requested API " + api + " is not supported.")
+            apis = [api]
 
         if fm == "both":
             fms = [False, True]
@@ -62,7 +62,7 @@ def pytest_generate_tests(metafunc):
         else:
             fms = [True]
 
-        envs = [EnvCreator(p, fm) for p, fm in product(ps, fms)]
+        envs = [EnvCreator(api, fm) for api, fm in product(apis, fms)]
 
     if 'double' in metafunc.funcargnames:
         d = metafunc.config.option.double
