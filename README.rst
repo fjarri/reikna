@@ -21,6 +21,13 @@ Release history
 v0.0.1 (planned)
 ----------------
 
+Main tasks:
+
 * Add the following algorithms: matrix multiplication, transposition, 3D permutation, FFT, DHT, reduction.
 * Add pre- and post-processing for algorithms.
 * Add basic documentation.
+
+Additional tasks:
+
+* Add some global DEBUG variable, it will help with testing.
+* Improve Env creation: they have to be able to "connect" to existing contexts/queues. It seems to be, in fact, the main usage scenario.
