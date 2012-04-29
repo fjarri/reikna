@@ -1,20 +1,18 @@
-${define_mul_func('mul_func', bp.a_dtype, bp.b_dtype, bp.out_dtype)}
-
 <%
-    outtype_name = helpers.ctype(bp.out_dtype)
-    atype_name = helpers.ctype(bp.a_dtype)
-    btype_name = helpers.ctype(bp.b_dtype)
+    out_ctype = dtypes.ctype(bp.out_dtype)
+    a_ctype = dtypes.ctype(bp.a_dtype)
+    b_ctype = dtypes.ctype(bp.b_dtype)
 %>
 
-KERNEL void matrixmul(GLOBAL_MEM ${outtype_name}* C, GLOBAL_MEM ${atype_name}* A, GLOBAL_MEM ${btype_name}* B)
+KERNEL void matrixmul(GLOBAL_MEM ${out_ctype}* C, GLOBAL_MEM ${a_ctype}* A, GLOBAL_MEM ${b_ctype}* B)
 {
     // Storage for sub-matrices of A and B
     // Not using dynamic local memory, because we need (in general) two different types,
     // and creating two views for dynamic char* array does not work.
     // Can cause problems if atype/btype have constructors (they will be called in each thread),
     // but as long as we are using POD types, we will be fine.
-    LOCAL_MEM ${atype_name} As[${dp.block_size ** 2}];
-    LOCAL_MEM ${btype_name} Bs[${dp.block_size ** 2}];
+    LOCAL_MEM ${a_ctype} As[${dp.block_size ** 2}];
+    LOCAL_MEM ${b_ctype} Bs[${dp.block_size ** 2}];
 
     int bx = GID_0;
     int by = GID_1;
@@ -49,7 +47,7 @@ KERNEL void matrixmul(GLOBAL_MEM ${outtype_name}* C, GLOBAL_MEM ${atype_name}* A
 
     // Csub is used to store the element of the block sub-matrix
     // that is computed by the thread
-    ${outtype_name} Csub = ${helpers.zero_ctr(bp.out_dtype)};
+    ${out_ctype} Csub = ${dtypes.zero_ctr(bp.out_dtype)};
 
     // Loop over all the sub-matrices of A and B
     // required to compute the block sub-matrix
@@ -64,9 +62,9 @@ KERNEL void matrixmul(GLOBAL_MEM ${outtype_name}* C, GLOBAL_MEM ${atype_name}* A
         int b_y = step * ${dp.block_size} + ty;
 
         As[ty * ${dp.block_size} + tx] = (a_x < ${bp.a_width} && a_y < ${bp.a_height})
-            ? A[a + ${bp.a_width} * ty + tx] : ${helpers.zero_ctr(bp.a_dtype)};
+            ? A[a + ${bp.a_width} * ty + tx] : ${dtypes.zero_ctr(bp.a_dtype)};
         Bs[ty * ${dp.block_size} + tx] = (b_x < ${bp.b_width} && b_y < ${bp.a_width})
-            ? B[b + ${bp.b_width} * ty + tx] : ${helpers.zero_ctr(bp.b_dtype)};
+            ? B[b + ${bp.b_width} * ty + tx] : ${dtypes.zero_ctr(bp.b_dtype)};
 
         local_barrier();
 
