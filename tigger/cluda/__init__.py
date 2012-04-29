@@ -1,11 +1,34 @@
-from tigger.cluda import helpers
+from tigger.cluda import dtypes
 import os.path
 from mako.template import Template
 
 _PRELUDE = open(os.path.join(os.path.split(__file__)[0], 'prelude.cu.mako')).read()
+_MUL = open(os.path.join(os.path.split(__file__)[0], 'mul.cu.mako')).read()
+
+class MulCollector:
+
+    def __init__(self):
+        self.functions = {}
+
+    def __call__(self, dtype1, dtype2, out_dtype=None):
+        if out_dtype is None:
+            out_dtype = numpy.result_type(dtype1, dtype2)
+        ctypes = [dtypes.ctype(dt) for dt in (dtype1, dtype2)]
+        out_ctype = dtypes.ctype(out_dtype)
+
+        name = '_mul_' + '_'.join(ctypes) + '__' + out_ctype
+
+        self.functions[name] = (dtype1, dtype2, out_dtype)
+        return name
+
 
 def render(template_str, env, **kwds):
-    return Template(_PRELUDE + template_str).render(env=env.params, helpers=helpers, **kwds)
+    prelude = Template(_PRELUDE).render(env=env.params)
+    mul_c = MulCollector()
+    src = Template(template_str).render(env=env.params, dtypes=dtypes,
+        mul=mul_c, **kwds)
+    muls = Template(_MUL).render(dtypes=dtypes, mul_functions=mul_c.functions)
+    return prelude + muls + src
 
 def supportsCuda():
     try:

@@ -53,7 +53,7 @@
 %if env.api == 'cuda':
     #define COMPLEX_CTR(T) make_##T
 %elif env.api == 'ocl':
-    #define COMPLEX_CTR(T) (##T)
+    #define COMPLEX_CTR(T) (T)
 %endif
 
 ## These operators are supported by OpenCL
@@ -71,22 +71,3 @@
     WITHIN_KERNEL ${tp} operator-(${tp} a) { return COMPLEX_CTR(${tp})(-a.x, -a.y); }
 %endfor
 %endif
-
-<%def name="define_mul_func(name, a_dtype, b_dtype, out_dtype)">
-WITHIN_KERNEL ${helpers.ctype(out_dtype)} ${name}(
-    ${helpers.ctype(a_dtype)} a, ${helpers.ctype(b_dtype)} b)
-{
-<%
-    if not helpers.is_complex(a_dtype) and not helpers.is_complex(b_dtype):
-        result = '(a * b)'
-    elif helpers.is_complex(a_dtype) and not helpers.is_complex(b_dtype):
-        result = helpers.complex_ctr(out_dtype) + '(a.x * b, a.y * b)'
-    elif not helpers.is_complex(a_dtype) and helpers.is_complex(b_dtype):
-        result = helpers.complex_ctr(out_dtype) + '(b.x * a, b.y * a)'
-    else:
-        result = helpers.complex_ctr(out_dtype) + '(a.x * b.x - a.y * b.y', 'a.x * b.y + a.y * b.x)'
-%>
-
-    return ${result};
-}
-</%def>
