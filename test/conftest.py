@@ -76,5 +76,5 @@ def pytest_generate_tests(metafunc):
 
         ids = [str(e) + "," + ds(dv) for e, dv in vals]
         metafunc.parametrize(["env", "double"], vals, ids=ids, indirect=True)
-    else:
+    elif 'env' in metafunc.funcargnames:
         metafunc.parametrize("env", envs, [str(e) for e in envs], indirect=True)
