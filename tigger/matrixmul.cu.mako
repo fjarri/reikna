@@ -74,7 +74,7 @@ KERNEL void matrixmul(GLOBAL_MEM ${outtype_name}* C, GLOBAL_MEM ${atype_name}* A
         // each thread computes one element
         // of the block sub-matrix
         for (int k = 0; k < ${dp.block_size}; k++)
-            Csub = Csub + mul_func(As[ty * ${dp.block_size} + k], Bs[k * ${dp.block_size} + tx]);
+            Csub = Csub + ${mul(bp.a_dtype, bp.b_dtype, bp.out_dtype)}(As[ty * ${dp.block_size} + k], Bs[k * ${dp.block_size} + tx]);
 
         local_barrier();
     }
