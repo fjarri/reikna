@@ -4,6 +4,7 @@ import pyopencl.array as clarray
 import sys
 
 import tigger.cluda as cluda
+import tigger.cluda.dtypes as dtypes
 
 
 class OclEnvironment:
@@ -29,7 +30,7 @@ class OclEnvironment:
         self.params = OclDeviceParameters(self.context.get_info(cl.context_info.DEVICES)[0])
 
     def supportsDtype(self, dtype):
-        if dtype in (numpy.float64, numpy.complex128):
+        if dtypes.is_double(dtype):
             extensions = self.context.devices[0].extensions
             return "cl_khr_fp64" in extensions or "cl_amd_fp64" in extensions
         else:

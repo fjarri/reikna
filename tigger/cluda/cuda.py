@@ -6,6 +6,7 @@ import pycuda.driver as cuda
 from pycuda.compiler import SourceModule
 
 import tigger.cluda as cluda
+import tigger.cluda.dtypes as dtypes
 
 
 class CudaEnvironment:
@@ -21,7 +22,7 @@ class CudaEnvironment:
         self._released = False
 
     def supportsDtype(self, dtype):
-        if dtype in (numpy.float64, numpy.complex128):
+        if dtypes.is_double(dtype):
             major, minor = self.context.get_device().compute_capability()
             return (major == 1 and minor == 3) or major >= 2
         else:
