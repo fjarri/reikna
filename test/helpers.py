@@ -2,7 +2,6 @@ import numpy
 from tigger.cluda import dtypes
 
 def getTestArray(shape, dtype):
-    dtype = numpy.dtype(dtype)
     get_arr = lambda: numpy.random.normal(size=shape).astype(dtype)
 
     if dtypes.is_complex(dtype):
