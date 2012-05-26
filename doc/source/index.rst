@@ -1,17 +1,24 @@
-.. tigger documentation master file, created by
-   sphinx-quickstart on Mon Apr 23 13:25:02 2012.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+Codename Tigger
+===============
 
-Welcome to tigger's documentation!
-==================================
+For some time this will be used for a mixture of TODO and proper documentation.
 
-Contents:
+Pre- and post-processing
+========================
+
+Elementwise pre- and post-processing can be attached to any kernel (derived from Computation class).
+Pre-processing is invoked when kernel reads from memory, and post-processing is invoked when kernel writes to memory.
+Pre-processing has to have only one output value, and post-processing has to have only one input value.
+They can change variable types as long as there is a function that derives output type from input types (for load) or input types from output types (for store); by default these types are equal.
+When computation has some processing attached to it, its signature changes
+
+
+
+Contents
+========
 
 .. toctree::
    :maxdepth: 2
-
-
 
 Indices and tables
 ==================
