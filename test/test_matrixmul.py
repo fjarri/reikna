@@ -6,8 +6,8 @@ from helpers import *
 from tigger.matrixmul import MatrixMul
 import tigger.cluda.dtypes as dtypes
 
-@pytest.mark.parametrize("complex1", [False, True])
-@pytest.mark.parametrize("complex2", [False, True])
+@pytest.mark.parametrize("complex1", [False, True], ids=['real', 'complex'])
+@pytest.mark.parametrize("complex2", [False, True], ids=['real', 'complex'])
 def test_errors(env, double, complex1, complex2):
 
     s1 = (100, 200)
