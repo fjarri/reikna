@@ -7,11 +7,11 @@ In particular, PyFFT will be merged into this project too.
 My goals are:
 
 * gather a number of basic algorithms into one place, so that they could be documented and covered by tests;
-* make this library Python-only (no compilation issues);
+* make this library pure Python (no compilation issues);
 * provide identical behaviour for both Cuda and OpenCL (so that it is enough to change a single line of code to switch from one to the other);
 * make it easy for other people to add new algorithms.
 
-Long-term goal: library that by request (perhaps, from other languages) returns kernels and call signatures for algorithms, using Python as templating engine.
+Long-term goal: separate kernel rendering and object oriented wrapping, making the library useable from other languages.
 
 The project is in the prototype stage now, and everything is subject to change.
 It may even disappear completely if, for example, it is decided that it should be joined with Compyte.
