@@ -14,21 +14,15 @@ class MatrixMul(Computation):
             batched_a=False, batched_b=False,
             block_size_override=None)
 
-    def _construct_basis(self, a, b, out=None):
+    def _construct_basis(self, out, a, b):
 
         bs = Computation._construct_basis(self)
 
-        # Derive types
-
-        if out is not None:
-            bs.out_dtype = out.dtype
-        else:
-            bs.out_dtype = numpy.result_type(a.dtype, b.dtype)
-
         if self._debug:
-            for dtype in (a.dtype, b.dtype, bs.out_dtype):
+            for dtype in (a.dtype, b.dtype, out.dtype):
                 assert self._env.supportsDtype(dtype)
 
+        bs.out_dtype = out.dtype
         bs.a_dtype = a.dtype
         bs.b_dtype = b.dtype
 
@@ -70,37 +64,28 @@ class MatrixMul(Computation):
         dp = Computation._construct_derived(self)
         bp = self._basis
 
-        needs_double = is_double(bp.out_dtype)
-
         bso = bp.block_size_override
-        block_size = self._env.params.smem_banks if bso is None else bso
+        dp.block_size = self._env.params.smem_banks if bso is None else bso
 
-        dp.blocks_per_matrix = numpy.int32(min_blocks(bp.a_height, block_size))
-        dp.block_size = block_size
-        dp.module = self._env.compile(TEMPLATE, bp=bp, dp=dp)
-        dp.kernel_matrixmul = dp.module.matrixmul
+        dp.blocks_per_matrix = numpy.int32(min_blocks(bp.a_height, dp.block_size))
+        module = self._env.compile(TEMPLATE, bp=bp, dp=dp)
+        kernel_matrixmul = module.matrixmul
 
-        dp.grid = (
-            int(min_blocks(bp.b_width, block_size)),
+        grid = (
+            int(min_blocks(bp.b_width, dp.block_size)),
             int(dp.blocks_per_matrix * bp.batch)
         )
-        dp.block = (block_size, block_size, 1)
-        dp.shared = block_size * block_size * (bp.a_dtype.itemsize + bp.b_dtype.itemsize)
+        block = (dp.block_size, dp.block_size, 1)
+        shared = dp.block_size * dp.block_size * (bp.a_dtype.itemsize + bp.b_dtype.itemsize)
+
+        self._set_kernels([
+            KernelCall(grid=grid, block=block, kernel=kernel_matrixmul, shared=shared)
+        ])
 
         # TODO: do we need preparation?
         #dp.kernel_matrixmul.prepare(block=block, grid=grid, enqueue=self._queue, shared=shared)
 
         return dp
-
-    def _call(self, a, b, out=None):
-        bp = self._basis
-        dp = self._derived
-        out_buf = self._env.allocate(bp.out_shape, bp.out_dtype) if out is None else out
-
-        dp.kernel_matrixmul(out_buf, a, b, block=dp.block, grid=dp.grid)
-
-        if out is None:
-            return out_buf
 
 
 class MockMatrixMul(MatrixMul):
