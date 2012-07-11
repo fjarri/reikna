@@ -1,39 +1,6 @@
 import numpy
 import os, os.path
 
-product = lambda x: reduce(lambda x1, x2: x1 * x2, x, 1)
-
-
-class AttrDict(dict):
-
-    def __getattr__(self, attr):
-        return self[attr]
-
-    def __setattr__(self, attr, value):
-        self[attr] = value
-
-    def __repr__(self):
-        return "AttrDict(" + dict.__repr__(self) + ")"
-
-    def needsUpdate(self, other):
-        for key in other:
-            assert key in self, "Unknown key: " + key
-            if self[key] != other[key]:
-                return True
-
-        return False
-
-
-def loadTemplateFor(filename):
-    name, ext = os.path.splitext(filename)
-    template = name + ".cu.mako"
-    return open(template).read()
-
-
-def strip_array(arr):
-    fields = ['shape', 'size', 'dtype']
-    return AttrDict().update({key:getattr(arr, key) for key in fields})
-
 
 class Computation:
 
@@ -44,11 +11,64 @@ class Computation:
         # DERIVED: returns {} with basis parameters
         self._basis = AttrDict(**self._get_default_basis())
 
-        # DERIVED: returns [name], [], []
         stores, loads, scalars = self._get_base_names()
 
         # TRANS: takes [], [], [] with endpoint names
         self._tr_tree = TransformationTree(stores, loads, scalars)
+
+    def _get_base_names(self):
+        # DERIVED: returns [(name, mock value)], [], []
+        stores, loads, scalars = self._get_base_signature()
+        get_names = lambda x: [name for name, _ in x]
+        return get_names(stores), get_names(loads), get_names(scalars)
+
+    def _get_base_values(self):
+        get_values = lambda x: {name:value for name, value in x}
+
+        result = {}
+        # DERIVED: returns [(name, mock value)], [], []
+        for x in self._get_base_signature():
+            result.update(get_values(x))
+        return result
+
+    def _basis_needs_update(self, new_basis):
+        for key in new_basis:
+            assert key in self._basis, "Unknown key: " + key
+            if self._basis[key] != new_basis[key]:
+                return True
+
+        return False
+
+    def _basis_for(self, args):
+        # TRANS: returns [name], [], [] with endpoint names
+        stores, loads, scalars = self._tr_tree.leaf_signature()
+        pairs = stores + loads + scalars
+
+        assert len(args) == len(pairs)
+
+        values = {}
+        for pair, arg for zip(pairs, args):
+            name, value = pair
+            new_value = MockValue(arg)
+            assert new_value.is_array == value.is_array
+            values[name] = new_value
+
+        # TRANS: takes {name: mock_val} and propagates it from leaves to roots,
+        # returning list of MockValue instances
+        new_base_args = propagate_to_base(self._tr_tree, values)
+
+        return self._construct_basis(*new_base_args)
+
+    def _change_basis(self, new_basis):
+        self._basis.update(new_basis)
+
+        # TRANS: takes {name: mock_val} and returns necessary transformation code
+        # for each value (in dict, I guess)
+        c_trs = transformations_for_base(self._tr_tree, self._get_base_values())
+        # need to somehow pass kernel creator the following things:
+        # - outward signature (to be inserted to the kernel)
+        # - generated transformation functions and macros
+        self._derived = self._construct_derived()
 
     def connect(self, tr, endpoint, new_endpoints, new_scalar_endpoints=None):
         if scalar_endpoints is None: scalar_endpoints = []
@@ -63,54 +83,13 @@ class Computation:
             raise Exception("Endpoint " + endpoint + " was not found")
 
     def prepare(self, **kwds):
-
-        if self._basis.needsUpdate(kwds):
-            self._basis.update(kwds)
-
-        # DERIVED: returns {name: mock_val}
-        values_dict = self._get_base_values()
-
-        # TRANS: takes {name: mock_val} and propagates it from roots to leaves
-        self._tr_tree.propagate_outward(values_dict)
-        # need to somehow pass kernel creator the following things:
-        # - outward signature (to be inserted to the kernel)
-        # - generated transformation functions and macros
-        self._derived = self._construct_derived()
-
+        if self._basis_needs_update(**kwds):
+            self._change_basis(**kwds)
         return self
 
     def prepare_for(self, *args):
-
-        # TRANS: returns [name], [], [] with endpoint names
-        out_stores, out_loads, out_scalars = self._tr_tree.outward_names()
-        names = out_stores + out_loads + out_scalars
-
-        assert len(args) == len(names)
-
-        values = {}
-        for name, arg for zip(names, args)
-            # TODO: check that arg has correct type (array/scalar)
-            if hasattr(arg, 'shape'):
-                types_dict[name] = MockValue.array(arg)
-            else:
-                types_dict[name] = MockValue.scalar(arg)
-
-        # TRANS: takes {name: mock_val} and propagates it from leaves to roots
-        self._tr_tree.propagate_inward(types_dict)
-
-        new_args = self._tr_tree.inward_signature()
-        b = self._construct_basis(*new_args)
-
-        return self.prepare(**b)
-
-    def _construct_basis(self, *args):
-        return AttrDict()
-
-    def _construct_derived(self):
-        return AttrDict()
-
-    def _set_kernels(self, kernel_calls):
-        self._kernels = kernel_calls
+        new_basis = self._basis_for(*args)
+        return self.prepare(**new_basis)
 
     @property
     def signature(self):
@@ -118,11 +97,8 @@ class Computation:
 
     def __call__(self, *args):
         if self._debug:
-
-            # do the same as in prepare_for, but checking if the preparation was necessary
-
-            bs = self._construct_basis(*args)
-            if self._basis.needsUpdate(bs):
+            new_basis = self._basis_for(*args):
+            if self._basis_needs_update(**new_basis):
                 raise Exception("Given arguments require different basis")
 
         # Variant1: call _call() of derived class and let it handle kernel calls
@@ -166,31 +142,5 @@ class KernelCall:
         self.kernel(*args, block=self.block, grid=self.grid, shared=self.shared)
 
 
-class Transformation:
-
-    def __init__(self, load=1, store=1, parameters=0,
-            derive_store=lambda *x: x[0],
-            derive_load=lambda *x: x[0],
-            code="store1(load1)"):
-        self.load = load
-        self.store = store
-        self.parameters = parameters
-        self.derive_store = derive_store
-        self.derive_load = derive_load
-
-        # TODO: run code through Mako and check that number of load/store/parameters match
-        self.code = code
-
-
-def min_blocks(length, block):
-    return (length - 1) / block + 1
-
-def log2(n):
-    pos = 0
-    for pow in [16, 8, 4, 2, 1]:
-        if n >= 2 ** pow:
-            n /= (2 ** pow)
-            pos += pow
-    return pos
 
 

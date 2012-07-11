@@ -1,3 +1,9 @@
+
+def strip_array(arr):
+    fields = ['shape', 'size', 'dtype']
+    return AttrDict().update({key:getattr(arr, key) for key in fields})
+
+
 class Transformation:
 
     def __init__(self, load=1, store=1, parameters=0,
