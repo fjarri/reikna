@@ -1,9 +1,10 @@
 from tigger.cluda import dtypes
 import os.path
 from mako.template import Template
+from mako import exceptions
 
-_PRELUDE = open(os.path.join(os.path.split(__file__)[0], 'prelude.cu.mako')).read()
-_MUL = open(os.path.join(os.path.split(__file__)[0], 'mul.cu.mako')).read()
+_PRELUDE = open(os.path.join(os.path.split(__file__)[0], 'prelude.cluda.mako')).read()
+_MUL = open(os.path.join(os.path.split(__file__)[0], 'mul.cluda.mako')).read()
 
 class MulCollector:
 
@@ -22,11 +23,17 @@ class MulCollector:
         return name
 
 
-def render(template_str, env, **kwds):
+def render(template, env, **kwds):
     prelude = Template(_PRELUDE).render(env=env.params)
     mul_c = MulCollector()
-    src = Template(template_str).render(env=env.params, dtypes=dtypes,
-        mul=mul_c, **kwds)
+
+    try:
+        src = template.render(env=env.params, dtypes=dtypes, mul=mul_c, **kwds)
+    except:
+        # TODO: output to stderr?
+        print exceptions.text_error_template().render()
+        raise Exception("Template rendering failed")
+
     muls = Template(_MUL).render(dtypes=dtypes, mul_functions=mul_c.functions)
     return prelude + muls + src
 

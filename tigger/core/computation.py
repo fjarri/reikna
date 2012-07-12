@@ -1,6 +1,9 @@
 import numpy
 import os, os.path
 
+from tigger.cluda import render
+from tigger.cluda.dtypes import ctype
+
 
 class Computation:
 
@@ -61,17 +64,56 @@ class Computation:
 
     def _change_basis(self, new_basis):
         self._basis.update(new_basis)
+        self._operations = self._construct_kernels()
+        self._construct_transformations()
+
+    def _construct_transformations(self):
 
         # TRANS: takes {name: mock_val} and returns necessary transformation code
         # for each value (in dict, I guess)
         c_trs = transformations_for_base(self._tr_tree, self._get_base_values())
-        # need to somehow pass kernel creator the following things:
-        # - outward signature (to be inserted to the kernel)
-        # - generated transformation functions and macros
-        self._derived = self._construct_derived()
+        leaf_names = set(self._tr_tree.leaf_names())
+
+        for operation in self._operations:
+            if not isinstance(operation, KernelCall):
+                continue
+
+            transformation_code = self._tr_tree.transformations_for(operation.argnames)
+            operation.set_transformations(transformation_code)
+
+    def _render(self, template, **kwds):
+        # Gets Mako template as a parameter (Template object)
+
+        class PrefixHandler:
+
+            def __init__(self, prefix=''):
+                self.prefix = prefix
+
+            def __getattr__(self, name):
+                return self.prefix + name
+
+        dtypes_dict = AttrDict(self._get_base_values())
+        ctypes_dict = AttrDict({name:ctype(dtype) for name, dtype in dtypes.items()})
+
+        # TODO: check for errors in load/stores/param usage?
+        # TODO: add some more "built-in" variables (helpers, cluda.dtypes)?
+        render_kwds = dict(
+            basis=self._basis,
+            load=PrefixHandler('_LOAD_'), # TODO: remove hardcoding (transformations.py uses it too)
+            store=PrefixHandler('_STORE_'), # TODO: remove hardcoding (transformations.py uses it too)
+            param=PrefixHandler(),
+            ctype=ctypes_dict,
+            dtype=dtypes_dict,
+            signature='SIGNATURE')
+
+        # check that user keywords do not overlap with our keywords
+        assert set(render_kwds).isdisjoint(set(kwds))
+
+        render_kwds.update(kwds)
+        return render(template, **render_kwds)
 
     def connect(self, tr, endpoint, new_endpoints, new_scalar_endpoints=None):
-        if scalar_endpoints is None: scalar_endpoints = []
+        if new_scalar_endpoints is None: new_scalar_endpoints = []
 
         # TRANS: checks that there are no nodes named like this in a tree
         assert not self._tr_tree.has_nodes(*(new_endpoints + new_scalar_endpoints))
@@ -81,6 +123,8 @@ class Computation:
             self._tr_tree.connect(tr, endpoint, new_endpoints, new_scalar_endpoints)
         else:
             raise Exception("Endpoint " + endpoint + " was not found")
+
+        self._construct_transformations()
 
     def prepare(self, **kwds):
         if self._basis_needs_update(**kwds):
@@ -101,42 +145,34 @@ class Computation:
             if self._basis_needs_update(**new_basis):
                 raise Exception("Given arguments require different basis")
 
-        # Variant1: call _call() of derived class and let it handle kernel calls
-        #
-        # Variant2:
-        # get current signature
-        # assign arguments to the dictionary dict(A_prime=args[0], ...)
-        # process list created by _construct_derived(), which can contain:
-        # - allocate <argname>, ...
-        # - call <kernelname>, <arglist>,
-        # - something to handle external calls, like Transpose in Reduce?
+        # TODO: profile this and see if it's a bottleneck
+        signature = self._tr_tree.outward_signature()
+        arg_dict = {}
+        for pair, arg in zip(signature, args):
+            name, _ = pair
+            # TODO: check types here if _debug is on
+            arg_dict[name] = arg
+
+        # TODO: add internally allocated arrays to arg_dict
+        # TODO: how to handle external calls, like Transpose in Reduce?
         #   (solution: we request the same execution list from Transpose,
         #   set argument names - should be a method for that - and incorporate it into our own list)
-        # For each command, get corresponding args from the dictionary and execute it
-        #
-        # Is there anything that cannot be described by variant 2?
-        # If no, then this can be later decoupled from actual execution
-        #
-        # Cool feature: process the list and remove unnecessary allocations,
+        # TODO: cool feature: process the list and remove unnecessary allocations,
         # replacing them by creating views
 
-        for kernel_call in self._kernels:
-            kernel_call(*args)
-
-        # reduction: (dest, src)
-        # - allocate tmp
-        # - reduce1024(tmp, src)
-        # - reduce32(dest, tmp)
+        for operation in self._operations:
+            op_args = [arg_dict[name] for name in operation.argnames]
+            operation(*op_args)
 
 
 class KernelCall:
 
-    def __init__(self, block=None, grid=None, kernel=None, shared=0):
+    def __init__(self, name, argnames, base_src, block=(1,1,1), grid=(1,1)):
+        self.name = name
+        self.argnames = argnames
         self.block = block
         self.grid = grid
-        self.kernel = kernel
-        self.shared = shared
-        # TODO: prepare kernel here?
+        self.src = base_src
 
     def __call__(self, *args):
         self.kernel(*args, block=self.block, grid=self.grid, shared=self.shared)

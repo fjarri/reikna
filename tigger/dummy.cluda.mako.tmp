@@ -17,6 +17,7 @@ ${store.s2}(t);
 ${store.s1}(${load.l1});
 
 
+// mako variant
 KERNEL void dummy(${signature})
 {
     int idx = GLOBAL_INDEX;
@@ -24,6 +25,16 @@ KERNEL void dummy(${signature})
     ${ctype.B} b = ${load.B}(idx);
     ${ctype.C} c = a + ${mul(dtype.coeff, dtype.B)}(${param.coeff}, b);
     ${store.C}(idx, c);
+}
+
+// macro variant
+KERNEL void dummy(SIGNATURE)
+{
+    int idx = GLOBAL_INDEX;
+    ${ctype.A} a = LOAD_A(idx);
+    ${ctype.B} b = LOAD_B(idx);
+    ${ctype.C} c = a + ${mul(dtype.coeff, dtype.B)}(LOAD_coeff, b);
+    STORE_C(idx, c);
 }
 
 

@@ -2,9 +2,7 @@ import numpy
 
 from tigger.core.computation import *
 from tigger.core.transformation import *
-from tigger.core.helpers import AttrDict
-
-TEMPLATE = loadTemplateFor(__file__)
+from tigger.core.helpers import AttrDict, template_for
 
 
 class Dummy(Computation):
@@ -31,18 +29,16 @@ class Dummy(Computation):
                 ('B', MockValue.array(shape, bs.b_dtype)], \
             [('coeff', MockValue.scalar(None, bs.c_dtype)]
 
-    def _construct_derived(self):
-        bp = self._basis
+    def _construct_kernels(self):
+        # basis will be passed automatically as a keyword
+        # optional keywords can be passed here
+        # TODO: is it a good way to specify templates?
+        src = self._render(template_for(__file__))
 
-        block_size = self._env.params.max_block_size
-        module = self._env.compile(TEMPLATE, bp=bp, dp=dp)
-
-        self._set_kernels([KernelCall(
+        return [KernelCall(
+            'dummy', # name of function to call from the rendered template
+            ['C', 'A', 'B', 'coeff'], # possible shortcut - if identical to global signature, just pass None
+            src, # actual source with necessary placeholders (SIGNATURE, LOAD_... etc)
             grid=(block_size, 1),
-            block=(bp.size / block_size, 1, 1),
-            kernel=module.dummy
-        )])
-
-        return [
-            # list of kernels here
-        ]
+            block=(bp.size / block_size, 1, 1)
+        )]

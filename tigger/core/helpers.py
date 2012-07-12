@@ -1,3 +1,5 @@
+from mako.template import Template
+
 product = lambda x: reduce(lambda x1, x2: x1 * x2, x, 1)
 
 
@@ -13,10 +15,9 @@ class AttrDict(dict):
         return "AttrDict(" + dict.__repr__(self) + ")"
 
 
-def loadTemplateFor(filename):
+def template_for(filename):
     name, ext = os.path.splitext(filename)
-    template = name + ".cu.mako"
-    return open(template).read()
+    return Template(filename=name + ".cluda.mako")
 
 def min_blocks(length, block):
     return (length - 1) / block + 1
