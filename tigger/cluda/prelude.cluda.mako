@@ -1,4 +1,4 @@
-%if env.api == 'cuda':
+%if api == 'cuda':
     // taken from pycuda._cluda
     #define local_barrier() __syncthreads()
 
@@ -21,7 +21,7 @@
     #define LSIZE_1 blockDim.y
     #define LSIZE_2 blockDim.z
 
-%elif env.api == 'ocl':
+%elif api == 'ocl':
     // taken from pyopencl._cluda
     #define local_barrier() barrier(CLK_LOCAL_MEM_FENCE)
 
@@ -50,14 +50,14 @@
 
 %endif
 
-%if env.api == 'cuda':
+%if api == 'cuda':
     #define COMPLEX_CTR(T) make_##T
-%elif env.api == 'ocl':
+%elif api == 'ocl':
     #define COMPLEX_CTR(T) (T)
 %endif
 
 ## These operators are supported by OpenCL
-%if env.api == 'cuda':
+%if api == 'cuda':
 %for tp in ('float2', 'double2'):
     WITHIN_KERNEL ${tp} operator+(${tp} a, ${tp} b)
     {

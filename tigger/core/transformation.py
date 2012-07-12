@@ -1,7 +1,31 @@
+import numpy
+from tigger.cluda.dtypes import cast
 
-def strip_array(arr):
-    fields = ['shape', 'size', 'dtype']
-    return AttrDict().update({key:getattr(arr, key) for key in fields})
+
+LOAD_PREFIX = '_LOAD_'
+STORE_PREFIX = '_STORE_'
+SIGNATURE = 'SIGNATURE'
+
+class ArrayValue:
+    def __init__(self, shape, dtype):
+        self.shape = shape
+        self.dtype = dtype
+        self.is_array = True
+
+
+class ScalarValue:
+    def __init__(self, value, dtype):
+        self.value = cast(dtype)(value) if values is not None else value
+        self.dtype = dtype
+        self.is_array = False
+
+
+def wrap_value(value):
+    if hasattr(value, 'shape'):
+        return ArrayValue(value.shape, value.dtype)
+    else:
+        dtype = numpy.min_scalar_type(value)
+        return ScalarValue(value, dtype)
 
 
 class Transformation:
@@ -22,30 +46,36 @@ class Transformation:
 
 class TransformationTree:
 
-    def __init__(self, *roots):
+    def __init__(self, loads, stores, scalars):
         pass
 
-    @classmethod
-    def loads(cls, *roots):
+    def leaf_signature(self):
+        # returns [(name, mock_value)]
         pass
 
-    @classmethod
-    def stores(cls, *roots):
-        pass
+    def propagate_to_base(self, values_dict):
+        # takes {name: mock_val} and propagates it from leaves to roots,
+        # updating nodes
+
+    def propagate_to_leaves(self, values_dict):
+        # takes {name: mock_val} and propagates it from roots to leaves,
+        # updating nodes
+
+    def transformations_for(self, names):
+        # takes [name] for bases and returns necessary transformation code
+        # if some of the names are not in base, they are treated as leaves
+        # returns string with all the transformation code
 
     def has_nodes(self, *names):
+        # checks that there are no nodes named like this in the whole tree
         pass
 
-    def has_endpoint(self, name):
+    def has_leaf(self, name):
+        # checks that there is no leaf named like this
         pass
 
-    def connect(self, tr, endpoint, new_endpoints):
-        pass
-
-    def propagate_inward(self, types_dict):
-        pass
-
-    def propagate_outward(self, types_dict):
+    def connect(self, tr, endpoint, new_endpoints, new_scalar_endpoints):
+        # connect given transformation to endpoint
         pass
 
 
@@ -69,14 +99,12 @@ if __name__ == '__main__':
             ${store.s2}(t);
         """)
 
-    out_tree = TransformationTree.stores('C')
-    in_tree = TransformationTree.loads('A', 'B')
+    tree = TransformationTree.stores(['C'], ['A', 'B'], ['coeff'])
 
-    in_tree.connect(a, 'A', ['A_prime']);
-    in_tree.connect(b, 'B', ['A_prime', 'B_prime'], ['B_param'])
-    in_tree.connect(a, 'B_prime', ['B_new_prime'])
-    out_tree.connect(c, 'C', ['C_half1', 'C_half2'])
-    out_tree.connect(a, 'C_half1', ['C_new_half1'])
+    tree.connect(a, 'A', ['A_prime']);
+    tree.connect(b, 'B', ['A_prime', 'B_prime'], ['B_param'])
+    tree.connect(a, 'B_prime', ['B_new_prime'])
+    tree.connect(c, 'C', ['C_half1', 'C_half2'])
+    tree.connect(a, 'C_half1', ['C_new_half1'])
 
-
-
+    print tree.transformations_for(['C', 'A', 'B', 'coeff'])

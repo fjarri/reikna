@@ -51,8 +51,8 @@ class OclEnvironment:
     def release(self):
         pass
 
-    def compile(self, template, **kwds):
-        return OclModule(self, template, **kwds)
+    def compile(self, src):
+        return OclModule(self, src)
 
 
 class OclDeviceParameters:
@@ -71,9 +71,8 @@ class OclDeviceParameters:
 
 class OclModule:
 
-    def __init__(self, env, template, **kwds):
+    def __init__(self, env, src):
         self._env = env
-        src = cluda.render(template, env, **kwds)
         options = "-cl-mad-enable -cl-fast-relaxed-math" if env.fast_math else ""
 
         try:

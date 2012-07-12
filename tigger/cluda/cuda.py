@@ -45,8 +45,8 @@ class CudaEnvironment:
             # FIXME: there must be a warning in docs that buf has to be pagelocked
             return gpuarray.to_gpu_async(arr, stream=self.stream)
 
-    def compile(self, template, **kwds):
-        return CudaModule(self, template, **kwds)
+    def compile(self, src):
+        return CudaModule(self, src)
 
     def release(self):
         if not self._released:
@@ -81,9 +81,8 @@ class CudaDeviceParameters:
 
 class CudaModule:
 
-    def __init__(self, env, template, **kwds):
+    def __init__(self, env, src):
         self._env = env
-        src = cluda.render(template, env, **kwds)
         options = ['-use_fast_math'] if self._env.fast_math else []
 
         try:
