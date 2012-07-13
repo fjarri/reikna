@@ -98,7 +98,7 @@ class Computation:
         if new_scalar_endpoints is None: new_scalar_endpoints = []
 
         assert not self._tr_tree.has_nodes(*(new_endpoints + new_scalar_endpoints))
-        if self._tr_tree.has_leaf(endpoint):
+        if self._tr_tree.has_array_leaf(endpoint):
             self._tr_tree.connect(tr, endpoint, new_endpoints, new_scalar_endpoints)
         else:
             raise Exception("Endpoint " + endpoint + " was not found")
