@@ -6,5 +6,6 @@ tigger/version.py
 test/htmlcov/*
 test/.coverage
 doc/build
+build
 *.sublime-project
 *.sublime-workspace
