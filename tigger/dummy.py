@@ -35,7 +35,9 @@ class Dummy(Computation):
         # basis will be passed automatically as a keyword
         # optional keywords can be passed here
         # TODO: is it a good way to specify templates?
-        src = self._render(_DUMMY_TEMPLATE)
+        bs = self._basis
+        src = self._render(_DUMMY_TEMPLATE, size=bs.size)
+        block_size = 128
 
         return [KernelCall(
             'dummy', # name of function to call from the rendered template
@@ -43,5 +45,5 @@ class Dummy(Computation):
             ['C', 'A', 'B', 'coeff'],
             src, # actual source with necessary placeholders (SIGNATURE, LOAD_... etc)
             grid=(block_size, 1),
-            block=(bp.size / block_size, 1, 1)
+            block=(bs.size / block_size, 1, 1)
         )]

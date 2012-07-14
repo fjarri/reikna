@@ -1,11 +1,59 @@
 import numpy
-from tigger.cluda.dtypes import cast
+import tigger.cluda.dtypes as dtypes
+from tigger.cluda.kernel import render_without_funcs, FuncCollector
 from tigger.core.helpers import AttrDict
+from mako.template import Template
 
 
-LOAD_PREFIX = '_LOAD_'
-STORE_PREFIX = '_STORE_'
-SIGNATURE = 'SIGNATURE'
+INDEX_NAME = "idx"
+VALUE_NAME = "val"
+
+
+def load_macro_name(name):
+    return "_LOAD_" + name
+
+def load_function_name(name):
+    return "_load_" + name
+
+def leaf_load_macro(name):
+    return "#define {macro_name}({idx}) ({name}[{idx}])".format(
+        macro_name=load_macro_name(name), name=name,
+        idx=INDEX_NAME, val=VALUE_NAME)
+
+def node_load_macro(name, argnames):
+    return "#define {macro_name}({idx}) {fname}({arglist}, {idx})".format(
+        macro_name=load_macro_name(name), fname=load_function_name(name),
+        arglist = ", ".join(argnames), idx=INDEX_NAME, val=VALUE_NAME)
+
+def load_macro_call(name):
+    return "{macro_name}({idx})".format(macro_name=load_macro_name(name), idx=INDEX_NAME)
+
+
+def store_macro_name(name):
+    return "_STORE_" + name
+
+def store_function_name(name):
+    return "_store_" + name
+
+def leaf_store_macro(name):
+    return "#define {macro_name}({val}, {idx}) {name}[{idx}] = ({val})".format(
+        macro_name=store_macro_name(name), name=name,
+        idx=INDEX_NAME, val=VALUE_NAME)
+
+def node_store_macro(name, argnames):
+    return "#define {macro_name}({val}, {idx}) {fname}({arglist}, {val}, {idx})".format(
+        macro_name=store_macro_name(name), fname=store_function_name(name),
+        arglist = ", ".join(argnames), idx=INDEX_NAME, val=VALUE_NAME)
+
+def store_macro_call(name):
+    return "{macro_name}({val}, {idx})".format(
+        macro_name=store_macro_name(name), idx=INDEX_NAME, val=VALUE_NAME)
+
+
+def signature_macro_name():
+    return "SIGNATURE"
+
+
 
 class ArrayValue:
     def __init__(self, shape, dtype):
@@ -19,7 +67,7 @@ class ArrayValue:
 
 class ScalarValue:
     def __init__(self, value, dtype):
-        self.value = cast(dtype)(value) if value is not None else value
+        self.value = dtypes.cast(dtype)(value) if value is not None else value
         self.dtype = dtype
         self.is_array = False
 
@@ -31,6 +79,7 @@ def wrap_value(value):
     if hasattr(value, 'shape'):
         return ArrayValue(value.shape, value.dtype)
     else:
+        # TODO: GPU may not support some CPU types
         dtype = numpy.min_scalar_type(value)
         return ScalarValue(value, dtype)
 
@@ -49,6 +98,7 @@ class Transformation:
 
         def get_derivation_func(return_tuple, l1, l2=0):
             def func(*x):
+                # TODO: GPU may not support some CPU types
                 dtype = numpy.result_type(*x)
                 if return_tuple:
                     return [dtype] * l1, [dtype] * l2
@@ -67,7 +117,8 @@ class Transformation:
         self.derive_sp_from_l = derive_sp_from_l
 
         # TODO: run code through Mako and check that number of load/store/parameters match
-        self.code = code
+        # TODO: remove unnecessary whitespace from the code (generated code will look better)
+        self.code = Template(code)
 
 
 NODE_LOAD = 0
@@ -95,10 +146,17 @@ class TransformationTree:
 
         self.base_names = stores + loads + scalars
 
-    def leaf_signature(self):
+    def leaf_signature(self, base_name=None):
+        # FIXME: base_name is a temporary solution to return array part of signature
+        # emerging from given name. Code should be more clear
+
         visited = set()
         arrays = []
-        scalars = [name for name in self.base_names if not self.nodes[name].value.is_array]
+
+        if base_name is None:
+            scalars = [name for name in self.base_names if not self.nodes[name].value.is_array]
+        else:
+            scalars = []
 
         def visit(names):
             for name in names:
@@ -108,14 +166,23 @@ class TransformationTree:
                 if node.children is None:
                     arrays.append(name)
                 else:
-                    array_children = [name for name in node.children if self.nodes[name].value.is_array]
+                    array_children = [name for name in node.children
+                        if self.nodes[name].value.is_array]
                     visit(array_children)
-                    scalar_children = [name for name in node.children if not self.nodes[name].value.is_array]
+                    scalar_children = [name for name in node.children
+                        if not self.nodes[name].value.is_array]
                     scalars.extend(scalar_children)
 
-        array_names = [name for name in self.base_names if self.nodes[name].value.is_array]
-        visit(array_names)
+        if base_name is None:
+            array_names = [name for name in self.base_names if self.nodes[name].value.is_array]
+            visit(array_names)
+        else:
+            visit([base_name])
+
         return [(name, self.nodes[name].value) for name in arrays + scalars]
+
+    def all_children(self, name):
+        return [name for name, _ in self.leaf_signature(name)]
 
     def _clear_values(self):
         for name in self.nodes:
@@ -181,7 +248,113 @@ class TransformationTree:
         # takes [name] for bases and returns necessary transformation code
         # if some of the names are not in base, they are treated as leaves
         # returns string with all the transformation code
-        pass
+        visited = set()
+        code_list = []
+        func_c = FuncCollector(prefix="tr")
+
+        def build_arglist(argnames):
+            res = []
+            for argname in argnames:
+                value = self.nodes[argname].value
+                dtype = self.nodes[argname].value.dtype
+                ctype = dtypes.ctype(dtype)
+                res.append(("GLOBAL_MEM " if value.is_array else " ") +
+                    ctype + (" *" if value.is_array else " ") + argname)
+
+            return ", ".join(res)
+
+        def process(name):
+            if name in visited: return
+
+            visited.add(name)
+            node = self.nodes[name]
+
+            if node.type == NODE_LOAD:
+                leaf_macro = leaf_load_macro
+                node_macro = node_load_macro
+            elif node.type == NODE_STORE:
+                leaf_macro = leaf_store_macro
+                node_macro = node_store_macro
+            else:
+                return
+
+            if node.children is None:
+                code_list.append("// leaf node " + node.name + "\n" + leaf_macro(node.name))
+                return
+
+            all_children = self.all_children(node.name)
+            tr = node.tr_to_children
+
+            if node.type == NODE_LOAD:
+                definition = "INLINE WITHIN_KERNEL {outtype} {fname}({arglist}, idx)".format(
+                    outtype=dtypes.ctype(node.value.dtype),
+                    fname=load_function_name(node.name),
+                    arglist=build_arglist(all_children))
+                load_names = node.children[:tr.load]
+                param_names = node.children[tr.load:]
+
+                load = AttrDict()
+                param = AttrDict()
+                dtype = AttrDict()
+                for i, name in enumerate(load_names):
+                    label = 'l' + str(i+1)
+                    load[label] = load_macro_call(name)
+                    dtype[label] = self.nodes[name].value.dtype
+                for i, name in enumerate(param_names):
+                    label = 'p' + str(i+1)
+                    param[label] = name
+                    dtype[label] = self.nodes[name].value.dtype
+
+                store = AttrDict(s1='return')
+                dtype.s1 = node.value.dtype
+            else:
+                definition = "INLINE WITHIN_KERNEL void {fname}({arglist}, {intype} val, idx)".format(
+                    intype=dtypes.ctype(node.value.dtype),
+                    fname=store_function_name(node.name),
+                    arglist=build_arglist(all_children))
+
+                store_names = node.children[:tr.store]
+                param_names = node.children[tr.store:]
+
+                store = AttrDict()
+                dtype = AttrDict()
+                param = AttrDict()
+                for i, name in enumerate(store_names):
+                    label = 's' + str(i+1)
+                    store[label] = store_macro_call(name)
+                    dtype[label] = self.nodes[name].value.dtype
+                for i, name in enumerate(param_names):
+                    label = 'p' + str(i+1)
+                    param[label] = name
+                    dtype[label] = self.nodes[name].value.dtype
+
+                load = AttrDict(l1='val')
+                dtype.l1 = node.value.dtype
+
+            ctype = AttrDict({key:dtypes.ctype(dt) for key, dt in dtype.items()})
+
+            # FIXME: passing numpy to allow user use its dtypes
+            # Shouldn't be doing that, it would be better to save supported dtypes
+            # to dtype variable, or just pass them to global template namespace
+            code_src = render_without_funcs(tr.code, func_c,
+                load=load, store=store, dtype=dtype, ctype=ctype, param=param,
+                numpy=numpy)
+
+            code_list.append("// node " + node.name + "\n" +
+                definition + "\n{\n" + code_src + "\n}\n" +
+                node_macro(node.name, all_children))
+
+            for child in node.children:
+                process(child)
+
+        for name in names:
+            if name in self.base_names:
+                process(name)
+            else:
+                code_list.append(load_macro(name))
+                code_list.append(store_macro(name))
+
+        return func_c.render() + "\n\n" + "\n\n".join(reversed(code_list))
 
     def has_nodes(self, names):
         for name in names:
@@ -224,13 +397,13 @@ if __name__ == '__main__':
         derive_l_from_sp=lambda s1, p1: [s1, s1],
         derive_sp_from_l=lambda l1, l2: ([l1], [numpy.int32]),
         code="""
-            ${ctype.s1} t = ${mul(dtype.s1, dtype.l1)}(${load.p1}, ${load.l1});
+            ${ctype.s1} t = ${func.mul(dtype.s1, dtype.l1)}(${param.p1}, ${load.l1});
             ${store.s1}(t + ${load.l2});
         """)
 
     c = Transformation(load=1, store=2,
         code="""
-            ${ctype.s1} t = ${mul(dtype.l1, float32)}(${load.l1}, 0.5);
+            ${ctype.s1} t = ${func.mul(dtype.l1, numpy.float32)}(${load.l1}, 0.5);
             ${store.s1}(t);
             ${store.s2}(t);
         """)

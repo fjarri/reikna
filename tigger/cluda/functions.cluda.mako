@@ -1,4 +1,4 @@
-<%def name="define_mul_func(name, dtype1, dtype2, out_dtype)">
+<%def name="mul(name, out_dtype, dtype1, dtype2)">
 WITHIN_KERNEL ${dtypes.ctype(out_dtype)} ${name}(
     ${dtypes.ctype(dtype1)} a, ${dtypes.ctype(dtype2)} b)
 {
@@ -21,9 +21,9 @@ WITHIN_KERNEL ${dtypes.ctype(out_dtype)} ${name}(
 }
 </%def>
 
-%for name in mul_functions:
+%for name in functions:
 <%
-    dtype1, dtype2, out_dtype = mul_functions[name]
+    func, args = functions[name]
 %>
-${define_mul_func(name, dtype1, dtype2, out_dtype)}
+${mul(name, *args)}
 %endfor

@@ -34,6 +34,14 @@ def test_errors(env, double, complex1, complex2):
 
 def test_preprocessing(env, double):
 
+    coeff = 2
+    B_param = 3
+
+    def mock_dummy(a, b):
+        res = a + (a * B_param + b) * coeff
+        return res / 2, res / 2
+
+
     a = Transformation(load=1, store=1,
         code="store1(load1);")
 
@@ -70,15 +78,21 @@ def test_preprocessing(env, double):
         [('A_prime', numpy.float32), ('B_new_prime', numpy.float32)],
         [('coeff', numpy.float32), ('B_param', numpy.int32)])
 
-    N = 400
-    C_new_half1 = env.allocate(N, numpy.complex64)
-    C_half2 = env.allocate(N, numpy.complex64)
-    A_prime = env.allocate(N, numpy.float32)
-    B_new_prime = env.allocate(N, numpy.float32)
-    d.prepare_for(C_new_half1, C_half2, A_prime, B_new_prime, np.float32(2), np.int32(3))
+    N = 1024
+    A_prime = getTestArray(N, numpy.float32)
+    B_new_prime = getTestArray(N, numpy.float32)
+    gpu_A_prime = env.toDevice(A_prime)
+    gpu_B_new_prime = env.toDevice(B_new_prime)
+    gpu_C_new_half1 = env.allocate(N, numpy.complex64)
+    gpu_C_half2 = env.allocate(N, numpy.complex64)
+    d.prepare_for(gpu_C_new_half1, gpu_C_half2,
+        gpu_A_prime, gpu_B_new_prime, np.float32(coeff), np.int32(B_param))
     assert d.signature == (
         [('C_new_half1', numpy.float32), ('C_half2', numpy.float32)],
         [('A_prime', numpy.float32), ('B_new_prime', numpy.float32)],
         [('coeff', numpy.float32), ('B_param', numpy.int32)])
 
-    d(C_new_half1, C_half2, A_prime, B_new_prime, 2, 3)
+    d(gpu_C_new_half1, gpu_C_half2, gpu_A_prime, gpu_B_new_prime, coeff, B_param)
+    C_new_half1, C_half2 = mock_dummy(C_new_half1, C_half2, A_prime, B_new_prime, coeff, B_param)
+    assert diff(env.fromDevice(gpu_C_new_half1), C_new_half1) < 1e-6
+    assert diff(env.fromDevice(gpu_C_half2), C_half2) < 1e-6

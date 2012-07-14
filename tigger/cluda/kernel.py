@@ -1,41 +1,48 @@
 from tigger.cluda import dtypes
 import os.path
+import numpy
 from mako.template import Template
 from mako import exceptions
 
 _PRELUDE = Template(filename=os.path.join(os.path.split(__file__)[0], 'prelude.cluda.mako'))
-_MUL = Template(filename=os.path.join(os.path.split(__file__)[0], 'mul.cluda.mako'))
+_FUNCTIONS = Template(filename=os.path.join(os.path.split(__file__)[0], 'functions.cluda.mako'))
 
 
-class MulCollector:
+class FuncCollector:
 
-    def __init__(self):
+    def __init__(self, prefix=""):
+        self.prefix = prefix
         self.functions = {}
 
-    def __call__(self, dtype1, dtype2, out_dtype=None):
-        if out_dtype is None:
-            out_dtype = numpy.result_type(dtype1, dtype2)
+    def mul(self, dtype1, dtype2, out=None):
+        if out is None:
+            out = numpy.result_type(dtype1, dtype2)
         ctypes = [dtypes.ctype(dt) for dt in (dtype1, dtype2)]
-        out_ctype = dtypes.ctype(out_dtype)
+        out_ctype = dtypes.ctype(out)
 
-        name = '_mul_' + '_'.join(ctypes) + '__' + out_ctype
+        name = "_{prefix}_mul__{out}__{signature}".format(
+            prefix=self.prefix, out=out_ctype, signature = '_'.join(ctypes))
 
-        self.functions[name] = (dtype1, dtype2, out_dtype)
+        self.functions[name] = ("mul", (out, dtype1, dtype2))
         return name
+
+    def render(self):
+        return _FUNCTIONS.render(dtypes=dtypes, functions=self.functions)
 
 
 def render_prelude(env):
     return _PRELUDE.render(api=env.params.api)
 
-def render_kernel(env, template, **kwds):
-    mul_c = MulCollector()
-
+def render_without_funcs(template, func_c, **kwds):
     try:
-        src = template.render(mul=mul_c, **kwds)
+        src = template.render(func=func_c, **kwds)
     except:
         # TODO: output to stderr?
         print exceptions.text_error_template().render()
         raise Exception("Template rendering failed")
+    return src
 
-    muls = _MUL.render(dtypes=dtypes, mul_functions=mul_c.functions)
-    return muls + src
+def render_kernel(env, template, **kwds):
+    func_c = FuncCollector()
+    src = render_without_funcs(template, func_c *kwds)
+    return func_c.render() + src

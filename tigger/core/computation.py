@@ -42,12 +42,12 @@ class Computation:
         # TODO: add some more "built-in" variables (helpers, cluda.dtypes)?
         render_kwds = dict(
             basis=self._basis,
-            load=PrefixHandler(LOAD_PREFIX),
-            store=PrefixHandler(STORE_PREFIX),
+            load=PrefixHandler(load_macro_name()),
+            store=PrefixHandler(store_macro_name()),
             param=PrefixHandler(),
             ctype=ctypes_dict,
             dtype=dtypes_dict,
-            signature=SIGNATURE)
+            signature=signature_macro_name())
 
         # check that user keywords do not overlap with our keywords
         assert set(render_kwds).isdisjoint(set(kwds))
@@ -93,6 +93,7 @@ class Computation:
 
             transformation_code = self._tr_tree.transformations_for(operation.argnames)
             operation.set_transformations(transformation_code)
+            operation.prepare()
 
     def connect(self, tr, endpoint, new_endpoints, new_scalar_endpoints=None):
         if new_scalar_endpoints is None: new_scalar_endpoints = []
@@ -160,13 +161,11 @@ class KernelCall:
 
     def set_transformations(self, tr_code):
         self.tr_code = tr_code
-        self.full_src = self.prelude + tr_code + self.src
+
+    def compile(self):
+        self.full_src = self.prelude + self.tr_code + self.src
         self.module = self.env.compile(self.full_src)
         self.kernel = getattr(self.module, self.name)
 
     def __call__(self, *args):
         self.kernel(*args, block=self.block, grid=self.grid, shared=self.shared)
-
-
-
-

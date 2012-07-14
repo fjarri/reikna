@@ -42,46 +42,46 @@ float mul_float_float(float x, float y) { return x * y; }
 float mul_int_float(float x, float y) { return x * y; }
 
 // Connections from {load.A}
-#define _LOAD_A_prime (A_prime[idx])
+#define _LOAD_A_prime(idx) (A_prime[idx])
 
 float _load_A(float *A_prime, int idx)
 {
-    return _LOAD_A_prime;
+    return _LOAD_A_prime(idx);
 }
 #define _LOAD_A(idx) _load_A(A_prime, idx)
 
 // Connections from {load.B}
-#define _LOAD_B_new_prime (B_new_prime[idx])
+#define _LOAD_B_new_prime(idx) (B_new_prime[idx])
 
 float load_B_new_prime(float *B_new_prime, int idx)
 {
-    return _LOAD_B_new_prime;
+    return _LOAD_B_new_prime(idx);
 }
-#define _LOAD_B_prime (_load_B_prime(B_new_prime, idx))
+#define _LOAD_B_prime(idx) (_load_B_prime(B_new_prime, idx))
 
 float _load_B(float *A_prime, float *B_new_prime, int B_param, int idx)
 {
-    float t = mul_float_float(B_param, _LOAD_A_prime;
-    return (t + _LOAD_B_prime);
+    float t = mul_float_float(B_param, _LOAD_A_prime(idx));
+    return (t + _LOAD_B_prime(idx));
 }
 #define _LOAD_B(idx) _load_B(A_prime, B_new_prime, B_param, idx)
 
 // Connections from {store.C}
-#define _STORE_C_new_half1(val) C_new_half1[idx] = (val)
+#define _STORE_C_new_half1(idx, val) C_new_half1[idx] = (val)
 
 void _store_C_half1(float *C_new_half1, int idx, float val)
 {
-    _STORE_C_new_half1(val);
+    _STORE_C_new_half1(idx, val);
 }
-#define _STORE_C_half1(val) _store_C_half1(C_new_half1, idx, val)
+#define _STORE_C_half1(idx, val) _store_C_half1(C_new_half1, idx, val)
 
-#define _STORE_C_half2(val) C_half2[idx] = (val)
+#define _STORE_C_half2(idx, val) C_half2[idx] = (val)
 
 void _store_C(float *C_new_half1, float *C_half2, int idx, float val)
 {
     float t = mul_float_float(val, 0.5);
-    _STORE_C_half1(t);
-    _STORE_C_half2(t);
+    _STORE_C_half1(idx, t);
+    _STORE_C_half2(idx, t);
 }
 #define _STORE_C(idx, c) _store_C(C_half1, C_half2, idx, c)
 
