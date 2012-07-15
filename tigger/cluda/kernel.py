@@ -4,8 +4,8 @@ import numpy
 from mako.template import Template
 from mako import exceptions
 
-_PRELUDE = Template(filename=os.path.join(os.path.split(__file__)[0], 'prelude.cluda.mako'))
-_FUNCTIONS = Template(filename=os.path.join(os.path.split(__file__)[0], 'functions.cluda.mako'))
+_PRELUDE = Template(filename=os.path.join(os.path.split(__file__)[0], "prelude.cluda.mako"))
+_FUNCTIONS = Template(filename=os.path.join(os.path.split(__file__)[0], "functions.cluda.mako"))
 
 
 class FuncCollector:
@@ -13,6 +13,13 @@ class FuncCollector:
     def __init__(self, prefix=""):
         self.prefix = prefix
         self.functions = {}
+
+    def cast(self, out_dtype, in_dtype):
+        out_ctype = dtypes.ctype(out_dtype)
+        in_ctype = dtypes.ctype(in_dtype)
+        name = "_{prefix}_cast_{out}_{in_}".format(prefix=self.prefix, out=out_ctype, in_=in_ctype)
+        self.functions[name] = ('cast', (out_dtype, in_dtype))
+        return name
 
     def mul(self, dtype1, dtype2, out=None):
         if out is None:
@@ -23,7 +30,7 @@ class FuncCollector:
         name = "_{prefix}_mul__{out}__{signature}".format(
             prefix=self.prefix, out=out_ctype, signature = '_'.join(ctypes))
 
-        self.functions[name] = ("mul", (out, dtype1, dtype2))
+        self.functions[name] = ('mul', (out, dtype1, dtype2))
         return name
 
     def render(self):
@@ -42,7 +49,7 @@ def render_without_funcs(template, func_c, **kwds):
         raise Exception("Template rendering failed")
     return src
 
-def render_kernel(env, template, **kwds):
+def render_kernel(template, **kwds):
     func_c = FuncCollector()
-    src = render_without_funcs(template, func_c *kwds)
+    src = render_without_funcs(template, func_c, **kwds)
     return func_c.render() + src
