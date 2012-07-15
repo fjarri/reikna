@@ -8,6 +8,7 @@
     #define LOCAL_MEM __shared__
     #define LOCAL_MEM_DYNAMIC extern __shared__
     #define LOCAL_MEM_ARG /* empty */
+    #define INLINE __forceinline__
 
     #define LID_0 threadIdx.x
     #define LID_1 threadIdx.y
@@ -31,6 +32,7 @@
     #define LOCAL_MEM __local
     #define LOCAL_MEM_DYNAMIC __local
     #define LOCAL_MEM_ARG __local
+    #define INLINE inline
 
     #define LID_0 get_local_id(0)
     #define LID_1 get_local_id(1)
@@ -39,6 +41,10 @@
     #define GID_0 get_group_id(0)
     #define GID_1 get_group_id(1)
     #define GID_2 get_group_id(2)
+
+    #define LSIZE_0 get_local_size(0)
+    #define LSIZE_1 get_local_size(1)
+    #define LSIZE_2 get_local_size(2)
 
     // TODO: does this forceful enabling of double precision somehow change
     // the performance for single precision?
