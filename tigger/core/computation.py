@@ -3,6 +3,7 @@ import os, os.path
 
 from tigger.cluda.kernel import render_prelude, render_kernel
 from tigger.cluda.dtypes import ctype, cast
+import tigger.cluda.dtypes as dtypes
 from tigger.core.transformation import *
 
 
@@ -41,6 +42,7 @@ class Computation:
         # TODO: check for errors in load/stores/param usage?
         # TODO: add some more "built-in" variables (helpers, cluda.dtypes)?
         render_kwds = dict(
+            dtypes=dtypes,
             basis=self._basis,
             load=PrefixHandler(load_macro_call),
             store=PrefixHandler(store_macro_call),
