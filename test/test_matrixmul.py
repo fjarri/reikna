@@ -8,7 +8,6 @@ from tigger.dummy import Dummy
 from tigger.core.transformation import Transformation
 import tigger.cluda.dtypes as dtypes
 
-@pytest.mark.xfail
 @pytest.mark.parametrize("complex1", [False, True], ids=['real', 'complex'])
 @pytest.mark.parametrize("complex2", [False, True], ids=['real', 'complex'])
 def test_errors(env, double, complex1, complex2):
@@ -27,7 +26,7 @@ def test_errors(env, double, complex1, complex2):
     a_dev = env.toDevice(a)
     b_dev = env.toDevice(b)
     res_dev = env.allocate((s1[0], s2[1]), dtype=res_dtype)
-    dot = MatrixMul(env, debug=True).prepare_for(res_dev, a_dev, b_dev)
+    dot = MatrixMul(env).prepare_for(res_dev, a_dev, b_dev)
     dot(res_dev, a_dev, b_dev)
 
     assert diff(env.fromDevice(res_dev), numpy.dot(a, b)) < 1e-6
