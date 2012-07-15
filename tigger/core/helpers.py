@@ -1,3 +1,4 @@
+import os.path
 from mako.template import Template
 
 product = lambda x: reduce(lambda x1, x2: x1 * x2, x, 1)
