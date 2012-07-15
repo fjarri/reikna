@@ -5,7 +5,7 @@ from helpers import *
 
 from tigger.matrixmul import MatrixMul
 from tigger.dummy import Dummy
-from tigger.helpers import Transformation
+from tigger.core.transformation import Transformation
 import tigger.cluda.dtypes as dtypes
 
 @pytest.mark.xfail
@@ -34,37 +34,41 @@ def test_errors(env, double, complex1, complex2):
 
 def test_preprocessing(env, double):
 
-    coeff = 2
-    B_param = 3
+    coeff = numpy.float32(2)
+    B_param = numpy.float32(3)
+    N = 1024
 
     def mock_dummy(a, b):
         res = a + (a * B_param + b) * coeff
         return res / 2, res / 2
 
-
     a = Transformation(load=1, store=1,
-        code="store1(load1);")
+        code="${store.s1}(${load.l1});")
 
     b = Transformation(load=2, store=1, parameters=1,
-        derive_store=lambda t1, _: ([t1], [numpy.int32]),
-        derive_load=lambda t1: ([t1, t1], [numpy.int32]),
+        derive_s_from_lp=lambda l1, l2, p1: [l1],
+        derive_lp_from_s=lambda s1: ([s1, s1], [numpy.float32]),
+        derive_l_from_sp=lambda s1, p1: [s1, s1],
+        derive_sp_from_l=lambda l1, l2: ([l1], [numpy.float32]),
         code="""
-           store1_type t = ${mul(store1_type, load1_type)}(param1, load1);
-           store1(t + load2);
+            ${ctype.s1} t = ${func.mul(dtype.s1, dtype.l1)}(
+                ${func.cast(dtype.s1, dtype.p1)}(${param.p1}), ${load.l1});
+            ${store.s1}(t + ${load.l2});
         """)
 
     c = Transformation(load=1, store=2,
         code="""
-            store1_type t = ${mul(load1_type, float32)}(load1, 0.5);
-            store1(t);
-            store2(t);
+            ${ctype.s1} t = ${func.mul(dtype.l1, numpy.float32)}(${load.l1}, 0.5);
+            ${store.s1}(t);
+            ${store.s2}(t);
         """)
 
     d = Dummy(env)
-    assert d.signature == (
-        [('C', numpy.float32)], # outs
-        [('A', numpy.float32), ('B', numpy.float32)], # ins
-        [('coeff', numpy.float32)])
+    # TODO: check signatures for correctness when I decide on a format
+    #assert d.signature == (
+    #    [('C', numpy.float32)], # outs
+    #    [('A', numpy.float32), ('B', numpy.float32)], # ins
+    #    [('coeff', numpy.float32)])
 
     d.connect(a, 'A', ['A_prime']);
     d.connect(b, 'B', ['A_prime', 'B_prime'], ['B_param'])
@@ -72,27 +76,28 @@ def test_preprocessing(env, double):
     d.connect(c, 'C', ['C_half1', 'C_half2'])
     d.connect(a, 'C_half1', ['C_new_half1'])
 
-    d.prepare(a_dtype=numpy.float32, b_dtype=numpy.float32, c_dtype=numpy.float32)
-    assert d.signature == (
-        [('C_new_half1', numpy.float32), ('C_half2', numpy.float32)],
-        [('A_prime', numpy.float32), ('B_new_prime', numpy.float32)],
-        [('coeff', numpy.float32), ('B_param', numpy.int32)])
+    d.prepare(arr_dtype=numpy.float32, size=N)
+    #assert d.signature == (
+    #    [('C_new_half1', numpy.float32), ('C_half2', numpy.float32)],
+    #    [('A_prime', numpy.float32), ('B_new_prime', numpy.float32)],
+    #    [('coeff', numpy.float32), ('B_param', numpy.int32)])
 
-    N = 1024
-    A_prime = getTestArray(N, numpy.float32)
-    B_new_prime = getTestArray(N, numpy.float32)
+    A_prime = getTestArray(N, numpy.complex64)
+    B_new_prime = getTestArray(N, numpy.complex64)
     gpu_A_prime = env.toDevice(A_prime)
     gpu_B_new_prime = env.toDevice(B_new_prime)
     gpu_C_new_half1 = env.allocate(N, numpy.complex64)
     gpu_C_half2 = env.allocate(N, numpy.complex64)
     d.prepare_for(gpu_C_new_half1, gpu_C_half2,
-        gpu_A_prime, gpu_B_new_prime, np.float32(coeff), np.int32(B_param))
-    assert d.signature == (
-        [('C_new_half1', numpy.float32), ('C_half2', numpy.float32)],
-        [('A_prime', numpy.float32), ('B_new_prime', numpy.float32)],
-        [('coeff', numpy.float32), ('B_param', numpy.int32)])
+        gpu_A_prime, gpu_B_new_prime, numpy.float32(coeff), numpy.int32(B_param))
+    print d.signature
+    #assert d.signature == (
+    #    [('C_new_half1', numpy.float32), ('C_half2', numpy.float32)],
+    #    [('A_prime', numpy.float32), ('B_new_prime', numpy.float32)],
+    #    [('coeff', numpy.float32), ('B_param', numpy.int32)])
 
     d(gpu_C_new_half1, gpu_C_half2, gpu_A_prime, gpu_B_new_prime, coeff, B_param)
-    C_new_half1, C_half2 = mock_dummy(C_new_half1, C_half2, A_prime, B_new_prime, coeff, B_param)
+    C_new_half1, C_half2 = mock_dummy(A_prime, B_new_prime)
+
     assert diff(env.fromDevice(gpu_C_new_half1), C_new_half1) < 1e-6
     assert diff(env.fromDevice(gpu_C_half2), C_half2) < 1e-6
