@@ -2,7 +2,7 @@ import numpy
 import os, os.path
 
 from tigger.cluda.kernel import render_prelude, render_kernel
-from tigger.cluda.dtypes import ctype
+from tigger.cluda.dtypes import ctype, cast
 from tigger.core.transformation import *
 
 
@@ -29,21 +29,21 @@ class Computation:
 
         class PrefixHandler:
 
-            def __init__(self, prefix=''):
-                self.prefix = prefix
+            def __init__(self, func=lambda x: x):
+                self.func = func
 
             def __getattr__(self, name):
-                return self.prefix + name
+                return self.func(name)
 
         dtypes_dict = AttrDict(self._get_base_values())
-        ctypes_dict = AttrDict({name:ctype(dtype) for name, dtype in dtypes.items()})
+        ctypes_dict = AttrDict({name:ctype(dtype) for name, dtype in dtypes_dict.items()})
 
         # TODO: check for errors in load/stores/param usage?
         # TODO: add some more "built-in" variables (helpers, cluda.dtypes)?
         render_kwds = dict(
             basis=self._basis,
-            load=PrefixHandler(load_macro_name()),
-            store=PrefixHandler(store_macro_name()),
+            load=PrefixHandler(load_macro_call),
+            store=PrefixHandler(store_macro_call),
             param=PrefixHandler(),
             ctype=ctypes_dict,
             dtype=dtypes_dict,
@@ -68,19 +68,19 @@ class Computation:
         assert len(args) == len(pairs)
 
         values = {}
-        for pair, arg for zip(pairs, args):
+        for pair, arg in zip(pairs, args):
             name, value = pair
             new_value = wrap_value(arg)
             assert new_value.is_array == value.is_array
             values[name] = new_value
 
-        new_base_args = self._tr_tree.propagate_to_base(values)
-        return self._construct_basis(*new_base_args)
+        self._tr_tree.propagate_to_base(values)
+        return self._construct_basis(*self._tr_tree.base_values())
 
     def _change_basis(self, new_basis):
         self._basis.update(new_basis)
         self._operations = self._construct_kernels()
-        self._tr_tree.propagate_to_leaves(*self._get_base_values())
+        self._tr_tree.propagate_to_leaves(self._get_base_values())
         for operation in self._operations:
             operation.set_env(self._env)
         self._construct_transformations()
@@ -98,13 +98,13 @@ class Computation:
     def connect(self, tr, endpoint, new_endpoints, new_scalar_endpoints=None):
         if new_scalar_endpoints is None: new_scalar_endpoints = []
 
-        assert not self._tr_tree.has_nodes(*(new_endpoints + new_scalar_endpoints))
+        # FIXME: we can use some of the existing nodes as endpoints,
+        # they just need to be not base ones
+        #assert not self._tr_tree.has_nodes(new_endpoints + new_scalar_endpoints)
         if self._tr_tree.has_array_leaf(endpoint):
             self._tr_tree.connect(tr, endpoint, new_endpoints, new_scalar_endpoints)
         else:
             raise Exception("Endpoint " + endpoint + " was not found")
-
-        self._construct_transformations()
 
     def prepare(self, **kwds):
         if self._basis_needs_update(kwds):
@@ -121,7 +121,7 @@ class Computation:
 
     def __call__(self, *args):
         if self._debug:
-            new_basis = self._basis_for(args):
+            new_basis = self._basis_for(args)
             if self._basis_needs_update(new_basis):
                 raise Exception("Given arguments require different basis")
 
@@ -129,8 +129,10 @@ class Computation:
         signature = self._tr_tree.leaf_signature()
         arg_dict = {}
         for pair, arg in zip(signature, args):
-            name, _ = pair
+            name, value = pair
             # TODO: check types here if _debug is on
+            if isinstance(value, ScalarValue):
+                arg = cast(value.dtype)(arg)
             arg_dict[name] = arg
 
         # TODO: add internally allocated arrays to arg_dict
@@ -141,8 +143,12 @@ class Computation:
         # replacing them by creating views
 
         for operation in self._operations:
-            op_args = [arg_dict[name] for name in operation.argnames]
-            operation(*op_args)
+            # FIXME: for every operation we need to get its base arguments,
+            # run them through the tree and get required argnames,
+            # and then pass those args to the kernel
+            # Now I'm just putting this stub here - it will work for a single kernel in the list
+            #op_args = [arg_dict[name] for name in operation.argnames]
+            operation(*args)
 
 
 class KernelCall:
@@ -162,8 +168,9 @@ class KernelCall:
     def set_transformations(self, tr_code):
         self.tr_code = tr_code
 
-    def compile(self):
+    def prepare(self):
         self.full_src = self.prelude + self.tr_code + self.src
+        print self.full_src
         self.module = self.env.compile(self.full_src)
         self.kernel = getattr(self.module, self.name)
 

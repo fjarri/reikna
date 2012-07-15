@@ -1,7 +1,7 @@
 import numpy
 import tigger.cluda.dtypes as dtypes
 from tigger.cluda.kernel import render_without_funcs, FuncCollector
-from tigger.core.helpers import AttrDict
+from tigger.core.helpers import AttrDict, product
 from mako.template import Template
 
 
@@ -16,17 +16,28 @@ def load_function_name(name):
     return "_load_" + name
 
 def leaf_load_macro(name):
-    return "#define {macro_name}({idx}) ({name}[{idx}])".format(
+    return "#define {macro_name} ({name}[{idx}])".format(
         macro_name=load_macro_name(name), name=name,
         idx=INDEX_NAME, val=VALUE_NAME)
 
 def node_load_macro(name, argnames):
+    return "#define {macro_name} {fname}({arglist}, {idx})".format(
+        macro_name=load_macro_name(name), fname=load_function_name(name),
+        arglist = ", ".join(argnames), idx=INDEX_NAME, val=VALUE_NAME)
+
+def base_leaf_load_macro(name):
+    return "#define {macro_name}({idx}) ({name}[{idx}])".format(
+        macro_name=load_macro_name(name), name=name,
+        idx=INDEX_NAME, val=VALUE_NAME)
+
+def base_node_load_macro(name, argnames):
     return "#define {macro_name}({idx}) {fname}({arglist}, {idx})".format(
         macro_name=load_macro_name(name), fname=load_function_name(name),
         arglist = ", ".join(argnames), idx=INDEX_NAME, val=VALUE_NAME)
 
 def load_macro_call(name):
-    return "{macro_name}({idx})".format(macro_name=load_macro_name(name), idx=INDEX_NAME)
+    return load_macro_name(name)
+
 
 
 def store_macro_name(name):
@@ -36,18 +47,27 @@ def store_function_name(name):
     return "_store_" + name
 
 def leaf_store_macro(name):
-    return "#define {macro_name}({val}, {idx}) {name}[{idx}] = ({val})".format(
+    return "#define {macro_name}({val}) {name}[{idx}] = ({val})".format(
         macro_name=store_macro_name(name), name=name,
         idx=INDEX_NAME, val=VALUE_NAME)
 
 def node_store_macro(name, argnames):
-    return "#define {macro_name}({val}, {idx}) {fname}({arglist}, {val}, {idx})".format(
+    return "#define {macro_name}({val}) {fname}({arglist}, {idx}, {val})".format(
+        macro_name=store_macro_name(name), fname=store_function_name(name),
+        arglist = ", ".join(argnames), idx=INDEX_NAME, val=VALUE_NAME)
+
+def base_leaf_store_macro(name):
+    return "#define {macro_name}({idx}, {val}) {name}[{idx}] = ({val})".format(
+        macro_name=store_macro_name(name), name=name,
+        idx=INDEX_NAME, val=VALUE_NAME)
+
+def base_node_store_macro(name, argnames):
+    return "#define {macro_name}({idx}, {val}) {fname}({arglist}, {idx}, {val})".format(
         macro_name=store_macro_name(name), fname=store_function_name(name),
         arglist = ", ".join(argnames), idx=INDEX_NAME, val=VALUE_NAME)
 
 def store_macro_call(name):
-    return "{macro_name}({val}, {idx})".format(
-        macro_name=store_macro_name(name), idx=INDEX_NAME, val=VALUE_NAME)
+    return store_macro_name(name)
 
 
 def signature_macro_name():
@@ -58,6 +78,8 @@ def signature_macro_name():
 class ArrayValue:
     def __init__(self, shape, dtype):
         self.shape = shape
+        if shape is not None:
+            self.size = product(shape)
         self.dtype = dtype
         self.is_array = True
 
@@ -76,11 +98,11 @@ class ScalarValue:
 
 
 def wrap_value(value):
-    if hasattr(value, 'shape'):
+    if hasattr(value, 'shape') and len(value.shape) > 0:
         return ArrayValue(value.shape, value.dtype)
     else:
         # TODO: GPU may not support some CPU types
-        dtype = numpy.min_scalar_type(value)
+        dtype = dtypes.min_scalar_type(value)
         return ScalarValue(value, dtype)
 
 
@@ -181,6 +203,9 @@ class TransformationTree:
 
         return [(name, self.nodes[name].value) for name in arrays + scalars]
 
+    def base_values(self):
+        return [self.nodes[name].value for name in self.base_names]
+
     def all_children(self, name):
         return [name for name, _ in self.leaf_signature(name)]
 
@@ -252,6 +277,7 @@ class TransformationTree:
         code_list = []
         func_c = FuncCollector(prefix="tr")
 
+        # TODO: remove copy-paste
         def build_arglist(argnames):
             res = []
             for argname in argnames:
@@ -263,6 +289,19 @@ class TransformationTree:
 
             return ", ".join(res)
 
+        def signature_macro(argnames):
+            res = []
+            for argname in argnames:
+                value = self.nodes[argname].value
+                dtype = self.nodes[argname].value.dtype
+                ctype = dtypes.ctype(dtype)
+                res.append(("GLOBAL_MEM " if value.is_array else " ") +
+                    ctype + (" *" if value.is_array else " ") + argname)
+
+            return "#define {macro_name} {arglist}".format(
+                macro_name=signature_macro_name(),
+                arglist=", ".join(res))
+
         def process(name):
             if name in visited: return
 
@@ -270,11 +309,19 @@ class TransformationTree:
             node = self.nodes[name]
 
             if node.type == NODE_LOAD:
-                leaf_macro = leaf_load_macro
-                node_macro = node_load_macro
+                if name in self.base_names:
+                    leaf_macro = base_leaf_load_macro
+                    node_macro = base_node_load_macro
+                else:
+                    leaf_macro = leaf_load_macro
+                    node_macro = node_load_macro
             elif node.type == NODE_STORE:
-                leaf_macro = leaf_store_macro
-                node_macro = node_store_macro
+                if name in self.base_names:
+                    leaf_macro = base_leaf_store_macro
+                    node_macro = base_node_store_macro
+                else:
+                    leaf_macro = leaf_store_macro
+                    node_macro = node_store_macro
             else:
                 return
 
@@ -282,11 +329,14 @@ class TransformationTree:
                 code_list.append("// leaf node " + node.name + "\n" + leaf_macro(node.name))
                 return
 
+            for child in node.children:
+                process(child)
+
             all_children = self.all_children(node.name)
             tr = node.tr_to_children
 
             if node.type == NODE_LOAD:
-                definition = "INLINE WITHIN_KERNEL {outtype} {fname}({arglist}, idx)".format(
+                definition = "INLINE WITHIN_KERNEL {outtype} {fname}({arglist}, int idx)".format(
                     outtype=dtypes.ctype(node.value.dtype),
                     fname=load_function_name(node.name),
                     arglist=build_arglist(all_children))
@@ -308,7 +358,7 @@ class TransformationTree:
                 store = AttrDict(s1='return')
                 dtype.s1 = node.value.dtype
             else:
-                definition = "INLINE WITHIN_KERNEL void {fname}({arglist}, {intype} val, idx)".format(
+                definition = "INLINE WITHIN_KERNEL void {fname}({arglist}, int idx, {intype} val)".format(
                     intype=dtypes.ctype(node.value.dtype),
                     fname=store_function_name(node.name),
                     arglist=build_arglist(all_children))
@@ -344,9 +394,6 @@ class TransformationTree:
                 definition + "\n{\n" + code_src + "\n}\n" +
                 node_macro(node.name, all_children))
 
-            for child in node.children:
-                process(child)
-
         for name in names:
             if name in self.base_names:
                 process(name)
@@ -354,7 +401,8 @@ class TransformationTree:
                 code_list.append(load_macro(name))
                 code_list.append(store_macro(name))
 
-        return func_c.render() + "\n\n" + "\n\n".join(reversed(code_list))
+        leaf_names = [name for name, _ in self.leaf_signature()]
+        return func_c.render() + "\n\n" + "\n\n".join(code_list) + "\n\n" + signature_macro(leaf_names)
 
     def has_nodes(self, names):
         for name in names:
