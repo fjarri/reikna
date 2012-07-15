@@ -1,53 +1,51 @@
-<%
-    out_ctype = dtypes.ctype(bp.out_dtype)
-    a_ctype = dtypes.ctype(bp.a_dtype)
-    b_ctype = dtypes.ctype(bp.b_dtype)
-%>
-
-KERNEL void matrixmul(GLOBAL_MEM ${out_ctype}* C, GLOBAL_MEM ${a_ctype}* A, GLOBAL_MEM ${b_ctype}* B)
+KERNEL void matrixmul(${signature})
 {
     // Storage for sub-matrices of A and B
     // Not using dynamic local memory, because we need (in general) two different types,
     // and creating two views for dynamic char* array does not work.
     // Can cause problems if atype/btype have constructors (they will be called in each thread),
     // but as long as we are using POD types, we will be fine.
-    LOCAL_MEM ${a_ctype} As[${dp.block_size ** 2}];
-    LOCAL_MEM ${b_ctype} Bs[${dp.block_size ** 2}];
+    LOCAL_MEM ${ctype.A} As[${block_size ** 2}];
+    LOCAL_MEM ${ctype.B} Bs[${block_size ** 2}];
 
     int bx = GID_0;
     int by = GID_1;
     int tx = LID_0;
     int ty = LID_1;
 
-    int matrix_num = by / ${dp.blocks_per_matrix};
-    by -= ${dp.blocks_per_matrix} * matrix_num;
+    int matrix_num = by / ${blocks_per_matrix};
+    by -= ${blocks_per_matrix} * matrix_num;
+
+    int A_shift = 0;
+    int B_shift = 0;
+    int C_shift = 0;
 
     %if batched_a:
-        A += matrix_num * ${bp.a_height} * ${bp.a_width};
+        A_shift += matrix_num * ${basis.a_height} * ${basis.a_width};
     %endif
     %if batched_b:
-        B += matrix_num * ${bp.a_width} * ${bp.b_width};
+        B_shift += matrix_num * ${basis.a_width} * ${basis.b_width};
     %endif
-    C += matrix_num * ${bp.a_height} * ${bp.b_width};
+    C_shift += matrix_num * ${basis.a_height} * ${basis.b_width};
 
     // Index of the first sub-matrix of A processed by the block
-    int aBegin = ${bp.a_width * dp.block_size} * by;
+    int aBegin = ${basis.a_width * block_size} * by;
 
     // Index of the last sub-matrix of A processed by the block
-    int aEnd = aBegin + ${bp.a_width} - 1;
+    int aEnd = aBegin + ${basis.a_width} - 1;
 
     // Step size used to iterate through the sub-matrices of A
-    int aStep = ${dp.block_size};
+    int aStep = ${block_size};
 
     // Index of the first sub-matrix of B processed by the block
-    int bBegin = ${dp.block_size} * bx;
+    int bBegin = ${block_size} * bx;
 
     // Step size used to iterate through the sub-matrices of B
-    int bStep = ${dp.block_size} * ${bp.b_width};
+    int bStep = ${block_size} * ${basis.b_width};
 
     // Csub is used to store the element of the block sub-matrix
     // that is computed by the thread
-    ${out_ctype} Csub = ${dtypes.zero_ctr(bp.out_dtype)};
+    ${ctype.C} Csub = ${dtypes.zero_ctr(dtype.C)};
 
     // Loop over all the sub-matrices of A and B
     // required to compute the block sub-matrix
@@ -56,31 +54,32 @@ KERNEL void matrixmul(GLOBAL_MEM ${out_ctype}* C, GLOBAL_MEM ${a_ctype}* A, GLOB
         // Load the matrices from device memory
         // to shared memory; each thread loads
         // one element of each matrix
-        int a_x = step * ${dp.block_size} + tx;
-        int a_y = by * ${dp.block_size} + ty;
-        int b_x = bx * ${dp.block_size} + tx;
-        int b_y = step * ${dp.block_size} + ty;
+        int a_x = step * ${block_size} + tx;
+        int a_y = by * ${block_size} + ty;
+        int b_x = bx * ${block_size} + tx;
+        int b_y = step * ${block_size} + ty;
 
-        As[ty * ${dp.block_size} + tx] = (a_x < ${bp.a_width} && a_y < ${bp.a_height})
-            ? A[a + ${bp.a_width} * ty + tx] : ${dtypes.zero_ctr(bp.a_dtype)};
-        Bs[ty * ${dp.block_size} + tx] = (b_x < ${bp.b_width} && b_y < ${bp.a_width})
-            ? B[b + ${bp.b_width} * ty + tx] : ${dtypes.zero_ctr(bp.b_dtype)};
+        As[ty * ${block_size} + tx] = (a_x < ${basis.a_width} && a_y < ${basis.a_height})
+            ? ${load.A}(a + A_shift + ${basis.a_width} * ty + tx) : ${dtypes.zero_ctr(dtype.A)};
+        Bs[ty * ${block_size} + tx] = (b_x < ${basis.b_width} && b_y < ${basis.a_width})
+            ? ${load.B}(b + B_shift + ${basis.b_width} * ty + tx) : ${dtypes.zero_ctr(dtype.B)};
 
         local_barrier();
 
         // Multiply the two matrices together;
         // each thread computes one element
         // of the block sub-matrix
-        for (int k = 0; k < ${dp.block_size}; k++)
-            Csub = Csub + ${mul(bp.a_dtype, bp.b_dtype, bp.out_dtype)}(As[ty * ${dp.block_size} + k], Bs[k * ${dp.block_size} + tx]);
+        for (int k = 0; k < ${block_size}; k++)
+            Csub = Csub + ${func.mul(dtype.A, dtype.B, out=dtype.C)}(
+                As[ty * ${block_size} + k], Bs[k * ${block_size} + tx]);
 
         local_barrier();
     }
 
     // Write the block sub-matrix to device memory;
     // each thread writes one element
-    int c_x = ${dp.block_size} * bx + tx;
-    int c_y = ${dp.block_size} * by + ty;
-    if(c_y < ${bp.a_height} && c_x < ${bp.b_width})
-        C[${bp.b_width} * c_y + c_x] = Csub;
+    int c_x = ${block_size} * bx + tx;
+    int c_y = ${block_size} * by + ty;
+    if(c_y < ${basis.a_height} && c_x < ${basis.b_width})
+        ${store.C}(C_shift + ${basis.b_width} * c_y + c_x, Csub);
 }

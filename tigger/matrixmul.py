@@ -1,8 +1,8 @@
 import numpy
 import helpers
-from tigger.core.helpers import *
-from tigger.cluda import *
+from tigger.core.helpers import AttrDict, template_for, min_blocks
 from tigger.core.computation import *
+from tigger.core.transformation import *
 
 TEMPLATE = template_for(__file__)
 
@@ -10,16 +10,17 @@ TEMPLATE = template_for(__file__)
 class MatrixMul(Computation):
 
     def _get_default_basis(self):
-        return dict(a_dtype=numpy.float32, b_dtype=numpy.float32, out_dtype=numpy.float32,
+        return AttrDict(a_dtype=numpy.float32, b_dtype=numpy.float32, out_dtype=numpy.float32,
             a_height=1, a_width=1, b_width=1, batch=1,
             batched_a=False, batched_b=False,
             block_size_override=None)
 
     def _construct_basis(self, out, a, b):
 
-        bs = Computation._construct_basis(self)
+        bs = AttrDict()
 
         if self._debug:
+            # TODO: this check should be made automatically somewhere in core.transformation
             for dtype in (a.dtype, b.dtype, out.dtype):
                 assert self._env.supportsDtype(dtype)
 
@@ -51,42 +52,47 @@ class MatrixMul(Computation):
                 assert out_batch == product(out_shape[:-2])
 
         bs.update(dict(
-            a_width=numpy.int32(a.shape[-1]),
-            a_height=numpy.int32(a.shape[-2]),
-            b_width=numpy.int32(b.shape[-1]),
-            batch=numpy.int32(out_batch),
-            batched_a=numpy.int32(a_batch == 1),
-            batched_b=numpy.int32(b_batch == 1),
+            a_width=a.shape[-1],
+            a_height=a.shape[-2],
+            b_width=b.shape[-1],
+            batch=out_batch,
+            batched_a=(a_batch == 1),
+            batched_b=(b_batch == 1),
             out_shape=out_shape))
 
         return bs
 
-    def _construct_derived(self):
-        dp = Computation._construct_derived(self)
-        bp = self._basis
+    def _get_base_signature(self):
+        bs = self._basis
+        return [('C', ArrayValue(None, bs.out_dtype))], \
+            [
+                ('A', ArrayValue(None, bs.a_dtype)),
+                ('B', ArrayValue(None, bs.b_dtype))], \
+            []
 
-        bso = bp.block_size_override
-        dp.block_size = self._env.params.smem_banks if bso is None else bso
+    def _construct_kernels(self):
+        bs = self._basis
 
-        dp.blocks_per_matrix = numpy.int32(min_blocks(bp.a_height, dp.block_size))
-        module = self._env.compile(TEMPLATE, bp=bp, dp=dp)
-        kernel_matrixmul = module.matrixmul
+        bso = bs.block_size_override
+        block_size = self._env.params.smem_banks if bso is None else bso
 
+        blocks_per_matrix = min_blocks(bs.a_height, block_size)
         grid = (
-            int(min_blocks(bp.b_width, dp.block_size)),
-            int(dp.blocks_per_matrix * bp.batch)
+            int(min_blocks(bs.b_width, block_size)),
+            int(blocks_per_matrix * bs.batch)
         )
-        block = (dp.block_size, dp.block_size, 1)
-        shared = dp.block_size * dp.block_size * (bp.a_dtype.itemsize + bp.b_dtype.itemsize)
+        block = (block_size, block_size, 1)
+        shared = block_size * block_size * (bs.a_dtype.itemsize + bs.b_dtype.itemsize)
 
-        self._set_kernels([
-            KernelCall(grid=grid, block=block, kernel=kernel_matrixmul, shared=shared)
-        ])
+        src = self._render(TEMPLATE,
+            block_size=block_size,
+            blocks_per_matrix=blocks_per_matrix,
+            )
 
-        # TODO: do we need preparation?
-        #dp.kernel_matrixmul.prepare(block=block, grid=grid, enqueue=self._queue, shared=shared)
-
-        return dp
+        return [KernelCall(
+            'matrixmul', ['C', 'A', 'B'], src,
+            grid=grid, block=block, shared=shared
+        )]
 
 
 class MockMatrixMul(MatrixMul):
