@@ -10,14 +10,12 @@ _DUMMY_TEMPLATE = template_for(__file__)
 class Dummy(Computation):
 
     def _get_default_basis(self):
-        return AttrDict(a_dtype=numpy.float32, b_dtype=numpy.float32, c_dtype=numpy.float32,
-            coeff_dtype=numpy.float32)
+        return AttrDict(arr_dtype=numpy.float32, coeff_dtype=numpy.float32, size=1)
 
     def _construct_basis(self, C, A, B, coeff):
         bs = AttrDict()
-        bs.a_dtype = A.dtype
-        bs.b_dtype = B.dtype
-        bs.c_dtype = C.dtype
+        assert C.dtype == A.dtype and C.dtype == B.dtype
+        bs.arr_dtype = C.dtype
         bs.coeff_dtype = coeff.dtype
         bs.size = C.size
         return bs
@@ -25,11 +23,11 @@ class Dummy(Computation):
     def _get_base_signature(self):
         bs = self._basis
         shape = (bs.size,)
-        return [('C', ArrayValue(shape, bs.c_dtype))], \
+        return [('C', ArrayValue(shape, bs.arr_dtype))], \
             [
-                ('A', ArrayValue(shape, bs.a_dtype),
-                ('B', ArrayValue(shape, bs.b_dtype)], \
-            [('coeff', ScalarValue(None, bs.c_dtype)]
+                ('A', ArrayValue(shape, bs.arr_dtype)),
+                ('B', ArrayValue(shape, bs.arr_dtype))], \
+            [('coeff', ScalarValue(None, bs.coeff_dtype))]
 
     def _construct_kernels(self):
         # basis will be passed automatically as a keyword
