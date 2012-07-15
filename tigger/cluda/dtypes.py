@@ -6,8 +6,27 @@ def is_complex(dtype):
 def is_double(dtype):
     return numpy.dtype(dtype).name in ['float64', 'complex128']
 
+def _promote_dtype(dtype):
+    # not all numpy datatypes are supported by GPU, so we may need to promote
+    dtype = numpy.dtype(dtype)
+    if dtype.kind == 'i' and dtype.itemsize < 4:
+        return numpy.int32
+    elif dtype.kind == 'f' and dtype.itemsize < 4:
+        return numpy.float32
+    elif dtype.kind == 'c' and dtype.itemsize < 8:
+        return numpy.complex64
+    else:
+        return dtype
+
+def result_type(*dtypes):
+    return _promote_dtype(numpy.result_type(*dtypes))
+
+def min_scalar_type(val):
+    return _promote_dtype(numpy.min_scalar_type(val))
+
 def ctype(dtype):
     return dict(
+        int32='int',
         float32='float',
         float64='double',
         complex64='float2',
