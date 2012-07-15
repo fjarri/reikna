@@ -1,9 +1,10 @@
 import numpy
 import helpers
-from .helpers import *
-from .cluda.helpers import *
+from tigger.core.helpers import *
+from tigger.cluda import *
+from tigger.core.computation import *
 
-TEMPLATE = loadTemplateFor(__file__)
+TEMPLATE = template_for(__file__)
 
 
 class MatrixMul(Computation):
