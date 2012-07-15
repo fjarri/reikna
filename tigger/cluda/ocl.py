@@ -75,11 +75,17 @@ class OclModule:
         self._env = env
         options = "-cl-mad-enable -cl-fast-relaxed-math" if env.fast_math else ""
 
+        # Casting source code to ASCII explicitly
+        # New versions of Mako produce Unicode output by default,
+        # and it makes OpenCL compiler unhappy
+        src = str(src)
+
         try:
             self._module = cl.Program(env.context, src).build(options=options)
         except:
+            # FIXME: output to stderr
             for i, l in enumerate(src.split('\n')):
-                print i, ":", l
+                print i + 1, ":", l
             raise
 
     def __getattr__(self, name):

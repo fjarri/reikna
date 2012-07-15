@@ -88,8 +88,9 @@ class CudaModule:
         try:
             self._module = SourceModule(src, no_extern_c=True, options=options)
         except:
+            # FIXME: output to stderr
             for i, l in enumerate(src.split('\n')):
-                print i, ":", l
+                print i + 1, ":", l
             raise
 
     def __getattr__(self, name):
