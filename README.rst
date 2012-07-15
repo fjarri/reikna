@@ -1,35 +1,17 @@
-===============
-Codename Tigger
-===============
+=====================================
+Tigger, the pure Python GPGPU library
+=====================================
 
-Tigger is an attempt to combine all the algorithms I am currently using in my projects into one library.
-In particular, PyFFT will be merged into this project too.
-My goals are:
+Tigger is a library containing various GPU algorithms.
+The main design goals are:
 
-* gather a number of basic algorithms into one place, so that they could be documented and covered by tests;
-* make this library pure Python (no compilation issues);
-* provide identical behaviour for both Cuda and OpenCL (so that it is enough to change a single line of code to switch from one to the other);
-* make it easy for other people to add new algorithms.
+* separation of computation cores (matrix multiplication, random numbers generation etc) from simple transformations on their input and output values (scaling, typecast etc);
+* separation of the preparation and execution stage, maximizing the performance of the execution stage at the expense of the preparation stage (in other words, aiming at large simulations)
+* partial abstraction from Cuda/OpenCL
 
-Long-term goal: separate kernel rendering and object oriented wrapping, making the library useable from other languages.
+Additional long-term goal is the separation of the kernel rendering stage and the actual usage of the resulting source code.
+This will make this library useable from other languages by writing simple client wrappers.
 
-The project is in the prototype stage now, and everything is subject to change.
-It may even disappear completely if, for example, it is decided that it should be joined with Compyte.
+For more information proceed to the `project documentation page <http://tigger.publicfields.net>`_.
 
----------------
-Release history
----------------
-
-v0.0.1 (planned)
-----------------
-
-Main tasks:
-
-* Add the following algorithms: matrix multiplication, transposition, 3D permutation, FFT, DHT, reduction.
-* Add pre- and post-processing for algorithms.
-* Add basic documentation.
-
-Additional tasks:
-
-* Add some global DEBUG variable, it will help with testing.
-* Improve Env creation: they have to be able to "connect" to existing contexts/queues. It seems to be, in fact, the main usage scenario.
+Tests can be run by installing `Py.Test <http://pytest.org>`_ and running ``py.test`` from the ``test`` folder (run ``py.test --help`` to get the list of options).

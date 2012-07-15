@@ -14,3 +14,8 @@ Problems:
 1. More involved algorithms cannot be passed between languages this way (the ones that requires synchronization in the middle, like adaptive-step ODE solver, for example).
 2. Need to somehow pass device/context to this library from the caller. The kernels will have to be compiled in order to find out the register usage.
 3. How to pass type derivation lambdas? Possible solution: limit derivations to <same_as>(x), <definite_type>, <complex_for>(x), <real_for>(x) and create some micro-DSL for passing these as strings.
+
+Additional tasks:
+
+* Add some global DEBUG variable, it will help with testing.
+* Improve Env creation: they have to be able to "connect" to existing contexts/queues. It seems to be, in fact, the main usage scenario.
