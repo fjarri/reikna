@@ -153,7 +153,6 @@ class KernelCall:
 
     def prepare(self):
         self.full_src = self.prelude + self.tr_code + self.src
-        print self.full_src
         self.module = self.env.compile(self.full_src)
         self.kernel = getattr(self.module, self.name)
 
