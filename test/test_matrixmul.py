@@ -88,7 +88,7 @@ def test_preprocessing(env, double):
     gpu_C_half2 = env.allocate(N, numpy.complex64)
     d.prepare_for(gpu_C_new_half1, gpu_C_half2,
         gpu_A_prime, gpu_B_new_prime, numpy.float32(coeff), numpy.int32(B_param))
-    print d.signature
+    #print d.signature
     #assert d.signature == (
     #    [('C_new_half1', numpy.float32), ('C_half2', numpy.float32)],
     #    [('A_prime', numpy.float32), ('B_new_prime', numpy.float32)],
