@@ -20,18 +20,27 @@ def pytest_addoption(parser):
         default="yes", choices=["no", "yes", "both"])
 
 def pytest_funcarg__ctx_and_double(request):
+    """
+    Create context before call to test and release it when the test ends
+    """
     cc, dv = request.param
     ctx = cc()
     request.addfinalizer(lambda: ctx.release())
     return ctx, dv
 
 def pytest_funcarg__ctx(request):
+    """
+    Create context before call to test and release it when the test ends
+    """
     cc = request.param
     ctx = cc()
     request.addfinalizer(lambda: ctx.release())
     return ctx
 
 def get_contexts(metafunc):
+    """
+    Create a list of context creators and corresponding ids to parameterize tests
+    """
 
     def check_api(name):
         return dict(cuda=cluda.supportsCuda, ocl=cluda.supportsOcl)[name]()
@@ -72,6 +81,10 @@ def get_contexts(metafunc):
     return ccs, [str(cc) for cc in ccs]
 
 def get_contexts_and_doubles(metafunc, ccs, cc_ids):
+    """
+    Create a list of (context creator, use-double) pairs
+    and corresponding ids to parameterize tests.
+    """
     d = metafunc.config.option.double
     ds = lambda dv: 'dp' if dv else 'sp'
 
