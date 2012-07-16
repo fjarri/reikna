@@ -10,7 +10,9 @@ import tigger.cluda.dtypes as dtypes
 
 @pytest.mark.parametrize("complex1", [False, True], ids=['real', 'complex'])
 @pytest.mark.parametrize("complex2", [False, True], ids=['real', 'complex'])
-def test_errors(env, double, complex1, complex2):
+def test_errors(ctx_and_double, complex1, complex2):
+
+    ctx, double = ctx_and_double
 
     s1 = (100, 200)
     s2 = (200, 100)
@@ -23,15 +25,17 @@ def test_errors(env, double, complex1, complex2):
     a = getTestArray(s1, dtype1)
     b = getTestArray(s2, dtype2)
 
-    a_dev = env.toDevice(a)
-    b_dev = env.toDevice(b)
-    res_dev = env.allocate((s1[0], s2[1]), dtype=res_dtype)
-    dot = MatrixMul(env).prepare_for(res_dev, a_dev, b_dev)
+    a_dev = ctx.toDevice(a)
+    b_dev = ctx.toDevice(b)
+    res_dev = ctx.allocate((s1[0], s2[1]), dtype=res_dtype)
+    dot = MatrixMul(ctx).prepare_for(res_dev, a_dev, b_dev)
     dot(res_dev, a_dev, b_dev)
 
-    assert diff(env.fromDevice(res_dev), numpy.dot(a, b)) < 1e-6
+    assert diff(ctx.fromDevice(res_dev), numpy.dot(a, b)) < 1e-6
 
-def test_preprocessing(env, double):
+def test_preprocessing(ctx_and_double):
+
+    ctx, double = ctx_and_double
 
     coeff = numpy.float32(2)
     B_param = numpy.float32(3)
@@ -62,7 +66,7 @@ def test_preprocessing(env, double):
             ${store.s2}(t);
         """)
 
-    d = Dummy(env)
+    d = Dummy(ctx)
     #assert d.signature == (
     #    [('C', numpy.float32)], # outs
     #    [('A', numpy.float32), ('B', numpy.float32)], # ins
@@ -82,10 +86,10 @@ def test_preprocessing(env, double):
 
     A_prime = getTestArray(N, numpy.complex64)
     B_new_prime = getTestArray(N, numpy.complex64)
-    gpu_A_prime = env.toDevice(A_prime)
-    gpu_B_new_prime = env.toDevice(B_new_prime)
-    gpu_C_new_half1 = env.allocate(N, numpy.complex64)
-    gpu_C_half2 = env.allocate(N, numpy.complex64)
+    gpu_A_prime = ctx.toDevice(A_prime)
+    gpu_B_new_prime = ctx.toDevice(B_new_prime)
+    gpu_C_new_half1 = ctx.allocate(N, numpy.complex64)
+    gpu_C_half2 = ctx.allocate(N, numpy.complex64)
     d.prepare_for(gpu_C_new_half1, gpu_C_half2,
         gpu_A_prime, gpu_B_new_prime, numpy.float32(coeff), numpy.int32(B_param))
     #print d.signature
@@ -97,5 +101,5 @@ def test_preprocessing(env, double):
     d(gpu_C_new_half1, gpu_C_half2, gpu_A_prime, gpu_B_new_prime, coeff, B_param)
     C_new_half1, C_half2 = mock_dummy(A_prime, B_new_prime)
 
-    assert diff(env.fromDevice(gpu_C_new_half1), C_new_half1) < 1e-6
-    assert diff(env.fromDevice(gpu_C_half2), C_half2) < 1e-6
+    assert diff(ctx.fromDevice(gpu_C_new_half1), C_new_half1) < 1e-6
+    assert diff(ctx.fromDevice(gpu_C_half2), C_half2) < 1e-6
