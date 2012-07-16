@@ -52,7 +52,6 @@ Website/documentation:
 
 CLUDA:
 
-* FIXME: change all "print something" to stderr output (err/warn)
 * FIXME: decide on the range of cases handled by func.cast()
 * TODO: improve Env creation --- they have to be able to "connect" to existing contexts/queues.
   It seems to be, in fact, the main usage scenario.
