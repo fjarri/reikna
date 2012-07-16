@@ -1,8 +1,9 @@
 import numpy
+from mako.template import Template
+
 import tigger.cluda.dtypes as dtypes
 from tigger.cluda.kernel import render_without_funcs, FuncCollector
 from tigger.core.helpers import AttrDict, product
-from mako.template import Template
 
 
 INDEX_NAME = "idx"
@@ -416,59 +417,3 @@ class TransformationTree:
             self.nodes[ep] = AttrDict(name=ep, type=NODE_SCALAR,
                 value=ScalarValue(None, None),
                 parent=parent.name, children=None, tr_to_parent=tr, tr_to_children=None)
-
-
-if __name__ == '__main__':
-
-    a = Transformation(load=1, store=1,
-        code="${store.s1}(${load.l1});")
-
-    b = Transformation(load=2, store=1, parameters=1,
-        derive_s_from_lp=lambda l1, l2, p1: [l1],
-        derive_lp_from_s=lambda s1: ([s1, s1], [numpy.int32]),
-        derive_l_from_sp=lambda s1, p1: [s1, s1],
-        derive_sp_from_l=lambda l1, l2: ([l1], [numpy.int32]),
-        code="""
-            ${ctype.s1} t = ${func.mul(dtype.s1, dtype.l1)}(${param.p1}, ${load.l1});
-            ${store.s1}(t + ${load.l2});
-        """)
-
-    c = Transformation(load=1, store=2,
-        code="""
-            ${ctype.s1} t = ${func.mul(dtype.l1, numpy.float32)}(${load.l1}, 0.5);
-            ${store.s1}(t);
-            ${store.s2}(t);
-        """)
-
-    tree = TransformationTree(['C'], ['A', 'B'], ['coeff'])
-    print tree.leaf_signature()
-
-    tree.connect(a, 'A', ['A_prime']);
-    tree.connect(b, 'B', ['A_prime', 'B_prime'], ['B_param'])
-    tree.connect(a, 'B_prime', ['B_new_prime'])
-    tree.connect(c, 'C', ['C_half1', 'C_half2'])
-    tree.connect(a, 'C_half1', ['C_new_half1'])
-    print tree.leaf_signature()
-    print tree.has_array_leaf('A_prime') # True
-    print tree.has_array_leaf('coeff') # False
-    print tree.has_nodes(['C_half1']) # True
-
-    tree.propagate_to_leaves(dict(
-        A=ArrayValue(None, numpy.float32),
-        B=ArrayValue(None, numpy.float32),
-        C=ArrayValue(None, numpy.float32),
-        coeff=ScalarValue(None, numpy.float32)
-    ))
-    print tree.leaf_signature()
-
-    tree.propagate_to_base(dict(
-        A_prime=ArrayValue(None, numpy.float64),
-        B_new_prime=ArrayValue(None, numpy.float32),
-        C_half2=ArrayValue(None, numpy.float64),
-        C_new_half1=ArrayValue(None, numpy.float64),
-        coeff=ScalarValue(None, numpy.float32),
-        B_param=ScalarValue(None, numpy.float64)
-    ))
-    print tree.leaf_signature()
-
-    print tree.transformations_for(['C', 'A', 'B', 'coeff'])
