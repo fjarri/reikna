@@ -25,6 +25,13 @@ Core:
 * TODO: check that the transformation only has one load/store in the place where connection occurs
 * TODO: remove unnecessary whitespace from the transformation code (generated code will look better)
 * TODO: add a global DEBUG variable that will create all computations in debug mode by default
+* TODO: how to handle external calls, like Transpose in Reduce?
+  (Solution: we request the same execution list from Transpose, set argument names - should be a method for that - and incorporate it into our own list)
+* TODO: add support to Allocate as the operation, add internally allocated arrays to arg_dict
+* TODO: cool feature: process the list and remove unnecessary allocations, replacing them by creating views
+
+Computations:
+
 * TODO: add elementwise computation
 * TODO: add reduction
 * TODO: add FFT (and mark pyfft as deprecated)
@@ -34,10 +41,6 @@ Core:
 * TODO: add bitonic sort
 * TODO: create policy for wrapping raw computations into more convenient classes
 * TODO: create policy for providing pre-made computations like sin()/cos()
-* TODO: how to handle external calls, like Transpose in Reduce?
-  (Solution: we request the same execution list from Transpose, set argument names - should be a method for that - and incorporate it into our own list)
-* TODO: add support to Allocate as the operation, add internally allocated arrays to arg_dict
-* TODO: cool feature: process the list and remove unnecessary allocations, replacing them by creating views
 
 
 0.0.1 (prototype version)
