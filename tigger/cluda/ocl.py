@@ -1,7 +1,9 @@
+from logging import error
+import sys
+
 import numpy
 import pyopencl as cl
 import pyopencl.array as clarray
-import sys
 
 import tigger.cluda as cluda
 import tigger.cluda.dtypes as dtypes
@@ -83,8 +85,8 @@ class OclModule:
         try:
             self._module = cl.Program(env.context, src).build(options=options)
         except:
-            for i, l in enumerate(src.split('\n')):
-                print i + 1, ":", l
+            listing = "\n".join([str(i+1) + ":" + l for i, l in enumerate(src.split('\n'))])
+            error("Failed to compile:\n" + listing)
             raise
 
     def __getattr__(self, name):

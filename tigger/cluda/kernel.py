@@ -1,8 +1,11 @@
-from tigger.cluda import dtypes
 import os.path
+from logging import error
+
 import numpy
 from mako.template import Template
 from mako import exceptions
+
+from tigger.cluda import dtypes
 
 _PRELUDE = Template(filename=os.path.join(os.path.split(__file__)[0], "prelude.cluda.mako"))
 _FUNCTIONS = Template(filename=os.path.join(os.path.split(__file__)[0], "functions.cluda.mako"))
@@ -44,7 +47,7 @@ def render_without_funcs(template, func_c, **kwds):
     try:
         src = template.render(func=func_c, **kwds)
     except:
-        print exceptions.text_error_template().render()
+        error("Failed to render template:\n" + exceptions.text_error_template().render())
         raise Exception("Template rendering failed")
     return src
 
