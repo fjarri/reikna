@@ -34,7 +34,7 @@ class OclEnvironment:
             extensions = self.context.devices[0].extensions
             return "cl_khr_fp64" in extensions or "cl_amd_fp64" in extensions
         else:
-            return True # TODO: check if there are other limitations
+            return True
 
     def allocate(self, shape, dtype):
         return clarray.Array(self.queue, shape, dtype=dtype)
@@ -63,8 +63,8 @@ class OclDeviceParameters:
 
         self.max_grid_dims = [sys.maxint, sys.maxint]
 
-        self.smem_banks = 16 # FIXME: must get it from device
-        self.warp_size = 32 # FIXME: must get it from device
+        self.smem_banks = 16
+        self.warp_size = 32
 
         self.api = 'ocl'
 
@@ -83,7 +83,6 @@ class OclModule:
         try:
             self._module = cl.Program(env.context, src).build(options=options)
         except:
-            # FIXME: output to stderr
             for i, l in enumerate(src.split('\n')):
                 print i + 1, ":", l
             raise

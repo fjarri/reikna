@@ -25,7 +25,6 @@ WITHIN_KERNEL ${dtypes.ctype(out_dtype)} ${name}(
 WITHIN_KERNEL ${dtypes.ctype(out_dtype)} ${name}(${dtypes.ctype(in_dtype)} x)
 {
 <%
-    # FIXME: handle other cases
     if dtypes.is_complex(out_dtype) and not dtypes.is_complex(in_dtype):
         result = dtypes.complex_ctr(out_dtype) + "(x, 0)"
     elif not dtypes.is_complex(out_dtype) and not dtypes.is_complex(in_dtype):

@@ -39,8 +39,6 @@ class Computation:
         dtypes_dict = AttrDict(self._get_base_values())
         ctypes_dict = AttrDict({name:ctype(dtype) for name, dtype in dtypes_dict.items()})
 
-        # TODO: check for errors in load/stores/param usage?
-        # TODO: add some more "built-in" variables (helpers, cluda.dtypes)?
         render_kwds = dict(
             dtypes=dtypes,
             basis=self._basis,
@@ -100,9 +98,6 @@ class Computation:
     def connect(self, tr, endpoint, new_endpoints, new_scalar_endpoints=None):
         if new_scalar_endpoints is None: new_scalar_endpoints = []
 
-        # FIXME: we can use some of the existing nodes as endpoints,
-        # they just need to be not base ones
-        #assert not self._tr_tree.has_nodes(new_endpoints + new_scalar_endpoints)
         if self._tr_tree.has_array_leaf(endpoint):
             self._tr_tree.connect(tr, endpoint, new_endpoints, new_scalar_endpoints)
         else:
@@ -127,29 +122,15 @@ class Computation:
             if self._basis_needs_update(new_basis):
                 raise Exception("Given arguments require different basis")
 
-        # TODO: profile this and see if it's a bottleneck
         signature = self._tr_tree.leaf_signature()
         arg_dict = {}
         for pair, arg in zip(signature, args):
             name, value = pair
-            # TODO: check types here if _debug is on
             if isinstance(value, ScalarValue):
                 arg = cast(value.dtype)(arg)
             arg_dict[name] = arg
 
-        # TODO: add internally allocated arrays to arg_dict
-        # TODO: how to handle external calls, like Transpose in Reduce?
-        #   (solution: we request the same execution list from Transpose,
-        #   set argument names - should be a method for that - and incorporate it into our own list)
-        # TODO: cool feature: process the list and remove unnecessary allocations,
-        # replacing them by creating views
-
         for operation in self._operations:
-            # FIXME: for every operation we need to get its base arguments,
-            # run them through the tree and get required argnames,
-            # and then pass those args to the kernel
-            # Now I'm just putting this stub here - it will work for a single kernel in the list
-            #op_args = [arg_dict[name] for name in operation.argnames]
             operation(*args)
 
 

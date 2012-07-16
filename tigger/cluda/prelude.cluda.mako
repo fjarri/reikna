@@ -46,8 +46,6 @@
     #define LSIZE_1 get_local_size(1)
     #define LSIZE_2 get_local_size(2)
 
-    // TODO: does this forceful enabling of double precision somehow change
-    // the performance for single precision?
     #if defined(cl_khr_fp64)
     #pragma OPENCL EXTENSION cl_khr_fp64: enable
     #elif defined(cl_amd_fp64)

@@ -63,7 +63,6 @@ def test_preprocessing(env, double):
         """)
 
     d = Dummy(env)
-    # TODO: check signatures for correctness when I decide on a format
     #assert d.signature == (
     #    [('C', numpy.float32)], # outs
     #    [('A', numpy.float32), ('B', numpy.float32)], # ins

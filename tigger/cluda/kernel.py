@@ -44,7 +44,6 @@ def render_without_funcs(template, func_c, **kwds):
     try:
         src = template.render(func=func_c, **kwds)
     except:
-        # TODO: output to stderr?
         print exceptions.text_error_template().render()
         raise Exception("Template rendering failed")
     return src

@@ -101,7 +101,6 @@ def wrap_value(value):
     if hasattr(value, 'shape') and len(value.shape) > 0:
         return ArrayValue(value.shape, value.dtype)
     else:
-        # TODO: GPU may not support some CPU types
         dtype = dtypes.min_scalar_type(value)
         return ScalarValue(value, dtype)
 
@@ -120,8 +119,7 @@ class Transformation:
 
         def get_derivation_func(return_tuple, l1, l2=0):
             def func(*x):
-                # TODO: GPU may not support some CPU types
-                dtype = numpy.result_type(*x)
+                dtype = dtypes.result_type(*x)
                 if return_tuple:
                     return [dtype] * l1, [dtype] * l2
                 else:
@@ -138,8 +136,6 @@ class Transformation:
         self.derive_l_from_sp = derive_l_from_sp
         self.derive_sp_from_l = derive_sp_from_l
 
-        # TODO: run code through Mako and check that number of load/store/parameters match
-        # TODO: remove unnecessary whitespace from the code (generated code will look better)
         self.code = Template(code)
 
 
@@ -152,7 +148,6 @@ class TransformationTree:
 
     def __init__(self, stores, loads, scalars):
         self.nodes = {}
-        # TODO: check for repeating names?
         for name in stores:
             self.nodes[name] = AttrDict(name=name, type=NODE_STORE,
                 value=ArrayValue(None, None),
@@ -169,9 +164,6 @@ class TransformationTree:
         self.base_names = stores + loads + scalars
 
     def leaf_signature(self, base_name=None):
-        # FIXME: base_name is a temporary solution to return array part of signature
-        # emerging from given name. Code should be more clear
-
         visited = set()
         arrays = []
 
@@ -212,7 +204,6 @@ class TransformationTree:
     def _clear_values(self):
         for name in self.nodes:
             old_value = self.nodes[name].value
-            # FIXME: Creating new values in case the old ones are copies
             if old_value.is_array:
                 self.nodes[name].value = ArrayValue(old_value.shape, None)
             else:
@@ -277,7 +268,6 @@ class TransformationTree:
         code_list = []
         func_c = FuncCollector(prefix="tr")
 
-        # TODO: remove copy-paste
         def build_arglist(argnames):
             res = []
             for argname in argnames:
@@ -383,9 +373,6 @@ class TransformationTree:
 
             ctype = AttrDict({key:dtypes.ctype(dt) for key, dt in dtype.items()})
 
-            # FIXME: passing numpy to allow user use its dtypes
-            # Shouldn't be doing that, it would be better to save supported dtypes
-            # to dtype variable, or just pass them to global template namespace
             code_src = render_without_funcs(tr.code, func_c,
                 load=load, store=store, dtype=dtype, ctype=ctype, param=param,
                 numpy=numpy)
@@ -420,9 +407,6 @@ class TransformationTree:
             new_scalar_endpoints = []
         parent.children = new_endpoints + new_scalar_endpoints
         parent.tr_to_children = tr
-
-        # TODO: check that the transformation only has one load/store
-        # in the place where connection occurs
 
         for ep in new_endpoints:
             self.nodes[ep] = AttrDict(name=ep, type=parent.type,

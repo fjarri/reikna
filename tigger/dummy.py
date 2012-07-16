@@ -23,7 +23,6 @@ class Dummy(Computation):
     def _get_base_signature(self):
         bs = self._basis
         shape = (bs.size,)
-        # TODO: do we really need to return array shape here?
         return [('C', ArrayValue(shape, bs.arr_dtype))], \
             [
                 ('A', ArrayValue(shape, bs.arr_dtype)),

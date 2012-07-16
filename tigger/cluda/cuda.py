@@ -26,7 +26,7 @@ class CudaEnvironment:
             major, minor = self.context.get_device().compute_capability()
             return (major == 1 and minor == 3) or major >= 2
         else:
-            return True # TODO: check if there are other limitations
+            return True
 
     def allocate(self, shape, dtype):
         return gpuarray.GPUArray(shape, dtype=dtype)
@@ -42,7 +42,6 @@ class CudaEnvironment:
         if self.sync:
             return gpuarray.to_gpu(arr)
         else:
-            # FIXME: there must be a warning in docs that buf has to be pagelocked
             return gpuarray.to_gpu_async(arr, stream=self.stream)
 
     def compile(self, src):
@@ -73,7 +72,7 @@ class CudaDeviceParameters:
             device.get_attribute(cuda.device_attribute.MAX_GRID_DIM_Y)
         ]
 
-        self.smem_banks = 16 # FIXME: must get it from device
+        self.smem_banks = 16
         self.warp_size = device.get_attribute(cuda.device_attribute.WARP_SIZE)
 
         self.api = 'cuda'
@@ -88,7 +87,6 @@ class CudaModule:
         try:
             self._module = SourceModule(src, no_extern_c=True, options=options)
         except:
-            # FIXME: output to stderr
             for i, l in enumerate(src.split('\n')):
                 print i + 1, ":", l
             raise
