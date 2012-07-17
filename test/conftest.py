@@ -45,19 +45,19 @@ def pytest_funcarg__ctx(request):
     request.addfinalizer(release)
     return ctx
 
-def get_apis(metafunc):
+def get_api_ids(metafunc):
     """
     Get list of APIs to test, based on command line options and their availability.
     """
-    api = metafunc.config.option.api
+    api_id = metafunc.config.option.api
 
-    if api == "supported":
-        apis = cluda.supported_apis()
+    if api_id == "supported":
+        api_ids = cluda.supported_apis()
     else:
-        if not cluda.supports_api(api):
-            raise Exception("Requested API " + api + " is not supported.")
-        apis = [api]
-    return apis
+        if not cluda.supports_api(api_id):
+            raise Exception("Requested API " + api_id + " is not supported.")
+        api_ids = [api_id]
+    return api_ids
 
 def get_contexts(metafunc):
     """
@@ -65,18 +65,18 @@ def get_contexts(metafunc):
     """
 
     class CtxCreator:
-        def __init__(self, api, fast_math):
+        def __init__(self, api_id, fast_math):
             self.fast_math = fast_math
-            self.api = api
-            self.create = lambda: cluda.api(api).Context.create(fast_math=fm)
+            self.api_id = api_id
+            self.create = lambda: cluda.api(api_id).Context.create(fast_math=fm)
 
         def __call__(self):
             return self.create()
 
         def __str__(self):
-            return self.api + (",fm" if self.fast_math else "")
+            return self.api_id + (",fm" if self.fast_math else "")
 
-    apis = get_apis(metafunc)
+    api_ids = get_api_ids(metafunc)
 
     fm = metafunc.config.option.fast_math
     if fm == "both":
@@ -86,7 +86,7 @@ def get_contexts(metafunc):
     else:
         fms = [True]
 
-    ccs = [CtxCreator(api, fm) for api, fm in product(apis, fms)]
+    ccs = [CtxCreator(api_id, fm) for api_id, fm in product(api_ids, fms)]
     return ccs, [str(cc) for cc in ccs]
 
 def get_contexts_and_doubles(metafunc, ccs, cc_ids):
@@ -125,5 +125,5 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize('ctx', ccs, ids=cc_ids, indirect=True)
 
     if 'cluda_api' in metafunc.funcargnames:
-        apis = get_apis(metafunc)
-        metafunc.parametrize('cluda_api', apis)
+        api_ids = get_api_ids(metafunc)
+        metafunc.parametrize('cluda_api', [cluda.api(api_id) for api_id in api_ids])
