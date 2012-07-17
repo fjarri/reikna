@@ -114,5 +114,5 @@ class CudaKernel:
         shared = kwds.pop('shared', 0)
         assert len(kwds) == 0, "Unknown keyword arguments: " + str(kwds.keys())
 
-        self._kernel(*args, grid=grid, block=block, stream=self._ctx.stream)
+        self._kernel(*args, grid=grid, block=block, stream=self._ctx.stream, shared=shared)
 
