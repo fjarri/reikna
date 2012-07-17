@@ -19,9 +19,10 @@ class CudaContext:
     def create(cls, **kwds):
         ctx = make_default_context()
         stream = cuda.Stream()
+        kwds['owns_context'] = True
         return cls(ctx, stream, **kwds)
 
-    def __init__(self, context, stream, fast_math=True, sync=False):
+    def __init__(self, context, stream, fast_math=True, sync=False, owns_context=False):
         self.api = cluda.API_CUDA
         self.fast_math = fast_math
         self.context = context
@@ -29,7 +30,7 @@ class CudaContext:
         self.stream = None if sync else stream
         self.device_params = CudaDeviceParameters(context.get_device())
 
-        self._released = False
+        self._released = False if owns_context else True
 
     def supports_dtype(self, dtype):
         if dtypes.is_double(dtype):
@@ -55,7 +56,7 @@ class CudaContext:
 
     def release(self):
         if not self._released:
-            self.context.pop()
+            self.context.detach()
             self._released = True
 
     def __del__(self):
