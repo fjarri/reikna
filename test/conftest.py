@@ -126,4 +126,4 @@ def pytest_generate_tests(metafunc):
 
     if 'cluda_api' in metafunc.funcargnames:
         api_ids = get_api_ids(metafunc)
-        metafunc.parametrize('cluda_api', [cluda.api(api_id) for api_id in api_ids])
+        metafunc.parametrize('cluda_api', [cluda.api(api_id) for api_id in api_ids], ids=api_ids)
