@@ -42,14 +42,11 @@ def get_contexts(metafunc):
     Create a list of context creators and corresponding ids to parameterize tests
     """
 
-    def check_api(name):
-        return dict(cuda=cluda.supportsCuda, ocl=cluda.supportsOcl)[name]()
-
     class CtxCreator:
         def __init__(self, api, fast_math):
             self.fast_math = fast_math
             self.api = api
-            self.create = lambda: cluda.createContext(api, fast_math=fm)
+            self.create = lambda: cluda.create_context(api, fast_math=fm)
 
         def __call__(self):
             return self.create()
@@ -63,9 +60,9 @@ def get_contexts(metafunc):
     if api == "supported":
         apis = []
         for name in ('cuda', 'ocl'):
-            if check_api(name): apis.append(name)
+            if cluda.supports_api(name): apis.append(name)
     else:
-        if not check_api(api):
+        if not cluda.supports_api(api):
             raise Exception("Requested API " + api + " is not supported.")
         apis = [api]
 
