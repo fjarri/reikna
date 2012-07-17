@@ -14,6 +14,7 @@ CLUDA:
 * TODO: does the forceful enabling of double precision in OpenCL somehow change the performance for single precision?
 * TODO: what are we going to do with OpenCL platforms that do not support intra-block interaction?
   (for example, Apple's implementation)
+* TODO: add functions for devices/platforms discovery, and generalized analogue of make_some_context (with interactive option, perhaps)
 
 Core:
 
