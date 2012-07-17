@@ -9,7 +9,7 @@ import tigger.cluda as cluda
 import tigger.cluda.dtypes as dtypes
 
 
-class OclEnvironment:
+class OclContext:
 
     def __init__(self, device_num=0, fast_math=True, sync=False):
         self.fast_math = fast_math

@@ -9,7 +9,7 @@ from pycuda.compiler import SourceModule
 import tigger.cluda.dtypes as dtypes
 
 
-class CudaEnvironment:
+class CudaContext:
 
     def __init__(self, device_num=0, fast_math=True, sync=False):
         self.fast_math = fast_math

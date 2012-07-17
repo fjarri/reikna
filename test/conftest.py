@@ -49,8 +49,7 @@ def get_contexts(metafunc):
         def __init__(self, api, fast_math):
             self.fast_math = fast_math
             self.api = api
-            ctr = dict(cuda=cluda.createCuda, ocl=cluda.createOcl)[api]
-            self.create = lambda: ctr(fast_math=fm)
+            self.create = lambda: cluda.createContext(api, fast_math=fm)
 
         def __call__(self):
             return self.create()
