@@ -25,13 +25,13 @@ def test_errors(ctx_and_double, complex1, complex2):
     a = getTestArray(s1, dtype1)
     b = getTestArray(s2, dtype2)
 
-    a_dev = ctx.toDevice(a)
-    b_dev = ctx.toDevice(b)
+    a_dev = ctx.to_device(a)
+    b_dev = ctx.to_device(b)
     res_dev = ctx.allocate((s1[0], s2[1]), dtype=res_dtype)
     dot = MatrixMul(ctx).prepare_for(res_dev, a_dev, b_dev)
     dot(res_dev, a_dev, b_dev)
 
-    assert diff(ctx.fromDevice(res_dev), numpy.dot(a, b)) < 1e-6
+    assert diff(ctx.from_device(res_dev), numpy.dot(a, b)) < 1e-6
 
 def test_preprocessing(ctx_and_double):
 
@@ -86,8 +86,8 @@ def test_preprocessing(ctx_and_double):
 
     A_prime = getTestArray(N, numpy.complex64)
     B_new_prime = getTestArray(N, numpy.complex64)
-    gpu_A_prime = ctx.toDevice(A_prime)
-    gpu_B_new_prime = ctx.toDevice(B_new_prime)
+    gpu_A_prime = ctx.to_device(A_prime)
+    gpu_B_new_prime = ctx.to_device(B_new_prime)
     gpu_C_new_half1 = ctx.allocate(N, numpy.complex64)
     gpu_C_half2 = ctx.allocate(N, numpy.complex64)
     d.prepare_for(gpu_C_new_half1, gpu_C_half2,
@@ -101,5 +101,5 @@ def test_preprocessing(ctx_and_double):
     d(gpu_C_new_half1, gpu_C_half2, gpu_A_prime, gpu_B_new_prime, coeff, B_param)
     C_new_half1, C_half2 = mock_dummy(A_prime, B_new_prime)
 
-    assert diff(ctx.fromDevice(gpu_C_new_half1), C_new_half1) < 1e-6
-    assert diff(ctx.fromDevice(gpu_C_half2), C_half2) < 1e-6
+    assert diff(ctx.from_device(gpu_C_new_half1), C_new_half1) < 1e-6
+    assert diff(ctx.from_device(gpu_C_half2), C_half2) < 1e-6

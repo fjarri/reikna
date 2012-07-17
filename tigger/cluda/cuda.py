@@ -6,22 +6,32 @@ import pycuda.gpuarray as gpuarray
 import pycuda.driver as cuda
 from pycuda.compiler import SourceModule
 
+import tigger.cluda as cluda
 import tigger.cluda.dtypes as dtypes
+
+
+cuda.init()
 
 
 class CudaContext:
 
-    def __init__(self, device_num=0, fast_math=True, sync=False):
+    @classmethod
+    def create(cls, **kwds):
+        ctx = make_default_context()
+        stream = cuda.Stream()
+        return cls(ctx, stream, **kwds)
+
+    def __init__(self, context, stream, fast_math=True, sync=False):
+        self.api = cluda.API_CUDA
         self.fast_math = fast_math
-        cuda.init()
-        self.context = make_default_context()
-        self.params = CudaDeviceParameters(self.context.get_device())
-        self.stream = None if sync else cuda.Stream()
+        self.context = context
         self.sync = sync
+        self.stream = None if sync else stream
+        self.device_params = CudaDeviceParameters(context.get_device())
 
         self._released = False
 
-    def supportsDtype(self, dtype):
+    def supports_dtype(self, dtype):
         if dtypes.is_double(dtype):
             major, minor = self.context.get_device().compute_capability()
             return (major == 1 and minor == 3) or major >= 2
@@ -31,14 +41,10 @@ class CudaContext:
     def allocate(self, shape, dtype):
         return gpuarray.GPUArray(shape, dtype=dtype)
 
-    def synchronize(self):
-        if not self.sync:
-            self.stream.synchronize()
-
-    def fromDevice(self, arr):
+    def from_device(self, arr):
         return arr.get()
 
-    def toDevice(self, arr):
+    def to_device(self, arr):
         if self.sync:
             return gpuarray.to_gpu(arr)
         else:
@@ -80,9 +86,9 @@ class CudaDeviceParameters:
 
 class CudaModule:
 
-    def __init__(self, env, src):
-        self._env = env
-        options = ['-use_fast_math'] if self._env.fast_math else []
+    def __init__(self, ctx, src):
+        self._ctx = ctx
+        options = ['-use_fast_math'] if self._ctx.fast_math else []
 
         try:
             self._module = SourceModule(src, no_extern_c=True, options=options)
@@ -92,13 +98,13 @@ class CudaModule:
             raise
 
     def __getattr__(self, name):
-        return CudaKernel(self._env, self._module.get_function(name))
+        return CudaKernel(self._ctx, self._module.get_function(name))
 
 
 class CudaKernel:
 
-    def __init__(self, env, kernel):
-        self._env = env
+    def __init__(self, ctx, kernel):
+        self._ctx = ctx
         self._kernel = kernel
 
     def __call__(self, *args, **kwds):
@@ -108,5 +114,5 @@ class CudaKernel:
         shared = kwds.pop('shared', 0)
         assert len(kwds) == 0, "Unknown keyword arguments: " + str(kwds.keys())
 
-        self._kernel(*args, grid=grid, block=block, stream=self._env.stream)
+        self._kernel(*args, grid=grid, block=block, stream=self._ctx.stream)
 

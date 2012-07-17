@@ -22,7 +22,7 @@ class MatrixMul(Computation):
         if self._debug:
             # TODO: this check should be made automatically somewhere in core.transformation
             for dtype in (a.dtype, b.dtype, out.dtype):
-                assert self._env.supportsDtype(dtype)
+                assert self._ctx.supports_dtype(dtype)
 
         bs.out_dtype = out.dtype
         bs.a_dtype = a.dtype
@@ -74,7 +74,7 @@ class MatrixMul(Computation):
         bs = self._basis
 
         bso = bs.block_size_override
-        block_size = self._env.params.smem_banks if bso is None else bso
+        block_size = self._ctx.device_params.smem_banks if bso is None else bso
 
         blocks_per_matrix = min_blocks(bs.a_height, block_size)
         grid = (

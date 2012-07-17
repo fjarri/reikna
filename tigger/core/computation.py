@@ -9,8 +9,8 @@ from tigger.core.transformation import *
 
 class Computation:
 
-    def __init__(self, env, debug=False):
-        self._env = env
+    def __init__(self, ctx, debug=False):
+        self._ctx = ctx
         self._debug = debug
 
         self._basis = self._get_default_basis()
@@ -82,7 +82,7 @@ class Computation:
         self._operations = self._construct_kernels()
         self._tr_tree.propagate_to_leaves(self._get_base_values())
         for operation in self._operations:
-            operation.set_env(self._env)
+            operation.set_ctx(self._ctx)
         self._construct_transformations()
 
     def _construct_transformations(self):
@@ -144,16 +144,16 @@ class KernelCall:
         self.src = base_src
         self.shared = shared
 
-    def set_env(self, env):
-        self.env = env
-        self.prelude = render_prelude(env)
+    def set_ctx(self, ctx):
+        self.ctx = ctx
+        self.prelude = render_prelude(ctx)
 
     def set_transformations(self, tr_code):
         self.tr_code = tr_code
 
     def prepare(self):
         self.full_src = self.prelude + self.tr_code + self.src
-        self.module = self.env.compile(self.full_src)
+        self.module = self.ctx.compile(self.full_src)
         self.kernel = getattr(self.module, self.name)
 
     def __call__(self, *args):

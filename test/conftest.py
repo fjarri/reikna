@@ -44,7 +44,7 @@ def get_apis(metafunc):
     api = metafunc.config.option.api
 
     if api == "supported":
-        apis = [name for name in ('cuda', 'ocl') if cluda.supports_api(name)]
+        apis = [name for name in (cluda.API_CUDA, cluda.API_OCL) if cluda.supports_api(name)]
     else:
         if not cluda.supports_api(api):
             raise Exception("Requested API " + api + " is not supported.")
@@ -94,7 +94,7 @@ def get_contexts_and_doubles(metafunc, ccs, cc_ids):
     if d == "supported":
         for cc_and_id, dv in product(zip(ccs, cc_ids), [False, True]):
             cc, cc_id = cc_and_id
-            if not dv or cc().supportsDtype(numpy.float64):
+            if not dv or cc().supports_dtype(numpy.float64):
                 vals.append((cc, dv))
                 ids.append(cc_id + "," + ds(dv))
     else:

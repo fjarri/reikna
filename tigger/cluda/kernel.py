@@ -41,7 +41,7 @@ class FuncCollector:
 
 
 def render_prelude(env):
-    return _PRELUDE.render(api=env.params.api)
+    return _PRELUDE.render(api=env.api)
 
 def render_without_funcs(template, func_c, **kwds):
     try:

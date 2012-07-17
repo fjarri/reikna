@@ -11,8 +11,11 @@ import tigger.cluda.dtypes as dtypes
 
 class OclContext:
 
-    def __init__(self, device_num=0, fast_math=True, sync=False):
-        self.fast_math = fast_math
+    @classmethod
+    def create(cls, **kwds):
+
+        # cl.create_some_context() creates multiple-device context,
+        # and we do not want that (yet)
 
         platforms = cl.get_platforms()
         target_device = None
@@ -26,12 +29,20 @@ class OclContext:
             if target_device is not None:
                 break
 
-        self.context = cl.Context(devices=[target_device])
-        self.queue = cl.CommandQueue(self.context)
-        self.sync = sync
-        self.params = OclDeviceParameters(self.context.get_info(cl.context_info.DEVICES)[0])
+        ctx = cl.Context(devices=[target_device])
+        queue = cl.CommandQueue(ctx)
 
-    def supportsDtype(self, dtype):
+        return cls(ctx, queue, **kwds)
+
+    def __init__(self, context, queue, fast_math=True, sync=False):
+        self.api = cluda.API_OCL
+        self.fast_math = fast_math
+        self.context = context
+        self.queue = queue
+        self.sync = sync
+        self.device_params = OclDeviceParameters(context.get_info(cl.context_info.DEVICES)[0])
+
+    def supports_dtype(self, dtype):
         if dtypes.is_double(dtype):
             extensions = self.context.devices[0].extensions
             return "cl_khr_fp64" in extensions or "cl_amd_fp64" in extensions
@@ -41,13 +52,19 @@ class OclContext:
     def allocate(self, shape, dtype):
         return clarray.Array(self.queue, shape, dtype=dtype)
 
-    def fromDevice(self, arr):
+    def from_device(self, arr):
         return arr.get()
 
-    def toDevice(self, arr):
+    def synchronize(self):
+        self.queue.finish()
+
+    def _synchronize(self):
+        if not self.sync:
+            self.synchronize()
+
+    def to_device(self, arr):
         res = clarray.to_device(self.queue, arr)
-        if self.sync:
-            self.queue.finish()
+        self._synchronize()
         return res
 
     def release(self):
@@ -73,9 +90,9 @@ class OclDeviceParameters:
 
 class OclModule:
 
-    def __init__(self, env, src):
-        self._env = env
-        options = "-cl-mad-enable -cl-fast-relaxed-math" if env.fast_math else ""
+    def __init__(self, ctx, src):
+        self._ctx = ctx
+        options = "-cl-mad-enable -cl-fast-relaxed-math" if ctx.fast_math else ""
 
         # Casting source code to ASCII explicitly
         # New versions of Mako produce Unicode output by default,
@@ -83,20 +100,20 @@ class OclModule:
         src = str(src)
 
         try:
-            self._module = cl.Program(env.context, src).build(options=options)
+            self._module = cl.Program(ctx.context, src).build(options=options)
         except:
             listing = "\n".join([str(i+1) + ":" + l for i, l in enumerate(src.split('\n'))])
             error("Failed to compile:\n" + listing)
             raise
 
     def __getattr__(self, name):
-        return OclKernel(self._env, getattr(self._module, name))
+        return OclKernel(self._ctx, getattr(self._module, name))
 
 
 class OclKernel:
 
-    def __init__(self, env, kernel):
-        self._env = env
+    def __init__(self, ctx, kernel):
+        self._ctx = ctx
         self._kernel = kernel
 
     def __call__(self, *args, **kwds):
@@ -111,4 +128,5 @@ class OclKernel:
         # Unlike PyCuda, PyOpenCL does not allow passing array objects as is
         args = [x.data if isinstance(x, clarray.Array) else x for x in args]
 
-        self._kernel(self._env.queue, global_size, block, *args)
+        self._kernel(self._ctx.queue, global_size, block, *args)
+        self._ctx._synchronize()
