@@ -9,7 +9,7 @@ import tigger.cluda as cluda
 import tigger.cluda.dtypes as dtypes
 
 
-class OclContext:
+class Context:
 
     @classmethod
     def create(cls, **kwds):
@@ -19,12 +19,12 @@ class OclContext:
 
         platforms = cl.get_platforms()
         target_device = None
-        for p in platforms:
-            devices = p.get_devices()
-            for d in devices:
-                params = OclDeviceParameters(d)
+        for platform in platforms:
+            devices = platform.get_devices()
+            for device in devices:
+                params = DeviceParameters(device)
                 if params.max_block_size > 1:
-                    target_device = d
+                    target_device = device
                     break
             if target_device is not None:
                 break
@@ -40,7 +40,7 @@ class OclContext:
         self.context = context
         self.queue = queue
         self.sync = sync
-        self.device_params = OclDeviceParameters(context.get_info(cl.context_info.DEVICES)[0])
+        self.device_params = DeviceParameters(context.get_info(cl.context_info.DEVICES)[0])
 
     def supports_dtype(self, dtype):
         if dtypes.is_double(dtype):
@@ -71,10 +71,10 @@ class OclContext:
         pass
 
     def compile(self, src):
-        return OclModule(self, src)
+        return Module(self, src)
 
 
-class OclDeviceParameters:
+class DeviceParameters:
 
     def __init__(self, device):
         self.max_block_size = device.get_info(cl.device_info.MAX_WORK_GROUP_SIZE)
@@ -85,10 +85,8 @@ class OclDeviceParameters:
         self.smem_banks = 16
         self.warp_size = 32
 
-        self.api = 'ocl'
 
-
-class OclModule:
+class Module:
 
     def __init__(self, ctx, src):
         self._ctx = ctx
@@ -107,10 +105,10 @@ class OclModule:
             raise
 
     def __getattr__(self, name):
-        return OclKernel(self._ctx, getattr(self._module, name))
+        return Kernel(self._ctx, getattr(self._module, name))
 
 
-class OclKernel:
+class Kernel:
 
     def __init__(self, ctx, kernel):
         self._ctx = ctx

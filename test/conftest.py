@@ -11,7 +11,7 @@ pytest_plugins = ['pytest_returnvalues']
 def pytest_addoption(parser):
     parser.addoption("--api", action="store",
         help="API: cuda/ocl/supported",
-        default="supported", choices=["cuda", "ocl", "supported"])
+        default="supported", choices=cluda.APIS + ["supported"])
     parser.addoption("--double", action="store",
         help="Use doubles: no/yes/supported",
         default="supported", choices=["no", "yes", "supported"])
@@ -25,7 +25,11 @@ def pytest_funcarg__ctx_and_double(request):
     """
     cc, dv = request.param
     ctx = cc()
-    request.addfinalizer(lambda: ctx.release())
+    def release():
+        print "releasing"
+        ctx.release()
+    #request.addfinalizer(lambda: ctx.release())
+    request.addfinalizer(release)
     return ctx, dv
 
 def pytest_funcarg__ctx(request):
@@ -34,7 +38,11 @@ def pytest_funcarg__ctx(request):
     """
     cc = request.param
     ctx = cc()
-    request.addfinalizer(lambda: ctx.release())
+    def release():
+        print "releasing"
+        ctx.release()
+    #request.addfinalizer(lambda: ctx.release())
+    request.addfinalizer(release)
     return ctx
 
 def get_apis(metafunc):
@@ -44,7 +52,7 @@ def get_apis(metafunc):
     api = metafunc.config.option.api
 
     if api == "supported":
-        apis = [name for name in (cluda.API_CUDA, cluda.API_OCL) if cluda.supports_api(name)]
+        apis = cluda.supported_apis()
     else:
         if not cluda.supports_api(api):
             raise Exception("Requested API " + api + " is not supported.")
@@ -60,7 +68,7 @@ def get_contexts(metafunc):
         def __init__(self, api, fast_math):
             self.fast_math = fast_math
             self.api = api
-            self.create = lambda: cluda.create_context(api, fast_math=fm)
+            self.create = lambda: cluda.api(api).Context.create(fast_math=fm)
 
         def __call__(self):
             return self.create()

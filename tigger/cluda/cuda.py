@@ -13,7 +13,7 @@ import tigger.cluda.dtypes as dtypes
 cuda.init()
 
 
-class CudaContext:
+class Context:
 
     @classmethod
     def create(cls, **kwds):
@@ -28,7 +28,7 @@ class CudaContext:
         self.context = context
         self.sync = sync
         self.stream = None if sync else stream
-        self.device_params = CudaDeviceParameters(context.get_device())
+        self.device_params = DeviceParameters(context.get_device())
 
         self._released = False if owns_context else True
 
@@ -52,7 +52,7 @@ class CudaContext:
             return gpuarray.to_gpu_async(arr, stream=self.stream)
 
     def compile(self, src):
-        return CudaModule(self, src)
+        return Module(self, src)
 
     def release(self):
         if not self._released:
@@ -63,7 +63,7 @@ class CudaContext:
         self.release()
 
 
-class CudaDeviceParameters:
+class DeviceParameters:
 
     def __init__(self, device):
 
@@ -82,10 +82,8 @@ class CudaDeviceParameters:
         self.smem_banks = 16
         self.warp_size = device.get_attribute(cuda.device_attribute.WARP_SIZE)
 
-        self.api = 'cuda'
 
-
-class CudaModule:
+class Module:
 
     def __init__(self, ctx, src):
         self._ctx = ctx
@@ -99,10 +97,10 @@ class CudaModule:
             raise
 
     def __getattr__(self, name):
-        return CudaKernel(self._ctx, self._module.get_function(name))
+        return Kernel(self._ctx, self._module.get_function(name))
 
 
-class CudaKernel:
+class Kernel:
 
     def __init__(self, ctx, kernel):
         self._ctx = ctx
