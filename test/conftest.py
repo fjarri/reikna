@@ -30,16 +30,30 @@ def pytest_funcarg__ctx_and_double(request):
 
 def pytest_funcarg__ctx(request):
     """
-    Create context before call to test and release it when the test ends
+    Create context before call to test and release it when the test ends.
     """
     cc = request.param
     ctx = cc()
     request.addfinalizer(lambda: ctx.release())
     return ctx
 
+def get_apis(metafunc):
+    """
+    Get list of APIs to test, based on command line options and their availability.
+    """
+    api = metafunc.config.option.api
+
+    if api == "supported":
+        apis = [name for name in ('cuda', 'ocl') if cluda.supports_api(name)]
+    else:
+        if not cluda.supports_api(api):
+            raise Exception("Requested API " + api + " is not supported.")
+        apis = [api]
+    return apis
+
 def get_contexts(metafunc):
     """
-    Create a list of context creators and corresponding ids to parameterize tests
+    Create a list of context creators and corresponding ids to parameterize tests.
     """
 
     class CtxCreator:
@@ -54,18 +68,9 @@ def get_contexts(metafunc):
         def __str__(self):
             return self.api + (",fm" if self.fast_math else "")
 
-    api = metafunc.config.option.api
+    apis = get_apis(metafunc)
+
     fm = metafunc.config.option.fast_math
-
-    if api == "supported":
-        apis = []
-        for name in ('cuda', 'ocl'):
-            if cluda.supports_api(name): apis.append(name)
-    else:
-        if not cluda.supports_api(api):
-            raise Exception("Requested API " + api + " is not supported.")
-        apis = [api]
-
     if fm == "both":
         fms = [False, True]
     elif fm == "no":
@@ -110,3 +115,7 @@ def pytest_generate_tests(metafunc):
     if 'ctx' in metafunc.funcargnames:
         ccs, cc_ids = get_contexts(metafunc)
         metafunc.parametrize('ctx', ccs, ids=cc_ids, indirect=True)
+
+    if 'cluda_api' in metafunc.funcargnames:
+        apis = get_apis(metafunc)
+        metafunc.parametrize('cluda_api', apis)
