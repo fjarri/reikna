@@ -9,7 +9,8 @@ Website/documentation:
 CLUDA:
 
 * TODO: is CLUDA even a good name?
-* TODO: are dtype-ctype correspondences specific to the device?
+* TODO: implement proper dtype-ctype correspondences (like in compyte)
+* TODO: supports_dtype() method should be extended to check for availability of other types (i.e. no floats/ints with size lesser than 4 are available, although they exist in numpy)
 * FIXME: add a warning in docs that CPU array used in async operations must be pagelocked
 * TODO: get number of shared memory banks from device
 * TODO: get warp size from device
@@ -57,8 +58,6 @@ Website/documentation:
 
 CLUDA:
 
-* FIXME: decide on the range of cases handled by func.cast()
-* TODO: supports_dtype() method should be extended to check for availability of other types (i.e. no floats/ints with size lesser than 4 are available, although they exist in numpy)
 * TODO: CLUDA should be useable even by itself, for creating API-independent kernels
 
 Core:
