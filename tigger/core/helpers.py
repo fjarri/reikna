@@ -18,7 +18,7 @@ class AttrDict(dict):
 
 def template_for(filename):
     name, ext = os.path.splitext(filename)
-    return Template(filename=name + ".cluda.mako")
+    return Template(filename=name + ".mako")
 
 def min_blocks(length, block):
     return (length - 1) / block + 1

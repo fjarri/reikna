@@ -7,8 +7,8 @@ from mako import exceptions
 
 from tigger.cluda import dtypes
 
-_PRELUDE = Template(filename=os.path.join(os.path.split(__file__)[0], "prelude.cluda.mako"))
-_FUNCTIONS = Template(filename=os.path.join(os.path.split(__file__)[0], "functions.cluda.mako"))
+_PRELUDE = Template(filename=os.path.join(os.path.split(__file__)[0], "prelude.mako"))
+_FUNCTIONS = Template(filename=os.path.join(os.path.split(__file__)[0], "functions.mako"))
 
 
 class FuncCollector:
