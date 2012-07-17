@@ -40,8 +40,8 @@ class FuncCollector:
         return _FUNCTIONS.render(dtypes=dtypes, functions=self.functions)
 
 
-def render_prelude(env):
-    return _PRELUDE.render(api=env.api)
+def render_prelude(ctx):
+    return _PRELUDE.render(api=ctx.api.API_ID)
 
 def render_without_funcs(template, func_c, **kwds):
     try:

@@ -9,6 +9,9 @@ import tigger.cluda as cluda
 import tigger.cluda.dtypes as dtypes
 
 
+API_ID = cluda.API_OCL
+
+
 class Context:
 
     @classmethod
@@ -35,7 +38,7 @@ class Context:
         return cls(ctx, queue, **kwds)
 
     def __init__(self, context, queue, fast_math=True, sync=False):
-        self.api = cluda.API_OCL
+        self.api = cluda.api(API_ID)
         self.fast_math = fast_math
         self.context = context
         self.queue = queue

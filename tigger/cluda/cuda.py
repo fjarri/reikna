@@ -12,6 +12,8 @@ import tigger.cluda.dtypes as dtypes
 
 cuda.init()
 
+API_ID = cluda.API_CUDA
+
 
 class Context:
 
@@ -23,7 +25,7 @@ class Context:
         return cls(ctx, stream, **kwds)
 
     def __init__(self, context, stream, fast_math=True, sync=False, owns_context=False):
-        self.api = cluda.API_CUDA
+        self.api = cluda.api(API_ID)
         self.fast_math = fast_math
         self.context = context
         self.sync = sync
