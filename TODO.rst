@@ -12,6 +12,8 @@ CLUDA:
 * TODO: get number of shared memory banks from device
 * TODO: get warp size from device
 * TODO: does the forceful enabling of double precision in OpenCL somehow change the performance for single precision?
+* TODO: what are we going to do with OpenCL platforms that do not support intra-block interaction?
+  (for example, Apple's implementation)
 
 Core:
 
