@@ -22,3 +22,9 @@ def api(api_id):
         return tigger.cluda.ocl
     else:
         raise Exception("Unrecognized API: " + str(api_id))
+
+def cuda_api():
+    return api(API_CUDA)
+
+def ocl_api():
+    return api(API_OCL)
