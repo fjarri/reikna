@@ -4,6 +4,7 @@ Tutorial
 This section contains brief illustration of what Tigger does.
 For detailed information see corresponding reference pages.
 
+
 CLUDA basics
 ------------
 
@@ -103,25 +104,115 @@ For the complete list of things available in CLUDA, please consult :ref:`CLUDA r
 Computations, user point of view
 --------------------------------
 
+Now it's time for the main part of the functionality.
+Tigger provides GPGPU algorithms in the form of ``Computation`` classes and ``Transformation`` objects.
+Computations contain the algorithm itself; examples are matrix multiplication, reduction, sorting and so on.
+Transformations are elementwise operations on inputs/outputs of computations, used for scaling, typecast and other auxiliary purposes.
+Transformations are compiled into the main computation kernel and are therefore quite cheap in terms of performance.
+
 As an example, we will consider the matrix multiplication.
+
+::
+
+    import numpy
+    from numpy.linalg import norm
+    import tigger.cluda as cluda
+    from tigger.matrixmul import MatrixMul
+
+    api = cluda.cuda_api()
+    ctx = api.Context.create()
+
+    shape1 = (100, 200)
+    shape2 = (200, 100)
+
+    a = numpy.random.randn(*shape1).astype(numpy.float32)
+    b = numpy.random.randn(*shape2).astype(numpy.float32)
+    a_dev = ctx.to_device(a)
+    b_dev = ctx.to_device(b)
+    res_dev = ctx.allocate((shape1[0], shape2[1]), dtype=numpy.float32)
+
+    dot = MatrixMul(ctx).prepare_for(res_dev, a_dev, b_dev)
+    dot(res_dev, a_dev, b_dev)
+
+    res_reference = numpy.dot(a, b)
+
+    print norm(ctx.from_device(res_dev) - res_reference) / norm(res_reference)
+
+Most of the code above should be already familiar, with the exception of the creation of ``MatrixMul`` object.
+As any other class derived from ``Computation``, it requires Tigger context as a constructor argument.
+The context serves as a source of data about the target API and device, and provides an execution stream.
+
+After the creation the object has to be prepared.
+It does not happen automatically, since there are two preparation methods, and since it is pointless to compile a kernel that will not be used anyway.
+First method can be seen in the example above.
+We know (from the documentation) that ``MatrixMul.__call__()`` takes three array parameters, and we ask it to prepare itself to properly handle arrays ``res_dev``, ``a_dev`` and ``b_dev`` when they are passed to it.
+Alternatively, this information can be obtained from console by examining ``signature`` property of the object:
+
+::
+
+    >>> dot = MatrixMul(ctx)
+    >>> dot.signature
+    [('C', ArrayValue(None,None)), ('A', ArrayValue(None,None)), ('B', ArrayValue(None,None))]
+
+The second method is directly specify the parameter basis --- a dictionary of parameters which define all the internal preparations to be done (when ``prepare_for()`` is called, these are derived from its arguments).
+Again, looking at the reference, we can see that ``MatrixMul`` has a dozen of parameters, the most important being input and output arrays types and sizes.
+If, for some reason, actual arrays are not available at the time of preparation, ``prepare()`` with necessary keyword arguments can be called instead.
+
 
 Transformations
 ---------------
 
-Now let us assume you multiply complex matrices, but real and imaginary parts of your data is kept in separate arrays.
+Now imagine that you want to multiply complex matrices, but real and imaginary parts of your data are kept in separate arrays.
 You could create elementwise kernels that would join your data into arrays of complex values, but this would require additional storage and additional calls to GPU.
 Transformation API allows you to connect these transformations to the core computation --- matrix multiplication --- effectively adding the code into the main computation kernel and changing its signature.
 
-- Elementwise pre- and post-processing can be attached to any kernel (derived from Computation class).
-- Pre-processing is invoked when kernel reads from memory, and post-processing is invoked when kernel writes to memory.
-  Pre-processing has to have only one output value, and post-processing has to have only one input value.
-- The transformations are strictly elementwise (the user is limited by {store} and {load} macros, which do not let him specify the index).
-- They can change variable types as long as there is a function that derives output type from input types (for load) or input types from output types (for store); by default these types are equal.
-  Each transformation has to have both type derivations from input to output and from output to input.
-  For example, if user calls prepare(), we will need to derive types "inside out", and with prepare_for() the derivation will go "outside-in".
-  The library should check that all used types are actually supported by the videocard.
-- Since the processing mechanism does not let us change the call signature (like adding out=None to opt for the result array being allocated during the call), we will have to have bot low-level call (with autogenerated signature) and high-level call (with maybe more convenient, but less flexible signature).
-  Autogenerated signature contains only *args, with new parameters added to the end, and new arrays added in place of the ones they are generated from.
-  If there are repetitions in the arg list, only the first encounter is left.
+Let us change the previous example and connect transformations to it.
 
-When computation has some processing attached to it, its signature changes.
+::
+
+    import numpy
+    from numpy.linalg import norm
+    import tigger.cluda as cluda
+    import tigger.cluda.dtypes as dtypes
+    from tigger.matrixmul import MatrixMul
+    from tigger import Transformation
+
+    api = cluda.cuda_api()
+    ctx = api.Context.create()
+
+    shape1 = (100, 200)
+    shape2 = (200, 100)
+
+    a_re = numpy.random.randn(*shape1).astype(numpy.float32)
+    a_im = numpy.random.randn(*shape1).astype(numpy.float32)
+    b_re = numpy.random.randn(*shape2).astype(numpy.float32)
+    b_im = numpy.random.randn(*shape2).astype(numpy.float32)
+    a_re_dev, a_im_dev, b_re_dev, b_im_dev = [ctx.to_device(x) for x in [a_re, a_im, b_re, b_im]]
+
+    res_dev = ctx.allocate((shape1[0], shape2[1]), dtype=numpy.complex64)
+
+    dot = MatrixMul(ctx)
+
+    split_to_interleaved = Transformation(
+        load=2, store=1,
+        derive_s_from_lp=lambda l1, l2: [dtypes.complex_for(l1)],
+        derive_lp_from_s=lambda s1: ([dtypes.real_for(s1), dtypes.real_for(s1)], []),
+        code="""
+            ${store.s1}(${dtypes.complex_ctr(numpy.complex64)}(${load.l1}, ${load.l2}));
+        """)
+    dot.connect(split_to_interleaved, 'A', ['A_re', 'A_im'])
+    dot.connect(split_to_interleaved, 'B', ['B_re', 'B_im'])
+    dot.prepare_for(res_dev, a_re_dev, a_im_dev, b_re_dev, b_im_dev)
+
+    dot(res_dev, a_re_dev, a_im_dev, b_re_dev, b_im_dev)
+
+    res_reference = numpy.dot(a_re + 1j * a_im, b_re + 1j * b_im)
+
+    print norm(ctx.from_device(res_dev) - res_reference) / norm(res_reference)
+
+This requires a bit of explanation.
+First, we create a transformation ``split_to_interleaved`` with two inputs and one output.
+Next two parameters are type derivation functions --- they will be used internally to derive basis from ``prepare_for()`` arguments, and signature types from the basis, respectively.
+Code is a small Mako template, which uses two inputs ``${load.l1}`` and ``${load.l2}``, passes them to the complex number constructor and stores the result in ``${store.s1}``.
+This transformation is then attached to endpoints ``A`` and ``B`` --- the input values of basic ``MatrixMul`` computation.
+Finally, we call ``prepare_for()`` which now has a new signature, and the resulting ``dot`` object now works with split complex numbers.
