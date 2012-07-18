@@ -36,6 +36,9 @@ def ctype(dtype):
 def complex_for(dtype):
     return numpy.dtype(dict(float32='complex64', float64='complex128')[numpy.dtype(dtype).name])
 
+def real_for(dtype):
+    return numpy.dtype(dict(complex64='float32', complex128='float64')[numpy.dtype(dtype).name])
+
 def complex_ctr(dtype):
     return 'COMPLEX_CTR(' + ctype(dtype) + ')'
 
