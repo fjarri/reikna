@@ -25,11 +25,7 @@ def pytest_funcarg__ctx_and_double(request):
     """
     cc, dv = request.param
     ctx = cc()
-    def release():
-        print "releasing"
-        ctx.release()
-    #request.addfinalizer(lambda: ctx.release())
-    request.addfinalizer(release)
+    request.addfinalizer(lambda: ctx.release())
     return ctx, dv
 
 def pytest_funcarg__ctx(request):
@@ -38,11 +34,7 @@ def pytest_funcarg__ctx(request):
     """
     cc = request.param
     ctx = cc()
-    def release():
-        print "releasing"
-        ctx.release()
-    #request.addfinalizer(lambda: ctx.release())
-    request.addfinalizer(release)
+    request.addfinalizer(lambda: ctx.release())
     return ctx
 
 def get_api_ids(metafunc):
