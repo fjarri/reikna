@@ -1,6 +1,10 @@
 import numpy
 from tigger.cluda import dtypes
 
+
+SINGLE_EPS = 1e-6
+
+
 def getTestArray(shape, dtype):
     get_arr = lambda: numpy.random.normal(size=shape).astype(dtype)
 
