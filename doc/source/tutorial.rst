@@ -91,6 +91,12 @@ The template engine of choice in Tigger is `Mako <http://www.makotemplates.org>`
 Here we passed ``dtype`` and ``ctype`` values to the template, and used ``dtype`` to get the complex number multiplication function (``func`` is one of the "built-in" values that are available in CLUDA templates).
 Alternatively, we could call ``dtypes.ctype()`` inside the template, as ``dtypes`` module is available there too.
 
+You may have notice that CLUDA context is created by means of a static method and not using the constructor.
+The constructor is reserved for more usual scenario, where you want to include some Tigger functionality in your bigger script, and want it to use the existing context and stream/queue.
+The ``Context`` constructor takes the PyCuda/PyOpenCL context and, optionally, the ``Stream``/``CommandQueue`` object as a ``stream`` parameter.
+All further operations with the Tigger context will be performed using given context and stream.
+If ``stream`` is not given, an internal stream will be created.
+
 For the complete list of things available in CLUDA, please consult :ref:`CLUDA reference <cluda-reference>`.
 
 
