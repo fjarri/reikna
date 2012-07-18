@@ -216,3 +216,10 @@ Next two parameters are type derivation functions --- they will be used internal
 Code is a small Mako template, which uses two inputs ``${load.l1}`` and ``${load.l2}``, passes them to the complex number constructor and stores the result in ``${store.s1}``.
 This transformation is then attached to endpoints ``A`` and ``B`` --- the input values of basic ``MatrixMul`` computation.
 Finally, we call ``prepare_for()`` which now has a new signature, and the resulting ``dot`` object now works with split complex numbers.
+
+
+Computations, developer point of view
+-------------------------------------
+
+This part is currently under construction.
+For examples please refer to ``matrixmul.py`` and ``dummy.py``.
