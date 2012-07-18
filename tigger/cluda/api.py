@@ -4,7 +4,7 @@ APIS = [API_CUDA, API_OCL]
 
 def supports_api(api_id):
     try:
-        get_api(api_id)
+        api(api_id)
     except ImportError:
         return False
 
