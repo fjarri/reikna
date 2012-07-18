@@ -33,17 +33,20 @@ class Context:
                 break
 
         ctx = cl.Context(devices=[target_device])
-        queue = cl.CommandQueue(ctx)
 
-        return cls(ctx, queue, **kwds)
+        return cls(ctx, **kwds)
 
-    def __init__(self, context, queue, fast_math=True, sync=False):
+    def __init__(self, context, stream=None, fast_math=True, async=True):
         self.api = cluda.api(API_ID)
         self.fast_math = fast_math
         self.context = context
-        self.queue = queue
-        self.sync = sync
+        self.async = async
         self.device_params = DeviceParameters(context.get_info(cl.context_info.DEVICES)[0])
+
+        self._queue = self.create_stream() if stream is None else stream
+
+    def create_stream(self):
+        return cl.CommandQueue(self.context)
 
     def supports_dtype(self, dtype):
         if dtypes.is_double(dtype):
@@ -53,20 +56,20 @@ class Context:
             return True
 
     def allocate(self, shape, dtype):
-        return clarray.Array(self.queue, shape, dtype=dtype)
+        return clarray.Array(self._queue, shape, dtype=dtype)
 
     def from_device(self, arr):
         return arr.get()
 
     def synchronize(self):
-        self.queue.finish()
+        self._queue.finish()
 
     def _synchronize(self):
-        if not self.sync:
+        if not self.async:
             self.synchronize()
 
     def to_device(self, arr):
-        res = clarray.to_device(self.queue, arr)
+        res = clarray.to_device(self._queue, arr)
         self._synchronize()
         return res
 
@@ -129,5 +132,5 @@ class Kernel:
         # Unlike PyCuda, PyOpenCL does not allow passing array objects as is
         args = [x.data if isinstance(x, clarray.Array) else x for x in args]
 
-        self._kernel(self._ctx.queue, global_size, block, *args)
+        self._kernel(self._ctx._queue, global_size, block, *args)
         self._ctx._synchronize()

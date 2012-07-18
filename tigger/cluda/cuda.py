@@ -24,15 +24,18 @@ class Context:
         kwds['owns_context'] = True
         return cls(ctx, stream, **kwds)
 
-    def __init__(self, context, stream, fast_math=True, sync=False, owns_context=False):
+    def __init__(self, context, stream=None, fast_math=True, async=True, owns_context=False):
         self.api = cluda.api(API_ID)
         self.fast_math = fast_math
         self.context = context
-        self.sync = sync
-        self.stream = None if sync else stream
+        self.async = async
         self.device_params = DeviceParameters(context.get_device())
 
+        self._stream = self.create_stream() if stream is None else stream
         self._released = False if owns_context else True
+
+    def create_stream(self):
+        return cuda.Stream()
 
     def supports_dtype(self, dtype):
         if dtypes.is_double(dtype):
@@ -47,11 +50,18 @@ class Context:
     def from_device(self, arr):
         return arr.get()
 
+    def synchronize(self):
+        self._stream.synchronize()
+
+    def _synchronize(self):
+        if not self.async:
+            self.synchronize()
+
     def to_device(self, arr):
-        if self.sync:
-            return gpuarray.to_gpu(arr)
+        if self.async:
+            return gpuarray.to_gpu_async(arr, stream=self._stream)
         else:
-            return gpuarray.to_gpu_async(arr, stream=self.stream)
+            return gpuarray.to_gpu(arr)
 
     def compile(self, src):
         return Module(self, src)
@@ -115,5 +125,5 @@ class Kernel:
         shared = kwds.pop('shared', 0)
         assert len(kwds) == 0, "Unknown keyword arguments: " + str(kwds.keys())
 
-        self._kernel(*args, grid=grid, block=block, stream=self._ctx.stream, shared=shared)
+        self._kernel(*args, grid=grid, block=block, stream=self._ctx._stream, shared=shared)
 
