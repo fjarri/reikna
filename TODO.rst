@@ -56,10 +56,6 @@ Website/documentation:
 
 * TODO: add basic CLUDA documentation
 
-CLUDA:
-
-* TODO: CLUDA should be useable even by itself, for creating API-independent kernels
-
 Core:
 
 * FIXME: add endpoint validity check to Computation.connect().
@@ -82,7 +78,6 @@ Computations:
 Tests:
 
 * TODO: check computation signatures for correctness (when I decide on the format)
-* TODO: add tests for basic CLUDA functionality
 
 
 Computation provider (long-term goal)
