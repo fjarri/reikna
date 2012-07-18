@@ -8,6 +8,9 @@ The main design goals are:
 * separation of the preparation and execution stage, maximizing the performance of the execution stage at the expense of the preparation stage (in other words, aiming at large simulations)
 * partial abstraction from Cuda/OpenCL
 
+Tigger is hosted `on GitHub <http://github.com/Manticore/tigger>`_, issues should be filed there too.
+It is not registered in PyPi at the moment.
+
 Contents
 ========
 
