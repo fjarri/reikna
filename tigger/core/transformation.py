@@ -225,10 +225,17 @@ class TransformationTree:
             for child in node.children:
                 deduce(child)
 
+            # derive type
             child_dtypes = [self.nodes[child].value.dtype for child in node.children]
             tr = node.tr_to_children
             derive_types = tr.derive_l_from_sp if node.type == NODE_STORE else tr.derive_s_from_lp
             node.value.dtype = derive_types(*child_dtypes)[0]
+
+            # derive shape
+            child_shapes = [self.nodes[child].value.shape for child in node.children
+                if hasattr(self.nodes[child].value, 'shape')]
+            assert len(set(child_shapes)) == 1
+            node.value.shape = child_shapes[0]
 
         for name in self.base_names:
             deduce(name)
