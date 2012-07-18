@@ -2,23 +2,23 @@ API_CUDA = 'cuda'
 API_OCL = 'ocl'
 APIS = [API_CUDA, API_OCL]
 
-def supports_api(api):
+def supports_api(api_id):
     try:
-        get_api(api)
+        get_api(api_id)
     except ImportError:
         return False
 
     return True
 
 def supported_apis():
-    return [api for api in (API_CUDA, API_OCL) if supports_api(api)]
+    return [api_id for api_id in (API_CUDA, API_OCL) if supports_api(api_id)]
 
-def get_api(api):
-    if api == API_CUDA:
+def api(api_id):
+    if api_id == API_CUDA:
         import tigger.cluda.cuda
         return tigger.cluda.cuda
-    elif api == API_OCL:
+    elif api_id == API_OCL:
         import tigger.cluda.ocl
         return tigger.cluda.ocl
     else:
-        raise Exception("Unrecognized API: " + str(api))
+        raise Exception("Unrecognized API: " + str(api_id))
