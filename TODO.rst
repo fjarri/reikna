@@ -35,6 +35,7 @@ Core:
   (Solution: we request the same execution list from Transpose, set argument names - should be a method for that - and incorporate it into our own list)
 * TODO: add support to Allocate as the operation, add internally allocated arrays to arg_dict
 * TODO: cool feature: process the list and remove unnecessary allocations, replacing them by creating views
+* TODO: add usual transformations and derivation functions for convenience
 
 Computations:
 
