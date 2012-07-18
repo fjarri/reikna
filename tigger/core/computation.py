@@ -1,7 +1,7 @@
 import numpy
 import os, os.path
 
-from tigger.cluda.kernel import render_prelude, render_kernel
+from tigger.cluda.kernel import render_prelude, render_template
 from tigger.cluda.dtypes import ctype, cast
 import tigger.cluda.dtypes as dtypes
 from tigger.core.transformation import *
@@ -40,7 +40,6 @@ class Computation:
         ctypes_dict = AttrDict({name:ctype(dtype) for name, dtype in dtypes_dict.items()})
 
         render_kwds = dict(
-            dtypes=dtypes,
             basis=self._basis,
             load=PrefixHandler(load_macro_call),
             store=PrefixHandler(store_macro_call),
@@ -53,7 +52,7 @@ class Computation:
         assert set(render_kwds).isdisjoint(set(kwds))
 
         render_kwds.update(kwds)
-        return render_kernel(template, **render_kwds)
+        return render_template(template, **render_kwds)
 
     def _basis_needs_update(self, new_basis):
         for key in new_basis:
@@ -146,13 +145,12 @@ class KernelCall:
 
     def set_ctx(self, ctx):
         self.ctx = ctx
-        self.prelude = render_prelude(ctx)
 
     def set_transformations(self, tr_code):
         self.tr_code = tr_code
 
     def prepare(self):
-        self.full_src = self.prelude + self.tr_code + self.src
+        self.full_src = self.tr_code + self.src
         self.module = self.ctx.compile(self.full_src)
         self.kernel = getattr(self.module, self.name)
 

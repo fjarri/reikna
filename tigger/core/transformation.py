@@ -375,8 +375,7 @@ class TransformationTree:
             ctype = AttrDict({key:dtypes.ctype(dt) for key, dt in dtype.items()})
 
             code_src = render_without_funcs(tr.code, func_c,
-                load=load, store=store, dtype=dtype, ctype=ctype, param=param,
-                numpy=numpy)
+                load=load, store=store, dtype=dtype, ctype=ctype, param=param)
 
             code_list.append("// node " + node.name + "\n" +
                 definition + "\n{\n" + code_src + "\n}\n" +

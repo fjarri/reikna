@@ -7,6 +7,7 @@ import pyopencl.array as clarray
 
 import tigger.cluda as cluda
 import tigger.cluda.dtypes as dtypes
+from tigger.cluda.kernel import render_prelude, render_template_source
 
 
 API_ID = cluda.API_OCL
@@ -58,6 +59,9 @@ class Context:
     def allocate(self, shape, dtype):
         return clarray.Array(self._queue, shape, dtype=dtype)
 
+    def empty_like(self, arr):
+        return self.allocate(arr.shape, arr.dtype)
+
     def from_device(self, arr):
         return arr.get()
 
@@ -76,8 +80,11 @@ class Context:
     def release(self):
         pass
 
-    def compile(self, src):
-        return Module(self, src)
+    def compile_raw(self, src):
+        return Module(self, False, src)
+
+    def compile(self, template_src, **kwds):
+        return Module(self, True, template_src, **kwds)
 
 
 class DeviceParameters:
@@ -94,14 +101,18 @@ class DeviceParameters:
 
 class Module:
 
-    def __init__(self, ctx, src):
+    def __init__(self, ctx, is_template, src, **kwds):
         self._ctx = ctx
         options = "-cl-mad-enable -cl-fast-relaxed-math" if ctx.fast_math else ""
+
+        prelude = render_prelude(self._ctx)
+        if is_template:
+            src = render_template_source(src, **kwds)
 
         # Casting source code to ASCII explicitly
         # New versions of Mako produce Unicode output by default,
         # and it makes OpenCL compiler unhappy
-        src = str(src)
+        src = str(prelude + src)
 
         try:
             self._module = cl.Program(ctx.context, src).build(options=options)

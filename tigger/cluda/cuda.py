@@ -8,6 +8,7 @@ from pycuda.compiler import SourceModule
 
 import tigger.cluda as cluda
 import tigger.cluda.dtypes as dtypes
+from tigger.cluda.kernel import render_prelude, render_template_source
 
 
 cuda.init()
@@ -47,6 +48,9 @@ class Context:
     def allocate(self, shape, dtype):
         return gpuarray.GPUArray(shape, dtype=dtype)
 
+    def empty_like(self, arr):
+        return self.allocate(arr.shape, arr.dtype)
+
     def from_device(self, arr):
         return arr.get()
 
@@ -63,8 +67,11 @@ class Context:
         else:
             return gpuarray.to_gpu(arr)
 
-    def compile(self, src):
-        return Module(self, src)
+    def compile_raw(self, src):
+        return Module(self, False, src)
+
+    def compile(self, template_src, **kwds):
+        return Module(self, True, template_src, **kwds)
 
     def release(self):
         if not self._released:
@@ -97,12 +104,17 @@ class DeviceParameters:
 
 class Module:
 
-    def __init__(self, ctx, src):
+    def __init__(self, ctx, is_template, src, **kwds):
         self._ctx = ctx
         options = ['-use_fast_math'] if self._ctx.fast_math else []
 
+        prelude = render_prelude(self._ctx)
+
+        if is_template:
+            src = render_template_source(src, **kwds)
+
         try:
-            self._module = SourceModule(src, no_extern_c=True, options=options)
+            self._module = SourceModule(prelude + src, no_extern_c=True, options=options)
         except:
             listing = "\n".join([str(i+1) + ":" + l for i, l in enumerate(src.split('\n'))])
             error("Failed to compile:\n" + listing)
