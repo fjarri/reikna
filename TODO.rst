@@ -53,10 +53,6 @@ Computations:
 0.0.1 (prototype version)
 =========================
 
-Website/documentation:
-
-* TODO: add basic CLUDA documentation
-
 Core:
 
 * FIXME: add endpoint validity check to Computation.connect().
