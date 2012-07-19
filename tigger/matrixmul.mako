@@ -5,8 +5,8 @@ KERNEL void matrixmul(${signature})
     // and creating two views for dynamic char* array does not work.
     // Can cause problems if atype/btype have constructors (they will be called in each thread),
     // but as long as we are using POD types, we will be fine.
-    LOCAL_MEM ${ctype.A} As[${block_size ** 2}];
-    LOCAL_MEM ${ctype.B} Bs[${block_size ** 2}];
+    LOCAL_MEM ${ctype.a} As[${block_size ** 2}];
+    LOCAL_MEM ${ctype.b} Bs[${block_size ** 2}];
 
     int bx = GID_0;
     int by = GID_1;
@@ -45,11 +45,12 @@ KERNEL void matrixmul(${signature})
 
     // Csub is used to store the element of the block sub-matrix
     // that is computed by the thread
-    ${ctype.C} Csub = ${dtypes.zero_ctr(dtype.C)};
+    ${ctype.out} Csub = ${dtypes.zero_ctr(dtype.out)};
 
     // Loop over all the sub-matrices of A and B
     // required to compute the block sub-matrix
-    for (int a = aBegin, b = bBegin, step = 0; a <= aEnd; a += aStep, b += bStep, step++)
+    for (int a_idx = aBegin, b_idx = bBegin, step = 0; a_idx <= aEnd;
+        a_idx += aStep, b_idx += bStep, step++)
     {
         // Load the matrices from device memory
         // to shared memory; each thread loads
@@ -60,9 +61,9 @@ KERNEL void matrixmul(${signature})
         int b_y = step * ${block_size} + ty;
 
         As[ty * ${block_size} + tx] = (a_x < ${basis.a_width} && a_y < ${basis.a_height})
-            ? ${load.A}(a + A_shift + ${basis.a_width} * ty + tx) : ${dtypes.zero_ctr(dtype.A)};
+            ? ${load.a}(a_idx + A_shift + ${basis.a_width} * ty + tx) : ${dtypes.zero_ctr(dtype.a)};
         Bs[ty * ${block_size} + tx] = (b_x < ${basis.b_width} && b_y < ${basis.a_width})
-            ? ${load.B}(b + B_shift + ${basis.b_width} * ty + tx) : ${dtypes.zero_ctr(dtype.B)};
+            ? ${load.b}(b_idx + B_shift + ${basis.b_width} * ty + tx) : ${dtypes.zero_ctr(dtype.b)};
 
         local_barrier();
 
@@ -70,7 +71,7 @@ KERNEL void matrixmul(${signature})
         // each thread computes one element
         // of the block sub-matrix
         for (int k = 0; k < ${block_size}; k++)
-            Csub = Csub + ${func.mul(dtype.A, dtype.B, out=dtype.C)}(
+            Csub = Csub + ${func.mul(dtype.a, dtype.b, out=dtype.out)}(
                 As[ty * ${block_size} + k], Bs[k * ${block_size} + tx]);
 
         local_barrier();
@@ -81,5 +82,5 @@ KERNEL void matrixmul(${signature})
     int c_x = ${block_size} * bx + tx;
     int c_y = ${block_size} * by + ty;
     if(c_y < ${basis.a_height} && c_x < ${basis.b_width})
-        ${store.C}(C_shift + ${basis.b_width} * c_y + c_x, Csub);
+        ${store.out}(C_shift + ${basis.b_width} * c_y + c_x, Csub);
 }

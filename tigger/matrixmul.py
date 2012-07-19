@@ -62,11 +62,16 @@ class MatrixMul(Computation):
 
     def _get_base_signature(self):
         bs = self._basis
-        return [('C', ArrayValue(None, bs.out_dtype))], \
+        a_shape = (bs.batch if bs.batched_a else 1, bs.a_height, bs.a_width)
+        b_shape = (bs.batch if bs.batched_b else 1, bs.a_width, bs.b_width)
+
+        return (
+            [('out', ArrayValue(bs.out_shape, bs.out_dtype))],
             [
-                ('A', ArrayValue(None, bs.a_dtype)),
-                ('B', ArrayValue(None, bs.b_dtype))], \
-            []
+                ('a', ArrayValue(a_shape, bs.a_dtype)),
+                ('b', ArrayValue(b_shape, bs.b_dtype))
+            ],
+            [])
 
     def _construct_kernels(self):
         bs = self._basis
@@ -88,6 +93,6 @@ class MatrixMul(Computation):
             )
 
         return [KernelCall(
-            'matrixmul', ['C', 'A', 'B'], src,
+            'matrixmul', ['out', 'a', 'b'], src,
             grid=grid, block=block, shared=shared
         )]
