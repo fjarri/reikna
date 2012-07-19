@@ -39,6 +39,15 @@ Core:
 * TODO: check that types of arrays passed to prepare_for()/received from _get_base_signature() after creating a basis are supported by GPU (eliminates the need to check it in every computation)
 * TODO: prefix variables from signature with something to avoid clashes in code
 * TODO: if None is passed to prepare_for(), transform it to empty ArrayValue/ScalarValue (_construct_basis may work even if some arrays are undefined; for example, result array can be derived from arguments)
+* TODO: there are different kinds of scalar arguments:
+  1) Usual ones, that get passed to the kernel. Their values do not affect basis or kernel set.
+     Example: scaling coefficient
+  2) Operational modes that do not change basis, but can affect kernel set (this can always be replaced by passing them to kernel and let it handle the situation, but it may be slower).
+     Example: 'inverse' in FFT
+  3) Those that affect the basis and/or the kernel set (and cannot be reduced to cases 1 and 2 without noticeably affecting the performance).
+     Example: ???
+  This is connected to the problem of "umbrella" classes that provide more convenient interface for raw computations.
+  Perhaps it should be their problem, and for raw computations we can assume that all scalar arguments are type 1.
 
 Computations:
 
