@@ -71,10 +71,6 @@ Core:
 * TODO: build_arglist() and signature_macro() in transformation.py are almost identical
 * TODO: KernelCall interface looks messy and non-intuitive.
 
-Computations:
-
-* TODO: Do we need to return array shape in _get_base_signature()?
-
 Tests:
 
 * TODO: check computation signatures for correctness (when I decide on the format)
