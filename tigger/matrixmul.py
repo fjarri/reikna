@@ -92,24 +92,3 @@ class MatrixMul(Computation):
             'matrixmul', ['C', 'A', 'B'], src,
             grid=grid, block=block, shared=shared
         )]
-
-
-class MockMatrixMul(MatrixMul):
-
-    def _dot(self, out, a, b):
-        basis = db if self._dynamic else self._basis
-
-        ha, wa, wb, batch, batched_a, batched_b, scale = \
-            basis.a_height, basis.a_width, basis.b_width, \
-            basis.batch, basis.batched_a, basis.batched_b, self._scale
-
-        a_view = a.reshape(batch if batched_a else 1, ha, wa)
-        b_view = b.reshape(batch if batched_b else 1, wa, wb)
-        out_view = out.reshape(batch, ha, wb)
-
-        for i in xrange(batch):
-            a_part = a_view[i] if batched_a else a_view[0]
-            b_part = b_view[i] if batched_b else b_view[0]
-            out_view[i] = numpy.dot(a_part, b_part)
-
-        out_view *= scale
