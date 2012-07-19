@@ -392,8 +392,8 @@ class TransformationTree:
             if name in self.base_names:
                 process(name)
             else:
-                code_list.append(load_macro(name))
-                code_list.append(store_macro(name))
+                code_list.append(leaf_load_macro(name))
+                code_list.append(leaf_store_macro(name))
 
         leaf_names = [name for name, _ in self.leaf_signature()]
         return func_c.render() + "\n\n" + "\n\n".join(code_list) + "\n\n" + signature_macro(leaf_names)
