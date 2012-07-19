@@ -12,22 +12,20 @@ class MatrixMul(Computation):
         return AttrDict(a_dtype=numpy.float32, b_dtype=numpy.float32, out_dtype=numpy.float32,
             a_height=1, a_width=1, b_width=1, batch=1,
             batched_a=False, batched_b=False,
-            block_size_override=None)
+            block_size_override=None,
+            out_shape=(1, 1))
 
     def _construct_basis(self, out, a, b):
 
         bs = AttrDict()
 
-        if self._debug:
-            # TODO: this check should be made automatically somewhere in core.transformation
-            for dtype in (a.dtype, b.dtype, out.dtype):
-                assert self._ctx.supports_dtype(dtype)
+        if out.dtype is None:
+            bs.out_dtype = dtypes.result_type(a.dtype, b.dtype)
+        else:
+            bs.out_dtype = out.dtype
 
-        bs.out_dtype = out.dtype
         bs.a_dtype = a.dtype
         bs.b_dtype = b.dtype
-
-        # Derive shapes
 
         if self._debug:
             assert len(a.shape) >= 2
@@ -38,15 +36,16 @@ class MatrixMul(Computation):
         b_batch = product(b.shape[:-2])
         out_batch = max(a_batch, b_batch)
 
-        if out is None or self._debug:
-            out_shape = (b.shape[:-2] if a_batch == 1 else a.shape[:-2]) + (a.shape[-2], b.shape[-1])
+        if out.shape is None:
+            out_shape = (b.shape[:-2] if a_batch == 1 else a.shape[:-2],
+                a.shape[-2], b.shape[-1])
         else:
             out_shape = out.shape
 
         if self._debug:
             assert a_batch == 1 or b_batch == 1 or a_batch == b_batch
             assert a_batch != b_batch or a.shape[:-2] == b.shape[:-2]
-            if out is not None:
+            if out.shape is not None:
                 assert len(out_shape) >= 2
                 assert out_batch == product(out_shape[:-2])
 
