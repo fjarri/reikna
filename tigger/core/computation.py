@@ -26,6 +26,9 @@ class Computation:
             result.update({name:value for name, value in part})
         return result
 
+    def _get_base_dtypes(self):
+        return {name:value.dtype for name, value in self._get_base_values().items()}
+
     def _render(self, template, **kwds):
 
         class PrefixHandler:
@@ -36,7 +39,7 @@ class Computation:
             def __getattr__(self, name):
                 return self.func(name)
 
-        dtypes_dict = AttrDict(self._get_base_values())
+        dtypes_dict = AttrDict(self._get_base_dtypes())
         ctypes_dict = AttrDict({name:ctype(dtype) for name, dtype in dtypes_dict.items()})
 
         render_kwds = dict(
