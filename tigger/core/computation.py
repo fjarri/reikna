@@ -114,9 +114,16 @@ class Computation:
         new_basis = self._basis_for(args)
         return self.prepare(**new_basis)
 
-    @property
-    def signature(self):
-        return self._tr_tree.leaf_signature()
+    def signature_str(self):
+        """
+        Returns pretty-printed computation signature.
+        This is primarily a debug method.
+        """
+        res = []
+        for name, value in self._tr_tree.leaf_signature():
+            res.append("({argtype}) {name}".format(
+                name=name, argtype=str(value)))
+        return ", ".join(res)
 
     def __call__(self, *args):
         if self._debug:

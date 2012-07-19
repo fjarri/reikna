@@ -67,10 +67,7 @@ def test_preprocessing(ctx_and_double):
         """)
 
     d = Dummy(ctx)
-    #assert d.signature == (
-    #    [('C', numpy.float32)], # outs
-    #    [('A', numpy.float32), ('B', numpy.float32)], # ins
-    #    [('coeff', numpy.float32)])
+    assert d.signature_str() == "(array) C, (array) A, (array) B, (scalar) coeff"
 
     d.connect(a, 'A', ['A_prime']);
     d.connect(b, 'B', ['A_prime', 'B_prime'], ['B_param'])
@@ -79,10 +76,9 @@ def test_preprocessing(ctx_and_double):
     d.connect(a, 'C_half1', ['C_new_half1'])
 
     d.prepare(arr_dtype=numpy.float32, size=N)
-    #assert d.signature == (
-    #    [('C_new_half1', numpy.float32), ('C_half2', numpy.float32)],
-    #    [('A_prime', numpy.float32), ('B_new_prime', numpy.float32)],
-    #    [('coeff', numpy.float32), ('B_param', numpy.int32)])
+    assert d.signature_str() == "(array, float32) C_new_half1, (array, float32) C_half2, " \
+        "(array, float32) A_prime, (array, float32) B_new_prime, " \
+        "(scalar, <type 'numpy.float32'>) coeff, (scalar, <type 'numpy.float32'>) B_param"
 
     A_prime = getTestArray(N, numpy.complex64)
     B_new_prime = getTestArray(N, numpy.complex64)
@@ -92,11 +88,10 @@ def test_preprocessing(ctx_and_double):
     gpu_C_half2 = ctx.allocate(N, numpy.complex64)
     d.prepare_for(gpu_C_new_half1, gpu_C_half2,
         gpu_A_prime, gpu_B_new_prime, numpy.float32(coeff), numpy.int32(B_param))
-    #print d.signature
-    #assert d.signature == (
-    #    [('C_new_half1', numpy.float32), ('C_half2', numpy.float32)],
-    #    [('A_prime', numpy.float32), ('B_new_prime', numpy.float32)],
-    #    [('coeff', numpy.float32), ('B_param', numpy.int32)])
+    assert d.signature_str() == "(array, complex64, (1024,)) C_new_half1, " \
+        "(array, complex64, (1024,)) C_half2, (array, complex64, (1024,)) A_prime, " \
+        "(array, complex64, (1024,)) B_new_prime, (scalar, <type 'numpy.float32'>) coeff, " \
+        "(scalar, <type 'numpy.float32'>) B_param"
 
     d(gpu_C_new_half1, gpu_C_half2, gpu_A_prime, gpu_B_new_prime, coeff, B_param)
     C_new_half1, C_half2 = mock_dummy(A_prime, B_new_prime)
