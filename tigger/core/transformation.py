@@ -84,6 +84,14 @@ class ArrayValue:
         self.dtype = dtype
         self.is_array = True
 
+    def __str__(self):
+        props = ["array"]
+        if self.dtype is not None:
+            props.append(str(self.dtype))
+        if self.shape is not None:
+            props.append(str(self.shape))
+        return ", ".join(props)
+
     def __repr__(self):
         return "ArrayValue(" + repr(self.shape) + "," + repr(self.dtype) + ")"
 
@@ -93,6 +101,12 @@ class ScalarValue:
         self.value = dtypes.cast(dtype)(value) if value is not None else value
         self.dtype = dtype
         self.is_array = False
+
+    def __str__(self):
+        props = ["scalar"]
+        if self.dtype is not None:
+            props.append(str(self.dtype))
+        return ", ".join(props)
 
     def __repr__(self):
         return "ScalarValue(" + repr(self.value) + "," + repr(self.dtype) + ")"
