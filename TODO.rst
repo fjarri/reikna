@@ -48,11 +48,21 @@ Core:
      Example: ???
   This is connected to the problem of "umbrella" classes that provide more convenient interface for raw computations.
   Perhaps it should be their problem, and for raw computations we can assume that all scalar arguments are type 1.
+  Also type 3 parameters can be passed as keywords to prepare_for()/__call__()
 
-Computations:
+Computations, first priority:
 
 * TODO: add elementwise computation
+  (convenient wrapper class)
 * TODO: add reduction
+  (wrapper (for custom reduction statements) + memory allocation operations)
+* TODO: add transposition
+  (will replace dummy as a simple computation for testing transformations)
+* TODO: add sparse reduction
+  (wrapper + memory allocations + call to other computation (transposition))
+
+Computations, second priority:
+
 * TODO: add FFT (and mark pyfft as deprecated)
 * TODO: add DHT
 * TODO: add 3D permutations
