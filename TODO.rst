@@ -36,6 +36,8 @@ Core:
 * TODO: add support to Allocate as the operation, add internally allocated arrays to arg_dict
 * TODO: cool feature: process the list and remove unnecessary allocations, replacing them by creating views
 * TODO: add usual transformations and derivation functions for convenience
+* TODO: check that types of arrays passed to prepare_for()/received from _get_base_signature() after creating a basis are supported by GPU (eliminates the need to check it in every computation)
+* TODO: prefix variables from signature with something to avoid clashes in code
 
 Computations:
 
