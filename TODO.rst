@@ -38,6 +38,7 @@ Core:
 * TODO: add usual transformations and derivation functions for convenience
 * TODO: check that types of arrays passed to prepare_for()/received from _get_base_signature() after creating a basis are supported by GPU (eliminates the need to check it in every computation)
 * TODO: prefix variables from signature with something to avoid clashes in code
+* TODO: if None is passed to prepare_for(), transform it to empty ArrayValue/ScalarValue (_construct_basis may work even if some arrays are undefined; for example, result array can be derived from arguments)
 
 Computations:
 
