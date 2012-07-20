@@ -24,6 +24,9 @@ def result_type(*dtypes):
 def min_scalar_type(val):
     return _promote_dtype(numpy.min_scalar_type(val))
 
+def normalize_types(dtypes):
+    return [numpy.dtype(dtype) for dtype in dtypes]
+
 def ctype(dtype):
     return dict(
         int32='int',
