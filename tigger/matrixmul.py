@@ -7,7 +7,7 @@ TEMPLATE = template_for(__file__)
 class MatrixMul(Computation):
 
     def _get_default_basis(self):
-        return AttrDict(a_dtype=numpy.float32, b_dtype=numpy.float32, out_dtype=numpy.float32,
+        return dict(a_dtype=numpy.float32, b_dtype=numpy.float32, out_dtype=numpy.float32,
             a_height=1, a_width=1, b_width=1, batch=1,
             batched_a=False, batched_b=False,
             block_size_override=None,
