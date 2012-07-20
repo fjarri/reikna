@@ -113,13 +113,8 @@ class Computation:
         self._operations = self._construct_kernels()
         self._tr_tree.propagate_to_leaves(self._get_base_values())
         for operation in self._operations:
-            operation.set_ctx(self._ctx)
-            if not isinstance(operation, KernelCall):
-                continue
-
-            transformation_code = self._tr_tree.transformations_for(operation.argnames)
-            operation.set_transformations(transformation_code)
-            operation.prepare()
+            operation.prepare(self._ctx, self._tr_tree)
+        self._leaf_signature = self._tr_tree.leaf_signature()
 
     def connect(self, tr, array_arg, new_array_args, new_scalar_args=None):
         """
@@ -170,41 +165,35 @@ class Computation:
                 raise ValueError("Given arguments require different basis")
 
         # Assign arguments to names and cast scalar values
-        signature = self._tr_tree.leaf_signature()
         arg_dict = {}
-        for pair, arg in zip(signature, args):
+        for pair, arg in zip(self._leaf_signature, args):
             name, value = pair
-            if isinstance(value, ScalarValue):
+            if not value.is_array:
                 arg = cast(value.dtype)(arg)
             arg_dict[name] = arg
 
         # Call kernels with argument list based on their base arguments
         for operation in self._operations:
-            op_signature = self._tr_tree.leaf_signature(operation.argnames)
-            op_args = [arg_dict[name] for name, _ in op_signature]
+            op_args = [arg_dict[name] for name in operation.leaf_argnames]
             operation(*args)
 
 
 class KernelCall:
 
-    def __init__(self, name, argnames, base_src, block=(1,1,1), grid=(1,1), shared=0):
+    def __init__(self, name, base_argnames, base_src, block=(1,1,1), grid=(1,1), shared=0):
         self.name = name
-        self.argnames = argnames
+        self.base_argnames = base_argnames
         self.block = block
         self.grid = grid
         self.src = base_src
         self.shared = shared
 
-    def set_ctx(self, ctx):
-        self.ctx = ctx
-
-    def set_transformations(self, tr_code):
-        self.tr_code = tr_code
-
-    def prepare(self):
-        self.full_src = self.tr_code + self.src
-        self.module = self.ctx.compile(self.full_src)
+    def prepare(self, ctx, tr_tree):
+        transformation_code = tr_tree.transformations_for(self.base_argnames)
+        self.full_src = transformation_code + self.src
+        self.module = ctx.compile(self.full_src)
         self.kernel = getattr(self.module, self.name)
+        self.leaf_argnames = [name for name, _ in tr_tree.leaf_signature(self.base_argnames)]
 
     def __call__(self, *args):
         self.kernel(*args, block=self.block, grid=self.grid, shared=self.shared)
