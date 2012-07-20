@@ -81,7 +81,7 @@ class ArrayValue:
         self.shape = shape
         if shape is not None:
             self.size = product(shape)
-        self.dtype = dtype
+        self.dtype = numpy.dtype(dtype) if dtype is not None else None
         self.is_array = True
 
     def __str__(self):
@@ -99,7 +99,7 @@ class ArrayValue:
 class ScalarValue:
     def __init__(self, value, dtype):
         self.value = dtypes.cast(dtype)(value) if value is not None else value
-        self.dtype = dtype
+        self.dtype = numpy.dtype(dtype) if dtype is not None else None
         self.is_array = False
 
     def __str__(self):
@@ -272,6 +272,8 @@ class TransformationTree:
             tr = node.tr_to_children
             derive_types = tr.derive_sp_from_l if node.type == NODE_STORE else tr.derive_lp_from_s
             arr_dtypes, scalar_dtypes = derive_types(node.value.dtype)
+            arr_dtypes = dtypes.normalize_types(arr_dtypes)
+            scalar_dtypes = dtypes.normalize_types(scalar_dtypes)
             for child, dtype in zip(node.children, arr_dtypes + scalar_dtypes):
                 child_value = self.nodes[child].value
                 if child_value.dtype is None:
