@@ -39,6 +39,7 @@ Core:
 * CHECK: check that types of arrays passed to prepare_for()/received from _get_base_signature() after creating a basis are supported by GPU (eliminates the need to check it in every computation)
 * TODO: prefix variables from signature with something to avoid clashes in code
 * TODO: if None is passed to prepare_for(), transform it to empty ArrayValue/ScalarValue (_construct_basis may work even if some arrays are undefined; for example, result array can be derived from arguments)
+* TODO: Kernel call can do some preparation before the actuall call (at leas in CUDA case)
 * DECIDE: there are different kinds of scalar arguments:
   1) Usual ones, that get passed to the kernel. Their values do not affect basis or kernel set.
      Example: scaling coefficient
@@ -75,12 +76,10 @@ Computations, second priority:
 0.0.1 (prototype version)
 =========================
 
-Core:
+Transformation:
 
-* CHECK: add endpoint validity check to Computation.connect().
+* CHECK: add endpoint validity check to TransformationTree.connect().
   We can use some of the existing nodes as endpoints, they just need to be not base ones
-* FIX: fix arg assignment in Computation.__call__().
-  Basically, for each kernel call we need to calculate leaf signature (taking into account any internal parameters), and assign args according to this signature.
 * FIX: normalize signature of Transformation.leaf_signature().
   The problem is that if base_name is given, returned signature does not include scalars.
   This should be made more clear.
@@ -88,7 +87,6 @@ Core:
 * DECIDE: instead of passing numpy in Transformation.transformations_for() to give access to datatypes, create a dict with only those types that can be used on GPU and pass it instead.
 * CHECK: sanity checks in TransformationTree.__init__()? (repeating names, correct identifier format)
 * FIX: build_arglist() and signature_macro() in transformation.py are almost identical
-* FIX: KernelCall interface looks messy and non-intuitive.
 
 
 Computation provider (long-term goal)
