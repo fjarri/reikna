@@ -36,6 +36,18 @@ class FuncCollector:
         self.functions[name] = ('mul', (out, dtype1, dtype2))
         return name
 
+    def div(self, dtype1, dtype2, out=None):
+        if out is None:
+            out = numpy.result_type(dtype1, dtype2)
+        ctypes = [dtypes.ctype(dt) for dt in (dtype1, dtype2)]
+        out_ctype = dtypes.ctype(out)
+
+        name = "_{prefix}_div__{out}__{signature}".format(
+            prefix=self.prefix, out=out_ctype, signature = '_'.join(ctypes))
+
+        self.functions[name] = ('div', (out, dtype1, dtype2))
+        return name
+
     def render(self):
         return _FUNCTIONS.render(dtypes=dtypes, functions=self.functions)
 
