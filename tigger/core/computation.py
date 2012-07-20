@@ -13,62 +13,87 @@ class Computation:
         self._ctx = ctx
         self._debug = debug
 
+        # Initialize root nodes of the transformation tree
         self._basis = self._get_default_basis()
         self._tr_tree = TransformationTree(*self._get_base_names())
 
     def _get_base_names(self):
+        """
+        Returns three lists (outs, ins, scalars) with names of base computation parameters.
+        """
         parts = self._get_base_signature()
         return tuple([name for name, _ in part] for part in parts)
 
     def _get_base_values(self):
+        """
+        Returns a dictionary with names and corresponding value objects for
+        base computation parameters.
+        """
         result = {}
         for part in self._get_base_signature():
             result.update({name:value for name, value in part})
         return result
 
     def _get_base_dtypes(self):
+        """
+        Returns a dictionary with names and corresponding dtypes for
+        base computation parameters.
+        """
         return {name:value.dtype for name, value in self._get_base_values().items()}
 
     def _render(self, template, **kwds):
-
-        class PrefixHandler:
-
-            def __init__(self, func=lambda x: x):
-                self.func = func
-
-            def __getattr__(self, name):
-                return self.func(name)
+        """
+        Renders given template of the computation kernel.
+        Called from derived class.
+        """
 
         dtypes_dict = AttrDict(self._get_base_dtypes())
         ctypes_dict = AttrDict({name:ctype(dtype) for name, dtype in dtypes_dict.items()})
 
+        store_names, load_names, param_names = self._get_base_names()
+        load_dict = AttrDict({name:load_macro_call(name) for name in load_names})
+        store_dict = AttrDict({name:store_macro_call(name) for name in store_names})
+        param_dict = AttrDict({name:name for name in param_names})
+
         render_kwds = dict(
             basis=self._basis,
-            load=PrefixHandler(load_macro_call),
-            store=PrefixHandler(store_macro_call),
-            param=PrefixHandler(),
+            load=load_dict,
+            store=store_dict,
+            param=param_dict,
             ctype=ctypes_dict,
             dtype=dtypes_dict,
             signature=signature_macro_name())
 
         # check that user keywords do not overlap with our keywords
-        assert set(render_kwds).isdisjoint(set(kwds))
+        intersection = set(render_kwds).intersection(kwds)
+        if len(intersection) > 0:
+            raise ValueError("Render keywords clash with internal variables: " +
+                ", ".join(intersection))
 
         render_kwds.update(kwds)
         return render_template(template, **render_kwds)
 
     def _basis_needs_update(self, new_basis):
+        """
+        Tells whether ``new_basis`` has some values differing from the current basis.
+        """
         for key in new_basis:
-            assert key in self._basis, "Unknown key: " + key
+            if key not in self._basis:
+                raise KeyError("Unknown basis key: " + key)
             if self._basis[key] != new_basis[key]:
                 return True
 
         return False
 
     def _basis_for(self, args):
+        """
+        Returns the basis necessary for processing given external arguments.
+        """
         pairs = self._tr_tree.leaf_signature()
         assert len(args) == len(pairs)
 
+        # We do not need our args per se, just their properies (types and shapes).
+        # So we are creating mock values to propagate through transformation tree.
         values = {}
         for pair, arg in zip(pairs, args):
             name, value = pair
@@ -80,16 +105,15 @@ class Computation:
         return self._construct_basis(*self._tr_tree.base_values())
 
     def _change_basis(self, new_basis):
+        """
+        Performs all necessary operations corresponding to the change of basis.
+        Updates basis, recreates operations, updates transformation tree.
+        """
         self._basis.update(new_basis)
         self._operations = self._construct_kernels()
         self._tr_tree.propagate_to_leaves(self._get_base_values())
         for operation in self._operations:
             operation.set_ctx(self._ctx)
-        self._construct_transformations()
-
-    def _construct_transformations(self):
-
-        for operation in self._operations:
             if not isinstance(operation, KernelCall):
                 continue
 
@@ -97,20 +121,31 @@ class Computation:
             operation.set_transformations(transformation_code)
             operation.prepare()
 
-    def connect(self, tr, endpoint, new_endpoints, new_scalar_endpoints=None):
-        if new_scalar_endpoints is None: new_scalar_endpoints = []
+    def connect(self, tr, array_arg, new_array_args, new_scalar_args=None):
+        """
+        Connects given transformation to the external array argument.
+        """
 
-        if self._tr_tree.has_array_leaf(endpoint):
-            self._tr_tree.connect(tr, endpoint, new_endpoints, new_scalar_endpoints)
+        if new_scalar_args is None: new_scalar_args = []
+
+        if self._tr_tree.has_array_leaf(array_arg):
+            self._tr_tree.connect(tr, array_arg, new_array_args, new_scalar_args)
         else:
-            raise Exception("Endpoint " + endpoint + " was not found")
+            raise ValueError("Argument " + array_arg +
+                " does not exist or is not suitable for connection")
 
     def prepare(self, **kwds):
+        """
+        Prepares the computation for given basis.
+        """
         if self._basis_needs_update(kwds):
             self._change_basis(kwds)
         return self
 
     def prepare_for(self, *args):
+        """
+        Prepares the computation for given arguments.
+        """
         new_basis = self._basis_for(args)
         return self.prepare(**new_basis)
 
@@ -126,10 +161,13 @@ class Computation:
         return ", ".join(res)
 
     def __call__(self, *args):
+        """
+        Executes computation.
+        """
         if self._debug:
             new_basis = self._basis_for(args)
             if self._basis_needs_update(new_basis):
-                raise Exception("Given arguments require different basis")
+                raise ValueError("Given arguments require different basis")
 
         signature = self._tr_tree.leaf_signature()
         arg_dict = {}
