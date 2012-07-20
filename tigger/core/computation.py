@@ -169,6 +169,7 @@ class Computation:
             if self._basis_needs_update(new_basis):
                 raise ValueError("Given arguments require different basis")
 
+        # Assign arguments to names and cast scalar values
         signature = self._tr_tree.leaf_signature()
         arg_dict = {}
         for pair, arg in zip(signature, args):
@@ -177,7 +178,10 @@ class Computation:
                 arg = cast(value.dtype)(arg)
             arg_dict[name] = arg
 
+        # Call kernels with argument list based on their base arguments
         for operation in self._operations:
+            op_signature = self._tr_tree.leaf_signature(operation.argnames)
+            op_args = [arg_dict[name] for name, _ in op_signature]
             operation(*args)
 
 
