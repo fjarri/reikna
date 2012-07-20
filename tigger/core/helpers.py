@@ -20,6 +20,9 @@ def template_for(filename):
     name, ext = os.path.splitext(filename)
     return Template(filename=name + ".mako")
 
+def template_from(template_str):
+    return Template(template_str)
+
 def min_blocks(length, block):
     return (length - 1) / block + 1
 
