@@ -2,16 +2,16 @@ from itertools import product
 
 import numpy
 
-import tigger.cluda as cluda
-
-
 pytest_plugins = ['pytest_returnvalues']
 
 
 def pytest_addoption(parser):
     parser.addoption("--api", action="store",
         help="API: cuda/ocl/supported",
-        default="supported", choices=cluda.APIS + ["supported"])
+        # can't get API list from CLUDA, because if we import it here,
+        # it messes up with coverage results
+        # (modules get imported before coverage collector starts)
+        default="supported", choices=["cuda", "ocl", "supported"])
     parser.addoption("--double", action="store",
         help="Use doubles: no/yes/supported",
         default="supported", choices=["no", "yes", "supported"])
@@ -41,6 +41,9 @@ def get_api_ids(metafunc):
     """
     Get list of APIs to test, based on command line options and their availability.
     """
+    # if we import it in the header, it messes up with coverage results
+    import tigger.cluda as cluda
+
     api_id = metafunc.config.option.api
 
     if api_id == "supported":
@@ -55,6 +58,8 @@ def get_contexts(metafunc):
     """
     Create a list of context creators and corresponding ids to parameterize tests.
     """
+    # if we import it in the header, it messes up with coverage results
+    import tigger.cluda as cluda
 
     class CtxCreator:
         def __init__(self, api_id, fast_math):
@@ -106,6 +111,8 @@ def get_contexts_and_doubles(metafunc, ccs, cc_ids):
     return vals, ids
 
 def pytest_generate_tests(metafunc):
+    # if we import it in the header, it messes up with coverage results
+    import tigger.cluda as cluda
 
     if 'ctx_and_double' in metafunc.funcargnames:
         ccs, cc_ids = get_contexts(metafunc)
