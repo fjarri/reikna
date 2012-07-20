@@ -14,7 +14,7 @@ class Computation:
         self._debug = debug
 
         # Initialize root nodes of the transformation tree
-        self._basis = self._get_default_basis()
+        self._basis = AttrDict(self._get_default_basis())
         self._tr_tree = TransformationTree(*self._get_base_names())
 
     def _get_base_names(self):
