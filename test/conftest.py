@@ -37,60 +37,61 @@ def pytest_funcarg__ctx(request):
     request.addfinalizer(lambda: ctx.release())
     return ctx
 
-def get_api_ids(metafunc):
+def get_apis(metafunc):
     """
     Get list of APIs to test, based on command line options and their availability.
     """
     # if we import it in the header, it messes up with coverage results
     import tigger.cluda as cluda
 
-    api_id = metafunc.config.option.api
+    conf_api_id = metafunc.config.option.api
 
-    if api_id == "supported":
+    if conf_api_id == "supported":
         api_ids = cluda.supported_apis()
     else:
-        if not cluda.supports_api(api_id):
-            raise Exception("Requested API " + api_id + " is not supported.")
-        api_ids = [api_id]
-    return api_ids
+        if not cluda.supports_api(conf_api_id):
+            raise Exception("Requested API " + conf_api_id + " is not supported.")
+        api_ids = [conf_api_id]
+    apis = [cluda.api(api_id) for api_id in api_ids]
+    return apis, api_ids
 
-def get_contexts(metafunc):
+def get_contexts(metafunc, vary_fast_math=False):
     """
-    Create a list of context creators and corresponding ids to parameterize tests.
+    Create a list of context creators, based on command line options and their availability.
     """
-    # if we import it in the header, it messes up with coverage results
-    import tigger.cluda as cluda
 
     class CtxCreator:
-        def __init__(self, api_id, fast_math):
+        def __init__(self, api, fast_math=None):
             self.fast_math = fast_math
-            self.api_id = api_id
-            self.create = lambda: cluda.api(api_id).Context.create(fast_math=fm)
+            self.api_id = api.API_ID
+            kwds = {} if fast_math is None else {'fast_math':fast_math}
+            self.create = lambda: api.Context.create(**kwds)
 
         def __call__(self):
             return self.create()
 
         def __str__(self):
-            return self.api_id + (",fm" if self.fast_math else "")
+            fm_suffix = {True:",fm", False:",nofm", None:""}[self.fast_math]
+            return self.api_id + fm_suffix
 
-    api_ids = get_api_ids(metafunc)
+    apis, _ = get_apis(metafunc)
 
-    fm = metafunc.config.option.fast_math
-    if fm == "both":
-        fms = [False, True]
-    elif fm == "no":
-        fms = [False]
+    if vary_fast_math:
+        fm = metafunc.config.option.fast_math
+        fms = dict(both=[False, True], no=[False], yes=[True])[fm]
+        ccs = [CtxCreator(api, fast_math=fm) for api, fm in product(apis, fms)]
     else:
-        fms = [True]
+        ccs = [CtxCreator(api) for api in apis]
 
-    ccs = [CtxCreator(api_id, fm) for api_id, fm in product(api_ids, fms)]
     return ccs, [str(cc) for cc in ccs]
 
-def get_contexts_and_doubles(metafunc, ccs, cc_ids):
+def get_contexts_and_doubles(metafunc):
     """
     Create a list of (context creator, use-double) pairs
     and corresponding ids to parameterize tests.
     """
+    ccs, cc_ids = get_contexts(metafunc, vary_fast_math=True)
+
     d = metafunc.config.option.double
     ds = lambda dv: 'dp' if dv else 'sp'
 
@@ -115,14 +116,13 @@ def pytest_generate_tests(metafunc):
     import tigger.cluda as cluda
 
     if 'ctx_and_double' in metafunc.funcargnames:
-        ccs, cc_ids = get_contexts(metafunc)
-        ccs_and_doubles, ids = get_contexts_and_doubles(metafunc, ccs, cc_ids)
-        metafunc.parametrize('ctx_and_double', ccs_and_doubles, ids=ids, indirect=True)
+        pairs, pair_ids = get_contexts_and_doubles(metafunc)
+        metafunc.parametrize('ctx_and_double', pairs, ids=pair_ids, indirect=True)
 
     if 'ctx' in metafunc.funcargnames:
         ccs, cc_ids = get_contexts(metafunc)
         metafunc.parametrize('ctx', ccs, ids=cc_ids, indirect=True)
 
     if 'cluda_api' in metafunc.funcargnames:
-        api_ids = get_api_ids(metafunc)
-        metafunc.parametrize('cluda_api', [cluda.api(api_id) for api_id in api_ids], ids=api_ids)
+        apis, api_ids = get_apis(metafunc)
+        metafunc.parametrize('cluda_api', apis, ids=api_ids)
