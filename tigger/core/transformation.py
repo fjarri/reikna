@@ -281,6 +281,11 @@ class TransformationTree:
                 elif child_value.dtype != dtype:
                     raise Exception("Data type conflict in node " + child +
                         " while propagating types to leaves")
+
+                # currently there is no shape derivation in transformations,
+                # so we can just propagate it without checks
+                child_value.shape = node.value.shape
+
                 propagate(child)
 
         for name in self.base_names:
