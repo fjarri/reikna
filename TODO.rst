@@ -8,38 +8,38 @@ Website/documentation:
 
 CLUDA:
 
-* TODO: is CLUDA even a good name?
-* TODO: implement proper dtype-ctype correspondences (like in compyte)
-* TODO: supports_dtype() method should be extended to check for availability of other types (i.e. no floats/ints with size lesser than 4 are available, although they exist in numpy)
-* FIXME: add a warning in docs that CPU array used in async operations must be pagelocked
+* DECIDE: is CLUDA even a good name?
+* IMPROVE: implement proper dtype-ctype correspondences (like in compyte)
+* IMPROVE: supports_dtype() method should be extended to check for availability of other types (i.e. no floats/ints with size lesser than 4 are available, although they exist in numpy)
+* TODO: add a warning in docs that CPU array used in async operations must be pagelocked
 * TODO: get number of shared memory banks from device
 * TODO: get warp size from device
-* TODO: does the forceful enabling of double precision in OpenCL somehow change the performance for single precision?
-* TODO: what are we going to do with OpenCL platforms that do not support intra-block interaction?
+* DECIDE: does the forceful enabling of double precision in OpenCL somehow change the performance for single precision?
+* DECIDE: what are we going to do with OpenCL platforms that do not support intra-block interaction?
   (for example, Apple's implementation)
 * TODO: add functions for devices/platforms discovery, and generalized analogue of make_some_context (with interactive option, perhaps)
 
 Core:
 
-* TODO: check for errors in load/stores/param usage when connecting transformations?
+* CHECK: check for errors in load/stores/param usage when connecting transformations?
   Alternatively, return more meaningful errors when accessing load/store/parameter with the wrong number.
-* TODO: check for errors in load/stores/param usage in kernels?
+* CHECK: check for errors in load/stores/param usage in kernels?
   Need to see what errors look like in this case.
-* TODO: check correctness of types in Computation.__call__() if _debug is on
-* TODO: add some more "built-in" variables to kernel rendering? Numpy, helpers?
-* TODO: profile Computation.__call__() and see if it takes too long, and if the algorithm of assignment args to endpoints should be improved.
-* TODO: check that the transformation only has one load/store in the place where connection occurs
+* CHECK: check correctness of types in Computation.__call__() if _debug is on
+* DECIDE: add some more "built-in" variables to kernel rendering? Numpy, helpers?
+* DECIDE: profile Computation.__call__() and see if it takes too long, and if the algorithm of assignment args to endpoints should be improved.
+* CHECK: check that the transformation only has one load/store in the place where connection occurs
 * TODO: remove unnecessary whitespace from the transformation code (generated code will look better)
 * TODO: add a global DEBUG variable that will create all computations in debug mode by default
-* TODO: how to handle external calls, like Transpose in Reduce?
+* DECIDE: how to handle external calls, like Transpose in Reduce?
   (Solution: we request the same execution list from Transpose, set argument names - should be a method for that - and incorporate it into our own list)
 * TODO: add support to Allocate as the operation, add internally allocated arrays to arg_dict
 * TODO: cool feature: process the list and remove unnecessary allocations, replacing them by creating views
 * TODO: add usual transformations and derivation functions for convenience
-* TODO: check that types of arrays passed to prepare_for()/received from _get_base_signature() after creating a basis are supported by GPU (eliminates the need to check it in every computation)
+* CHECK: check that types of arrays passed to prepare_for()/received from _get_base_signature() after creating a basis are supported by GPU (eliminates the need to check it in every computation)
 * TODO: prefix variables from signature with something to avoid clashes in code
 * TODO: if None is passed to prepare_for(), transform it to empty ArrayValue/ScalarValue (_construct_basis may work even if some arrays are undefined; for example, result array can be derived from arguments)
-* TODO: there are different kinds of scalar arguments:
+* DECIDE: there are different kinds of scalar arguments:
   1) Usual ones, that get passed to the kernel. Their values do not affect basis or kernel set.
      Example: scaling coefficient
   2) Operational modes that do not change basis, but can affect kernel set (this can always be replaced by passing them to kernel and let it handle the situation, but it may be slower).
@@ -52,8 +52,10 @@ Core:
 
 Computations, first priority:
 
+* DECIDE: create policy for wrapping raw computations into more convenient classes
+* DECIDE: create policy for providing pre-made computations like sin()/cos()
 * TODO: add elementwise computation
-  (convenient wrapper class)
+  (convenient wrapper class, passing code as parameter)
 * TODO: add reduction
   (wrapper (for custom reduction statements) + memory allocation operations)
 * TODO: add transposition
@@ -68,8 +70,6 @@ Computations, second priority:
 * TODO: add 3D permutations
 * TODO: add random number generation (MD5 and DCMT seem to be the best candidates)
 * TODO: add bitonic sort
-* TODO: create policy for wrapping raw computations into more convenient classes
-* TODO: create policy for providing pre-made computations like sin()/cos()
 
 
 0.0.1 (prototype version)
@@ -77,18 +77,18 @@ Computations, second priority:
 
 Core:
 
-* FIXME: add endpoint validity check to Computation.connect().
+* CHECK: add endpoint validity check to Computation.connect().
   We can use some of the existing nodes as endpoints, they just need to be not base ones
-* FIXME: fix arg assignment in Computation.__call__().
+* FIX: fix arg assignment in Computation.__call__().
   Basically, for each kernel call we need to calculate leaf signature (taking into account any internal parameters), and assign args according to this signature.
-* FIXME: normalize signature of Transformation.leaf_signature().
+* FIX: normalize signature of Transformation.leaf_signature().
   The problem is that if base_name is given, returned signature does not include scalars.
   This should be made more clear.
-* FIXME: is it good to create new Scalar/ArrayValues in Transformation._clear_values?
-* FIXME: instead of passing numpy in Transformation.transformations_for() to give access to datatypes, create a dict with only those types that can be used on GPU and pass it instead.
-* TODO: sanity checks in TransformationTree.__init__()? (repeating names, correct identifier format)
-* TODO: build_arglist() and signature_macro() in transformation.py are almost identical
-* TODO: KernelCall interface looks messy and non-intuitive.
+* DECIDE: is it good to create new Scalar/ArrayValues in Transformation._clear_values?
+* DECIDE: instead of passing numpy in Transformation.transformations_for() to give access to datatypes, create a dict with only those types that can be used on GPU and pass it instead.
+* CHECK: sanity checks in TransformationTree.__init__()? (repeating names, correct identifier format)
+* FIX: build_arglist() and signature_macro() in transformation.py are almost identical
+* FIX: KernelCall interface looks messy and non-intuitive.
 
 
 Computation provider (long-term goal)
