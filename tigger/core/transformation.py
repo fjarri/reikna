@@ -178,19 +178,26 @@ class TransformationTree:
 
         self.base_names = stores + loads + scalars
 
-    def leaf_signature(self, base_name=None):
+    def leaf_signature(self, base_names=None):
         visited = set()
         arrays = []
+        scalars = []
 
-        if base_name is None:
-            scalars = [name for name in self.base_names if not self.nodes[name].value.is_array]
-        else:
-            scalars = []
+        if base_names is None:
+            base_names = self.base_names
 
         def visit(names):
             for name in names:
-                if name in visited: continue
+                if name in visited:
+                    continue
                 visited.add(name)
+
+                # assuming that if we got a name not from the tree,
+                # it is a temporary array
+                if name not in self.nodes:
+                    arrays.append(name)
+                    continue
+
                 node = self.nodes[name]
                 if node.children is None:
                     arrays.append(name)
@@ -202,19 +209,16 @@ class TransformationTree:
                         if not self.nodes[name].value.is_array]
                     scalars.extend(scalar_children)
 
-        if base_name is None:
-            array_names = [name for name in self.base_names if self.nodes[name].value.is_array]
-            visit(array_names)
-        else:
-            visit([base_name])
+        visit(base_names)
 
-        return [(name, self.nodes[name].value) for name in arrays + scalars]
+        return [(name, self.nodes[name].value if name in self.nodes else None)
+            for name in arrays + scalars]
 
     def base_values(self):
         return [self.nodes[name].value for name in self.base_names]
 
     def all_children(self, name):
-        return [name for name, _ in self.leaf_signature(name)]
+        return [name for name, _ in self.leaf_signature([name])]
 
     def _clear_values(self):
         for name in self.nodes:
