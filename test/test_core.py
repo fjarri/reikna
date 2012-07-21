@@ -301,7 +301,7 @@ def test_transformations_work(ctx):
     d.prepare_for(
         gpu_C_new_half1, gpu_C_half2, gpu_D_prime,
         gpu_A_prime, gpu_B_new_prime,
-        numpy.float32(coeff), numpy.int32(D_param), numpy.int32(B_param))
+        coeff, D_param, B_param)
 
     d(gpu_C_new_half1, gpu_C_half2, gpu_D_prime,
         gpu_A_prime, gpu_B_new_prime, coeff, D_param, B_param)
