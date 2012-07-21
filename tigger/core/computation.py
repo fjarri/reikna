@@ -7,6 +7,10 @@ import tigger.cluda.dtypes as dtypes
 from tigger.core.transformation import *
 
 
+class NotPreparedError(Exception):
+    pass
+
+
 class Computation:
 
     def __init__(self, ctx, debug=False):
@@ -16,6 +20,7 @@ class Computation:
         # Initialize root nodes of the transformation tree
         self._basis = AttrDict(self._get_default_basis())
         self._tr_tree = TransformationTree(*self._get_base_names())
+        self._prepared = False
 
     def _get_base_names(self):
         """
@@ -133,8 +138,9 @@ class Computation:
         """
         Prepares the computation for given basis.
         """
-        if self._basis_needs_update(kwds):
+        if self._basis_needs_update(kwds) or not self._prepared:
             self._change_basis(kwds)
+            self._prepared = True
         return self
 
     def prepare_for(self, *args):
@@ -159,6 +165,9 @@ class Computation:
         """
         Executes computation.
         """
+        if not self._prepared:
+            raise NotPreparedError("The computation must be prepared before execution")
+
         if self._debug:
             new_basis = self._basis_for(args)
             if self._basis_needs_update(new_basis):
