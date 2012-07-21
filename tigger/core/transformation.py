@@ -76,13 +76,27 @@ def signature_macro_name():
 
 
 
-class ArrayValue:
+class ArrayValue(object):
     def __init__(self, shape, dtype):
         self.shape = shape
-        if shape is not None:
-            self.size = product(shape)
         self.dtype = numpy.dtype(dtype) if dtype is not None else None
         self.is_array = True
+
+    def get_shape(self):
+        return self._shape
+
+    def set_shape(self, shape):
+        self._shape = shape
+        if shape is None:
+            self._size = None
+        else:
+            self._size = product(shape)
+
+    shape = property(get_shape, set_shape)
+
+    @property
+    def size(self):
+        return self._size
 
     def __str__(self):
         props = ["array"]
