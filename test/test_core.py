@@ -66,8 +66,37 @@ class Dummy(Computation):
         )]
 
 
+# A function which does the same job as base Dummy kernel
 def mock_dummy(a, b, coeff):
     return a * coeff, b / coeff
+
+
+# Some transformations to use by tests
+
+tr_trivial = Transformation(
+    load=1, store=1,
+    code="${store.s1}(${load.l1});")
+
+tr_2_to_1 = Transformation(
+    load=2, store=1, parameters=1,
+    derive_s_from_lp=lambda l1, l2, p1: [l1],
+    derive_lp_from_s=lambda s1: ([s1, s1], [numpy.float32]),
+    derive_l_from_sp=lambda s1, p1: [s1, s1],
+    derive_sp_from_l=lambda l1, l2: ([l1], [numpy.float32]),
+    code="""
+        ${ctype.s1} t = ${func.mul(dtype.s1, dtype.l1)}(
+            ${func.cast(dtype.s1, dtype.p1)}(${param.p1}), ${load.l1});
+        ${store.s1}(t + ${load.l2});
+    """)
+
+tr_1_to_2 = Transformation(
+    load=1, store=2,
+    code="""
+        ${ctype.s1} t = ${func.mul(dtype.l1, numpy.float32)}(${load.l1}, 0.5);
+        ${store.s1}(t);
+        ${store.s2}(t);
+    """)
+
 
 
 def test_preprocessing(ctx):
@@ -76,35 +105,14 @@ def test_preprocessing(ctx):
     B_param = numpy.float32(3)
     N = 1024
 
-    a = Transformation(load=1, store=1,
-        code="${store.s1}(${load.l1});")
-
-    b = Transformation(load=2, store=1, parameters=1,
-        derive_s_from_lp=lambda l1, l2, p1: [l1],
-        derive_lp_from_s=lambda s1: ([s1, s1], [numpy.float32]),
-        derive_l_from_sp=lambda s1, p1: [s1, s1],
-        derive_sp_from_l=lambda l1, l2: ([l1], [numpy.float32]),
-        code="""
-            ${ctype.s1} t = ${func.mul(dtype.s1, dtype.l1)}(
-                ${func.cast(dtype.s1, dtype.p1)}(${param.p1}), ${load.l1});
-            ${store.s1}(t + ${load.l2});
-        """)
-
-    c = Transformation(load=1, store=2,
-        code="""
-            ${ctype.s1} t = ${func.mul(dtype.l1, numpy.float32)}(${load.l1}, 0.5);
-            ${store.s1}(t);
-            ${store.s2}(t);
-        """)
-
     d = Dummy(ctx)
     assert d.signature_str() == "(array) C, (array) D, (array) A, (array) B, (scalar) coeff"
 
-    d.connect(a, 'A', ['A_prime']);
-    d.connect(b, 'B', ['A_prime', 'B_prime'], ['B_param'])
-    d.connect(a, 'B_prime', ['B_new_prime'])
-    d.connect(c, 'C', ['C_half1', 'C_half2'])
-    d.connect(a, 'C_half1', ['C_new_half1'])
+    d.connect(tr_trivial, 'A', ['A_prime']);
+    d.connect(tr_2_to_1, 'B', ['A_prime', 'B_prime'], ['B_param'])
+    d.connect(tr_trivial, 'B_prime', ['B_new_prime'])
+    d.connect(tr_1_to_2, 'C', ['C_half1', 'C_half2'])
+    d.connect(tr_trivial, 'C_half1', ['C_new_half1'])
 
     d.prepare(arr_dtype=numpy.float32, size=N)
     assert d.signature_str() == "(array, float32, (1024,)) C_new_half1, " \
