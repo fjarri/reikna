@@ -100,6 +100,20 @@ tr_1_to_2 = Transformation(
         ${store.s2}(t);
     """)
 
+# Output = Input * Parameter
+tr_scale = Transformation(
+    load=1, store=1, parameters=1,
+    derive_s_from_lp=lambda l1, p1: [l1],
+    derive_lp_from_s=lambda s1: ([s1], [numpy.float32]),
+    derive_l_from_sp=lambda s1, p1: [s1],
+    derive_sp_from_l=lambda l1: ([l1], [numpy.float32]),
+    code="""
+        ${store.s1}(
+            ${func.mul(dtype.l1, dtype.p1, out=dtype.s1)}(${load.l1}, ${param.p1})
+        );
+    """)
+
+
 def test_non_prepared_call(some_ctx):
     d = Dummy(some_ctx)
     with pytest.raises(NotPreparedError):
@@ -133,50 +147,17 @@ def test_signature_correctness(some_ctx):
     d.connect(tr_trivial, 'B_prime', ['B_new_prime'])
     d.connect(tr_1_to_2, 'C', ['C_half1', 'C_half2'])
     d.connect(tr_trivial, 'C_half1', ['C_new_half1'])
+    d.connect(tr_scale, 'D', ['D_prime'], ['D_param'])
     d.prepare(arr_dtype=numpy.complex64, size=1024)
     assert d.signature_str() == (
         "(array, complex64, (1024,)) C_new_half1, "
         "(array, complex64, (1024,)) C_half2, "
-        "(array, complex64, (1024,)) D, "
+        "(array, complex64, (1024,)) D_prime, "
         "(array, complex64, (1024,)) A_prime, "
         "(array, complex64, (1024,)) B_new_prime, "
         "(scalar, float32) coeff, "
+        "(scalar, float32) D_param, "
         "(scalar, float32) B_param")
-
-def test_transformations_work(ctx):
-
-    coeff = numpy.float32(2)
-    B_param = numpy.float32(3)
-    N = 1024
-
-    d = Dummy(ctx)
-
-    d.connect(tr_trivial, 'A', ['A_prime'])
-    d.connect(tr_2_to_1, 'B', ['A_prime', 'B_prime'], ['B_param'])
-    d.connect(tr_trivial, 'B_prime', ['B_new_prime'])
-    d.connect(tr_1_to_2, 'C', ['C_half1', 'C_half2'])
-    d.connect(tr_trivial, 'C_half1', ['C_new_half1'])
-
-    A_prime = getTestArray(N, numpy.complex64)
-    B_new_prime = getTestArray(N, numpy.complex64)
-    gpu_A_prime = ctx.to_device(A_prime)
-    gpu_B_new_prime = ctx.to_device(B_new_prime)
-    gpu_C_new_half1 = ctx.allocate(N, numpy.complex64)
-    gpu_C_half2 = ctx.allocate(N, numpy.complex64)
-    gpu_D = ctx.allocate(N, numpy.complex64)
-    d.prepare_for(gpu_C_new_half1, gpu_C_half2, gpu_D,
-        gpu_A_prime, gpu_B_new_prime, numpy.float32(coeff), numpy.int32(B_param))
-
-    d(gpu_C_new_half1, gpu_C_half2, gpu_D, gpu_A_prime, gpu_B_new_prime, coeff, B_param)
-
-    A = A_prime
-    B = A_prime * B_param + B_new_prime
-    C, D = mock_dummy(A, B, coeff)
-    C_new_half1 = C / 2
-    C_half2 = C / 2
-    assert diff(ctx.from_device(gpu_C_new_half1), C_new_half1) < SINGLE_EPS
-    assert diff(ctx.from_device(gpu_C_half2), C_half2) < SINGLE_EPS
-    assert diff(ctx.from_device(gpu_D), D) < SINGLE_EPS
 
 def test_incorrect_number_of_arguments_in_prepare(some_ctx):
     d = Dummy(some_ctx)
@@ -233,7 +214,83 @@ def test_debug_signature_check(some_ctx):
         # array argument in place of scalar
         d(C1, D1, A1, B1, B1)
 
-# prepare with key not from basis
-# prepare with the same keys as in basis (no way to checkm just for coverage)
-# test that the error is thrown when data type conflict occurs during type propagation
-# check store transformation with parameters
+def test_prepare_unknown_key(some_ctx):
+    d = Dummy(some_ctx)
+    with pytest.raises(KeyError):
+        d.prepare(unknown_key=1)
+
+def test_prepare_same_keys(some_ctx):
+    d = Dummy(some_ctx)
+    kwds = dict(arr_dtype=numpy.complex64, size=1024)
+
+    d.prepare(**kwds)
+
+    # Prepare second time with the same keywords.
+    # There is no way to check that the kernel building stage is skipped in this case,
+    # so we're doing it only for the sake of coverage.
+    d.prepare(**kwds)
+
+def test_type_propagation_conflict(some_ctx):
+
+    # This transformation connects an external complex input
+    # to an internal real input (by discarding the complex part)
+    tr_complex_to_real = Transformation(
+        load=1, store=1,
+        derive_s_from_lp=lambda l1, _: [dtypes.real_for(l1)],
+        derive_lp_from_s=lambda s1: ([dtypes.complex_for(s1)], []),
+        code="${store.s1}((${load.l1}).x);")
+
+    d = Dummy(some_ctx)
+
+    # Both tr_complex_to_real and tr_trivial are perfectly valid transformtions.
+    # But if we connect them to lead to the same external variable,
+    # there will be a conflict during type derivation:
+    # tr_complex_to_real will need the external variable to be complex,
+    # and tr_trivial will need it to be real.
+    d.connect(tr_complex_to_real, 'A', ['A_new'])
+    d.connect(tr_trivial, 'B', ['A_new'])
+
+    with pytest.raises(TypePropagationError):
+        d.prepare(arr_dtype=numpy.float32, size=1024)
+
+def test_transformations_work(ctx):
+
+    coeff = numpy.float32(2)
+    B_param = numpy.float32(3)
+    D_param = numpy.float32(4)
+    N = 1024
+
+    d = Dummy(ctx)
+
+    d.connect(tr_trivial, 'A', ['A_prime'])
+    d.connect(tr_2_to_1, 'B', ['A_prime', 'B_prime'], ['B_param'])
+    d.connect(tr_trivial, 'B_prime', ['B_new_prime'])
+    d.connect(tr_1_to_2, 'C', ['C_half1', 'C_half2'])
+    d.connect(tr_trivial, 'C_half1', ['C_new_half1'])
+    d.connect(tr_scale, 'D', ['D_prime'], ['D_param'])
+
+    A_prime = getTestArray(N, numpy.complex64)
+    B_new_prime = getTestArray(N, numpy.complex64)
+    gpu_A_prime = ctx.to_device(A_prime)
+    gpu_B_new_prime = ctx.to_device(B_new_prime)
+    gpu_C_new_half1 = ctx.allocate(N, numpy.complex64)
+    gpu_C_half2 = ctx.allocate(N, numpy.complex64)
+    gpu_D_prime = ctx.allocate(N, numpy.complex64)
+    d.prepare_for(
+        gpu_C_new_half1, gpu_C_half2, gpu_D_prime,
+        gpu_A_prime, gpu_B_new_prime,
+        numpy.float32(coeff), numpy.int32(D_param), numpy.int32(B_param))
+
+    d(gpu_C_new_half1, gpu_C_half2, gpu_D_prime,
+        gpu_A_prime, gpu_B_new_prime, coeff, D_param, B_param)
+
+    A = A_prime
+    B = A_prime * B_param + B_new_prime
+    C, D = mock_dummy(A, B, coeff)
+    C_new_half1 = C / 2
+    C_half2 = C / 2
+    D_prime = D * D_param
+
+    assert diff(ctx.from_device(gpu_C_new_half1), C_new_half1) < SINGLE_EPS
+    assert diff(ctx.from_device(gpu_C_half2), C_half2) < SINGLE_EPS
+    assert diff(ctx.from_device(gpu_D_prime), D_prime) < SINGLE_EPS
