@@ -78,14 +78,11 @@ Computations, second priority:
 
 Transformation:
 
-* CHECK: add endpoint validity check to TransformationTree.connect().
-  We can use some of the existing nodes as endpoints, they just need to be not base ones
 * FIX: normalize signature of Transformation.leaf_signature().
   The problem is that if base_name is given, returned signature does not include scalars.
   This should be made more clear.
 * DECIDE: is it good to create new Scalar/ArrayValues in Transformation._clear_values?
 * DECIDE: instead of passing numpy in Transformation.transformations_for() to give access to datatypes, create a dict with only those types that can be used on GPU and pass it instead.
-* CHECK: sanity checks in TransformationTree.__init__()? (repeating names, correct identifier format)
 * FIX: build_arglist() and signature_macro() in transformation.py are almost identical
 
 

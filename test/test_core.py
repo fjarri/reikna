@@ -119,11 +119,33 @@ def test_non_prepared_call(some_ctx):
     with pytest.raises(NotPreparedError):
         d(None, None, None, None, None)
 
-def test_non_leaf_connection(some_ctx):
+def test_incorrect_connections(some_ctx):
     d = Dummy(some_ctx)
     d.connect(tr_trivial, 'A', ['A_prime'])
+
     with pytest.raises(ValueError):
+        # cannot connect to scalar
+        d.connect(tr_trivial, 'coeff', ['A_prime'])
+
+    with pytest.raises(ValueError):
+        # A is not a leaf anymore, should fail
         d.connect(tr_trivial, 'A', ['A_prime'])
+
+    with pytest.raises(ValueError):
+        # coeff is an existing scalar node, B is an array
+        d.connect(tr_trivial, 'B', ['coeff'])
+
+    with pytest.raises(ValueError):
+        # second list should contain scalar nodes, but A_prime is an array
+        d.connect(tr_scale, 'C', ['C_prime'], ['A_prime'])
+
+    with pytest.raises(ValueError):
+        # incorrect argument name
+        d.connect(tr_scale, 'C', ['1C_prime'], ['param'])
+
+    with pytest.raises(ValueError):
+        # incorrect argument name
+        d.connect(tr_scale, 'C', ['C_prime'], ['1param'])
 
 def test_non_array_connection(some_ctx):
     d = Dummy(some_ctx)

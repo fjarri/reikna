@@ -1,3 +1,5 @@
+import re
+
 import numpy
 from mako.template import Template
 
@@ -78,6 +80,9 @@ def store_macro_call(name):
 def signature_macro_name():
     return "SIGNATURE"
 
+
+def valid_argument_name(name):
+    return (re.match(r"^[a-zA-Z_]\w*$", name) is not None)
 
 
 class ArrayValue(object):
@@ -181,6 +186,17 @@ class TransformationTree:
 
     def __init__(self, stores, loads, scalars):
         self.nodes = {}
+        self.base_names = stores + loads + scalars
+
+        # check names for correctness
+        for name in self.base_names:
+            if not valid_argument_name(name):
+                raise ValueError("Incorrect argument name: " + name)
+
+        # check for repeating names
+        if len(set(self.base_names)) != len(self.base_names):
+            raise ValueError("There are repeating argument names")
+
         for name in stores:
             self.nodes[name] = AttrDict(name=name, type=NODE_STORE,
                 value=ArrayValue(None, None),
@@ -194,7 +210,6 @@ class TransformationTree:
                 value=ScalarValue(None, None),
                 parent=None, children=None, tr_to_parent=None, tr_to_children=None)
 
-        self.base_names = stores + loads + scalars
 
     def leaf_signature(self, base_names=None):
         visited = set()
@@ -445,16 +460,41 @@ class TransformationTree:
         names = set(n for n, v in self.leaf_signature() if v.is_array)
         return name in names
 
-    def connect(self, tr, endpoint, new_endpoints, new_scalar_endpoints):
-        parent = self.nodes[endpoint]
-        parent.children = new_endpoints + new_scalar_endpoints
-        parent.tr_to_children = tr
+    def connect(self, tr, array_arg, new_array_args, new_scalar_args):
 
-        for ep in new_endpoints:
-            self.nodes[ep] = AttrDict(name=ep, type=parent.type,
-                value=ArrayValue(None, None),
-                parent=parent.name, children=None, tr_to_parent=tr, tr_to_children=None)
-        for ep in new_scalar_endpoints:
-            self.nodes[ep] = AttrDict(name=ep, type=NODE_SCALAR,
-                value=ScalarValue(None, None),
-                parent=parent.name, children=None, tr_to_parent=tr, tr_to_children=None)
+        if not self.has_array_leaf(array_arg):
+            raise ValueError("Argument " + array_arg +
+                " does not exist or is not suitable for connection")
+
+        for name in new_array_args + new_scalar_args:
+            if not valid_argument_name(name):
+                raise ValueError("Incorrect argument name: " + name)
+
+        parent = self.nodes[array_arg]
+
+        # Delay applying changes until the end of the method,
+        # in case we get an error in the process.
+        new_nodes = {}
+
+        for name in new_array_args:
+            if name in self.nodes:
+                if self.nodes[name].type == NODE_SCALAR:
+                    raise ValueError("Argument " + name + " is a scalar, expected an array")
+            else:
+                new_nodes[name] = AttrDict(
+                    name=name, type=parent.type,
+                    value=ArrayValue(None, None),
+                    children=None, tr_to_children=None)
+        for name in new_scalar_args:
+            if name in self.nodes:
+                if self.nodes[name].type != NODE_SCALAR:
+                    raise ValueError("Argument " + name + " is an array, expected a scalar")
+            else:
+                new_nodes[name] = AttrDict(
+                    name=name, type=NODE_SCALAR,
+                    value=ScalarValue(None, None),
+                    children=None, tr_to_children=None)
+
+        parent.children = new_array_args + new_scalar_args
+        parent.tr_to_children = tr
+        self.nodes.update(new_nodes)

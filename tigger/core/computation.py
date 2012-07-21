@@ -130,14 +130,9 @@ class Computation:
         """
         Connects given transformation to the external array argument.
         """
-
-        if new_scalar_args is None: new_scalar_args = []
-
-        if self._tr_tree.has_array_leaf(array_arg):
-            self._tr_tree.connect(tr, array_arg, new_array_args, new_scalar_args)
-        else:
-            raise ValueError("Argument " + array_arg +
-                " does not exist or is not suitable for connection")
+        if new_scalar_args is None:
+            new_scalar_args = []
+        self._tr_tree.connect(tr, array_arg, new_array_args, new_scalar_args)
 
     def prepare(self, **kwds):
         """
