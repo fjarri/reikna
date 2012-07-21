@@ -19,6 +19,7 @@ def pytest_addoption(parser):
         help="Use fast math: no/yes/both",
         default="yes", choices=["no", "yes", "both"])
 
+
 def pytest_funcarg__ctx_and_double(request):
     """
     Create context before call to test and release it when the test ends
@@ -36,6 +37,16 @@ def pytest_funcarg__ctx(request):
     ctx = cc()
     request.addfinalizer(lambda: ctx.release())
     return ctx
+
+def pytest_funcarg__some_ctx(request):
+    """
+    Create context before call to test and release it when the test ends.
+    """
+    cc = request.param
+    ctx = cc()
+    request.addfinalizer(lambda: ctx.release())
+    return ctx
+
 
 def get_apis(metafunc):
     """
@@ -111,6 +122,7 @@ def get_contexts_and_doubles(metafunc):
 
     return vals, ids
 
+
 def pytest_generate_tests(metafunc):
     # if we import it in the header, it messes up with coverage results
     import tigger.cluda as cluda
@@ -122,6 +134,11 @@ def pytest_generate_tests(metafunc):
     if 'ctx' in metafunc.funcargnames:
         ccs, cc_ids = get_contexts(metafunc)
         metafunc.parametrize('ctx', ccs, ids=cc_ids, indirect=True)
+
+    if 'some_ctx' in metafunc.funcargnames:
+        # Just some context for tests that only check context-independent stuff.
+        ccs, cc_ids = get_contexts(metafunc)
+        metafunc.parametrize('some_ctx', [ccs[0]], ids=[cc_ids[0]], indirect=True)
 
     if 'cluda_api' in metafunc.funcargnames:
         apis, api_ids = get_apis(metafunc)
