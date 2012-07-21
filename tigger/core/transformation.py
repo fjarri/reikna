@@ -10,6 +10,10 @@ INDEX_NAME = "idx"
 VALUE_NAME = "val"
 
 
+class TypePropagationError(Exception):
+    pass
+
+
 def load_macro_name(name):
     return "_LOAD_" + name
 
@@ -293,7 +297,7 @@ class TransformationTree:
                 if child_value.dtype is None:
                     child_value.dtype = dtype
                 elif child_value.dtype != dtype:
-                    raise Exception("Data type conflict in node " + child +
+                    raise TypePropagationError("Data type conflict in node " + child +
                         " while propagating types to leaves")
 
                 # currently there is no shape derivation in transformations,
