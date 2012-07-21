@@ -441,20 +441,12 @@ class TransformationTree:
         leaf_names = [name for name, _ in self.leaf_signature()]
         return func_c.render() + "\n\n" + "\n\n".join(code_list) + "\n\n" + signature_macro(leaf_names)
 
-    def has_nodes(self, names):
-        for name in names:
-            if name in self.nodes:
-                return True
-        return False
-
     def has_array_leaf(self, name):
         names = set(n for n, v in self.leaf_signature() if v.is_array)
         return name in names
 
-    def connect(self, tr, endpoint, new_endpoints, new_scalar_endpoints=None):
+    def connect(self, tr, endpoint, new_endpoints, new_scalar_endpoints):
         parent = self.nodes[endpoint]
-        if new_scalar_endpoints is None:
-            new_scalar_endpoints = []
         parent.children = new_endpoints + new_scalar_endpoints
         parent.tr_to_children = tr
 
