@@ -6,23 +6,6 @@ from tigger import Transformation
 from helpers import *
 
 
-_DUMMY_TEMPLATE = template_from("""
-KERNEL void dummy(${signature})
-{
-    int idx = LID_0 + LSIZE_0 * GID_0;
-    if (idx < ${size})
-    {
-        ${ctype.A} a = ${load.A}(idx);
-        ${ctype.B} b = ${load.B}(idx);
-        ${ctype.C} c = ${func.mul(dtype.A, dtype.coeff)}(a, ${param.coeff});
-        ${ctype.D} d = ${func.div(dtype.B, dtype.coeff)}(b, ${param.coeff});
-        ${store.C}(idx, c);
-        ${store.D}(idx, d);
-    }
-}
-""")
-
-
 class Dummy(Computation):
     """
     Dummy computation class with two inputs, two outputs and one parameter.
@@ -54,7 +37,24 @@ class Dummy(Computation):
         # optional keywords can be passed here
         # TODO: is it a good way to specify templates?
         bs = self._basis
-        src = self._render(_DUMMY_TEMPLATE, size=bs.size)
+
+        template = template_from("""
+        KERNEL void dummy(${signature})
+        {
+            int idx = LID_0 + LSIZE_0 * GID_0;
+            if (idx < ${size})
+            {
+                ${ctype.A} a = ${load.A}(idx);
+                ${ctype.B} b = ${load.B}(idx);
+                ${ctype.C} c = ${func.mul(dtype.A, dtype.coeff)}(a, ${param.coeff});
+                ${ctype.D} d = ${func.div(dtype.B, dtype.coeff)}(b, ${param.coeff});
+                ${store.C}(idx, c);
+                ${store.D}(idx, d);
+            }
+        }
+        """)
+
+        src = self._render(template, size=bs.size)
         block_size = 128
 
         return [KernelCall(
