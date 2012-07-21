@@ -108,7 +108,7 @@ def test_preprocessing(ctx):
     d = Dummy(ctx)
     assert d.signature_str() == "(array) C, (array) D, (array) A, (array) B, (scalar) coeff"
 
-    d.connect(tr_trivial, 'A', ['A_prime']);
+    d.connect(tr_trivial, 'A', ['A_prime'])
     d.connect(tr_2_to_1, 'B', ['A_prime', 'B_prime'], ['B_param'])
     d.connect(tr_trivial, 'B_prime', ['B_new_prime'])
     d.connect(tr_1_to_2, 'C', ['C_half1', 'C_half2'])
