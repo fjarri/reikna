@@ -227,14 +227,13 @@ def test_debug_signature_check(some_ctx):
 
     with pytest.raises(TypeError):
         # scalar argument in place of array
-        d.prepare_for(C1, D1, A1, 2, B1)
+        d(C1, D1, A1, 2, B1)
 
     with pytest.raises(TypeError):
         # array argument in place of scalar
-        d.prepare_for(C1, D1, A1, B1, B1)
+        d(C1, D1, A1, B1, B1)
 
 # prepare with key not from basis
 # prepare with the same keys as in basis (no way to checkm just for coverage)
-# call with arguments that require different basis (debug should be on)
 # test that the error is thrown when data type conflict occurs during type propagation
 # check store transformation with parameters
