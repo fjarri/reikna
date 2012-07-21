@@ -95,15 +95,20 @@ class Computation:
         Returns the basis necessary for processing given external arguments.
         """
         pairs = self._tr_tree.leaf_signature()
-        assert len(args) == len(pairs)
+        if len(args) != len(pairs):
+            raise TypeError("Computation takes " + str(len(pairs)) +
+                " arguments (" + len(args) + " given")
 
         # We do not need our args per se, just their properies (types and shapes).
         # So we are creating mock values to propagate through transformation tree.
         values = {}
-        for pair, arg in zip(pairs, args):
+        for i, pair_arg in enumerate(zip(pairs, args)):
+            pair, arg = pair_arg
             name, value = pair
             new_value = wrap_value(arg)
-            assert new_value.is_array == value.is_array
+            if new_value.is_array != value.is_array:
+                raise TypeError("Incorrect type of argument " + str(i + 1))
+
             values[name] = new_value
 
         self._tr_tree.propagate_to_base(values)
@@ -172,6 +177,10 @@ class Computation:
             new_basis = self._basis_for(args)
             if self._basis_needs_update(new_basis):
                 raise ValueError("Given arguments require different basis")
+
+        if len(args) != len(self._leaf_signature):
+            raise TypeError("Computation takes " + str(len(self._leaf_signature)) +
+                " arguments (" + len(args) + " given")
 
         # Assign arguments to names and cast scalar values
         arg_dict = {}
