@@ -12,7 +12,7 @@ def simple_context_test(ctx):
     a_dev = ctx.to_device(a)
     a_back = ctx.from_device(a_dev)
 
-    assert diff(a, a_back) < SINGLE_EPS
+    assert diff_is_negligible(a, a_back)
 
 def test_create_new_context(cluda_api):
 	ctx = cluda_api.Context.create()
