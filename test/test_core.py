@@ -146,7 +146,13 @@ def test_incorrect_connections(some_ctx):
         # Moreover, with current transformation code generator it creates some complications.
         # (Connection to an existing input or scalar is fine, see corresponding tests)
         (tr_trivial, 'C', ['D']),
-        (tr_trivial, 'C', ['D_prime'])
+        (tr_trivial, 'C', ['D_prime']),
+        # incorrect number of inputs/outputs
+        (tr_1_to_2, 'A', ['A_prime']),
+        (tr_2_to_1, 'C', ['C_prime']),
+        (tr_trivial, 'A', ['A_prime', 'B_prime']),
+        (tr_trivial, 'C', ['C_prime', 'D_prime']),
+        (tr_trivial, 'A', ['A_prime'], ['param'])
     ]
 
     for test in tests:

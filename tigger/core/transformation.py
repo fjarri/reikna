@@ -498,6 +498,21 @@ class TransformationTree:
 
         parent = self.nodes[array_arg]
 
+        if parent.type == NODE_STORE:
+            if tr.load > 1:
+                raise ValueError("Transformation for an output node must have one input")
+            if tr.store != len(new_array_args):
+                raise ValueError("Number of array argument names does not match the transformation")
+
+        if parent.type == NODE_LOAD:
+            if tr.store > 1:
+                raise ValueError("Transformation for an input node must have one output")
+            if tr.load != len(new_array_args):
+                raise ValueError("Number of array argument names does not match the transformation")
+
+        if tr.parameters != len(new_scalar_args):
+            raise ValueError("Number of parameter argument names does not match the transformation")
+
         # Delay applying changes until the end of the method,
         # in case we get an error in the process.
         new_nodes = {}
