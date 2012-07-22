@@ -483,6 +483,8 @@ class TransformationTree:
             if name in self.nodes:
                 if self.nodes[name].type == NODE_SCALAR:
                     raise ValueError("Argument " + name + " is a scalar, expected an array")
+                if parent.type == NODE_STORE:
+                    raise ValueError("Cannot connect to an existing output node")
             else:
                 new_nodes[name] = AttrDict(
                     name=name, type=parent.type,
