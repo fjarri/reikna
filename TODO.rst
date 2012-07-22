@@ -72,13 +72,11 @@ Computations, second priority:
 * TODO: add random number generation (MD5 and DCMT seem to be the best candidates)
 * TODO: add bitonic sort
 
-
-0.0.1 (prototype version)
-=========================
-
+Long-term features
+==================
 
 Computation provider (long-term goal)
-=====================================
+-------------------------------------
 
 Library that by request (perhaps, from other languages) returns kernels and call signatures for algorithms, using Python as a templating engine.
 Namely, it returns:
@@ -93,3 +91,10 @@ Problems:
 1. More involved algorithms cannot be passed between languages this way (the ones that requires synchronization in the middle, like adaptive-step ODE solver, for example).
 2. Need to somehow pass device/context to this library from the caller. The kernels will have to be compiled in order to find out the register usage.
 3. How to pass type derivation lambdas? Possible solution: limit derivations to <same_as>(x), <definite_type>, <complex_for>(x), <real_for>(x) and create some micro-DSL for passing these as strings.
+
+Transformation DSL
+------------------
+
+Currently transformation code is quite difficult to read and write.
+Perhaps some DSL can be devised to make it easier?
+Even better, if that DSL could be applied to kernels too.
