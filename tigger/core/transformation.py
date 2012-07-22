@@ -216,17 +216,19 @@ class TransformationTree:
 
 
     def leaf_signature(self, base_names=None):
+
+        if base_names is None:
+            base_names = self.base_names
+
         arrays = []
 
         # Intended order of the leaf signature is the following:
         # leaf arrays, base scalars, transformation scalars.
         # So we are pre-filling scalars accumulator with base scalars before
         # stating depth-first walk.
-        scalars = [name for name in self.base_names if self.nodes[name].type == NODE_SCALAR]
+        scalars = [name for name in base_names
+            if name in self.nodes and self.nodes[name].type == NODE_SCALAR]
         visited = set(scalars)
-
-        if base_names is None:
-            base_names = self.base_names
 
         def visit(names):
             for name in names:

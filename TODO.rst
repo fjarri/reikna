@@ -78,9 +78,6 @@ Computations, second priority:
 
 Transformation:
 
-* FIX: normalize signature of Transformation.leaf_signature().
-  The problem is that if base_name is given, returned signature does not include scalars.
-  This should be made more clear.
 * DECIDE: is it good to create new Scalar/ArrayValues in Transformation._clear_values?
 * DECIDE: instead of passing numpy in Transformation.transformations_for() to give access to datatypes, create a dict with only those types that can be used on GPU and pass it instead.
 * FIX: build_arglist() and signature_macro() in transformation.py are almost identical
