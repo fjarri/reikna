@@ -92,7 +92,7 @@ def valid_argument_name(name):
 class ArrayValue(object):
     def __init__(self, shape, dtype):
         self.shape = shape
-        self.dtype = numpy.dtype(dtype) if dtype is not None else None
+        self.dtype = dtypes.normalize_type(dtype) if dtype is not None else None
         self.is_array = True
 
     def fill_with(self, other):
@@ -134,7 +134,7 @@ class ArrayValue(object):
 class ScalarValue:
     def __init__(self, value, dtype):
         self.value = dtypes.cast(dtype)(value) if value is not None else value
-        self.dtype = numpy.dtype(dtype) if dtype is not None else None
+        self.dtype = dtypes.normalize_type(dtype) if dtype is not None else None
         self.is_array = False
 
     def fill_with(self, other):
@@ -303,7 +303,7 @@ class TransformationTree:
             child_dtypes = [self.nodes[child].value.dtype for child in node.children]
             tr = node.tr_to_children
             derive_types = tr.derive_l_from_sp if node.type == NODE_STORE else tr.derive_s_from_lp
-            node.value.dtype = derive_types(*child_dtypes)[0]
+            node.value.dtype = dtypes.normalize_type(derive_types(*child_dtypes)[0])
 
             # derive shape
             child_shapes = [self.nodes[child].value.shape for child in node.children
