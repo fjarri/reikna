@@ -1,11 +1,6 @@
 0.1.0 (minimal useable version)
 ===============================
 
-Website/documentation:
-
-* TODO: separate dev/ and stable/ versions of documentation
-* TODO: extend starting page (link to issue tracker, quick links to guides, list of algorithms, quick example)
-
 CLUDA:
 
 * DECIDE: is CLUDA even a good name?
@@ -64,13 +59,23 @@ Computations, first priority:
 * TODO: add sparse reduction
   (wrapper + memory allocations + call to other computation (transposition))
 
-Computations, second priority:
+
+1.0.0 (production-quality version... hopefully)
+===============================================
+
+Website/documentation:
+
+* TODO: extend starting page (link to issue tracker, quick links to guides, list of algorithms, quick example)
+
+Computations:
 
 * TODO: add FFT (and mark pyfft as deprecated)
 * TODO: add DHT
 * TODO: add 3D permutations
 * TODO: add random number generation (MD5 and DCMT seem to be the best candidates)
 * TODO: add bitonic sort
+* TODO: add filter
+
 
 Long-term features
 ==================
