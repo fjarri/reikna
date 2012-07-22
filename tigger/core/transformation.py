@@ -23,12 +23,12 @@ def load_function_name(name):
     return "_load_" + name
 
 def leaf_load_macro(name):
-    return "#define {macro_name} ({name}[{idx}])".format(
+    return "#define {macro_name}({idx}) ({name}[{idx}])".format(
         macro_name=load_macro_name(name), name=name,
         idx=INDEX_NAME, val=VALUE_NAME)
 
 def node_load_macro(name, argnames):
-    return "#define {macro_name} {fname}({arglist}, {idx})".format(
+    return "#define {macro_name}({idx}) {fname}({arglist}, {idx})".format(
         macro_name=load_macro_name(name), fname=load_function_name(name),
         arglist = ", ".join(argnames), idx=INDEX_NAME, val=VALUE_NAME)
 
@@ -44,6 +44,10 @@ def base_node_load_macro(name, argnames):
 
 def load_macro_call(name):
     return load_macro_name(name)
+
+def load_macro_call_tr(name):
+    return "{macro_name}({idx})".format(
+        macro_name=load_macro_name(name), idx=INDEX_NAME)
 
 
 
@@ -407,7 +411,7 @@ class TransformationTree:
                 dtype = AttrDict()
                 for i, name in enumerate(load_names):
                     label = 'l' + str(i+1)
-                    load[label] = load_macro_call(name)
+                    load[label] = load_macro_call_tr(name)
                     dtype[label] = self.nodes[name].value.dtype
                 for i, name in enumerate(param_names):
                     label = 'p' + str(i+1)

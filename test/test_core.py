@@ -319,3 +319,33 @@ def test_transformations_work(ctx):
     assert diff(ctx.from_device(gpu_C_new_half1), C_new_half1) < SINGLE_EPS
     assert diff(ctx.from_device(gpu_C_half2), C_half2) < SINGLE_EPS
     assert diff(ctx.from_device(gpu_D_prime), D_prime) < SINGLE_EPS
+
+def test_connection_to_base(ctx):
+
+    coeff = numpy.float32(2)
+    B_param = numpy.float32(3)
+    D_param = numpy.float32(4)
+    N = 1024
+
+    d = Dummy(ctx)
+
+    # connect to the base array argument (effectively making B the same as A)
+    d.connect(tr_trivial, 'A', ['B'])
+
+    # connect to the base scalar argument
+    d.connect(tr_scale, 'C', ['C_prime'], ['coeff'])
+    print d.signature_str()
+
+    B = getTestArray(N, numpy.complex64)
+    gpu_B = ctx.to_device(B)
+    gpu_C_prime = ctx.allocate(N, numpy.complex64)
+    gpu_D = ctx.allocate(N, numpy.complex64)
+    d.prepare_for(gpu_C_prime, gpu_D, gpu_B, coeff)
+    d(gpu_C_prime, gpu_D, gpu_B, coeff)
+
+    A = B
+    C, D = mock_dummy(A, B, coeff)
+    C_prime = C * coeff
+
+    assert diff(ctx.from_device(gpu_C_prime), C_prime) < SINGLE_EPS
+    assert diff(ctx.from_device(gpu_D), D) < SINGLE_EPS
