@@ -14,7 +14,7 @@ def is_double(dtype):
 
 def is_integer(dtype):
     dtype = normalize_type(dtype)
-    return dtype.kind == 'i'
+    return dtype.kind in ('i', 'u')
 
 def _promote_dtype(dtype):
     # not all numpy datatypes are supported by GPU, so we may need to promote
