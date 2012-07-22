@@ -21,16 +21,12 @@ class Dummy(Computation):
 
     def _get_base_signature(self):
         bs = self._basis
+        av = ArrayValue((bs.size,), bs.arr_dtype)
+        sv = ScalarValue(None, bs.coeff_dtype)
         return (
-            [
-                ('C', ArrayValue((bs.size,), bs.arr_dtype)),
-                ('D', ArrayValue((bs.size,), bs.arr_dtype))
-            ],
-            [
-                ('A', ArrayValue((bs.size,), bs.arr_dtype)),
-                ('B', ArrayValue((bs.size,), bs.arr_dtype))
-            ],
-            [('coeff', ScalarValue(None, bs.coeff_dtype))])
+            [('C', av), ('D', av)],
+            [('A', av), ('B', av)],
+            [('coeff', sv)])
 
     def _construct_kernels(self):
         # basis will be passed automatically as a keyword
