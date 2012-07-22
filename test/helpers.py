@@ -5,7 +5,7 @@ from tigger.cluda import dtypes
 SINGLE_EPS = 1e-6
 
 
-def get_test_array(shape, dtype, no_zeros=False):
+def get_test_array(shape, dtype, no_zeros=False, high=None):
     if not isinstance(shape, tuple):
         shape = (shape,)
 
@@ -13,11 +13,14 @@ def get_test_array(shape, dtype, no_zeros=False):
 
     if dtypes.is_integer(dtype):
         low = 1 if no_zeros else 0
-        high = 100 # will work even with signed chars
+        if high is None:
+            high = 100 # will work even with signed chars
         get_arr = lambda: numpy.random.randint(low, high, shape).astype(dtype)
     else:
-        shift = 0.01 if no_zeros else 0
-        get_arr = lambda: numpy.random.rand(*shape).astype(dtype) + shift
+        low = 0.01 if no_zeros else 0
+        if high is None:
+            high = 1.0
+        get_arr = lambda: numpy.random.uniform(low, high, shape).astype(dtype)
 
     if dtypes.is_complex(dtype):
         return get_arr() + 1j * get_arr()
