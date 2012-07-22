@@ -76,10 +76,6 @@ Computations, second priority:
 0.0.1 (prototype version)
 =========================
 
-Transformation:
-
-* FIX: build_arglist() and signature_macro() in transformation.py are almost identical
-
 
 Computation provider (long-term goal)
 =====================================

@@ -372,17 +372,9 @@ class TransformationTree:
             return ", ".join(res)
 
         def signature_macro(argnames):
-            res = []
-            for argname in argnames:
-                value = self.nodes[argname].value
-                dtype = self.nodes[argname].value.dtype
-                ctype = dtypes.ctype(dtype)
-                res.append(("GLOBAL_MEM " if value.is_array else " ") +
-                    ctype + (" *" if value.is_array else " ") + argname)
-
             return "#define {macro_name} {arglist}".format(
                 macro_name=signature_macro_name(),
-                arglist=", ".join(res))
+                arglist=build_arglist(argnames))
 
         def process(name):
             if name in visited: return
