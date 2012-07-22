@@ -90,10 +90,8 @@ def _fill_dtype_registry(respect_windows=True):
         else:
             i64_name = "long"
 
-        _register_dtype(numpy.int64, [i64_name, "%s int" % i64_name, "signed %s int" % i64_name,
-            "%s signed int" % i64_name])
-        _register_dtype(numpy.uint64, ["unsigned %s" % i64_name, "unsigned %s int" % i64_name,
-            "%s unsigned int" % i64_name])
+        _register_dtype(numpy.int64, i64_name)
+        _register_dtype(numpy.uint64, "unsigned %s" % i64_name)
 
         # http://projects.scipy.org/numpy/ticket/2017
         _register_dtype(numpy.uintp, "unsigned %s" % i64_name)
