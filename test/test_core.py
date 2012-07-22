@@ -122,30 +122,33 @@ def test_non_prepared_call(some_ctx):
 def test_incorrect_connections(some_ctx):
     d = Dummy(some_ctx)
     d.connect(tr_trivial, 'A', ['A_prime'])
+    d.connect(tr_trivial, 'D', ['D_prime'])
 
-    with pytest.raises(ValueError):
+    tests = [
         # cannot connect to scalar
-        d.connect(tr_trivial, 'coeff', ['A_prime'])
-
-    with pytest.raises(ValueError):
+        (tr_trivial, 'coeff', ['A_prime']),
         # A is not a leaf anymore, should fail
-        d.connect(tr_trivial, 'A', ['A_prime'])
-
-    with pytest.raises(ValueError):
+        (tr_trivial, 'A', ['A_prime']),
         # coeff is an existing scalar node, B is an array
-        d.connect(tr_trivial, 'B', ['coeff'])
-
-    with pytest.raises(ValueError):
+        (tr_trivial, 'B', ['coeff']),
         # second list should contain scalar nodes, but A_prime is an array
-        d.connect(tr_scale, 'C', ['C_prime'], ['A_prime'])
-
-    with pytest.raises(ValueError):
+        (tr_scale, 'C', ['C_prime'], ['A_prime']),
         # incorrect argument name
-        d.connect(tr_scale, 'C', ['1C_prime'], ['param'])
-
-    with pytest.raises(ValueError):
+        (tr_scale, 'C', ['1C_prime'], ['param']),
         # incorrect argument name
-        d.connect(tr_scale, 'C', ['C_prime'], ['1param'])
+        (tr_scale, 'C', ['C_prime'], ['1param']),
+        # Cannot connect output to an existing node.
+        # With current limitation of strictly elementwise transformations,
+        # connection to an existing output node would cause data loss and is most likely an error.
+        # Moreover, with current transformation code generator it creates some complications.
+        # (Connection to an existing input or scalar is fine, see corresponding tests)
+        (tr_trivial, 'C', ['D']),
+        (tr_trivial, 'C', ['D_prime'])
+    ]
+
+    for test in tests:
+        with pytest.raises(ValueError):
+            d.connect(*test)
 
 def test_non_array_connection(some_ctx):
     d = Dummy(some_ctx)
