@@ -115,6 +115,13 @@ def test_non_prepared_call(some_ctx):
     with pytest.raises(NotPreparedError):
         d(None, None, None, None, None)
 
+def test_connect_resets_prepared_state(some_ctx):
+    d = Dummy(some_ctx)
+    d.prepare(size=1024)
+    d.connect(tr_trivial, 'A', ['A_prime'])
+    with pytest.raises(NotPreparedError):
+        d(None, None, None, None, None)
+
 def test_incorrect_connections(some_ctx):
     d = Dummy(some_ctx)
     d.connect(tr_trivial, 'A', ['A_prime'])

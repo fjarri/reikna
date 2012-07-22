@@ -133,6 +133,7 @@ class Computation:
         if new_scalar_args is None:
             new_scalar_args = []
         self._tr_tree.connect(tr, array_arg, new_array_args, new_scalar_args)
+        self._prepared = False
 
     def prepare(self, **kwds):
         """
