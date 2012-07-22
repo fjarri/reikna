@@ -95,6 +95,14 @@ class ArrayValue(object):
         self.dtype = numpy.dtype(dtype) if dtype is not None else None
         self.is_array = True
 
+    def fill_with(self, other):
+        self.shape = other.shape
+        self.dtype = other.dtype
+
+    def clear(self):
+        self.shape = None
+        self.dtype = None
+
     def get_shape(self):
         return self._shape
 
@@ -128,6 +136,14 @@ class ScalarValue:
         self.value = dtypes.cast(dtype)(value) if value is not None else value
         self.dtype = numpy.dtype(dtype) if dtype is not None else None
         self.is_array = False
+
+    def fill_with(self, other):
+        self.value = other.value
+        self.dtype = other.dtype
+
+    def clear(self):
+        self.value = None
+        self.dtype = None
 
     def __str__(self):
         props = ["scalar"]
@@ -264,11 +280,7 @@ class TransformationTree:
 
     def _clear_values(self):
         for name in self.nodes:
-            old_value = self.nodes[name].value
-            if old_value.is_array:
-                self.nodes[name].value = ArrayValue(old_value.shape, None)
-            else:
-                self.nodes[name].value = ScalarValue(old_value.value, None)
+            self.nodes[name].value.clear()
 
     def propagate_to_base(self, values_dict):
         # takes {name: mock_val} and propagates it from leaves to roots,
@@ -279,7 +291,9 @@ class TransformationTree:
         def deduce(name):
             node = self.nodes[name]
             if node.children is None:
-                node.value = values_dict[name]
+                # Values received from user may point to the same object.
+                # Therefore we're playing it safe and not assigning them.
+                node.value.fill_with(values_dict[name])
                 return
 
             for child in node.children:
@@ -326,12 +340,15 @@ class TransformationTree:
 
                 # currently there is no shape derivation in transformations,
                 # so we can just propagate it without checks
-                child_value.shape = node.value.shape
+                if isinstance(child_value, ArrayValue):
+                    child_value.shape = node.value.shape
 
                 propagate(child)
 
         for name in self.base_names:
-            self.nodes[name].value = values_dict[name]
+            # Values received from user may point to the same object.
+            # Therefore we're playing it safe and not assigning them.
+            self.nodes[name].value.fill_with(values_dict[name])
             propagate(name)
 
 

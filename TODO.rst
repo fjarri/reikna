@@ -78,7 +78,6 @@ Computations, second priority:
 
 Transformation:
 
-* DECIDE: is it good to create new Scalar/ArrayValues in Transformation._clear_values?
 * DECIDE: instead of passing numpy in Transformation.transformations_for() to give access to datatypes, create a dict with only those types that can be used on GPU and pass it instead.
 * FIX: build_arglist() and signature_macro() in transformation.py are almost identical
 
