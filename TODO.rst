@@ -3,8 +3,6 @@
 
 CLUDA:
 
-* DECIDE: is CLUDA even a good name?
-* IMPROVE: implement proper dtype-ctype correspondences (like in compyte)
 * IMPROVE: supports_dtype() method should be extended to check for availability of other types (i.e. no floats/ints with size lesser than 4 are available, although they exist in numpy)
 * TODO: add a warning in docs that CPU array used in async operations must be pagelocked
 * TODO: get number of shared memory banks from device

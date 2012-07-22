@@ -1,10 +1,16 @@
 import numpy
 
+
+_DTYPE_TO_CTYPE = {}
+
+
 def is_complex(dtype):
-    return numpy.dtype(dtype).kind == 'c'
+    dtype = normalize_type(dtype)
+    return dtype.kind == 'c'
 
 def is_double(dtype):
-    return numpy.dtype(dtype).name in ['float64', 'complex128']
+    dtype = normalize_type(dtype)
+    return dtype.name in ['float64', 'complex128']
 
 def _promote_dtype(dtype):
     # not all numpy datatypes are supported by GPU, so we may need to promote
@@ -31,19 +37,15 @@ def normalize_types(dtypes):
     return [normalize_type(dtype) for dtype in dtypes]
 
 def ctype(dtype):
-    return dict(
-        int32='int',
-        float32='float',
-        float64='double',
-        complex64='float2',
-        complex128='double2'
-    )[numpy.dtype(dtype).name]
+    return _DTYPE_TO_CTYPE[normalize_type(dtype)]
 
 def complex_for(dtype):
-    return numpy.dtype(dict(float32='complex64', float64='complex128')[numpy.dtype(dtype).name])
+    dtype = normalize_type(dtype)
+    return numpy.dtype(dict(float32='complex64', float64='complex128')[dtype.name])
 
 def real_for(dtype):
-    return numpy.dtype(dict(complex64='float32', complex128='float64')[numpy.dtype(dtype).name])
+    dtype = normalize_type(dtype)
+    return numpy.dtype(dict(complex64='float32', complex128='float64')[dtype.name])
 
 def complex_ctr(dtype):
     return 'COMPLEX_CTR(' + ctype(dtype) + ')'
@@ -55,4 +57,48 @@ def zero_ctr(dtype):
         return '0'
 
 def cast(dtype):
-    return lambda x: numpy.array([x]).astype(dtype)[0]
+    return numpy.cast[dtype]
+
+def _register_dtype(dtype, ctype):
+    dtype = normalize_type(dtype)
+    _DTYPE_TO_CTYPE[dtype] = ctype
+
+# Taken from compyte.dtypes
+def _fill_dtype_registry(respect_windows=True):
+
+    import sys
+    import platform
+
+    _register_dtype(numpy.bool, "bool")
+    _register_dtype(numpy.int8, "char")
+    _register_dtype(numpy.uint8, "unsigned char")
+    _register_dtype(numpy.int16, "short")
+    _register_dtype(numpy.uint16, "unsigned short")
+    _register_dtype(numpy.int32, "int")
+    _register_dtype(numpy.uint32, "unsigned int")
+
+    # recommended by Python docs
+    is_64bits = sys.maxsize > 2 ** 32
+
+    if is_64bits:
+        if platform.system == 'Windows' and respect_windows:
+            i64_name = "long long"
+        else:
+            i64_name = "long"
+
+        _register_dtype(numpy.int64, [i64_name, "%s int" % i64_name, "signed %s int" % i64_name,
+            "%s signed int" % i64_name])
+        _register_dtype(numpy.uint64, ["unsigned %s" % i64_name, "unsigned %s int" % i64_name,
+            "%s unsigned int" % i64_name])
+
+        # http://projects.scipy.org/numpy/ticket/2017
+        _register_dtype(numpy.uintp, "unsigned %s" % i64_name)
+    else:
+        _register_dtype(numpy.uintp, "unsigned")
+
+    _register_dtype(numpy.float32, "float")
+    _register_dtype(numpy.float64, "double")
+    _register_dtype(numpy.complex64, "float2")
+    _register_dtype(numpy.complex128, "double2")
+
+_fill_dtype_registry()
