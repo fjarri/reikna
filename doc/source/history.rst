@@ -1,16 +1,9 @@
 Release history
 ===============
 
-0.0.1 (current development version)
------------------------------------
+0.0.1 (22 Jul 2012)
+-------------------
 
-Committed:
-
-* Outlined the structure of computations and transformations
-* Added matrix multiplication computation and some tests for it
+* Created basic core for computations and transformations
+* Added matrix multiplication computation
 * Created basic documentation
-
-Planned:
-
-* Stabilize API (both user-side and developer-side)
-* Expand documentation
