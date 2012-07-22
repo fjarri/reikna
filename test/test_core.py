@@ -209,10 +209,10 @@ def test_scalar_instead_of_array(some_ctx):
 
     d = Dummy(some_ctx)
 
-    A = getTestArray(N, numpy.complex64)
-    B = getTestArray(N, numpy.complex64)
-    C = getTestArray(N, numpy.complex64)
-    D = getTestArray(N, numpy.complex64)
+    A = get_test_array(N, numpy.complex64)
+    B = get_test_array(N, numpy.complex64)
+    C = get_test_array(N, numpy.complex64)
+    D = get_test_array(N, numpy.complex64)
 
     with pytest.raises(TypeError):
         d.prepare_for(C, D, A, 2, B)
@@ -226,15 +226,15 @@ def test_debug_signature_check(some_ctx):
     d = Dummy(some_ctx, debug=True)
     d.prepare(arr_dtype=numpy.complex64, size=N1)
 
-    A1 = getTestArray(N1, numpy.complex64)
-    B1 = getTestArray(N1, numpy.complex64)
-    C1 = getTestArray(N1, numpy.complex64)
-    D1 = getTestArray(N1, numpy.complex64)
+    A1 = get_test_array(N1, numpy.complex64)
+    B1 = get_test_array(N1, numpy.complex64)
+    C1 = get_test_array(N1, numpy.complex64)
+    D1 = get_test_array(N1, numpy.complex64)
 
-    A2 = getTestArray(N2, numpy.complex64)
-    B2 = getTestArray(N2, numpy.complex64)
-    C2 = getTestArray(N2, numpy.complex64)
-    D2 = getTestArray(N2, numpy.complex64)
+    A2 = get_test_array(N2, numpy.complex64)
+    B2 = get_test_array(N2, numpy.complex64)
+    C2 = get_test_array(N2, numpy.complex64)
+    D2 = get_test_array(N2, numpy.complex64)
 
     with pytest.raises(ValueError):
         # this will require basis change
@@ -303,8 +303,8 @@ def test_transformations_work(ctx):
     d.connect(tr_trivial, 'C_half1', ['C_new_half1'])
     d.connect(tr_scale, 'D', ['D_prime'], ['D_param'])
 
-    A_prime = getTestArray(N, numpy.complex64)
-    B_new_prime = getTestArray(N, numpy.complex64)
+    A_prime = get_test_array(N, numpy.complex64)
+    B_new_prime = get_test_array(N, numpy.complex64)
     gpu_A_prime = ctx.to_device(A_prime)
     gpu_B_new_prime = ctx.to_device(B_new_prime)
     gpu_C_new_half1 = ctx.allocate(N, numpy.complex64)
@@ -325,9 +325,9 @@ def test_transformations_work(ctx):
     C_half2 = C / 2
     D_prime = D * D_param
 
-    assert diff(ctx.from_device(gpu_C_new_half1), C_new_half1) < SINGLE_EPS
-    assert diff(ctx.from_device(gpu_C_half2), C_half2) < SINGLE_EPS
-    assert diff(ctx.from_device(gpu_D_prime), D_prime) < SINGLE_EPS
+    assert diff_is_negligible(ctx.from_device(gpu_C_new_half1), C_new_half1)
+    assert diff_is_negligible(ctx.from_device(gpu_C_half2), C_half2)
+    assert diff_is_negligible(ctx.from_device(gpu_D_prime), D_prime)
 
 def test_connection_to_base(ctx):
 
@@ -345,7 +345,7 @@ def test_connection_to_base(ctx):
     d.connect(tr_scale, 'C', ['C_prime'], ['coeff'])
     print d.signature_str()
 
-    B = getTestArray(N, numpy.complex64)
+    B = get_test_array(N, numpy.complex64)
     gpu_B = ctx.to_device(B)
     gpu_C_prime = ctx.allocate(N, numpy.complex64)
     gpu_D = ctx.allocate(N, numpy.complex64)
@@ -356,5 +356,5 @@ def test_connection_to_base(ctx):
     C, D = mock_dummy(A, B, coeff)
     C_prime = C * coeff
 
-    assert diff(ctx.from_device(gpu_C_prime), C_prime) < SINGLE_EPS
-    assert diff(ctx.from_device(gpu_D), D) < SINGLE_EPS
+    assert diff_is_negligible(ctx.from_device(gpu_C_prime), C_prime)
+    assert diff_is_negligible(ctx.from_device(gpu_D), D)

@@ -21,8 +21,8 @@ def test_errors(ctx_and_double, complex1, complex2):
     dtype2 = dtypes.complex_for(dtype) if complex2 else dtype
     res_dtype = numpy.result_type(dtype1, dtype2)
 
-    a = getTestArray(s1, dtype1)
-    b = getTestArray(s2, dtype2)
+    a = get_test_array(s1, dtype1)
+    b = get_test_array(s2, dtype2)
 
     a_dev = ctx.to_device(a)
     b_dev = ctx.to_device(b)
@@ -30,4 +30,4 @@ def test_errors(ctx_and_double, complex1, complex2):
     dot = MatrixMul(ctx).prepare_for(res_dev, a_dev, b_dev)
     dot(res_dev, a_dev, b_dev)
 
-    assert diff(ctx.from_device(res_dev), numpy.dot(a, b)) < 1e-6
+    assert diff_is_negligible(ctx.from_device(res_dev), numpy.dot(a, b))

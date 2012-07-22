@@ -8,7 +8,7 @@ def simple_context_test(ctx):
     shape = (1000,)
     dtype = numpy.float32
 
-    a = getTestArray(shape, dtype)
+    a = get_test_array(shape, dtype)
     a_dev = ctx.to_device(a)
     a_back = ctx.from_device(a_dev)
 
