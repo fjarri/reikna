@@ -6,7 +6,8 @@ from helpers import *
 
 
 TEST_DTYPES = [
-	numpy.int8, numpy.int16, numpy.int32,
+	numpy.int8, numpy.int16, numpy.int32, numpy.int64,
+	numpy.uint8, numpy.uint16, numpy.uint32, numpy.uint64,
 	numpy.float32, numpy.float64,
 	numpy.complex64, numpy.complex128
 ]
