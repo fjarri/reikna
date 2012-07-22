@@ -28,7 +28,8 @@ class FuncCollector:
         if out is None:
             out = numpy.result_type(dtype1, dtype2)
         ctypes = [dtypes.ctype(dt) for dt in (dtype1, dtype2)]
-        out_ctype = dtypes.ctype(out)
+        ctypes = [ctype.replace(' ', '_') for ctype in ctypes]
+        out_ctype = dtypes.ctype(out).replace(' ', '_')
 
         name = "_{prefix}_mul__{out}__{signature}".format(
             prefix=self.prefix, out=out_ctype, signature = '_'.join(ctypes))
@@ -40,7 +41,8 @@ class FuncCollector:
         if out is None:
             out = numpy.result_type(dtype1, dtype2)
         ctypes = [dtypes.ctype(dt) for dt in (dtype1, dtype2)]
-        out_ctype = dtypes.ctype(out)
+        ctypes = [ctype.replace(' ', '_') for ctype in ctypes]
+        out_ctype = dtypes.ctype(out).replace(' ', '_')
 
         name = "_{prefix}_div__{out}__{signature}".format(
             prefix=self.prefix, out=out_ctype, signature = '_'.join(ctypes))
