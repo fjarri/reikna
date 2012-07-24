@@ -1,7 +1,6 @@
 from logging import error
 
 import numpy
-from pycuda.tools import make_default_context
 import pycuda.gpuarray as gpuarray
 import pycuda.driver as cuda
 from pycuda.compiler import SourceModule
@@ -16,14 +15,39 @@ cuda.init()
 API_ID = cluda.API_CUDA
 
 
+def get_platforms():
+    # For CUDA, there's only one platform
+    return [Platform()]
+
+
+class Platform:
+    """
+    Mimics pyopencl.Platform
+    """
+
+    name = "nVidia CUDA"
+    vendor = "nVidia"
+    version = ".".join(str(x) for x in cuda.get_version())
+
+    def get_devices(self):
+        return [cuda.Device(num) for num in xrange(cuda.Device.count())]
+
+    def __str__(self):
+        return self.name + " " + self.version
+
+
 class Context:
 
     @classmethod
-    def create(cls, **kwds):
-        ctx = make_default_context()
-        stream = cuda.Stream()
+    def create(cls, device=None, **kwds):
+
+        if device is None:
+            platform = get_platforms()[0]
+            device = platform.get_devices()[0]
+
+        ctx = device.make_context()
         kwds['owns_context'] = True
-        return cls(ctx, stream, **kwds)
+        return cls(ctx, **kwds)
 
     def __init__(self, context, stream=None, fast_math=True, async=True, owns_context=False):
         self.api = cluda.api(API_ID)

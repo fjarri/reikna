@@ -13,27 +13,35 @@ from tigger.cluda.kernel import render_prelude, render_template_source
 API_ID = cluda.API_OCL
 
 
+def get_platforms():
+    return cl.get_platforms()
+
+
 class Context:
 
     @classmethod
-    def create(cls, **kwds):
+    def create(cls, device=None, **kwds):
 
         # cl.create_some_context() creates multiple-device context,
         # and we do not want that (yet)
 
-        platforms = cl.get_platforms()
-        target_device = None
-        for platform in platforms:
-            devices = platform.get_devices()
-            for device in devices:
-                params = DeviceParameters(device)
-                if params.max_block_size > 1:
-                    target_device = device
-                    break
-            if target_device is not None:
-                break
+        def find_suitable_device():
+            platforms = get_platforms()
+            target_device = None
+            for platform in platforms:
+                devices = platform.get_devices()
+                for device in devices:
+                    params = DeviceParameters(device)
+                    if params.max_block_size > 1:
+                        return device
+            return None
 
-        ctx = cl.Context(devices=[target_device])
+        if device is None:
+            device = find_suitable_device()
+            if device is None:
+                raise RuntimeError("Cannot find suitable OpenCL device to create CLUDA context")
+
+        ctx = cl.Context(devices=[device])
 
         return cls(ctx, **kwds)
 
