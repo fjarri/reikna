@@ -74,6 +74,10 @@ It is referred here (and references from other parts of this documentation) as :
         :param fast_math: same as in :py:class:`Context`.
         :param async: same as in :py:class:`Context`.
 
+    .. py:attribute:: device_params
+
+        Instance of :py:class:`DeviceParameters` class for this context's device.
+
     .. py:method:: supports_dtype(dtype)
 
         Checks if given ``numpy`` dtype can be used in kernels compiled using this context.
@@ -122,3 +126,27 @@ It is referred here (and references from other parts of this documentation) as :
 
         Returns :py:class:`numpy.ndarray` with the contents of the array.
         Synchronizes the context.
+
+.. py:class:: DeviceParameters
+
+    An assembly of device parameters necessary for optimizations.
+
+    .. py:attribute:: max_block_size
+
+        Maximum block size for kernels.
+
+    .. py:attribute:: max_block_dims
+
+        3-element list with maximum block dimensions.
+
+    .. py:attribute:: max_grid_dims
+
+        2-element list with maximum grid dimensions.
+
+    .. py:attribute:: warp_size
+
+        Warp size (nVidia), or wavefront size (AMD), or SIMD width is supposed to be the number of threads that are executed simultaneously on the same computation unit (so you can assume that they are perfectly synchronized).
+
+    .. py:attribute:: smem_banks
+
+        Shared (local for AMD) memory banks is a number of successive 32-bit words you can access without getting bank conflicts.
