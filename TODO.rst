@@ -61,6 +61,7 @@ CLUDA:
 * DECIDE: what are we going to do with OpenCL platforms that do not support intra-block interaction?
   (for example, Apple's implementation)
 * DECIDE: which terminology to perefer, CUDA or OpenCL?
+* DECIDE: make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
 
 Computations:
 
