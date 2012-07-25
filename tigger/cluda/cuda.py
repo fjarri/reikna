@@ -75,16 +75,6 @@ class Context:
     def empty_like(self, arr):
         return self.allocate(arr.shape, arr.dtype)
 
-    def from_device(self, arr):
-        return arr.get()
-
-    def synchronize(self):
-        self._stream.synchronize()
-
-    def _synchronize(self):
-        if not self.async:
-            self.synchronize()
-
     def to_device(self, arr, dest=None):
         if dest is None:
             arr_device = self.empty_like(arr)
@@ -98,6 +88,22 @@ class Context:
 
         if dest is None:
             return arr_device
+
+    def from_device(self, arr, dest=None, async=False):
+        if async:
+            arr_cpu = arr.get_async(ary=dest, stream=self._stream)
+        else:
+            arr_cpu = arr.get(ary=dest)
+
+        if dest is None:
+            return arr_cpu
+
+    def synchronize(self):
+        self._stream.synchronize()
+
+    def _synchronize(self):
+        if not self.async:
+            self.synchronize()
 
     def compile_raw(self, src):
         return Module(self, False, src)

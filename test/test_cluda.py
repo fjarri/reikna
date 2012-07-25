@@ -1,3 +1,5 @@
+import itertools
+
 import pytest
 
 import tigger.cluda as cluda
@@ -58,6 +60,41 @@ def test_connect_to_context_and_stream(cluda_api):
 	ctx2.release()
 
 	ctx.release()
+
+def test_transfers(ctx):
+	a = get_test_array(1024, numpy.float32)
+
+	def to_device1(x):
+		return ctx.to_device(x)
+	def to_device2(x):
+		y = ctx.empty_like(x)
+		ctx.to_device(x, dest=y)
+		return y
+	def from_device1(x):
+		return x.get()
+	def from_device2(x):
+		return ctx.from_device(x)
+	def from_device3(x):
+		y = numpy.empty(x.shape, x.dtype)
+		ctx.from_device(x, dest=y)
+		return y
+	def from_device4(x):
+		y = ctx.from_device(x, async=True)
+		ctx.synchronize()
+		return y
+	def from_device5(x):
+		y = numpy.empty(x.shape, x.dtype)
+		ctx.from_device(x, dest=y, async=True)
+		ctx.synchronize()
+		return y
+
+	to_device = (to_device1, to_device2)
+	from_device = (from_device1, from_device2, from_device3, from_device4, from_device5)
+
+	for to_d, from_d in itertools.product(to_device, from_device):
+		a_device = to_d(a)
+		a_back = from_d(a_device)
+		assert diff_is_negligible(a, a_back)
 
 @pytest.mark.parametrize(
 	"dtype", TEST_DTYPES,

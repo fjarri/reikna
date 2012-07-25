@@ -70,16 +70,6 @@ class Context:
     def empty_like(self, arr):
         return self.allocate(arr.shape, arr.dtype)
 
-    def from_device(self, arr):
-        return arr.get()
-
-    def synchronize(self):
-        self._queue.finish()
-
-    def _synchronize(self):
-        if not self.async:
-            self.synchronize()
-
     def to_device(self, arr, dest=None):
         if dest is None:
             arr_device = self.empty_like(arr)
@@ -91,6 +81,17 @@ class Context:
         if dest is None:
             return arr_device
 
+    def from_device(self, arr, dest=None, async=False):
+        arr_cpu = arr.get(queue=self._queue, ary=dest, async=async)
+        if dest is None:
+            return arr_cpu
+
+    def synchronize(self):
+        self._queue.finish()
+
+    def _synchronize(self):
+        if not self.async:
+            self.synchronize()
     def release(self):
         pass
 
