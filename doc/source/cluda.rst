@@ -113,6 +113,23 @@ It is referred here (and references from other parts of this documentation) as :
         :param dest_offset: offset (in items of ``arr.dtype``) in the destination array.
         :param size: how many elements of ``arr.dtype`` to copy.
 
+    .. py:method:: synchronize()
+
+        Forcefully synchronize the context with the main thread.
+
+    .. py:method:: compile(template_src, **kwds)
+
+        Compiles ``Mako`` template source with ``kwds`` passed to the ``render()`` function and returns :py:class:`Module` object.
+        In addition to ``kwds``, some pre-defined keywords, and defines from API-specific prelude are available inside the kernel.
+        See :ref:`Kernel toolbox <cluda-kernel-toolbox>` for details.
+
+    .. py:method:: release()
+
+        Release and invalidate the context.
+        This happens automatically on object deletion, so call it only if you want to release resources earlier than object lifecycle takes care of that.
+
+        Does not have any effect if the :py:class:`Context` was created as a wrapper for the existing context.
+
 .. py:class:: Array
 
     Actual array class is different depending on the API: :py:class:`pycuda.gpuarray.GPUArray` for ``API_CUDA`` and :py:class:`pyopencl.array.Array` for ``API_OCL``.
@@ -150,3 +167,30 @@ It is referred here (and references from other parts of this documentation) as :
     .. py:attribute:: smem_banks
 
         Shared (local for AMD) memory banks is a number of successive 32-bit words you can access without getting bank conflicts.
+
+.. py:class:: Module
+
+    .. py:attribute:: kernel_name
+
+        Contains :py:class:`Kernel` object for the kernel ``kernel_name``.
+
+.. py:class:: Kernel
+
+    .. py:method:: prepare(block=(1, 1, 1), grid=(1, 1), shared=0)
+
+        Prepare kernel for execution with given parameters.
+
+    .. py:method:: prepared_call(*args)
+
+        Execute kernel.
+
+    .. py:method:: __call__(*args, **kwds)
+
+        Shortcut for successive call to :py:meth:`prepare` and :py:meth:`prepared_call`.
+
+.. _cluda-kernel-toolbox:
+
+Kernel toolbox
+--------------
+
+Under construction.
