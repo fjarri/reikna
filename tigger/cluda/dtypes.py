@@ -5,14 +5,23 @@ _DTYPE_TO_CTYPE = {}
 
 
 def is_complex(dtype):
+    """
+    Returns ``True`` if ``dtype`` is complex.
+    """
     dtype = normalize_type(dtype)
     return dtype.kind == 'c'
 
 def is_double(dtype):
+    """
+    Returns ``True`` if ``dtype`` is double precision floating point.
+    """
     dtype = normalize_type(dtype)
     return dtype.name in ['float64', 'complex128']
 
 def is_integer(dtype):
+    """
+    Returns ``True`` if ``dtype`` is an integer.
+    """
     dtype = normalize_type(dtype)
     return dtype.kind in ('i', 'u')
 
@@ -29,38 +38,72 @@ def _promote_dtype(dtype):
         return dtype
 
 def result_type(*dtypes):
+    """
+    Wrapper for :py:func:`numpy.result_type`
+    which takes into account types supported by GPUs.
+    """
     return _promote_dtype(numpy.result_type(*dtypes))
 
 def min_scalar_type(val):
+    """
+    Wrapper for :py:func:`numpy.min_scalar_dtype`
+    which takes into account types supported by GPUs.
+    """
     return _promote_dtype(numpy.min_scalar_type(val))
 
 def normalize_type(dtype):
+    """
+    Function for wrapping all dtypes coming from the user.
+    ``numpy`` uses two different classes to represent dtypes,
+    and one of them does not have some important attributes.
+    """
     return numpy.dtype(dtype)
 
 def normalize_types(dtypes):
+    """
+    Same as :py:func:`normalize_type`, but operates on a list of dtypes.
+    """
     return [normalize_type(dtype) for dtype in dtypes]
 
 def ctype(dtype):
+    """
+    Returns C type name corresponding to given ``dtype``.
+    """
     return _DTYPE_TO_CTYPE[normalize_type(dtype)]
 
 def complex_for(dtype):
+    """
+    Returns complex dtype corresponding to given floating point ``dtype``.
+    """
     dtype = normalize_type(dtype)
     return numpy.dtype(dict(float32='complex64', float64='complex128')[dtype.name])
 
 def real_for(dtype):
+    """
+    Returns floating point dtype corresponding to given complex ``dtype``.
+    """
     dtype = normalize_type(dtype)
     return numpy.dtype(dict(complex64='float32', complex128='float64')[dtype.name])
 
 def complex_ctr(dtype):
+    """
+    Returns name of the constructor for the given ``dtype``.
+    """
     return 'COMPLEX_CTR(' + ctype(dtype) + ')'
 
 def zero_ctr(dtype):
+    """
+    Returns the string with constructed zero value for the given ``dtype``.
+    """
     if is_complex(dtype):
         return complex_ctr(dtype) + '(0, 0)'
     else:
         return '0'
 
 def cast(dtype):
+    """
+    Returns function that takes one argument and casts it to ``dtype``.
+    """
     return numpy.cast[dtype]
 
 def _register_dtype(dtype, ctype):

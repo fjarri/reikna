@@ -190,7 +190,17 @@ It is referred here (and references from other parts of this documentation) as :
 
 .. _cluda-kernel-toolbox:
 
+
 Kernel toolbox
 --------------
 
 Under construction.
+
+
+Datatype tools
+--------------
+
+This module contains various convenience functions which operate with :py:class:`numpy.dtype` objects.
+
+.. automodule:: tigger.cluda.dtypes
+    :members:
