@@ -60,6 +60,7 @@ CLUDA:
 * DECIDE: Is there a way to get number of shared memory banks and warp size from AMD device?
 * DECIDE: what are we going to do with OpenCL platforms that do not support intra-block interaction?
   (for example, Apple's implementation)
+* DECIDE: which terminology to perefer, CUDA or OpenCL?
 
 Computations:
 
