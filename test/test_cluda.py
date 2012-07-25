@@ -93,7 +93,8 @@ def test_transfers(ctx):
 
 	for to_d, from_d in itertools.product(to_device, from_device):
 		a_device = to_d(a)
-		a_back = from_d(a_device)
+		a_copy = ctx.copy_array(a_device)
+		a_back = from_d(a_copy)
 		assert diff_is_negligible(a, a_back)
 
 @pytest.mark.parametrize(
