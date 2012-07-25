@@ -3,13 +3,10 @@
 
 CLUDA:
 
-* TODO: add a warning in docs that CPU array used in async operations must be pagelocked
 * TODO: get number of shared memory banks from device
 * TODO: get warp size from device
-* DECIDE: does the forceful enabling of double precision in OpenCL somehow change the performance for single precision?
 * DECIDE: what are we going to do with OpenCL platforms that do not support intra-block interaction?
   (for example, Apple's implementation)
-* TODO: add functions for devices/platforms discovery, and generalized analogue of make_some_context (with interactive option, perhaps)
 
 Core:
 
@@ -63,6 +60,10 @@ Computations, first priority:
 Website/documentation:
 
 * TODO: extend starting page (link to issue tracker, quick links to guides, list of algorithms, quick example)
+
+CLUDA:
+
+* DECIDE: does the forceful enabling of double precision in OpenCL somehow change the performance for single precision?
 
 Computations:
 
