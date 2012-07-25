@@ -86,12 +86,32 @@ class Context:
         if dest is None:
             return arr_cpu
 
+    def copy_array(self, arr, dest=None, src_offset=0, dest_offset=0, size=None):
+        if dest is None:
+            arr_device = self.empty_like(arr)
+        else:
+            arr_device = dest
+
+        itemsize = arr.dtype.itemsize
+        nbytes = arr.nbytes if size is None else itemsize * size
+        src_offset *= itemsize
+        dest_offset *= itemsize
+
+        cl.enqueue_copy(self._queue,
+            arr_device.data, arr.data,
+            byte_count=nbytes, src_offset=src_offset, dest_offset=dest_offset)
+        self._synchronize()
+
+        if dest is None:
+            return arr_device
+
     def synchronize(self):
         self._queue.finish()
 
     def _synchronize(self):
         if not self.async:
             self.synchronize()
+
     def release(self):
         pass
 

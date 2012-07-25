@@ -81,10 +81,8 @@ class Context:
         else:
             arr_device = dest
 
-        if self.async:
-            arr_device.set_async(arr, stream=self._stream)
-        else:
-            arr_device.set(arr)
+        arr_device.set_async(arr, stream=self._stream)
+        self._synchronize()
 
         if dest is None:
             return arr_device
@@ -97,6 +95,26 @@ class Context:
 
         if dest is None:
             return arr_cpu
+
+    def copy_array(self, arr, dest=None, src_offset=0, dest_offset=0, size=None):
+
+        if dest is None:
+            arr_device = self.empty_like(arr)
+        else:
+            arr_device = dest
+
+        itemsize = arr.dtype.itemsize
+        nbytes = arr.nbytes if size is None else itemsize * size
+        src_offset *= itemsize
+        dest_offset *= itemsize
+
+        cuda.memcpy_dtod_async(int(arr_device.gpudata) + dest_offset,
+            int(arr.gpudata) + src_offset,
+            nbytes, stream=self._stream)
+        self._synchronize()
+
+        if dest is None:
+            return arr_device
 
     def synchronize(self):
         self._stream.synchronize()
