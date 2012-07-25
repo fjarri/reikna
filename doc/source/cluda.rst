@@ -23,9 +23,33 @@ It is referred here (and references from other parts of this documentation) as :
 
 .. py:module:: tigger.cluda.api
 
-.. py:attribute:: API_ID
+.. py:data:: API_ID
 
     Identifier of this API.
+
+.. py:function:: get_platforms()
+
+    Returns a list of platform objects.
+    The methods and attributes available are described in the reference entry for :py:class:`Platform`.
+    In case of ``API_OCL`` returned objects are actually instances of :py:class:`pyopencl.Platform`.
+
+.. py:class:: Platform()
+
+    .. py:attribute:: name
+
+        String with platform name.
+
+    .. py:attribute:: vendor
+
+        String with platform vendor.
+
+    .. py:attribute:: version
+
+        String with platform version.
+
+    .. py:method:: get_devices()
+
+        Returns a list of device objects from the platform.
 
 .. py:class:: Context(context, stream=None, fast_math=True, async=True)
 
@@ -44,7 +68,7 @@ It is referred here (and references from other parts of this documentation) as :
         Creates the new :py:class:`tigger.cluda.api.Context` object with its own context and stream inside.
         Intended for cases when you want to base your whole program on CLUDA.
 
-        :param device: device to create context for.
+        :param device: device to create context for, element of the list returned by :py:meth:`Platform.get_devices`.
             If not given, the device will be selected internally.
         :type device: :py:class:`pycuda.driver.Device` object for ``API_CUDA``, or :py:class:`pyopencl.Device` object for ``API_OCL``.
         :param fast_math: same as in :py:class:`Context`.
@@ -63,6 +87,16 @@ It is referred here (and references from other parts of this documentation) as :
 
         Allocates an array on GPU with the same shape and dtype as ``arr``.
 
-    .. py:method:: to_device(arr)
+    .. py:method:: to_device(arr, dest=None)
 
         Copies an array to the device memory.
+        If ``dest`` is specified, it is used as the destination, and the method returns ``None``.
+        Otherwise the destination array is created internally and returned from the method.
+
+    .. py:method:: from_device(arr, dest=None, async=False)
+
+        Transfers the contents of ``arr`` to a :py:class:`numpy.ndarray` object.
+        The effect of ``dest`` parameter is the same as in :py:meth:`to_device`.
+        If ``async`` is ``True``, the transfer is asynchronous (the context-wide asynchronisity setting does not apply here).
+
+        Alternative to this method is ``arr.get()``, which is analagous to ``ctx.from_device(arr)``.
