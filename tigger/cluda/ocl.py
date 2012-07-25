@@ -130,12 +130,6 @@ class DeviceParameters:
 
         self.max_grid_dims = [sys.maxint, sys.maxint]
 
-        # Warp size (nVidia), or wavefront size (AMD), or SIMD width
-        # is supposed to be the number of threads that are
-        # executed simultaneously on the same computation unit
-        # (so you can assume that they are perfectly synchronized).
-        # Shared (local for AMD) memory banks is a number of successive 32-bit words
-        # you can access without getting bank conflicts.
         if device.type == cl.device_type.CPU:
             # For CPU both values do not make much sense,
             # so we are just setting them to maximum
@@ -153,7 +147,11 @@ class DeviceParameters:
         else:
             # AMD card.
             # Do not know how to query this info, so settle for most probable values.
+
             self.smem_banks = 32
+
+            # An alternative is to query CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE
+            # for some arbitrary kernel.
             self.warp_size = 64
 
 
