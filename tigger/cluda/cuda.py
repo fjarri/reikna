@@ -187,12 +187,17 @@ class Kernel:
         self._ctx = ctx
         self._kernel = kernel
 
+    def prepare(self, block=(1, 1, 1), grid=(1, 1), shared=0):
+        self.block = block
+        self.grid = grid
+        self.shared = shared
+
+    def prepared_call(self, *args):
+        self._kernel(*args, grid=self.grid, block=self.block,
+            stream=self._ctx._stream, shared=self.shared)
+        self._ctx._synchronize()
+
     def __call__(self, *args, **kwds):
         # Python 2.* cannot handle explicit keywords after variable-length positional arguments
-        block = kwds.pop('block', (1, 1, 1))
-        grid = kwds.pop('grid', (1, 1))
-        shared = kwds.pop('shared', 0)
-        assert len(kwds) == 0, "Unknown keyword arguments: " + str(kwds.keys())
-
-        self._kernel(*args, grid=grid, block=block, stream=self._ctx._stream, shared=shared)
-
+        self.prepare(**kwds)
+        self.prepared_call(*args)

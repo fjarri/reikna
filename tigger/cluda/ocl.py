@@ -187,17 +187,21 @@ class Kernel:
         self._ctx = ctx
         self._kernel = kernel
 
-    def __call__(self, *args, **kwds):
-        # Python 2.* cannot handle explicit keywords after variable-length positional arguments
-        block = kwds.pop('block', (1, 1, 1))
-        grid = kwds.pop('grid', (1, 1))
-        shared = kwds.pop('shared', 0)
-        assert len(kwds) == 0, "Unknown keyword arguments: " + str(kwds.keys())
+    def prepare(self, block=(1, 1, 1), grid=(1, 1), shared=0):
+        self.block = block
+        self.grid = grid
+        self.shared = shared
+        self.global_size = (block[0] * grid[0], block[1] * grid[1], block[2])
 
-        global_size = (block[0] * grid[0], block[1] * grid[1], block[2])
+    def prepared_call(self, *args):
 
         # Unlike PyCuda, PyOpenCL does not allow passing array objects as is
         args = [x.data if isinstance(x, clarray.Array) else x for x in args]
 
-        self._kernel(self._ctx._queue, global_size, block, *args)
+        self._kernel(self._ctx._queue, self.global_size, self.block, *args)
         self._ctx._synchronize()
+
+    def __call__(self, *args, **kwds):
+        # Python 2.* cannot handle explicit keywords after variable-length positional arguments
+        self.prepare(**kwds)
+        self.prepared_call(*args)
