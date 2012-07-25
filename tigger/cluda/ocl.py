@@ -80,10 +80,16 @@ class Context:
         if not self.async:
             self.synchronize()
 
-    def to_device(self, arr):
-        res = clarray.to_device(self._queue, arr)
-        self._synchronize()
-        return res
+    def to_device(self, arr, dest=None):
+        if dest is None:
+            arr_device = self.empty_like(arr)
+        else:
+            arr_device = dest
+
+        arr_device.set(arr, queue=self._queue, async=self.async)
+
+        if dest is None:
+            return arr_device
 
     def release(self):
         pass

@@ -85,11 +85,19 @@ class Context:
         if not self.async:
             self.synchronize()
 
-    def to_device(self, arr):
-        if self.async:
-            return gpuarray.to_gpu_async(arr, stream=self._stream)
+    def to_device(self, arr, dest=None):
+        if dest is None:
+            arr_device = self.empty_like(arr)
         else:
-            return gpuarray.to_gpu(arr)
+            arr_device = dest
+
+        if self.async:
+            arr_device.set_async(arr, stream=self._stream)
+        else:
+            arr_device.set(arr)
+
+        if dest is None:
+            return arr_device
 
     def compile_raw(self, src):
         return Module(self, False, src)
