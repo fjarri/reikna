@@ -33,7 +33,7 @@ It is referred here (and references from other parts of this documentation) as :
     The methods and attributes available are described in the reference entry for :py:class:`Platform`.
     In case of ``API_OCL`` returned objects are actually instances of :py:class:`pyopencl.Platform`.
 
-.. py:class:: Platform()
+.. py:class:: Platform
 
     .. py:attribute:: name
 
@@ -80,8 +80,7 @@ It is referred here (and references from other parts of this documentation) as :
 
     .. py:method:: allocate(shape, dtype)
 
-        Create an array on GPU with given ``shape`` and ``dtype``.
-        For ``API_CUDA``, returns ``pycuda.gpuarray.GPUArray`` object, for ``API_OCL`` returns ``pyopencl.array.Array``.
+        Creates an :py:class:`Array` on GPU with given ``shape`` and ``dtype``.
 
     .. py:method:: empty_like(arr)
 
@@ -99,4 +98,27 @@ It is referred here (and references from other parts of this documentation) as :
         The effect of ``dest`` parameter is the same as in :py:meth:`to_device`.
         If ``async`` is ``True``, the transfer is asynchronous (the context-wide asynchronisity setting does not apply here).
 
-        Alternative to this method is ``arr.get()``, which is analagous to ``ctx.from_device(arr)``.
+        Alternatively, one might use :py:meth:`Array.get()`.
+
+    .. py:method:: copy_array(arr, dest=None, src_offset=0, dest_offset=0, size=None)
+
+        Copies array on device.
+
+        :param dest: the effect is the same as in :py:meth:`to_device`.
+        :param src_offset: offset (in items of ``arr.dtype``) in the source array.
+        :param dest_offset: offset (in items of ``arr.dtype``) in the destination array.
+        :param size: how many elements of ``arr.dtype`` to copy.
+
+.. py:class:: Array
+
+    Actual array class is different depending on the API: :py:class:`pycuda.gpuarray.GPUArray` for ``API_CUDA`` and :py:class:`pyopencl.array.Array` for ``API_OCL``.
+    This is an interface they both provide.
+
+    .. py:attribute:: shape
+
+    .. py:attribute:: dtype
+
+    .. py:method:: get()
+
+        Returns :py:class:`numpy.ndarray` with the contents of the array.
+        Synchronizes the context.
