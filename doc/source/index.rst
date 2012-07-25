@@ -21,6 +21,7 @@ Contents
 
    tutorial
    cluda
+   user-side
    history
 
 Indices and tables
