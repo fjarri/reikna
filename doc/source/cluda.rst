@@ -188,13 +188,87 @@ It is referred here (and references from other parts of this documentation) as :
 
         Shortcut for successive call to :py:meth:`prepare` and :py:meth:`prepared_call`.
 
-.. _cluda-kernel-toolbox:
 
+.. _cluda-kernel-toolbox:
 
 Kernel toolbox
 --------------
 
-Under construction.
+The stuff available for the kernel passed for compilation consists of two parts.
+
+First, there are several objects available at the template rendering stage, namely ``numpy``, :py:mod:`tigger.cluda.dtypes` (as ``dtypes``) and a :py:class:`FuncCollector` instance named ``func``, which is used to compensate for the lack of complex number operations in OpenCL, and the lack of C++ synthax which would allow one to write them.
+Its methods can be treated as if they return the name of the function necessary to operate on given dtypes.
+Available methods are:
+
+.. py:module:: tigger.cluda.kernel
+
+.. py:class:: FuncCollector
+
+    .. py:method:: mul(dtype1, dtype2, out=None)
+
+        Returns the name of the function that multiplies values of types ``dtype1`` and ``dtype2``.
+        If ``out`` is given, it will be set as a return type for this function.
+
+    .. py:method:: div(dtype1, dtype2, out=None)
+
+        Returns the name of the function that divides values of ``dtype1`` and ``dtype2``.
+        If ``out`` is given, it will be set as a return type for this function.
+
+    .. py:method:: cast(out_dtype, in_dtype)
+
+        Returns the name of the function that casts values of ``in_dtype`` to ``out_dtype``.
+
+Second, there is a set of macros attached to any kernel depending on the API it is being compiled for:
+
+.. c:macro:: LOCAL_BARRIER
+
+    Synchronizes threads inside a block.
+
+.. c:macro:: WITHIN_KERNEL
+
+    Modifier for a device-only function declaration.
+
+.. c:macro:: KERNEL
+
+    Modifier for the kernel function declaration.
+
+.. c:macro:: GLOBAL_MEM
+
+    Modifier for the global memory pointer argument.
+
+.. c:macro:: LOCAL_MEM
+
+    Modifier for the statically allocated local memory variable.
+
+.. c:macro:: LOCAL_MEM_DYNAMIC
+
+    Modifier for the dynamically allocated local memory variable.
+
+.. c:macro:: LOCAL_MEM_ARG
+
+    Modifier for the local memory argument to the device-only functions.
+
+.. c:macro:: INLINE
+
+    Modifier for inline functions.
+
+.. c:macro:: LID_0
+.. c:macro:: LID_1
+.. c:macro:: LID_2
+
+    Thread identifiers in a block for three dimensions.
+
+.. c:macro:: GID_0
+.. c:macro:: GID_1
+.. c:macro:: GID_2
+
+    Block identifiers in a grid for three dimensions.
+
+.. c:macro:: LSIZE_0
+.. c:macro:: LSIZE_1
+.. c:macro:: LSIZE_2
+
+    Block sizes for three dimensions.
 
 
 Datatype tools
