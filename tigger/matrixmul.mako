@@ -65,7 +65,7 @@ KERNEL void matrixmul(${signature})
         Bs[ty * ${block_size} + tx] = (b_x < ${basis.b_width} && b_y < ${basis.a_width})
             ? ${load.b}(b_idx + B_shift + ${basis.b_width} * ty + tx) : ${dtypes.zero_ctr(dtype.b)};
 
-        local_barrier();
+        LOCAL_BARRIER;
 
         // Multiply the two matrices together;
         // each thread computes one element
@@ -74,7 +74,7 @@ KERNEL void matrixmul(${signature})
             Csub = Csub + ${func.mul(dtype.a, dtype.b, out=dtype.out)}(
                 As[ty * ${block_size} + k], Bs[k * ${block_size} + tx]);
 
-        local_barrier();
+        LOCAL_BARRIER;
     }
 
     // Write the block sub-matrix to device memory;

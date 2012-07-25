@@ -1,6 +1,6 @@
 %if api == 'cuda':
     // taken from pycuda._cluda
-    #define local_barrier() __syncthreads()
+    #define LOCAL_BARRIER __syncthreads()
 
     #define WITHIN_KERNEL __device__
     #define KERNEL extern "C" __global__
@@ -24,7 +24,7 @@
 
 %elif api == 'ocl':
     // taken from pyopencl._cluda
-    #define local_barrier() barrier(CLK_LOCAL_MEM_FENCE)
+    #define LOCAL_BARRIER barrier(CLK_LOCAL_MEM_FENCE)
 
     #define WITHIN_KERNEL /* empty */
     #define KERNEL __kernel
