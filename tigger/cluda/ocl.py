@@ -125,13 +125,36 @@ class Context:
 class DeviceParameters:
 
     def __init__(self, device):
-        self.max_block_size = device.get_info(cl.device_info.MAX_WORK_GROUP_SIZE)
-        self.max_block_dims = device.get_info(cl.device_info.MAX_WORK_ITEM_SIZES)
+        self.max_block_size = device.max_work_group_size
+        self.max_block_dims = device.max_work_item_sizes
 
         self.max_grid_dims = [sys.maxint, sys.maxint]
 
-        self.smem_banks = 16
-        self.warp_size = 32
+        # Warp size (nVidia), or wavefront size (AMD), or SIMD width
+        # is supposed to be the number of threads that are
+        # executed simultaneously on the same computation unit
+        # (so you can assume that they are perfectly synchronized).
+        # Shared (local for AMD) memory banks is a number of successive 32-bit words
+        # you can access without getting bank conflicts.
+        if device.type == cl.device_type.CPU:
+            # For CPU both values do not make much sense,
+            # so we are just setting them to maximum
+            self.smem_banks = self.max_block_size
+            self.warp_size = self.max_block_size
+        elif "cl_nv_device_attribute_query" in device.extensions:
+            # If NV extensions are available, use them to query info
+            self.smem_banks = 16 if device.compute_capability_major_nv < 2 else 32
+            self.warp_size = device.warp_size_nv
+        elif device.vendor == 'NVIDIA':
+            # nVidia device, but no extensions.
+            # Must be APPLE OpenCL implementation.
+            self.smem_banks = 16
+            self.warp_size = 16
+        else:
+            # AMD card.
+            # Do not know how to query this info, so settle for most probable values.
+            self.smem_banks = 32
+            self.warp_size = 64
 
 
 class Module:

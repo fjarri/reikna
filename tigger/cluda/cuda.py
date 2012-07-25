@@ -142,20 +142,20 @@ class DeviceParameters:
 
     def __init__(self, device):
 
-        self.max_block_size = device.get_attribute(cuda.device_attribute.MAX_THREADS_PER_BLOCK)
+        self.max_block_size = device.max_threads_per_block
         self.max_block_dims = [
-            device.get_attribute(cuda.device_attribute.MAX_BLOCK_DIM_X),
-            device.get_attribute(cuda.device_attribute.MAX_BLOCK_DIM_Y),
-            device.get_attribute(cuda.device_attribute.MAX_BLOCK_DIM_Z)
-        ]
+            device.max_block_dim_x,
+            device.max_block_dim_y,
+            device.max_block_dim_z]
 
         self.max_grid_dims = [
-            device.get_attribute(cuda.device_attribute.MAX_GRID_DIM_X),
-            device.get_attribute(cuda.device_attribute.MAX_GRID_DIM_Y)
-        ]
+            device.max_grid_dim_x,
+            device.max_grid_dim_y]
 
-        self.smem_banks = 16
-        self.warp_size = device.get_attribute(cuda.device_attribute.WARP_SIZE)
+        # there is no corresponding constant in the API at the moment
+        self.smem_banks = 16 if device.compute_capability()[0] < 2 else 32
+
+        self.warp_size = device.warp_size
 
 
 class Module:

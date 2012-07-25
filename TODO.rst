@@ -1,13 +1,6 @@
 0.1.0 (minimal useable version)
 ===============================
 
-CLUDA:
-
-* TODO: get number of shared memory banks from device
-* TODO: get warp size from device
-* DECIDE: what are we going to do with OpenCL platforms that do not support intra-block interaction?
-  (for example, Apple's implementation)
-
 Core:
 
 * CHECK: check for errors in load/stores/param usage when connecting transformations?
@@ -64,6 +57,9 @@ Website/documentation:
 CLUDA:
 
 * DECIDE: does the forceful enabling of double precision in OpenCL somehow change the performance for single precision?
+* DECIDE: Is there a way to get number of shared memory banks and warp size from AMD device?
+* DECIDE: what are we going to do with OpenCL platforms that do not support intra-block interaction?
+  (for example, Apple's implementation)
 
 Computations:
 
