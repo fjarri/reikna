@@ -105,9 +105,12 @@ class Computation:
         for i, pair_arg in enumerate(zip(pairs, args)):
             pair, arg = pair_arg
             name, value = pair
-            new_value = wrap_value(arg)
-            if new_value.is_array != value.is_array:
-                raise TypeError("Incorrect type of argument " + str(i + 1))
+            if arg is None:
+                new_value = ArrayValue(None, None) if value.is_array else ScalarValue(None, None)
+            else:
+                new_value = wrap_value(arg)
+                if new_value.is_array != value.is_array:
+                    raise TypeError("Incorrect type of argument " + str(i + 1))
 
             values[name] = new_value
 
