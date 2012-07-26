@@ -3,25 +3,13 @@
 
 Core:
 
-* CHECK: check for errors in load/stores/param usage when connecting transformations?
-  Alternatively, return more meaningful errors when accessing load/store/parameter with the wrong number.
-* CHECK: check for errors in load/stores/param usage in kernels?
-  Need to see what errors look like in this case.
-* CHECK: check correctness of types in Computation.__call__() if _debug is on
-* DECIDE: add some more "built-in" variables to kernel rendering? Numpy, helpers?
-* DECIDE: profile Computation.__call__() and see if it takes too long, and if the algorithm of assignment args to endpoints should be improved.
-* CHECK: check that the transformation only has one load/store in the place where connection occurs
-* TODO: remove unnecessary whitespace from the transformation code (generated code will look better)
-* TODO: add a global DEBUG variable that will create all computations in debug mode by default
-* DECIDE: how to handle external calls, like Transpose in Reduce?
-  (Solution: we request the same execution list from Transpose, set argument names - should be a method for that - and incorporate it into our own list)
 * TODO: add support to Allocate as the operation, add internally allocated arrays to arg_dict
-* TODO: cool feature: process the list and remove unnecessary allocations, replacing them by creating views
-* TODO: add usual transformations and derivation functions for convenience
-* CHECK: check that types of arrays passed to prepare_for()/received from _get_base_signature() after creating a basis are supported by GPU (eliminates the need to check it in every computation)
 * TODO: prefix variables from signature with something to avoid clashes in code
 * TODO: if None is passed to prepare_for(), transform it to empty ArrayValue/ScalarValue (_construct_basis may work even if some arrays are undefined; for example, result array can be derived from arguments)
 * TODO: Kernel call can do some preparation before the actuall call (at leas in CUDA case)
+
+* DECIDE: how to handle external calls, like Transpose in Reduce?
+  (Solution: we request the same execution list from Transpose, set argument names - should be a method for that - and incorporate it into our own list)
 * DECIDE: there are different kinds of scalar arguments:
   1) Usual ones, that get passed to the kernel. Their values do not affect basis or kernel set.
      Example: scaling coefficient
@@ -63,6 +51,19 @@ CLUDA:
 * DECIDE: which terminology to perefer, CUDA or OpenCL?
 * DECIDE: make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
 
+Core:
+
+* CHECK: check for errors in load/stores/param usage when connecting transformations?
+  Alternatively, return more meaningful errors when accessing load/store/parameter with the wrong number.
+* CHECK: check for errors in load/stores/param usage in kernels?
+  Need to see what errors look like in this case.
+* CHECK: check correctness of types in Computation.__call__() if _debug is on
+* CHECK: check that types of arrays passed to prepare_for()/received from _get_base_signature() after creating a basis are supported by GPU (eliminates the need to check it in every computation)
+* TODO: remove unnecessary whitespace from the transformation code (generated code will look better)
+* TODO: add a global DEBUG variable that will create all computations in debug mode by default
+* TODO: add usual transformations and derivation functions for convenience
+* DECIDE: profile Computation.__call__() and see if it takes too long, and if the algorithm of assignment args to endpoints should be improved.
+
 Computations:
 
 * TODO: add FFT (and mark pyfft as deprecated)
@@ -71,6 +72,14 @@ Computations:
 * TODO: add random number generation (MD5 and DCMT seem to be the best candidates)
 * TODO: add bitonic sort
 * TODO: add filter
+
+
+1.*
+===
+
+Core:
+
+* TODO: cool feature: process the list and remove unnecessary allocations, replacing them by creating views
 
 
 Long-term features
