@@ -4,7 +4,6 @@ import pytest
 from helpers import *
 
 from tigger.matrixmul import MatrixMul
-from tigger import Transformation
 import tigger.cluda.dtypes as dtypes
 
 @pytest.mark.parametrize("complex1", [False, True], ids=['real', 'complex'])
