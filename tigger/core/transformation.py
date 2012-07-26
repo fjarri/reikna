@@ -24,23 +24,25 @@ def load_function_name(name):
 
 def leaf_load_macro(name):
     return "#define {macro_name}({idx}) ({name}[{idx}])".format(
-        macro_name=load_macro_name(name), name=name,
+        macro_name=load_macro_name(name), name=leaf_name(name),
         idx=INDEX_NAME, val=VALUE_NAME)
 
 def node_load_macro(name, argnames):
     return "#define {macro_name}({idx}) {fname}({arglist}, {idx})".format(
         macro_name=load_macro_name(name), fname=load_function_name(name),
-        arglist = ", ".join(argnames), idx=INDEX_NAME, val=VALUE_NAME)
+        arglist = ", ".join([leaf_name(name) for name in argnames]),
+        idx=INDEX_NAME, val=VALUE_NAME)
 
 def base_leaf_load_macro(name):
     return "#define {macro_name}({idx}) ({name}[{idx}])".format(
-        macro_name=load_macro_name(name), name=name,
+        macro_name=load_macro_name(name), name=leaf_name(name),
         idx=INDEX_NAME, val=VALUE_NAME)
 
 def base_node_load_macro(name, argnames):
     return "#define {macro_name}({idx}) {fname}({arglist}, {idx})".format(
         macro_name=load_macro_name(name), fname=load_function_name(name),
-        arglist = ", ".join(argnames), idx=INDEX_NAME, val=VALUE_NAME)
+        arglist = ", ".join([leaf_name(name) for name in argnames]),
+        idx=INDEX_NAME, val=VALUE_NAME)
 
 def load_macro_call(name):
     return load_macro_name(name)
@@ -59,23 +61,25 @@ def store_function_name(name):
 
 def leaf_store_macro(name):
     return "#define {macro_name}({val}) {name}[{idx}] = ({val})".format(
-        macro_name=store_macro_name(name), name=name,
+        macro_name=store_macro_name(name), name=leaf_name(name),
         idx=INDEX_NAME, val=VALUE_NAME)
 
 def node_store_macro(name, argnames):
     return "#define {macro_name}({val}) {fname}({arglist}, {idx}, {val})".format(
         macro_name=store_macro_name(name), fname=store_function_name(name),
-        arglist = ", ".join(argnames), idx=INDEX_NAME, val=VALUE_NAME)
+        arglist = ", ".join([leaf_name(name) for name in argnames]),
+        idx=INDEX_NAME, val=VALUE_NAME)
 
 def base_leaf_store_macro(name):
     return "#define {macro_name}({idx}, {val}) {name}[{idx}] = ({val})".format(
-        macro_name=store_macro_name(name), name=name,
+        macro_name=store_macro_name(name), name=leaf_name(name),
         idx=INDEX_NAME, val=VALUE_NAME)
 
 def base_node_store_macro(name, argnames):
     return "#define {macro_name}({idx}, {val}) {fname}({arglist}, {idx}, {val})".format(
         macro_name=store_macro_name(name), fname=store_function_name(name),
-        arglist = ", ".join(argnames), idx=INDEX_NAME, val=VALUE_NAME)
+        arglist = ", ".join([leaf_name(name) for name in argnames]),
+        idx=INDEX_NAME, val=VALUE_NAME)
 
 def store_macro_call(name):
     return store_macro_name(name)
@@ -83,6 +87,9 @@ def store_macro_call(name):
 
 def signature_macro_name():
     return "SIGNATURE"
+
+def leaf_name(name):
+    return "_leaf_" + name
 
 
 def valid_argument_name(name):
@@ -367,7 +374,7 @@ class TransformationTree:
                 dtype = self.nodes[argname].value.dtype
                 ctype = dtypes.ctype(dtype)
                 res.append(("GLOBAL_MEM " if value.is_array else " ") +
-                    ctype + (" *" if value.is_array else " ") + argname)
+                    ctype + (" *" if value.is_array else " ") + leaf_name(argname))
 
             return ", ".join(res)
 
@@ -426,7 +433,7 @@ class TransformationTree:
                     dtype[label] = self.nodes[name].value.dtype
                 for i, name in enumerate(param_names):
                     label = 'p' + str(i+1)
-                    param[label] = name
+                    param[label] = leaf_name(name)
                     dtype[label] = self.nodes[name].value.dtype
 
                 store = AttrDict(s1='return')
@@ -449,7 +456,7 @@ class TransformationTree:
                     dtype[label] = self.nodes[name].value.dtype
                 for i, name in enumerate(param_names):
                     label = 'p' + str(i+1)
-                    param[label] = name
+                    param[label] = leaf_name(name)
                     dtype[label] = self.nodes[name].value.dtype
 
                 load = AttrDict(l1='val')

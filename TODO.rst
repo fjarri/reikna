@@ -4,7 +4,6 @@
 Core:
 
 * TODO: add support to Allocate as the operation, add internally allocated arrays to arg_dict
-* TODO: prefix variables from signature with something to avoid clashes in code
 * TODO: if None is passed to prepare_for(), transform it to empty ArrayValue/ScalarValue (_construct_basis may work even if some arrays are undefined; for example, result array can be derived from arguments)
 * TODO: Kernel call can do some preparation before the actuall call (at leas in CUDA case)
 

@@ -58,7 +58,7 @@ class Computation:
         store_names, load_names, param_names = self._get_base_names()
         load_dict = AttrDict({name:load_macro_call(name) for name in load_names})
         store_dict = AttrDict({name:store_macro_call(name) for name in store_names})
-        param_dict = AttrDict({name:name for name in param_names})
+        param_dict = AttrDict({name:leaf_name(name) for name in param_names})
 
         render_kwds = dict(
             basis=self._basis,
