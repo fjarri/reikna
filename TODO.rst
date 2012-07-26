@@ -79,11 +79,11 @@ Core:
 * TODO: cool feature: process the list and remove unnecessary allocations, replacing them by creating views
 
 
-Long-term features
-==================
+2.*
+===
 
-Computation provider (long-term goal)
--------------------------------------
+Computation provider
+--------------------
 
 Library that by request (perhaps, from other languages) returns kernels and call signatures for algorithms, using Python as a templating engine.
 Namely, it returns:
