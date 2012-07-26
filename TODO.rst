@@ -4,7 +4,6 @@
 Core:
 
 * TODO: add support to Allocate as the operation, add internally allocated arrays to arg_dict
-* TODO: Kernel call can do some preparation before the actuall call (at leas in CUDA case)
 
 * DECIDE: how to handle external calls, like Transpose in Reduce?
   (Solution: we request the same execution list from Transpose, set argument names - should be a method for that - and incorporate it into our own list)

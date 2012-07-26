@@ -211,6 +211,7 @@ class KernelCall:
         self.module = ctx.compile(self.full_src)
         self.kernel = getattr(self.module, self.name)
         self.leaf_argnames = [name for name, _ in tr_tree.leaf_signature(self.base_argnames)]
+        self.kernel.prepare(block=self.block, grid=self.grid, shared=self.shared)
 
     def __call__(self, *args):
-        self.kernel(*args, block=self.block, grid=self.grid, shared=self.shared)
+        self.kernel.prepared_call(*args)
