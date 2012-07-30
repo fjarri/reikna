@@ -47,6 +47,9 @@ CLUDA:
   (for example, Apple's implementation)
 * DECIDE: which terminology to perefer, CUDA or OpenCL?
 * DECIDE: make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
+* DECIDE: OpenCL supports global sizes which are not multiple to warp size.
+  This can be used to increase performance (not much though).
+  CUDA also supports block sizes which are not multiples of warp size, but since there is no analogue for the global size, arbitrary number of threads are still not achievable.
 
 Core:
 
@@ -63,6 +66,7 @@ Core:
 
 Computations:
 
+* CHECK: check if matrixmul with flat blocks is slower than the one with 2D blocks
 * TODO: add FFT (and mark pyfft as deprecated)
 * TODO: add DHT
 * TODO: add 3D permutations
