@@ -195,10 +195,10 @@ class Kernel:
         self._kernel = kernel
 
     def prepare(self, block=(1, 1, 1), grid=(1, 1), shared=0):
-        self.block = block
-        self.grid = grid
+        self.block = block if isinstance(block, tuple) else (block, 1, 1)
+        grid = grid if isinstance(grid, tuple) else (grid, 1)
         self.shared = shared
-        self.global_size = (block[0] * grid[0], block[1] * grid[1], block[2])
+        self.global_size = (self.block[0] * grid[0], self.block[1] * grid[1], self.block[2])
 
     def prepared_call(self, *args):
 

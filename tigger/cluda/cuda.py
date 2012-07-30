@@ -181,6 +181,26 @@ class Module:
         return Kernel(self._ctx, self._module.get_function(name))
 
 
+def bounding_grid(N, Ms):
+    """
+    For a natural N and M_1, M_2, ... returns (n_1, n_2, ...) such that:
+    1) n_1 * n_2 * ... >= N
+    2) n_i <= M_i
+    3) n_1 * n_2 * ... = min
+    """
+
+    product = lambda l: reduce(lambda x, y: x * y, l, 1)
+    assert product(Ms) >= N
+
+    # stupid algorithm, just for stub
+    if N < Ms[0]:
+        return [N]
+
+    dims = len(Ms)
+    n = int(N ** (1. / dims)) + 1
+    return [n] * dims
+
+
 class Kernel:
 
     def __init__(self, ctx, kernel):
@@ -188,9 +208,16 @@ class Kernel:
         self._kernel = kernel
 
     def prepare(self, block=(1, 1, 1), grid=(1, 1), shared=0):
-        self.block = block
-        self.grid = grid
+        self.flat = (not isinstance(block, tuple) and not isinstance(grid, tuple))
         self.shared = shared
+        self.block = block if isinstance(block, tuple) else (block,)
+
+        if self.flat:
+            # since there is a maximum on a grid width, we need to pick a pair gx, gy
+            # so that gx * gy >= grid and gx * gy is minimal.
+            self.grid = bounding_grid(grid, self._ctx.device_params.max_grid_dims)
+        else:
+            self.grid = grid
 
     def prepared_call(self, *args):
         self._kernel(*args, grid=self.grid, block=self.block,
