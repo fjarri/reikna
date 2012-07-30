@@ -128,6 +128,13 @@ class DeviceParameters:
         self.max_block_size = device.max_work_group_size
         self.max_block_dims = device.max_work_item_sizes
 
+        if device.platform.name == 'Apple' and device.type == cl.device_type.CPU:
+        # Apple is being funny again.
+        # On OSX 10.8.0 it reports the maximum block size as 1024, when it is really 128.
+        # Moreover, if local_barrier() is used in the kernel, it becomes 1
+            self.max_block_size = 1
+            self.max_block_dims = [1, 1, 1]
+
         self.max_grid_dims = [sys.maxint, sys.maxint]
 
         if device.type == cl.device_type.CPU:
