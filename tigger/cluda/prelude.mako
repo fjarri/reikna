@@ -10,6 +10,10 @@
     #define LOCAL_MEM_ARG /* empty */
     #define INLINE __forceinline__
 
+    #define LID_FLAT threadIdx.x
+    #define GID_FLAT (blockIdx.x + gridDim.x * blockIdx.y)
+    #define ID_FLAT (LID_FLAT + blockDim.x * GID_FLAT)
+
     #define LID_0 threadIdx.x
     #define LID_1 threadIdx.y
     #define LID_2 threadIdx.z
@@ -33,6 +37,10 @@
     #define LOCAL_MEM_DYNAMIC __local
     #define LOCAL_MEM_ARG __local
     #define INLINE inline
+
+    #define LID_FLAT get_local_id(0)
+    #define GID_FLAT get_group_id(0)
+    #define ID_FLAT get_global_id(0)
 
     #define LID_0 get_local_id(0)
     #define LID_1 get_local_id(1)
