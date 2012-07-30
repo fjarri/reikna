@@ -75,22 +75,26 @@ class MatrixMul(Computation):
         bs = self._basis
 
         bso = bs.block_size_override
-        block_size = self._ctx.device_params.smem_banks if bso is None else bso
+        block_width = self._ctx.device_params.smem_banks if bso is None else bso
+        block_size = block_width ** 2
 
-        blocks_per_matrix = min_blocks(bs.a_height, block_size)
-        grid = (
-            int(min_blocks(bs.b_width, block_size)),
-            int(blocks_per_matrix * bs.batch)
-        )
-        block = (block_size, block_size, 1)
-        shared = block_size * block_size * (bs.a_dtype.itemsize + bs.b_dtype.itemsize)
+        if block_size > self._ctx.device_params.max_block_size:
+            # If it is not CPU, current solution may affect performance
+            block_width = int(numpy.sqrt(self._ctx.device_params.max_block_size))
+            block_size = block_width ** 2
+
+        blocks_per_matrix = min_blocks(bs.a_height, block_width)
+        grid_width = min_blocks(bs.b_width, block_width)
+        grid_size = grid_width * blocks_per_matrix * bs.batch
+
+        shared = block_size * (bs.a_dtype.itemsize + bs.b_dtype.itemsize)
 
         src = self._render(TEMPLATE,
-            block_size=block_size,
-            blocks_per_matrix=blocks_per_matrix,
-            )
+            block_width=block_width,
+            grid_width=grid_width,
+            blocks_per_matrix=blocks_per_matrix)
 
         return [KernelCall(
             'matrixmul', ['out', 'a', 'b'], src,
-            grid=grid, block=block, shared=shared
+            grid=grid_size, block=block_size, shared=shared
         )]
