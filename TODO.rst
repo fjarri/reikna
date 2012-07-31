@@ -22,8 +22,6 @@ Computations, first priority:
 
 * DECIDE: create policy for wrapping raw computations into more convenient classes
 * DECIDE: create policy for providing pre-made computations like sin()/cos()
-* TODO: add elementwise computation
-  (convenient wrapper class, passing code as parameter)
 * TODO: add reduction
   (wrapper (for custom reduction statements) + memory allocation operations)
 * TODO: add transposition
