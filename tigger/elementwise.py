@@ -1,8 +1,6 @@
 import numpy
 from tigger.core import *
 
-TEMPLATE = template_for(__file__)
-
 
 class Elementwise(Computation):
 
