@@ -192,7 +192,7 @@ class Computation:
         # Call kernels with argument list based on their base arguments
         for operation in self._operations:
             op_args = [arg_dict[name] for name in operation.leaf_argnames]
-            operation(*args)
+            operation(*op_args)
 
 
 class KernelCall:
