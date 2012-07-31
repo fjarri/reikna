@@ -96,5 +96,5 @@ class MatrixMul(Computation):
 
         return [KernelCall(
             'matrixmul', ['out', 'a', 'b'], src,
-            grid=grid_size, block=block_size, shared=shared
+            global_size=grid_size * block_size, local_size=block_size, shared=shared
         )]

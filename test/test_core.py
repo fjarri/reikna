@@ -57,8 +57,8 @@ class Dummy(Computation):
             'dummy',
             ['C', 'D', 'A', 'B', 'coeff'],
             src,
-            grid=(block_size, 1),
-            block=(min_blocks(bs.size, block_size), 1, 1)
+            local_size=block_size,
+            global_size=min_blocks(bs.size, block_size) * block_size
         )]
 
 

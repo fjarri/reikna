@@ -197,11 +197,12 @@ class Computation:
 
 class KernelCall:
 
-    def __init__(self, name, base_argnames, base_src, block=(1,1,1), grid=(1,1), shared=0):
+    def __init__(self, name, base_argnames, base_src, global_size,
+            local_size=None, shared=0):
         self.name = name
         self.base_argnames = base_argnames
-        self.block = block
-        self.grid = grid
+        self.local_size = local_size
+        self.global_size = global_size
         self.src = base_src
         self.shared = shared
 
@@ -211,7 +212,7 @@ class KernelCall:
         self.module = ctx.compile(self.full_src)
         self.kernel = getattr(self.module, self.name)
         self.leaf_argnames = [name for name, _ in tr_tree.leaf_signature(self.base_argnames)]
-        self.kernel.prepare(block=self.block, grid=self.grid, shared=self.shared)
+        self.kernel.prepare(self.global_size, local_size=self.local_size, shared=self.shared)
 
     def __call__(self, *args):
         self.kernel.prepared_call(*args)
