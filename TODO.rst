@@ -50,6 +50,7 @@ CLUDA:
 * DECIDE: OpenCL supports global sizes which are not multiple to warp size.
   This can be used to increase performance (not much though).
   CUDA also supports block sizes which are not multiples of warp size, but since there is no analogue for the global size, arbitrary number of threads are still not achievable.
+* TODO: implement better dynamic local size calculation (if local_size=None).
 
 Core:
 
@@ -109,3 +110,4 @@ Transformation DSL
 Currently transformation code is quite difficult to read and write.
 Perhaps some DSL can be devised to make it easier?
 Even better, if that DSL could be applied to kernels too.
+Take a look at Copperhead (Python-based DSL for GPGPU) and CodePy (Python -> AST transformer)
