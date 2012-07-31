@@ -222,13 +222,13 @@ class Kernel:
                     local_size = local_size[0]
             else:
                 # temporary stub
-                local_size = self._ctx.device_params.max_block_size
+                local_size = min(self._ctx.device_params.max_block_size, global_size)
 
             # since there is a maximum on a grid width, we need to pick a pair gx, gy
             # so that gx * gy >= grid and gx * gy is minimal.
             grid_size = (global_size - 1) / local_size + 1
-            self.grid = bounding_grid(grid_size, self._ctx.device_params.max_grid_dims)
-            self.block = (local_size,)
+            self.grid = tuple(bounding_grid(grid_size, self._ctx.device_params.max_grid_dims))
+            self.block = (local_size, 1, 1)
         else:
             if local_size is None:
                 raise NotImplementedError(

@@ -129,5 +129,5 @@ def test_dtype_support(ctx, dtype):
 	a_dev = ctx.to_device(a)
 	b_dev = ctx.to_device(b)
 	dest_dev = ctx.empty_like(a_dev)
-	test(dest_dev, a_dev, b_dev, local_size=(N,), global_size=(N,))
+	test(dest_dev, a_dev, b_dev, global_size=N)
 	assert diff_is_negligible(ctx.from_device(dest_dev), a)
