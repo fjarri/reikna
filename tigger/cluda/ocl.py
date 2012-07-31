@@ -194,18 +194,17 @@ class Kernel:
         self._ctx = ctx
         self._kernel = kernel
 
-    def prepare(self, block=(1, 1, 1), grid=(1, 1), shared=0):
-        self.block = block if isinstance(block, tuple) else (block, 1, 1)
-        grid = grid if isinstance(grid, tuple) else (grid, 1)
+    def prepare(self, global_size, local_size=None, shared=0):
+        self.local_size = (local_size,) if isinstance(local_size, int) else local_size
+        self.global_size = (global_size,) if isinstance(global_size, int) else global_size
         self.shared = shared
-        self.global_size = (self.block[0] * grid[0], self.block[1] * grid[1], self.block[2])
 
     def prepared_call(self, *args):
 
         # Unlike PyCuda, PyOpenCL does not allow passing array objects as is
         args = [x.data if isinstance(x, clarray.Array) else x for x in args]
 
-        self._kernel(self._ctx._queue, self.global_size, self.block, *args)
+        self._kernel(self._ctx._queue, self.global_size, self.local_size, *args)
         self._ctx._synchronize()
 
     def __call__(self, *args, **kwds):

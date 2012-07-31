@@ -207,17 +207,47 @@ class Kernel:
         self._ctx = ctx
         self._kernel = kernel
 
-    def prepare(self, block=(1, 1, 1), grid=(1, 1), shared=0):
-        self.flat = (not isinstance(block, tuple) and not isinstance(grid, tuple))
+    def prepare(self, global_size, local_size=None, shared=0):
         self.shared = shared
-        self.block = block if isinstance(block, tuple) else (block,)
 
-        if self.flat:
+        if isinstance(global_size, int):
+            # Flat indices mode.
+            # In order to emulate it in CUDA, we need the user
+            # to skip threads with idx > size manually.
+
+            if local_size is not None:
+                if not isinstance(local_size, int):
+                    if len(local_size) > 1:
+                        raise ValueError("Global/local work sizes have differing dimensions")
+                    local_size = local_size[0]
+            else:
+                # temporary stub
+                local_size = self._ctx.device_params.max_block_size
+
             # since there is a maximum on a grid width, we need to pick a pair gx, gy
             # so that gx * gy >= grid and gx * gy is minimal.
-            self.grid = bounding_grid(grid, self._ctx.device_params.max_grid_dims)
+            grid_size = (global_size - 1) / local_size + 1
+            self.grid = bounding_grid(grid_size, self._ctx.device_params.max_grid_dims)
+            self.block = (local_size,)
         else:
-            self.grid = grid
+            if local_size is None:
+                raise NotImplementedError(
+                    "Automatic local size with non-flat global size is not supported")
+
+            if isinstance(local_size, int):
+                local_size = (local_size,)
+
+            if len(local_size) != len(global_size):
+                raise ValueError("Global/local work sizes have differing dimensions")
+
+            grid = []
+            for gs, ls in zip(global_size, local_size):
+                if gs % ls != 0:
+                    raise ValueError("Global sizes must be multiples of corresponding local sizes")
+                grid.append(gs / ls)
+
+            self.block = local_size
+            self.grid = tuple(grid)
 
     def prepared_call(self, *args):
         self._kernel(*args, grid=self.grid, block=self.block,
