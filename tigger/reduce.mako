@@ -28,7 +28,7 @@ KERNEL void reduce(${signature})
     if(bid % ${blocks_per_part} == ${blocks_per_part} - 1 && tid >= ${last_block_size})
         shared_mem[tid] = ${dtypes.zero_ctr(basis.dtype)};
     else
-        shared_mem[tid] = ${load.input}(part_length * part_num + index_in_part);
+        shared_mem[tid] = ${load[input_name]}(part_length * part_num + index_in_part);
 
     LOCAL_BARRIER;
 
@@ -64,5 +64,5 @@ KERNEL void reduce(${signature})
     %endif
 
     if (tid == 0)
-        ${store.output}(bid, shared_mem[0]);
+        ${store[output_name]}(bid, shared_mem[0]);
 }

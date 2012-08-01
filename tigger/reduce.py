@@ -77,6 +77,9 @@ class Reduce(Computation):
                 output_name = 'output'
 
             src = self._render(TEMPLATE,
+                input_name=input_name, output_name=output_name,
+                internal_inputs=[input_name],
+                internal_outputs=[output_name],
                 blocks_per_part=blocks_per_part, last_block_size=last_block_size,
                 log2=log2, block_size=block_size,
                 warp_size=self._ctx.device_params.warp_size,

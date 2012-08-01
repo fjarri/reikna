@@ -52,13 +52,19 @@ class Computation:
         Called from derived class.
         """
 
+        internal_inputs = kwds.pop('internal_inputs', [])
+        internal_outputs = kwds.pop('internal_outputs', [])
+
         dtypes_dict = AttrDict(self._get_base_dtypes())
         ctypes_dict = AttrDict({name:ctype(dtype) for name, dtype in dtypes_dict.items()})
 
         store_names, load_names, param_names = self._get_base_names()
-        load_dict = AttrDict({name:load_macro_call(name) for name in load_names})
-        store_dict = AttrDict({name:store_macro_call(name) for name in store_names})
-        param_dict = AttrDict({name:leaf_name(name) for name in param_names})
+        load_dict = AttrDict({name:load_macro_call(name)
+            for name in load_names + internal_inputs})
+        store_dict = AttrDict({name:store_macro_call(name)
+            for name in store_names + internal_outputs})
+        param_dict = AttrDict({name:leaf_name(name)
+            for name in param_names})
 
         render_kwds = dict(
             basis=self._basis,
