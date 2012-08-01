@@ -1,4 +1,5 @@
 %if api == 'cuda':
+    #define CUDA
     // taken from pycuda._cluda
     #define LOCAL_BARRIER __syncthreads()
 
