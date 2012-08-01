@@ -56,7 +56,7 @@ class Reduce(Computation):
 
             if part_size >= max_reduce_power:
                 block_size = max_reduce_power
-                blocks_per_part = min_blocks(part_length, block_size)
+                blocks_per_part = min_blocks(part_size, block_size)
                 blocks_num = blocks_per_part * final_size
                 last_block_size = part_size - (blocks_per_part - 1) * block_size
                 new_size = blocks_num
