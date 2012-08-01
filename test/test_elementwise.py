@@ -8,7 +8,6 @@ import tigger.cluda.dtypes as dtypes
 
 def test_errors(ctx):
 
-    # variant 1: pass kernel & argument list in the constructor
     elw = Elementwise(ctx,
         """
         ${ctype.input} a1 = ${load.input}(idx);
