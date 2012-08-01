@@ -213,6 +213,7 @@ class TransformationTree:
 
     def __init__(self, stores, loads, scalars):
         self.nodes = {}
+        self.temp_nodes = {}
         self.base_names = stores + loads + scalars
 
         # check names for correctness
@@ -288,6 +289,12 @@ class TransformationTree:
     def _clear_values(self):
         for name in self.nodes:
             self.nodes[name].value.clear()
+
+    def clear_temp_nodes(self):
+        self.temp_nodes = {}
+
+    def add_temp_node(self, name, value):
+        self.temp_nodes[name] = AttrDict(value=value)
 
     def propagate_to_base(self, values_dict):
         # takes {name: mock_val} and propagates it from leaves to roots,
@@ -370,9 +377,14 @@ class TransformationTree:
         def build_arglist(argnames):
             res = []
             for argname in argnames:
-                value = self.nodes[argname].value
-                dtype = self.nodes[argname].value.dtype
+                if argname in self.nodes:
+                    value = self.nodes[argname].value
+                else:
+                    value = self.temp_nodes[argname].value
+
+                dtype = value.dtype
                 ctype = dtypes.ctype(dtype)
+
                 res.append(("GLOBAL_MEM " if value.is_array else " ") +
                     ctype + (" *" if value.is_array else " ") + leaf_name(argname))
 
@@ -475,11 +487,11 @@ class TransformationTree:
             if name in self.base_names:
                 process(name)
             else:
-                code_list.append(leaf_load_macro(name))
-                code_list.append(leaf_store_macro(name))
+                code_list.append(base_leaf_load_macro(name))
+                code_list.append(base_leaf_store_macro(name))
 
         leaf_names = [name for name, _ in self.leaf_signature()]
-        return func_c.render() + "\n\n" + "\n\n".join(code_list) + "\n\n" + signature_macro(leaf_names)
+        return func_c.render() + "\n\n" + "\n\n".join(code_list) + "\n\n" + signature_macro(names)
 
     def has_array_leaf(self, name):
         names = set(n for n, v in self.leaf_signature() if v.is_array)

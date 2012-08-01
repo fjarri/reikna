@@ -135,10 +135,12 @@ class Computation:
         # In theory, we can optimize the usage of temporary buffers with help of views
         # Now we just allocate them separately
         self._temp_buffers = {}
+        self._tr_tree.clear_temp_nodes()
         allocations = [op for op in operations if isinstance(op, Allocate)]
         for allocation in allocations:
             self._temp_buffers[allocation.name] = self._ctx.allocate(
                 allocation.shape, allocation.dtype)
+            self._tr_tree.add_temp_node(allocation.name, ArrayValue(None, allocation.dtype))
 
         self._operations = [op for op in operations if isinstance(op, KernelCall)]
         for operation in self._operations:
