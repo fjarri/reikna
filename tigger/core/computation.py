@@ -123,10 +123,22 @@ class Computation:
         Updates basis, recreates operations, updates transformation tree.
         """
         self._basis.update(new_basis)
-        self._operations = self._construct_kernels()
+        operations = self._construct_kernels()
         self._tr_tree.propagate_to_leaves(self._get_base_values())
+
+        # In theory, we can optimize the usage of temporary buffers with help of views
+        # Now we just allocate them separately
+        self._temp_buffers = {}
+        allocations = [op for op in operations if isinstance(op, Allocate)]
+        for allocation in allocations:
+            self._temp_buffers[allocation.name] = self._ctx.allocate(
+                allocation.shape, allocation.dtype)
+
+        self._operations = [op for op in operations if isinstance(op, KernelCall)]
         for operation in self._operations:
-            operation.prepare(self._ctx, self._tr_tree)
+            if isinstance(operation, KernelCall):
+                operation.prepare(self._ctx, self._tr_tree)
+
         self._leaf_signature = self._tr_tree.leaf_signature()
 
     def connect(self, tr, array_arg, new_array_args, new_scalar_args=None):
@@ -182,17 +194,26 @@ class Computation:
                 " arguments (" + len(args) + " given")
 
         # Assign arguments to names and cast scalar values
-        arg_dict = {}
+        arg_dict = dict(self._temp_buffers)
         for pair, arg in zip(self._leaf_signature, args):
             name, value = pair
             if not value.is_array:
                 arg = cast(value.dtype)(arg)
+            assert name not in arg_dict
             arg_dict[name] = arg
 
         # Call kernels with argument list based on their base arguments
         for operation in self._operations:
             op_args = [arg_dict[name] for name in operation.leaf_argnames]
             operation(*op_args)
+
+
+class Allocate:
+
+    def __init__(self, name, shape, dtype):
+        self.name = name
+        self.shape = shape
+        self.dtype = dtype
 
 
 class KernelCall:
