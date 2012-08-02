@@ -343,7 +343,6 @@ def test_connection_to_base(ctx):
 
     # connect to the base scalar argument
     d.connect(tr_scale, 'C', ['C_prime'], ['coeff'])
-    print d.signature_str()
 
     B = get_test_array(N, numpy.complex64)
     gpu_B = ctx.to_device(B)
