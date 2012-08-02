@@ -490,8 +490,9 @@ class TransformationTree:
                 code_list.append(base_leaf_load_macro(name))
                 code_list.append(base_leaf_store_macro(name))
 
-        leaf_names = [name for name, _ in self.leaf_signature()]
-        return func_c.render() + "\n\n" + "\n\n".join(code_list) + "\n\n" + signature_macro(names)
+        leaf_names = [name for name, _ in self.leaf_signature(names)]
+        return func_c.render() + "\n\n" + "\n\n".join(code_list) + \
+            "\n\n" + signature_macro(leaf_names)
 
     def has_array_leaf(self, name):
         names = set(n for n, v in self.leaf_signature() if v.is_array)
