@@ -61,6 +61,7 @@ Core:
 * TODO: remove unnecessary whitespace from the transformation code (generated code will look better)
 * TODO: add a global DEBUG variable that will create all computations in debug mode by default
 * TODO: add usual transformations and derivation functions for convenience
+* TODO: take not only CLUDA context as a parameter for computation constructor, but also CommandQueue, opencl context, cuda stream and so on.
 * DECIDE: profile Computation.__call__() and see if it takes too long, and if the algorithm of assignment args to endpoints should be improved.
 
 Computations:
