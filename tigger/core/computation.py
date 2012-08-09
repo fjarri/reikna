@@ -96,7 +96,7 @@ class Computation:
 
         return False
 
-    def _basis_for(self, args):
+    def _basis_for(self, args, kwds):
         """
         Returns the basis necessary for processing given external arguments.
         """
@@ -121,7 +121,7 @@ class Computation:
             values[name] = new_value
 
         self._tr_tree.propagate_to_base(values)
-        return self._construct_basis(*self._tr_tree.base_values())
+        return self._construct_basis(*self._tr_tree.base_values(), **kwds)
 
     def _change_basis(self, new_basis):
         """
@@ -167,11 +167,11 @@ class Computation:
             self._prepared = True
         return self
 
-    def prepare_for(self, *args):
+    def prepare_for(self, *args, **kwds):
         """
         Prepares the computation for given arguments.
         """
-        new_basis = self._basis_for(args)
+        new_basis = self._basis_for(args, kwds)
         return self.prepare(**new_basis)
 
     def signature_str(self):
@@ -185,7 +185,7 @@ class Computation:
                 name=name, argtype=str(value)))
         return ", ".join(res)
 
-    def __call__(self, *args):
+    def __call__(self, *args, **kwds):
         """
         Executes computation.
         """
@@ -193,9 +193,12 @@ class Computation:
             raise NotPreparedError("The computation must be prepared before execution")
 
         if self._debug:
-            new_basis = self._basis_for(args)
+            new_basis = self._basis_for(args, kwds)
             if self._basis_needs_update(new_basis):
                 raise ValueError("Given arguments require different basis")
+        else:
+            if len(kwds) > 0:
+                raise ValueError("Keyword arguments should be passed to prepare_for()")
 
         if len(args) != len(self._leaf_signature):
             raise TypeError("Computation takes " + str(len(self._leaf_signature)) +
