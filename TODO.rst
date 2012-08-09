@@ -3,8 +3,6 @@
 
 Core:
 
-* TODO: add support to Allocate as the operation, add internally allocated arrays to arg_dict
-
 * DECIDE: how to handle external calls, like Transpose in Reduce?
   (Solution: we request the same execution list from Transpose, set argument names - should be a method for that - and incorporate it into our own list)
 * DECIDE: there are different kinds of scalar arguments:
@@ -22,10 +20,6 @@ Computations, first priority:
 
 * DECIDE: create policy for wrapping raw computations into more convenient classes
 * DECIDE: create policy for providing pre-made computations like sin()/cos()
-* TODO: add reduction
-  (wrapper (for custom reduction statements) + memory allocation operations)
-* TODO: add transposition
-  (will replace dummy as a simple computation for testing transformations)
 * TODO: add sparse reduction
   (wrapper + memory allocations + call to other computation (transposition))
 
