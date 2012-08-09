@@ -4,36 +4,36 @@ from tigger.core import *
 TEMPLATE = template_for(__file__)
 
 
+def reduced_shape(shape, axis):
+    l = list(shape)
+    l.pop(axis)
+    return tuple(l)
+
+
 class Reduce(Computation):
 
-    def __init__(self, ctx, code, **kwds):
-        Computation.__init__(self, ctx, **kwds)
-        self._code = code
-
     def _get_default_basis(self):
-        return dict(input_size=1, output_size=1, batch=1, dtype=numpy.float32)
+        return dict(shape=(1,1), dtype=numpy.float32, axis=-1,
+            operation="return val1 + val2;")
 
-    def _construct_basis(self, output, input):
+    def _construct_basis(self, output, input, axis=None, operation=None):
         assert input.dtype == output.dtype
+        assert input.size % output.size == 0
+        assert input.size > output.size
 
-        input_size = input.shape[-1]
-        output_size = output.shape[-1]
-        input_batch = product(input.shape[:-1])
-        output_batch = product(output.shape[:-1])
+        bs = dict(shape=input.shape, dtype=input.dtype)
 
-        assert input_size % output_size == 0
-        assert input_size > output_size
-        assert input_batch == output_batch
+        if axis is not None:
+            bs['axis'] = axis
+        if operation is not None:
+            bs['operation'] = operation
 
-        return dict(input_size=input_size, output_size=output_size,
-            dtype=input.dtype, batch=input_batch)
+        return bs
 
     def _get_base_signature(self):
         bs = self._basis
-        input_shape = (bs.batch, bs.input_size) if bs.batch > 1 else (bs.input_size,)
-        output_shape = (bs.batch, bs.output_size) if bs.batch > 1 else (bs.output_size,)
-        return ([('output', ArrayValue(output_shape, bs.dtype))],
-            [('input', ArrayValue(input_shape, bs.dtype))],
+        return ([('output', ArrayValue(reduced_shape(bs.shape, bs.axis), bs.dtype))],
+            [('input', ArrayValue(bs.shape, bs.dtype))],
             [])
 
     def _construct_kernels(self):
@@ -44,8 +44,12 @@ class Reduce(Computation):
         max_reduce_power = self._ctx.device_params.max_block_size
 
         data_in = None
-        size = bs.input_size * bs.batch
-        final_size = bs.output_size * bs.batch
+        size = product(bs.shape)
+        final_size = product(reduced_shape(bs.shape, bs.axis))
+
+        axis = bs.axis if bs.axis >= 0 else len(bs.shape) + axis
+        if axis != len(bs.shape) - 1:
+            raise NotImplementedError()
 
         input_name = 'input'
         reduction_stage = 0
@@ -83,7 +87,7 @@ class Reduce(Computation):
                 blocks_per_part=blocks_per_part, last_block_size=last_block_size,
                 log2=log2, block_size=block_size,
                 warp_size=self._ctx.device_params.warp_size,
-                operation_code=self._code)
+                operation_code=bs.operation)
 
             operations.append(KernelCall(
                 'reduce', [output_name, input_name], src,
