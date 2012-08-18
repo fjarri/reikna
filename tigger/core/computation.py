@@ -20,7 +20,9 @@ class Computation:
         # Initialize root nodes of the transformation tree
         self._basis = AttrDict(self._get_default_basis())
         self._tr_tree = TransformationTree(*self._get_base_names())
-        self._prepared = False
+        self._operations = []
+        self._operations_prepared = False
+        self._transformations_prepared = False
 
     def _get_base_names(self):
         """
@@ -89,8 +91,6 @@ class Computation:
         Tells whether ``new_basis`` has some values differing from the current basis.
         """
         for key in new_basis:
-            if key not in self._basis:
-                raise KeyError("Unknown basis key: " + key)
             if self._basis[key] != new_basis[key]:
                 return True
 
@@ -129,25 +129,33 @@ class Computation:
         Updates basis, recreates operations, updates transformation tree.
         """
         self._basis.update(new_basis)
-        operations = self._construct_kernels()
+        self._operations = self._construct_kernels()
+
+    def _prepare_transformations(self):
         self._tr_tree.propagate_to_leaves(self._get_base_values())
+
+        self._tr_tree.clear_temp_nodes()
+        for operation in self._operations:
+            if isinstance(operation, Allocate):
+                self._tr_tree.add_temp_node(operation.name, ArrayValue(None, operation.dtype))
+            if isinstance(operation, KernelCall):
+                operation.prepare(self._ctx, self._tr_tree)
+            elif isinstance(operation, ComputationCall):
+                operation.prepare()
+
+        self._leaf_signature = self._tr_tree.leaf_signature()
+
+    def _optimize_execution(self):
 
         # In theory, we can optimize the usage of temporary buffers with help of views
         # Now we just allocate them separately
         self._temp_buffers = {}
-        self._tr_tree.clear_temp_nodes()
-        allocations = [op for op in operations if isinstance(op, Allocate)]
+        allocations = [op for op in self._operations if isinstance(op, Allocate)]
         for allocation in allocations:
             self._temp_buffers[allocation.name] = self._ctx.allocate(
                 allocation.shape, allocation.dtype)
-            self._tr_tree.add_temp_node(allocation.name, ArrayValue(None, allocation.dtype))
 
-        self._operations = [op for op in operations if isinstance(op, KernelCall)]
-        for operation in self._operations:
-            if isinstance(operation, KernelCall):
-                operation.prepare(self._ctx, self._tr_tree)
-
-        self._leaf_signature = self._tr_tree.leaf_signature()
+        self._calls = [op for op in self._operations if not isinstance(op, Allocate)]
 
     def connect(self, tr, array_arg, new_array_args, new_scalar_args=None):
         """
@@ -156,15 +164,29 @@ class Computation:
         if new_scalar_args is None:
             new_scalar_args = []
         self._tr_tree.connect(tr, array_arg, new_array_args, new_scalar_args)
-        self._prepared = False
+        for op in self._operations:
+            if isinstance(op, ComputationCall):
+                op.connect(
+                    tr, array_arg, new_array_args, new_scalar_args=new_scalar_args)
+
+        self._transformations_prepared = False
 
     def prepare(self, **kwds):
         """
         Prepares the computation for given basis.
         """
-        if self._basis_needs_update(kwds) or not self._prepared:
+        unknown_keys = set(kwds).difference(set(self._basis))
+        if len(unknown_keys) > 0:
+            raise KeyError("Unknown basis keys: " + ", ".join(unknown_keys))
+
+        if not self._operations_prepared or self._basis_needs_update(kwds):
             self._change_basis(kwds)
-            self._prepared = True
+            self._operations_prepared = True
+            self._transformations_prepared = False
+        if not self._transformations_prepared:
+            self._prepare_transformations()
+            self._transformations_prepared = True
+            self._optimize_execution()
         return self
 
     def prepare_for(self, *args, **kwds):
@@ -189,7 +211,7 @@ class Computation:
         """
         Executes computation.
         """
-        if not self._prepared:
+        if not self._operations_prepared or not self._transformations_prepared:
             raise NotPreparedError("The computation must be prepared before execution")
 
         if self._debug:
@@ -214,7 +236,7 @@ class Computation:
             arg_dict[name] = arg
 
         # Call kernels with argument list based on their base arguments
-        for operation in self._operations:
+        for operation in self._calls:
             op_args = [arg_dict[name] for name in operation.leaf_argnames]
             operation(*op_args)
 
@@ -227,12 +249,42 @@ class Allocate:
         self.dtype = dtype
 
 
+class ComputationCall:
+
+    def __init__(self, computation, *argnames):
+        self.computation = computation
+        self.argnames = argnames
+
+        argnames = [x for x, _ in self.computation._leaf_signature]
+        self.map_to_internal = {external_name:internal_name
+            for external_name, internal_name in zip(self.argnames, argnames)}
+        self.map_to_external = {internal_name:external_name
+            for external_name, internal_name in zip(self.argnames, argnames)}
+
+    def prepare(self):
+        self.computation.prepare()
+        replace = lambda x: self.map_to_external.get(x, x)
+        argnames = [x for x, _ in self.computation._leaf_signature]
+        self.leaf_argnames = [replace(name) for name in argnames]
+
+    def __call__(self, *args):
+        self.computation(*args)
+
+    def connect(self, tr, array_arg, new_array_args, new_scalar_args=None):
+        replace = lambda x: self.map_to_internal.get(x, x)
+        array_arg = replace(array_arg)
+        new_array_args = [replace(name) for name in new_array_args]
+        new_scalar_args = [replace(name) for name in new_scalar_args]
+
+        self.computation.connect(tr, array_arg, new_array_args, new_scalar_args)
+
+
 class KernelCall:
 
     def __init__(self, name, base_argnames, base_src, global_size,
             local_size=None, shared=0):
         self.name = name
-        self.base_argnames = base_argnames
+        self.base_argnames = list(base_argnames)
         self.local_size = local_size
         self.global_size = global_size
         self.src = base_src
