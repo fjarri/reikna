@@ -1,5 +1,7 @@
 import numpy
+from tigger.cluda import dtypes
 from tigger.core import *
+from tigger.transpose import Transpose
 
 TEMPLATE = template_for(__file__)
 
@@ -43,15 +45,27 @@ class Reduce(Computation):
         # may fail if the user passes particularly sophisticated operation
         max_reduce_power = self._ctx.device_params.max_block_size
 
-        data_in = None
+        axis = bs.axis if bs.axis >= 0 else len(bs.shape) + axis
+
         size = product(bs.shape)
         final_size = product(reduced_shape(bs.shape, bs.axis))
 
-        axis = bs.axis if bs.axis >= 0 else len(bs.shape) + axis
-        if axis != len(bs.shape) - 1:
+        if len(bs.shape) == 1 or axis == len(bs.shape) - 1:
+            # normal reduction
+            input_name = 'input'
+        elif axis == 0:
+            transpose = Transpose(self._ctx)
+            tr_shape = (bs.shape[0], product(bs.shape[1:]))
+            transpose.prepare(dtype=dtypes.normalize_type(bs.dtype),
+                input_height=tr_shape[0],
+                input_width=tr_shape[1])
+            operations.append(Allocate('_tr_output', (tr_shape[1], tr_shape[0]), bs.dtype))
+            operations.append(ComputationCall(
+                transpose, '_tr_output', 'input'))
+            input_name = '_tr_output'
+        else:
             raise NotImplementedError()
 
-        input_name = 'input'
         reduction_stage = 0
         while size > final_size:
             reduction_stage += 1
