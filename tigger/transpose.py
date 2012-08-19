@@ -23,20 +23,21 @@ class Transpose(Computation):
 
         return bs
 
-    def _get_base_signature(self):
-        bs = self._basis
-        input_shape = ((bs.batch,) if bs.batch > 1 else ()) + (bs.input_height, bs.input_width)
-        output_shape = ((bs.batch,) if bs.batch > 1 else ()) + (bs.input_width, bs.input_height)
+    def _get_base_signature(self, basis):
+
+        input_shape = ((basis.batch,) if basis.batch > 1 else ()) + \
+            (basis.input_height, basis.input_width)
+        output_shape = ((basis.batch,) if basis.batch > 1 else ()) + \
+            (basis.input_width, basis.input_height)
 
         return (
-            [('output', ArrayValue(output_shape, bs.dtype))],
-            [('input', ArrayValue(input_shape, bs.dtype))],
+            [('output', ArrayValue(output_shape, basis.dtype))],
+            [('input', ArrayValue(input_shape, basis.dtype))],
             [])
 
-    def _construct_kernels(self):
-        bs = self._basis
+    def _construct_operations(self, basis, operations):
 
-        bso = bs.block_size_override
+        bso = basis.block_size_override
         block_width = self._ctx.device_params.smem_banks if bso is None else bso
         block_size = block_width ** 2
 
@@ -45,18 +46,18 @@ class Transpose(Computation):
             block_width = int(numpy.sqrt(self._ctx.device_params.max_block_size))
             block_size = block_width ** 2
 
-        blocks_per_matrix = min_blocks(bs.input_height, block_width)
-        grid_width = min_blocks(bs.input_width, block_width)
-        grid_size = grid_width * blocks_per_matrix * bs.batch
+        blocks_per_matrix = min_blocks(basis.input_height, block_width)
+        grid_width = min_blocks(basis.input_width, block_width)
+        grid_size = grid_width * blocks_per_matrix * basis.batch
 
-        shared = block_width * (block_width + 1) * bs.dtype.itemsize
+        shared = block_width * (block_width + 1) * basis.dtype.itemsize
 
-        src = self._render(TEMPLATE,
+        kernel = operations.render_kernel(
+            TEMPLATE, 'transpose',
+            'output', 'input',
             block_width=block_width,
             grid_width=grid_width,
             blocks_per_matrix=blocks_per_matrix)
 
-        return [KernelCall(
-            'transpose', ['output', 'input'], src,
-            global_size=grid_size * block_size, local_size=block_size, shared=shared
-        )]
+        operations.add_kernel(kernel,
+            global_size=grid_size * block_size, local_size=block_size, shared=shared)

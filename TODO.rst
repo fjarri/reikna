@@ -1,29 +1,3 @@
-0.1.0 (minimal useable version)
-===============================
-
-Core:
-
-* DECIDE: how to handle external calls, like Transpose in Reduce?
-  (Solution: we request the same execution list from Transpose, set argument names - should be a method for that - and incorporate it into our own list)
-* DECIDE: there are different kinds of scalar arguments:
-  1) Usual ones, that get passed to the kernel. Their values do not affect basis or kernel set.
-     Example: scaling coefficient
-  2) Operational modes that do not change basis, but can affect kernel set (this can always be replaced by passing them to kernel and let it handle the situation, but it may be slower).
-     Example: 'inverse' in FFT
-  3) Those that affect the basis and/or the kernel set (and cannot be reduced to cases 1 and 2 without noticeably affecting the performance).
-     Example: ???
-  This is connected to the problem of "umbrella" classes that provide more convenient interface for raw computations.
-  Perhaps it should be their problem, and for raw computations we can assume that all scalar arguments are type 1.
-  Also type 3 parameters can be passed as keywords to prepare_for()/__call__()
-
-Computations, first priority:
-
-* DECIDE: create policy for wrapping raw computations into more convenient classes
-* DECIDE: create policy for providing pre-made computations like sin()/cos()
-* TODO: add sparse reduction
-  (wrapper + memory allocations + call to other computation (transposition))
-
-
 1.0.0 (production-quality version... hopefully)
 ===============================================
 
@@ -57,6 +31,7 @@ Core:
 * TODO: add usual transformations and derivation functions for convenience
 * TODO: take not only CLUDA context as a parameter for computation constructor, but also CommandQueue, opencl context, cuda stream and so on.
 * DECIDE: profile Computation.__call__() and see if it takes too long, and if the algorithm of assignment args to endpoints should be improved.
+* TODO: add namespaces for imported operations
 
 Computations:
 
@@ -67,6 +42,8 @@ Computations:
 * TODO: add random number generation (MD5 and DCMT seem to be the best candidates)
 * TODO: add bitonic sort
 * TODO: add filter
+* DECIDE: create policy for wrapping raw computations into more convenient classes
+* DECIDE: create policy for providing pre-made computations like sin()/cos()
 
 
 1.*

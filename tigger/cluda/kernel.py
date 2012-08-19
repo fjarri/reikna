@@ -57,23 +57,23 @@ class FuncCollector:
 def render_prelude(ctx):
     return _PRELUDE.render(api=ctx.api.API_ID)
 
-def render_without_funcs(template, func_c, **kwds):
+def render_without_funcs(template, func_c, *args, **kwds):
     # add some "built-ins" to kernel
     render_kwds = dict(dtypes=dtypes, numpy=numpy, func=func_c)
     assert set(render_kwds).isdisjoint(set(kwds))
     render_kwds.update(kwds)
 
     try:
-        src = template.render(**render_kwds)
+        src = template.render(*args, **render_kwds)
     except:
         error("Failed to render template:\n" + exceptions.text_error_template().render())
         raise Exception("Template rendering failed")
     return src
 
-def render_template_source(template_src, **kwds):
-    return render_template(Template(template_src), **kwds)
+def render_template_source(template_src, *args, **kwds):
+    return render_template(Template(template_src), *args, **kwds)
 
-def render_template(template, **kwds):
+def render_template(template, *args, **kwds):
     func_c = FuncCollector()
-    src = render_without_funcs(template, func_c, **kwds)
+    src = render_without_funcs(template, func_c, *args, **kwds)
     return func_c.render() + src

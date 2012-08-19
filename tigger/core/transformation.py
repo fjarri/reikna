@@ -88,6 +88,9 @@ def store_macro_call(name):
 def signature_macro_name():
     return "SIGNATURE"
 
+def kernel_definition(kernel_name):
+    return "KERNEL void {kernel_name}(SIGNATURE)".format(kernel_name=kernel_name)
+
 def leaf_name(name):
     return "_leaf_" + name
 
@@ -290,11 +293,8 @@ class TransformationTree:
         for name in self.nodes:
             self.nodes[name].value.clear()
 
-    def clear_temp_nodes(self):
-        self.temp_nodes = {}
-
-    def add_temp_node(self, name, value):
-        self.temp_nodes[name] = AttrDict(value=value)
+    def set_temp_nodes(self, values_dict):
+         self.temp_nodes = {name:AttrDict(value=value) for name, value in values_dict.items()}
 
     def propagate_to_base(self, values_dict):
         # takes {name: mock_val} and propagates it from leaves to roots,
@@ -493,6 +493,26 @@ class TransformationTree:
         leaf_names = [name for name, _ in self.leaf_signature(names)]
         return func_c.render() + "\n\n" + "\n\n".join(code_list) + \
             "\n\n" + signature_macro(leaf_names)
+
+    def connections_for(self, names):
+        connections = []
+
+        def visit(name):
+            node = self.nodes[name]
+            children = node.children
+            if children is None:
+                return
+            array_children = [n for n in children if self.nodes[n].value.is_array]
+            scalar_children = [n for n in children if not self.nodes[n].value.is_array]
+            connections.append((node.tr_to_children, name, array_children, scalar_children))
+            for n in array_children:
+                visit(n)
+
+        for name in names:
+            if name not in self.temp_nodes:
+                visit(name)
+
+        return connections
 
     def has_array_leaf(self, name):
         names = set(n for n, v in self.leaf_signature() if v.is_array)

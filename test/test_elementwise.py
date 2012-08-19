@@ -10,9 +10,9 @@ def test_errors(ctx):
 
     elw = Elementwise(ctx,
         """
-        ${ctype.input} a1 = ${load.input}(idx);
-        ${ctype.input} a2 = ${load.input}(idx + size);
-        ${store.output}(idx, a1 + a2 + ${param.param});
+        ${input.ctype} a1 = ${input.load}(idx);
+        ${input.ctype} a2 = ${input.load}(idx + size);
+        ${output.store}(idx, a1 + a2 + ${param});
         """,
         (['output'], ['input'], ['param']))
 

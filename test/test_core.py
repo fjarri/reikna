@@ -19,47 +19,43 @@ class Dummy(Computation):
     def _construct_basis(self, C, D, A, B, coeff):
         return dict(arr_dtype=C.dtype, coeff_dtype=coeff.dtype, size=C.size)
 
-    def _get_base_signature(self):
-        bs = self._basis
-        av = ArrayValue((bs.size,), bs.arr_dtype)
-        sv = ScalarValue(None, bs.coeff_dtype)
+    def _get_base_signature(self, basis):
+        av = ArrayValue((basis.size,), basis.arr_dtype)
+        sv = ScalarValue(None, basis.coeff_dtype)
         return (
             [('C', av), ('D', av)],
             [('A', av), ('B', av)],
             [('coeff', sv)])
 
-    def _construct_kernels(self):
-        # basis will be passed automatically as a keyword
-        # optional keywords can be passed here
-        # TODO: is it a good way to specify templates?
-        bs = self._basis
-
+    def _construct_operations(self, basis, operations):
         template = template_from("""
-        KERNEL void dummy(${signature})
+        <%def name="dummy(C, D, A, B, coeff)">
+        ${kernel_definition}
         {
             int idx = LID_0 + LSIZE_0 * GID_0;
             if (idx < ${size})
             {
-                ${ctype.A} a = ${load.A}(idx);
-                ${ctype.B} b = ${load.B}(idx);
-                ${ctype.C} c = ${func.mul(dtype.A, dtype.coeff)}(a, ${param.coeff});
-                ${ctype.D} d = ${func.div(dtype.B, dtype.coeff)}(b, ${param.coeff});
-                ${store.C}(idx, c);
-                ${store.D}(idx, d);
+                ${A.ctype} a = ${A.load}(idx);
+                ${B.ctype} b = ${B.load}(idx);
+                ${C.ctype} c = ${func.mul(A.dtype, coeff.dtype)}(a, ${coeff});
+                ${D.ctype} d = ${func.div(B.dtype, coeff.dtype)}(b, ${coeff});
+                ${C.store}(idx, c);
+                ${D.store}(idx, d);
             }
         }
+        </%def>
         """)
 
-        src = self._render(template, size=bs.size)
         block_size = 128
 
-        return [KernelCall(
-            'dummy',
-            ['C', 'D', 'A', 'B', 'coeff'],
-            src,
+        kernel = operations.render_kernel(template, 'dummy',
+            'C', 'D', 'A', 'B', 'coeff',
+            size=basis.size)
+
+        operations.add_kernel(kernel,
             local_size=block_size,
-            global_size=min_blocks(bs.size, block_size) * block_size
-        )]
+            global_size=min_blocks(basis.size, block_size) * block_size
+        )
 
 
 # A function which does the same job as base Dummy kernel

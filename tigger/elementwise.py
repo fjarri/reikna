@@ -25,20 +25,21 @@ class Elementwise(Computation):
 
         return bs
 
-    def _get_base_signature(self):
-        bs = self._basis
-        stores = [(name, ArrayValue(None, bs[name + '_dtype'])) for name in self._base_stores]
-        stores[0][1].shape = (bs.size,)
-        loads = [(name, ArrayValue(None, bs[name + '_dtype'])) for name in self._base_loads]
-        params = [(name, ScalarValue(None, bs[name + '_dtype'])) for name in self._base_params]
+    def _get_base_signature(self, basis):
+
+        stores = [(name, ArrayValue(None, basis[name + '_dtype'])) for name in self._base_stores]
+        stores[0][1].shape = (basis.size,)
+        loads = [(name, ArrayValue(None, basis[name + '_dtype'])) for name in self._base_loads]
+        params = [(name, ScalarValue(None, basis[name + '_dtype'])) for name in self._base_params]
 
         return stores, loads, params
 
-    def _construct_kernels(self):
-        bs = self._basis
+    def _construct_operations(self, basis, operations):
 
+        names = self._base_stores + self._base_loads + self._base_params
         template = template_from("""
-        KERNEL void elementwise(${signature})
+        <%def name='elementwise(""" + ", ".join(names) + """)'>
+        ${kernel_definition}
         {
             int idx = ID_FLAT;
             int size = ${size};
@@ -49,12 +50,11 @@ class Elementwise(Computation):
         """
             }
         }
+        </%def>
         """)
 
-        src = self._render(template, size=bs.size)
+        kernel = operations.render_kernel(template, 'elementwise',
+            *names,
+            size=basis.size)
 
-        names = self._base_stores + self._base_loads + self._base_params
-        return [KernelCall(
-            'elementwise', names, src,
-            global_size=bs.size
-        )]
+        operations.add_kernel(kernel, global_size=basis.size)

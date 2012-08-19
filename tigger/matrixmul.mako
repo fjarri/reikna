@@ -1,12 +1,14 @@
-KERNEL void matrixmul(${signature})
+<%def name="matrixmul(out, a, b)">
+
+${kernel_definition}
 {
     // Storage for sub-matrices of A and B
     // Not using dynamic local memory, because we need (in general) two different types,
     // and creating two views for dynamic char* array does not work.
     // Can cause problems if atype/btype have constructors (they will be called in each thread),
     // but as long as we are using POD types, we will be fine.
-    LOCAL_MEM ${ctype.a} As[${block_width ** 2}];
-    LOCAL_MEM ${ctype.b} Bs[${block_width ** 2}];
+    LOCAL_MEM ${a.ctype} As[${block_width ** 2}];
+    LOCAL_MEM ${b.ctype} Bs[${block_width ** 2}];
 
     int bx = GID_FLAT % ${grid_width};
     int by = GID_FLAT / ${grid_width};
@@ -45,7 +47,7 @@ KERNEL void matrixmul(${signature})
 
     // Csub is used to store the element of the block sub-matrix
     // that is computed by the thread
-    ${ctype.out} Csub = ${dtypes.zero_ctr(dtype.out)};
+    ${out.ctype} Csub = ${dtypes.zero_ctr(out.dtype)};
 
     // Loop over all the sub-matrices of A and B
     // required to compute the block sub-matrix
@@ -61,9 +63,9 @@ KERNEL void matrixmul(${signature})
         int b_y = step * ${block_width} + ty;
 
         As[ty * ${block_width} + tx] = (a_x < ${basis.a_width} && a_y < ${basis.a_height})
-            ? ${load.a}(a_idx + A_shift + ${basis.a_width} * ty + tx) : ${dtypes.zero_ctr(dtype.a)};
+            ? ${a.load}(a_idx + A_shift + ${basis.a_width} * ty + tx) : ${dtypes.zero_ctr(a.dtype)};
         Bs[ty * ${block_width} + tx] = (b_x < ${basis.b_width} && b_y < ${basis.a_width})
-            ? ${load.b}(b_idx + B_shift + ${basis.b_width} * ty + tx) : ${dtypes.zero_ctr(dtype.b)};
+            ? ${b.load}(b_idx + B_shift + ${basis.b_width} * ty + tx) : ${dtypes.zero_ctr(b.dtype)};
 
         LOCAL_BARRIER;
 
@@ -71,7 +73,7 @@ KERNEL void matrixmul(${signature})
         // each thread computes one element
         // of the block sub-matrix
         for (int k = 0; k < ${block_width}; k++)
-            Csub = Csub + ${func.mul(dtype.a, dtype.b, out=dtype.out)}(
+            Csub = Csub + ${func.mul(a.dtype, b.dtype, out=out.dtype)}(
                 As[ty * ${block_width} + k], Bs[k * ${block_width} + tx]);
 
         LOCAL_BARRIER;
@@ -82,5 +84,7 @@ KERNEL void matrixmul(${signature})
     int c_x = ${block_width} * bx + tx;
     int c_y = ${block_width} * by + ty;
     if(c_y < ${basis.a_height} && c_x < ${basis.b_width})
-        ${store.out}(C_shift + ${basis.b_width} * c_y + c_x, Csub);
+        ${out.store}(C_shift + ${basis.b_width} * c_y + c_x, Csub);
 }
+
+</%def>

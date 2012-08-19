@@ -5,6 +5,7 @@ from tigger.cluda.kernel import render_prelude, render_template
 from tigger.cluda.dtypes import ctype, cast
 import tigger.cluda.dtypes as dtypes
 from tigger.core.transformation import *
+from tigger.core.operation import OperationRecorder
 
 
 class NotPreparedError(Exception):
@@ -20,7 +21,6 @@ class Computation:
         # Initialize root nodes of the transformation tree
         self._basis = AttrDict(self._get_default_basis())
         self._tr_tree = TransformationTree(*self._get_base_names())
-        self._operations = []
         self._operations_prepared = False
         self._transformations_prepared = False
 
@@ -28,7 +28,7 @@ class Computation:
         """
         Returns three lists (outs, ins, scalars) with names of base computation parameters.
         """
-        parts = self._get_base_signature()
+        parts = self._get_base_signature(self._basis)
         return tuple([name for name, _ in part] for part in parts)
 
     def _get_base_values(self):
@@ -37,7 +37,7 @@ class Computation:
         base computation parameters.
         """
         result = {}
-        for part in self._get_base_signature():
+        for part in self._get_base_signature(self._basis):
             result.update({name:value for name, value in part})
         return result
 
@@ -47,44 +47,6 @@ class Computation:
         base computation parameters.
         """
         return {name:value.dtype for name, value in self._get_base_values().items()}
-
-    def _render(self, template, **kwds):
-        """
-        Renders given template of the computation kernel.
-        Called from derived class.
-        """
-
-        internal_inputs = kwds.pop('internal_inputs', [])
-        internal_outputs = kwds.pop('internal_outputs', [])
-
-        dtypes_dict = AttrDict(self._get_base_dtypes())
-        ctypes_dict = AttrDict({name:ctype(dtype) for name, dtype in dtypes_dict.items()})
-
-        store_names, load_names, param_names = self._get_base_names()
-        load_dict = AttrDict({name:load_macro_call(name)
-            for name in load_names + internal_inputs})
-        store_dict = AttrDict({name:store_macro_call(name)
-            for name in store_names + internal_outputs})
-        param_dict = AttrDict({name:leaf_name(name)
-            for name in param_names})
-
-        render_kwds = dict(
-            basis=self._basis,
-            load=load_dict,
-            store=store_dict,
-            param=param_dict,
-            ctype=ctypes_dict,
-            dtype=dtypes_dict,
-            signature=signature_macro_name())
-
-        # check that user keywords do not overlap with our keywords
-        intersection = set(render_kwds).intersection(kwds)
-        if len(intersection) > 0:
-            raise ValueError("Render keywords clash with internal variables: " +
-                ", ".join(intersection))
-
-        render_kwds.update(kwds)
-        return render_template(template, **render_kwds)
 
     def _basis_needs_update(self, new_basis):
         """
@@ -123,39 +85,20 @@ class Computation:
         self._tr_tree.propagate_to_base(values)
         return self._construct_basis(*self._tr_tree.base_values(), **kwds)
 
-    def _change_basis(self, new_basis):
-        """
-        Performs all necessary operations corresponding to the change of basis.
-        Updates basis, recreates operations, updates transformation tree.
-        """
-        self._basis.update(new_basis)
-        self._operations = self._construct_kernels()
+    def _prepare_operations(self):
+        self._operations = OperationRecorder(self._ctx, self._basis, self._get_base_values())
+        self._construct_operations(self._basis, self._operations)
 
     def _prepare_transformations(self):
         self._tr_tree.propagate_to_leaves(self._get_base_values())
 
-        self._tr_tree.clear_temp_nodes()
-        for operation in self._operations:
-            if isinstance(operation, Allocate):
-                self._tr_tree.add_temp_node(operation.name, ArrayValue(None, operation.dtype))
-            if isinstance(operation, KernelCall):
-                operation.prepare(self._ctx, self._tr_tree)
-            elif isinstance(operation, ComputationCall):
-                operation.prepare()
+        self._tr_tree.set_temp_nodes(self._operations.get_allocation_values())
 
-        self._leaf_signature = self._tr_tree.leaf_signature()
+        self._operations.prepare(self._tr_tree)
+        self._leaf_signature = self.leaf_signature()
 
-    def _optimize_execution(self):
-
-        # In theory, we can optimize the usage of temporary buffers with help of views
-        # Now we just allocate them separately
-        self._temp_buffers = {}
-        allocations = [op for op in self._operations if isinstance(op, Allocate)]
-        for allocation in allocations:
-            self._temp_buffers[allocation.name] = self._ctx.allocate(
-                allocation.shape, allocation.dtype)
-
-        self._calls = [op for op in self._operations if not isinstance(op, Allocate)]
+    def leaf_signature(self):
+        return self._tr_tree.leaf_signature()
 
     def connect(self, tr, array_arg, new_array_args, new_scalar_args=None):
         """
@@ -164,29 +107,39 @@ class Computation:
         if new_scalar_args is None:
             new_scalar_args = []
         self._tr_tree.connect(tr, array_arg, new_array_args, new_scalar_args)
-        for op in self._operations:
-            if isinstance(op, ComputationCall):
-                op.connect(
-                    tr, array_arg, new_array_args, new_scalar_args=new_scalar_args)
-
         self._transformations_prepared = False
+
+    def set_basis(self, **kwds):
+        unknown_keys = set(kwds).difference(set(self._basis))
+        if len(unknown_keys) > 0:
+            raise KeyError("Unknown basis keys: " + ", ".join(unknown_keys))
+
+        if self._basis_needs_update(kwds):
+            self._basis.update(kwds)
+            self._operations_prepared = False
+
+        return self
+
+    def set_basis_for(self, *args, **kwds):
+        new_basis = self._basis_for(args, kwds)
+        return self.set_basis(**new_basis)
 
     def prepare(self, **kwds):
         """
         Prepares the computation for given basis.
         """
-        unknown_keys = set(kwds).difference(set(self._basis))
-        if len(unknown_keys) > 0:
-            raise KeyError("Unknown basis keys: " + ", ".join(unknown_keys))
+        self.set_basis(**kwds)
 
-        if not self._operations_prepared or self._basis_needs_update(kwds):
-            self._change_basis(kwds)
+        if not self._operations_prepared:
+            self._prepare_operations()
             self._operations_prepared = True
             self._transformations_prepared = False
+
         if not self._transformations_prepared:
             self._prepare_transformations()
             self._transformations_prepared = True
-            self._optimize_execution()
+            self._operations.optimize_execution()
+
         return self
 
     def prepare_for(self, *args, **kwds):
@@ -227,76 +180,16 @@ class Computation:
                 " arguments (" + len(args) + " given")
 
         # Assign arguments to names and cast scalar values
-        arg_dict = dict(self._temp_buffers)
+        arg_dict = dict(self._operations.allocations)
         for pair, arg in zip(self._leaf_signature, args):
             name, value = pair
             if not value.is_array:
                 arg = cast(value.dtype)(arg)
+
             assert name not in arg_dict
             arg_dict[name] = arg
 
         # Call kernels with argument list based on their base arguments
-        for operation in self._calls:
+        for operation in self._operations.operations:
             op_args = [arg_dict[name] for name in operation.leaf_argnames]
             operation(*op_args)
-
-
-class Allocate:
-
-    def __init__(self, name, shape, dtype):
-        self.name = name
-        self.shape = shape
-        self.dtype = dtype
-
-
-class ComputationCall:
-
-    def __init__(self, computation, *argnames):
-        self.computation = computation
-        self.argnames = argnames
-
-        argnames = [x for x, _ in self.computation._leaf_signature]
-        self.map_to_internal = {external_name:internal_name
-            for external_name, internal_name in zip(self.argnames, argnames)}
-        self.map_to_external = {internal_name:external_name
-            for external_name, internal_name in zip(self.argnames, argnames)}
-
-    def prepare(self):
-        self.computation.prepare()
-        replace = lambda x: self.map_to_external.get(x, x)
-        argnames = [x for x, _ in self.computation._leaf_signature]
-        self.leaf_argnames = [replace(name) for name in argnames]
-
-    def __call__(self, *args):
-        self.computation(*args)
-
-    def connect(self, tr, array_arg, new_array_args, new_scalar_args=None):
-        replace = lambda x: self.map_to_internal.get(x, x)
-        array_arg = replace(array_arg)
-        new_array_args = [replace(name) for name in new_array_args]
-        new_scalar_args = [replace(name) for name in new_scalar_args]
-
-        self.computation.connect(tr, array_arg, new_array_args, new_scalar_args)
-
-
-class KernelCall:
-
-    def __init__(self, name, base_argnames, base_src, global_size,
-            local_size=None, shared=0):
-        self.name = name
-        self.base_argnames = list(base_argnames)
-        self.local_size = local_size
-        self.global_size = global_size
-        self.src = base_src
-        self.shared = shared
-
-    def prepare(self, ctx, tr_tree):
-        transformation_code = tr_tree.transformations_for(self.base_argnames)
-        self.full_src = transformation_code + self.src
-        self.module = ctx.compile(self.full_src)
-        self.kernel = getattr(self.module, self.name)
-        self.leaf_argnames = [name for name, _ in tr_tree.leaf_signature(self.base_argnames)]
-        self.kernel.prepare(self.global_size, local_size=self.local_size, shared=self.shared)
-
-    def __call__(self, *args):
-        self.kernel.prepared_call(*args)

@@ -32,36 +32,34 @@ class Reduce(Computation):
 
         return bs
 
-    def _get_base_signature(self):
-        bs = self._basis
-        return ([('output', ArrayValue(reduced_shape(bs.shape, bs.axis), bs.dtype))],
-            [('input', ArrayValue(bs.shape, bs.dtype))],
+    def _get_base_signature(self, basis):
+        return ([('output', ArrayValue(reduced_shape(basis.shape, basis.axis), basis.dtype))],
+            [('input', ArrayValue(basis.shape, basis.dtype))],
             [])
 
-    def _construct_kernels(self):
-        bs = self._basis
-        operations = []
+    def _construct_operations(self, basis, operations):
 
         # may fail if the user passes particularly sophisticated operation
         max_reduce_power = self._ctx.device_params.max_block_size
 
-        axis = bs.axis if bs.axis >= 0 else len(bs.shape) + axis
+        axis = basis.axis if basis.axis >= 0 else len(basis.shape) + axis
 
-        size = product(bs.shape)
-        final_size = product(reduced_shape(bs.shape, bs.axis))
+        size = product(basis.shape)
+        final_size = product(reduced_shape(basis.shape, basis.axis))
 
-        if len(bs.shape) == 1 or axis == len(bs.shape) - 1:
+        if len(basis.shape) == 1 or axis == len(basis.shape) - 1:
             # normal reduction
             input_name = 'input'
         elif axis == 0:
+            tr_shape = (basis.shape[0], product(basis.shape[1:]))
+            operations.add_allocation('_tr_output', (tr_shape[1], tr_shape[0]), basis.dtype)
+
             transpose = Transpose(self._ctx)
-            tr_shape = (bs.shape[0], product(bs.shape[1:]))
-            transpose.prepare(dtype=dtypes.normalize_type(bs.dtype),
-                input_height=tr_shape[0],
-                input_width=tr_shape[1])
-            operations.append(Allocate('_tr_output', (tr_shape[1], tr_shape[0]), bs.dtype))
-            operations.append(ComputationCall(
-                transpose, '_tr_output', 'input'))
+            transpose.set_basis_for(operations.values['_tr_output'], operations.values['input'])
+            #transpose.set_basis(dtype=dtypes.normalize_type(basis.dtype),
+            #    input_height=tr_shape[0],
+            #    input_width=tr_shape[1])
+            operations.add_computation(transpose, '_tr_output', 'input')
             input_name = '_tr_output'
         else:
             raise NotImplementedError()
@@ -88,28 +86,21 @@ class Reduce(Computation):
             global_size = blocks_num * block_size
 
             if new_size != final_size:
-                temp_name = '_reduce_temp' + str(reduction_stage)
-                operations.append(Allocate(temp_name, (new_size,), bs.dtype))
+                temp_name = '_temp' + str(reduction_stage)
+                operations.add_allocation(temp_name, (new_size,), basis.dtype)
                 output_name = temp_name
             else:
                 output_name = 'output'
 
-            src = self._render(TEMPLATE,
-                input_name=input_name, output_name=output_name,
-                internal_inputs=[input_name],
-                internal_outputs=[output_name],
+            kernel = operations.render_kernel(
+                TEMPLATE, 'reduce',
+                output_name, input_name,
                 blocks_per_part=blocks_per_part, last_block_size=last_block_size,
                 log2=log2, block_size=block_size,
                 warp_size=self._ctx.device_params.warp_size,
-                operation_code=bs.operation)
+                operation_code=basis.operation)
 
-            operations.append(KernelCall(
-                'reduce', [output_name, input_name], src,
-                global_size=global_size, local_size=block_size
-            ))
+            operations.add_kernel(kernel, global_size=global_size, local_size=block_size)
 
             size = new_size
             input_name = output_name
-
-        return operations
-

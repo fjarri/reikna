@@ -1,8 +1,10 @@
+<%def name="transpose(output, input)">
+
 <%
     ctype = dtypes.ctype(basis.dtype)
 %>
 
-KERNEL void transpose(${signature})
+${kernel_definition}
 {
     // To prevent shared memory bank confilcts:
     // - Load each component into a different array. Since the array size is a
@@ -34,14 +36,16 @@ KERNEL void transpose(${signature})
     for(int n = 0; n < ${basis.batch}; ++n)
     {
         if(xIndex < ${basis.input_width} && yIndex < ${basis.input_height})
-            block[index_block] = ${load.input}(index_in);
+            block[index_block] = ${input.load}(index_in);
 
         LOCAL_BARRIER;
 
         if(xBlock + lid_y < ${basis.input_width} && yBlock + lid_x < ${basis.input_height})
-            ${store.output}(index_out, block[index_transpose]);
+            ${output.store}(index_out, block[index_transpose]);
 
         index_in += ${basis.input_width * basis.input_height};
         index_out += ${basis.input_width * basis.input_height};
     }
 }
+
+</%def>

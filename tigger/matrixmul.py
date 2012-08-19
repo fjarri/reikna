@@ -58,23 +58,22 @@ class MatrixMul(Computation):
 
         return bs
 
-    def _get_base_signature(self):
-        bs = self._basis
-        a_shape = (bs.batch if bs.batched_a else 1, bs.a_height, bs.a_width)
-        b_shape = (bs.batch if bs.batched_b else 1, bs.a_width, bs.b_width)
+    def _get_base_signature(self, basis):
+
+        a_shape = (basis.batch if basis.batched_a else 1, basis.a_height, basis.a_width)
+        b_shape = (basis.batch if basis.batched_b else 1, basis.a_width, basis.b_width)
 
         return (
-            [('out', ArrayValue(bs.out_shape, bs.out_dtype))],
+            [('out', ArrayValue(basis.out_shape, basis.out_dtype))],
             [
-                ('a', ArrayValue(a_shape, bs.a_dtype)),
-                ('b', ArrayValue(b_shape, bs.b_dtype))
+                ('a', ArrayValue(a_shape, basis.a_dtype)),
+                ('b', ArrayValue(b_shape, basis.b_dtype))
             ],
             [])
 
-    def _construct_kernels(self):
-        bs = self._basis
+    def _construct_operations(self, basis, operations):
 
-        bso = bs.block_size_override
+        bso = basis.block_size_override
         block_width = self._ctx.device_params.smem_banks if bso is None else bso
         block_size = block_width ** 2
 
@@ -83,18 +82,19 @@ class MatrixMul(Computation):
             block_width = int(numpy.sqrt(self._ctx.device_params.max_block_size))
             block_size = block_width ** 2
 
-        blocks_per_matrix = min_blocks(bs.a_height, block_width)
-        grid_width = min_blocks(bs.b_width, block_width)
-        grid_size = grid_width * blocks_per_matrix * bs.batch
+        blocks_per_matrix = min_blocks(basis.a_height, block_width)
+        grid_width = min_blocks(basis.b_width, block_width)
+        grid_size = grid_width * blocks_per_matrix * basis.batch
 
-        shared = block_size * (bs.a_dtype.itemsize + bs.b_dtype.itemsize)
+        shared = block_size * (basis.a_dtype.itemsize + basis.b_dtype.itemsize)
 
-        src = self._render(TEMPLATE,
+        kernel = operations.render_kernel(
+            TEMPLATE, 'matrixmul',
+            'out', 'a', 'b',
             block_width=block_width,
             grid_width=grid_width,
             blocks_per_matrix=blocks_per_matrix)
 
-        return [KernelCall(
-            'matrixmul', ['out', 'a', 'b'], src,
+        operations.add_kernel(kernel,
             global_size=grid_size * block_size, local_size=block_size, shared=shared
-        )]
+        )
