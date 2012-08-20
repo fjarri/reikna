@@ -6,8 +6,12 @@
 * TODO: generalize Transpose interface (and include Permute)
 * DECIDE: names of delegate calls in computations are a bit misleading.
   "construct" functions do different things, for instance.
+* TODO: fix code format in transformations according to the kernel one
 * TODO: change "load/store" parameter names to "input/output" - load/store are operations on them.
-* TODO: update reference documentation
+* TODO: update reference documentation (and in the meantime prepend internal fields with underscores)
+* TODO: decide on a synthax for operation in Reduce and Elementwise
+* TODO: pass argnames as keywords to prepare_for() in Elementwise
+
 
 0.2.0
 =====
