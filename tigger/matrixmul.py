@@ -88,13 +88,14 @@ class MatrixMul(Computation):
 
         shared = block_size * (basis.a_dtype.itemsize + basis.b_dtype.itemsize)
 
-        kernel = operations.render_kernel(
-            TEMPLATE, 'matrixmul',
-            'out', 'a', 'b',
+        render_kwds = dict(
             block_width=block_width,
             grid_width=grid_width,
             blocks_per_matrix=blocks_per_matrix)
 
-        operations.add_kernel(kernel,
-            global_size=grid_size * block_size, local_size=block_size, shared=shared
+        operations.add_kernel(
+            TEMPLATE, 'matrixmul',
+            ['out', 'a', 'b'],
+            global_size=grid_size * block_size, local_size=block_size, shared=shared,
+            render_kwds=render_kwds
         )

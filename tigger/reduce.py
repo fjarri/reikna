@@ -92,15 +92,16 @@ class Reduce(Computation):
             else:
                 output_name = 'output'
 
-            kernel = operations.render_kernel(
-                TEMPLATE, 'reduce',
-                output_name, input_name,
+            render_kwds = dict(
                 blocks_per_part=blocks_per_part, last_block_size=last_block_size,
                 log2=log2, block_size=block_size,
                 warp_size=self._ctx.device_params.warp_size,
                 operation_code=basis.operation)
 
-            operations.add_kernel(kernel, global_size=global_size, local_size=block_size)
+            operations.add_kernel(
+                TEMPLATE, 'reduce',
+                [output_name, input_name],
+                global_size=global_size, local_size=block_size, render_kwds=render_kwds)
 
             size = new_size
             input_name = output_name

@@ -33,7 +33,7 @@ class Dummy(Computation):
         ${kernel_definition}
         {
             int idx = LID_0 + LSIZE_0 * GID_0;
-            if (idx < ${size})
+            if (idx < ${basis.size})
             {
                 ${A.ctype} a = ${A.load}(idx);
                 ${B.ctype} b = ${B.load}(idx);
@@ -48,14 +48,11 @@ class Dummy(Computation):
 
         block_size = 128
 
-        kernel = operations.render_kernel(template, 'dummy',
-            'C', 'D', 'A', 'B', 'coeff',
-            size=basis.size)
-
-        operations.add_kernel(kernel,
-            local_size=block_size,
-            global_size=min_blocks(basis.size, block_size) * block_size
-        )
+        operations.add_kernel(
+            template, 'dummy',
+            ['C', 'D', 'A', 'B', 'coeff'],
+            global_size=min_blocks(basis.size, block_size) * block_size,
+            local_size=block_size)
 
 
 # A function which does the same job as base Dummy kernel

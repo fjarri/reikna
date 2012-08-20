@@ -16,14 +16,6 @@ class Argument:
         return leaf_name(self._name)
 
 
-class Kernel:
-
-    def __init__(self, name, argnames, src):
-        self.name = name
-        self.src = src
-        self.argnames = argnames
-
-
 class OperationRecorder:
 
     def __init__(self, ctx, basis, base_values):
@@ -39,29 +31,31 @@ class OperationRecorder:
         self.values[name] = value
         self._allocations[name] = value
 
-    def render_kernel(self, template, defname, *argnames, **kwds):
+    def add_kernel(self, template, defname, argnames,
+            global_size, local_size=None, shared=0, render_kwds=None):
+
         subtemplate = template.get_def(defname)
 
         assert set(argnames).issubset(set(self.values))
         args = [Argument(name, self.values[name].dtype) for name in argnames]
 
-        render_kwds = dict(
+        if render_kwds is None:
+            render_kwds = {}
+
+        additional_kwds = dict(
             basis=self.basis,
             kernel_definition=kernel_definition(defname))
 
         # check that user keywords do not overlap with our keywords
-        intersection = set(render_kwds).intersection(kwds)
+        intersection = set(render_kwds).intersection(additional_kwds)
         if len(intersection) > 0:
             raise ValueError("Render keywords clash with internal variables: " +
                 ", ".join(intersection))
 
-        render_kwds.update(kwds)
+        render_kwds.update(additional_kwds)
         src = render_template(subtemplate, *args, **render_kwds)
 
-        return Kernel(defname, argnames, src)
-
-    def add_kernel(self, kernel, global_size, local_size=None, shared=0):
-        self.operations.append(KernelCall(kernel.name, kernel.argnames, kernel.src,
+        self.operations.append(KernelCall(defname, argnames, src,
             global_size, local_size=local_size, shared=shared))
 
     def add_computation(self, computation, *argnames):

@@ -52,12 +52,13 @@ class Transpose(Computation):
 
         shared = block_width * (block_width + 1) * basis.dtype.itemsize
 
-        kernel = operations.render_kernel(
-            TEMPLATE, 'transpose',
-            'output', 'input',
+        render_kwds = dict(
             block_width=block_width,
             grid_width=grid_width,
             blocks_per_matrix=blocks_per_matrix)
 
-        operations.add_kernel(kernel,
-            global_size=grid_size * block_size, local_size=block_size, shared=shared)
+        operations.add_kernel(
+            TEMPLATE, 'transpose',
+            ['output', 'input'],
+            global_size=grid_size * block_size, local_size=block_size, shared=shared,
+            render_kwds=render_kwds)

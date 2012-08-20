@@ -42,8 +42,8 @@ class Elementwise(Computation):
         ${kernel_definition}
         {
             int idx = ID_FLAT;
-            int size = ${size};
-            if (idx < ${size})
+            int size = ${basis.size};
+            if (idx < ${basis.size})
             {
         """ +
         self._code +
@@ -53,8 +53,4 @@ class Elementwise(Computation):
         </%def>
         """)
 
-        kernel = operations.render_kernel(template, 'elementwise',
-            *names,
-            size=basis.size)
-
-        operations.add_kernel(kernel, global_size=basis.size)
+        operations.add_kernel(template, 'elementwise', names, global_size=basis.size)

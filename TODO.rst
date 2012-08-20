@@ -1,7 +1,6 @@
 0.1.0
 =====
 
-* TODO: merge OperationRecorder.add_kernel() and render_kernel()
 * TODO: use OpenCL terminology in CLUDA as more general
 * TODO: generalize Transpose interface (and include Permute)
 * DECIDE: names of delegate calls in computations are a bit misleading.
