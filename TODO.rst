@@ -1,3 +1,24 @@
+0.1.0
+=====
+
+* TODO: merge OperationRecorder.add_kernel() and render_kernel()
+* TODO: use OpenCL terminology in CLUDA as more general
+* TODO: generalize Transpose interface (and include Permute)
+* DECIDE: names of delegate calls in computations are a bit misleading.
+  "construct" functions do different things, for instance.
+* TODO: change "load/store" parameter names to "input/output" - load/store are operations on them.
+* TODO: update reference documentation
+
+0.2.0
+=====
+
+* TODO: run coverage tests and see if some functionality has to be tested
+* TODO: Write some performance tests
+* DECIDE: profile Computation.__call__() and see if it takes too long, and if the algorithm of assignment args to endpoints should be improved.
+* TODO: Flatten kernel list before execution, and assign argument numbers
+* TODO: add FFT (and mark pyfft as deprecated)
+
+
 1.0.0 (production-quality version... hopefully)
 ===============================================
 
@@ -11,7 +32,6 @@ CLUDA:
 * DECIDE: Is there a way to get number of shared memory banks and warp size from AMD device?
 * DECIDE: what are we going to do with OpenCL platforms that do not support intra-block interaction?
   (for example, Apple's implementation)
-* DECIDE: which terminology to perefer, CUDA or OpenCL?
 * DECIDE: make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
 * DECIDE: OpenCL supports global sizes which are not multiple to warp size.
   This can be used to increase performance (not much though).
@@ -30,15 +50,11 @@ Core:
 * TODO: add a global DEBUG variable that will create all computations in debug mode by default
 * TODO: add usual transformations and derivation functions for convenience
 * TODO: take not only CLUDA context as a parameter for computation constructor, but also CommandQueue, opencl context, cuda stream and so on.
-* DECIDE: profile Computation.__call__() and see if it takes too long, and if the algorithm of assignment args to endpoints should be improved.
-* TODO: add namespaces for imported operations
 
 Computations:
 
 * CHECK: check if matrixmul with flat blocks is slower than the one with 2D blocks
-* TODO: add FFT (and mark pyfft as deprecated)
 * TODO: add DHT
-* TODO: add 3D permutations
 * TODO: add random number generation (MD5 and DCMT seem to be the best candidates)
 * TODO: add bitonic sort
 * TODO: add filter
