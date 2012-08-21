@@ -168,10 +168,10 @@ class Module:
 
         if is_template:
             src = render_template_source(src, **kwds)
-        src = prelude + src
+        self.source = prelude + src
 
         try:
-            self._module = SourceModule(src, no_extern_c=True, options=options)
+            self._module = SourceModule(self.source, no_extern_c=True, options=options)
         except:
             listing = "\n".join([str(i+1) + ":" + l for i, l in enumerate(src.split('\n'))])
             error("Failed to compile:\n" + listing)

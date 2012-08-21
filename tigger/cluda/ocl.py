@@ -176,10 +176,10 @@ class Module:
         # Casting source code to ASCII explicitly
         # New versions of Mako produce Unicode output by default,
         # and it makes OpenCL compiler unhappy
-        src = str(prelude + src)
+        self.source = str(prelude + src)
 
         try:
-            self._module = cl.Program(ctx.context, src).build(options=options)
+            self._module = cl.Program(ctx.context, self.source).build(options=options)
         except:
             listing = "\n".join([str(i+1) + ":" + l for i, l in enumerate(src.split('\n'))])
             error("Failed to compile:\n" + listing)
