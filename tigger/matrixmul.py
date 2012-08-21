@@ -77,9 +77,9 @@ class MatrixMul(Computation):
         block_width = self._ctx.device_params.smem_banks if bso is None else bso
         block_size = block_width ** 2
 
-        if block_size > self._ctx.device_params.max_block_size:
+        if block_size > self._ctx.device_params.max_work_group_size:
             # If it is not CPU, current solution may affect performance
-            block_width = int(numpy.sqrt(self._ctx.device_params.max_block_size))
+            block_width = int(numpy.sqrt(self._ctx.device_params.max_work_group_size))
             block_size = block_width ** 2
 
         blocks_per_matrix = min_blocks(basis.a_height, block_width)

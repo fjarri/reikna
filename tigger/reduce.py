@@ -40,7 +40,7 @@ class Reduce(Computation):
     def _construct_operations(self, basis, operations):
 
         # may fail if the user passes particularly sophisticated operation
-        max_reduce_power = self._ctx.device_params.max_block_size
+        max_reduce_power = self._ctx.device_params.max_work_group_size
 
         axis = basis.axis if basis.axis >= 0 else len(basis.shape) + axis
 

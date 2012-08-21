@@ -32,7 +32,7 @@ class Context:
                 devices = platform.get_devices()
                 for device in devices:
                     params = DeviceParameters(device)
-                    if params.max_block_size > 1:
+                    if params.max_work_group_size > 1:
                         return device
             return None
 
@@ -125,23 +125,24 @@ class Context:
 class DeviceParameters:
 
     def __init__(self, device):
-        self.max_block_size = device.max_work_group_size
-        self.max_block_dims = device.max_work_item_sizes
 
         if device.platform.name == 'Apple' and device.type == cl.device_type.CPU:
         # Apple is being funny again.
         # On OSX 10.8.0 it reports the maximum block size as 1024, when it is really 128.
         # Moreover, if local_barrier() is used in the kernel, it becomes 1
-            self.max_block_size = 1
-            self.max_block_dims = [1, 1, 1]
+            self.max_work_group_size = 1
+            self.max_work_item_sizes = [1, 1, 1]
+        else:
+            self.max_work_group_size = device.max_work_group_size
+            self.max_work_item_sizes = device.max_work_item_sizes
 
         self.max_grid_dims = [sys.maxint, sys.maxint]
 
         if device.type == cl.device_type.CPU:
             # For CPU both values do not make much sense,
             # so we are just setting them to maximum
-            self.smem_banks = self.max_block_size
-            self.warp_size = self.max_block_size
+            self.smem_banks = self.max_work_group_size
+            self.warp_size = self.max_work_group_size
         elif "cl_nv_device_attribute_query" in device.extensions:
             # If NV extensions are available, use them to query info
             self.smem_banks = 16 if device.compute_capability_major_nv < 2 else 32

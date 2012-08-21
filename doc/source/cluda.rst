@@ -6,6 +6,7 @@ CLUDA layer
 CLUDA is the foundation of the tigger.
 It provides unified access to basic features of CUDA and OpenCL, such as memory operations, compilation and so on.
 It can also be used by itself, if you want to write GPU API-independent programs and happen to need the small subset of GPU API.
+The terminology is borrowed from OpenCL, since it is a more general API.
 
 Root level interface
 --------------------
@@ -148,11 +149,11 @@ It is referred here (and references from other parts of this documentation) as :
 
     An assembly of device parameters necessary for optimizations.
 
-    .. py:attribute:: max_block_size
+    .. py:attribute:: max_work_group_size
 
         Maximum block size for kernels.
 
-    .. py:attribute:: max_block_dims
+    .. py:attribute:: max_work_item_sizes
 
         3-element list with maximum block dimensions.
 

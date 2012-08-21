@@ -142,8 +142,8 @@ class DeviceParameters:
 
     def __init__(self, device):
 
-        self.max_block_size = device.max_threads_per_block
-        self.max_block_dims = [
+        self.max_work_group_size = device.max_threads_per_block
+        self.max_work_item_sizes = [
             device.max_block_dim_x,
             device.max_block_dim_y,
             device.max_block_dim_z]
@@ -222,7 +222,7 @@ class Kernel:
                     local_size = local_size[0]
             else:
                 # temporary stub
-                local_size = min(self._ctx.device_params.max_block_size, global_size)
+                local_size = min(self._ctx.device_params.max_work_group_size, global_size)
 
             # since there is a maximum on a grid width, we need to pick a pair gx, gy
             # so that gx * gy >= grid and gx * gy is minimal.
