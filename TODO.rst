@@ -2,6 +2,7 @@
 =====
 
 * TODO: use OpenCL terminology in CLUDA as more general
+* TODO: get rid of _ctx usage in computations (will also require exposing device_params in some way)
 * TODO: generalize Transpose interface (and include Permute)
 * DECIDE: names of delegate calls in computations are a bit misleading.
   "construct" functions do different things, for instance.
