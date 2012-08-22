@@ -8,6 +8,7 @@ import pyopencl.array as clarray
 import tigger.cluda as cluda
 import tigger.cluda.dtypes as dtypes
 from tigger.cluda.kernel import render_prelude, render_template_source
+from tigger.cluda.vsize import VirtualSizes
 
 
 API_ID = cluda.API_OCL
@@ -53,6 +54,13 @@ class Context:
         self.device_params = DeviceParameters(context.get_info(cl.context_info.DEVICES)[0])
 
         self._queue = self.create_stream() if stream is None else stream
+
+    def override_device_params(self, **kwds):
+        for kwd in kwds:
+            if hasattr(self.device_params, kwd):
+                setattr(self.device_params, kwd, kwds[kwd])
+            else:
+                raise ValueError("Device parameter " + str(kwd) + " does not exist")
 
     def create_stream(self):
         return cl.CommandQueue(self.context)
@@ -115,11 +123,21 @@ class Context:
     def release(self):
         pass
 
-    def compile_raw(self, src):
-        return Module(self, False, src)
+    def _compile(self, src):
+        options = "-cl-mad-enable -cl-fast-relaxed-math" if self.fast_math else ""
+        try:
+            module = cl.Program(self.context, src).build(options=options)
+        except:
+            listing = "\n".join([str(i+1) + ":" + l for i, l in enumerate(src.split('\n'))])
+            error("Failed to compile:\n" + listing)
+            raise
+        return module
 
     def compile(self, template_src, **kwds):
-        return Module(self, True, template_src, **kwds)
+        return Module(self, template_src, **kwds)
+
+    def compile_static(self, name, global_size, local_size, template_src, **kwds):
+        return StaticKernel(self, name, global_size, local_size, template_src, **kwds)
 
 
 class DeviceParameters:
@@ -136,7 +154,7 @@ class DeviceParameters:
             self.max_work_group_size = device.max_work_group_size
             self.max_work_item_sizes = device.max_work_item_sizes
 
-        self.max_grid_dims = [sys.maxint, sys.maxint]
+        self.max_grid_sizes = [sys.maxint, sys.maxint, sys.maxint]
 
         if device.type == cl.device_type.CPU:
             # For CPU both values do not make much sense,
@@ -165,25 +183,17 @@ class DeviceParameters:
 
 class Module:
 
-    def __init__(self, ctx, is_template, src, **kwds):
+    def __init__(self, ctx, src, **kwds):
         self._ctx = ctx
-        options = "-cl-mad-enable -cl-fast-relaxed-math" if ctx.fast_math else ""
 
         prelude = render_prelude(self._ctx)
-        if is_template:
-            src = render_template_source(src, **kwds)
+        src = render_template_source(src, **kwds)
 
         # Casting source code to ASCII explicitly
         # New versions of Mako produce Unicode output by default,
         # and it makes OpenCL compiler unhappy
         self.source = str(prelude + src)
-
-        try:
-            self._module = cl.Program(ctx.context, self.source).build(options=options)
-        except:
-            listing = "\n".join([str(i+1) + ":" + l for i, l in enumerate(src.split('\n'))])
-            error("Failed to compile:\n" + listing)
-            raise
+        self._module = ctx._compile(self.source)
 
     def __getattr__(self, name):
         return Kernel(self._ctx, getattr(self._module, name))
@@ -195,7 +205,7 @@ class Kernel:
         self._ctx = ctx
         self._kernel = kernel
 
-    def prepare(self, global_size, local_size=None, shared=0):
+    def prepare(self, global_size=1, local_size=None, shared=0):
         self.local_size = (local_size,) if isinstance(local_size, int) else local_size
         self.global_size = (global_size,) if isinstance(global_size, int) else global_size
         self.shared = shared
@@ -204,11 +214,36 @@ class Kernel:
 
         # Unlike PyCuda, PyOpenCL does not allow passing array objects as is
         args = [x.data if isinstance(x, clarray.Array) else x for x in args]
-
         self._kernel(self._ctx._queue, self.global_size, self.local_size, *args)
         self._ctx._synchronize()
 
     def __call__(self, *args, **kwds):
-        # Python 2.* cannot handle explicit keywords after variable-length positional arguments
         self.prepare(**kwds)
         self.prepared_call(*args)
+
+
+class StaticKernel:
+
+    def __init__(self, ctx, name, global_size, local_size, src, **kwds):
+        self._ctx = ctx
+
+        prelude = render_prelude(self._ctx)
+
+        vs = VirtualSizes(ctx.device_params, global_size, local_size)
+        static_prelude = vs.render_vsize_funcs()
+        self.global_size, self.local_size = vs.get_call_sizes()
+
+        src = render_template_source(src, **kwds)
+
+        # Casting source code to ASCII explicitly
+        # New versions of Mako produce Unicode output by default,
+        # and it makes OpenCL compiler unhappy
+        self.source = str(prelude + static_prelude + src)
+        self._module = ctx._compile(self.source)
+
+        self._kernel = getattr(self._module, name)
+
+    def __call__(self, *args):
+        args = [x.data if isinstance(x, clarray.Array) else x for x in args]
+        self._kernel(self._ctx._queue, self.global_size, self.local_size, *args)
+        self._ctx._synchronize()

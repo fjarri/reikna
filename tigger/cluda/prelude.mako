@@ -11,21 +11,46 @@
     #define LOCAL_MEM_ARG /* empty */
     #define INLINE __forceinline__
 
-    #define LID_FLAT threadIdx.x
-    #define GID_FLAT (blockIdx.x + gridDim.x * blockIdx.y)
-    #define ID_FLAT (LID_FLAT + blockDim.x * GID_FLAT)
+    <%
+        dimnames = ['x', 'y', 'z']
+    %>
 
-    #define LID_0 threadIdx.x
-    #define LID_1 threadIdx.y
-    #define LID_2 threadIdx.z
+    WITHIN_KERNEL int get_local_id(int dim)
+    {
+    %for n in xrange(3):
+        if(dim == ${n}) return threadIdx.${dimnames[n]};
+    %endfor
+        return 0;
+    }
 
-    #define GID_0 blockIdx.x
-    #define GID_1 blockIdx.y
-    #define GID_2 blockIdx.z
+    WITHIN_KERNEL int get_group_id(int dim)
+    {
+    %for n in xrange(3):
+        if(dim == ${n}) return blockIdx.${dimnames[n]};
+    %endfor
+        return 0;
+    }
 
-    #define LSIZE_0 blockDim.x
-    #define LSIZE_1 blockDim.y
-    #define LSIZE_2 blockDim.z
+    WITHIN_KERNEL int get_local_size(int dim)
+    {
+    %for n in xrange(3):
+        if(dim == ${n}) return blockDim.${dimnames[n]};
+    %endfor
+        return 1;
+    }
+
+    WITHIN_KERNEL int get_group_size(int dim)
+    {
+    %for n in xrange(3):
+        if(dim == ${n}) return gridDim.${dimnames[n]};
+    %endfor
+        return 1;
+    }
+
+    WITHIN_KERNEL int get_global_id(int dim)
+    {
+        return get_local_id(dim) + get_group_id(dim) * get_local_size(dim);
+    }
 
 %elif api == 'ocl':
     // taken from pyopencl._cluda
@@ -38,22 +63,6 @@
     #define LOCAL_MEM_DYNAMIC __local
     #define LOCAL_MEM_ARG __local
     #define INLINE inline
-
-    #define LID_FLAT get_local_id(0)
-    #define GID_FLAT get_group_id(0)
-    #define ID_FLAT get_global_id(0)
-
-    #define LID_0 get_local_id(0)
-    #define LID_1 get_local_id(1)
-    #define LID_2 get_local_id(2)
-
-    #define GID_0 get_group_id(0)
-    #define GID_1 get_group_id(1)
-    #define GID_2 get_group_id(2)
-
-    #define LSIZE_0 get_local_size(0)
-    #define LSIZE_1 get_local_size(1)
-    #define LSIZE_2 get_local_size(2)
 
     #if defined(cl_khr_fp64)
     #pragma OPENCL EXTENSION cl_khr_fp64: enable
