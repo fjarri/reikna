@@ -133,11 +133,13 @@ class Context:
             raise
         return module
 
-    def compile(self, template_src, **kwds):
-        return Module(self, template_src, **kwds)
+    def compile(self, template_src, render_kwds=None):
+        return Module(self, template_src, render_kwds=render_kwds)
 
-    def compile_static(self, name, global_size, local_size, template_src, **kwds):
-        return StaticKernel(self, name, global_size, local_size, template_src, **kwds)
+    def compile_static(self, template_src, name, global_size,
+            local_size=None, shared=0, render_kwds=None):
+        return StaticKernel(self, template_src, name, global_size,
+            local_size=local_size, shared=shared, render_kwds=render_kwds)
 
 
 class DeviceParameters:
@@ -183,11 +185,13 @@ class DeviceParameters:
 
 class Module:
 
-    def __init__(self, ctx, src, **kwds):
+    def __init__(self, ctx, src, render_kwds=None):
         self._ctx = ctx
 
+        if render_kwds is None:
+            render_kwds = {}
         prelude = render_prelude(self._ctx)
-        src = render_template_source(src, **kwds)
+        src = render_template_source(src, **render_kwds)
 
         # Casting source code to ASCII explicitly
         # New versions of Mako produce Unicode output by default,
@@ -224,16 +228,20 @@ class Kernel:
 
 class StaticKernel:
 
-    def __init__(self, ctx, name, global_size, local_size, src, **kwds):
+    def __init__(self, ctx, src, name, global_size, local_size=None, shared=0, render_kwds=None):
         self._ctx = ctx
+
+        if render_kwds is None:
+            render_kwds = {}
 
         prelude = render_prelude(self._ctx)
 
         vs = VirtualSizes(ctx.device_params, global_size, local_size)
         static_prelude = vs.render_vsize_funcs()
         self.global_size, self.local_size = vs.get_call_sizes()
+        self.shared = shared
 
-        src = render_template_source(src, **kwds)
+        src = render_template_source(src, **render_kwds)
 
         # Casting source code to ASCII explicitly
         # New versions of Mako produce Unicode output by default,

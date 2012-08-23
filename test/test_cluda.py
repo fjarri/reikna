@@ -118,7 +118,7 @@ def test_dtype_support(ctx, dtype):
 	  ${ctype} temp = ${func.mul(dtype, dtype)}(a[i], b[i]);
 	  dest[i] = ${func.div(dtype, dtype)}(temp, b[i]);
 	}
-	""", ctype=dtypes.ctype(dtype), dtype=dtype)
+	""", render_kwds=dict(ctype=dtypes.ctype(dtype), dtype=dtype))
 
 	test = module.test
 

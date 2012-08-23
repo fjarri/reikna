@@ -100,7 +100,7 @@ def test_ids(ctx, grid_limits, gl_size, gs_is_multiple):
     ref = ReferenceIds(grid_size, local_size, gs_is_multiple)
     ctx.override_device_params(max_grid_sizes=grid_limits)
 
-    get_ids = ctx.compile_static('get_ids', ref.global_size, ref.local_size, """
+    get_ids = ctx.compile_static("""
     KERNEL void get_ids(GLOBAL_MEM int *fid,
         GLOBAL_MEM int *lx, GLOBAL_MEM int *ly, GLOBAL_MEM int *lz,
         GLOBAL_MEM int *gx, GLOBAL_MEM int *gy, GLOBAL_MEM int *gz,
@@ -119,7 +119,7 @@ def test_ids(ctx, grid_limits, gl_size, gs_is_multiple):
         gly[i] = virtual_global_id(1);
         glz[i] = virtual_global_id(2);
     }
-    """)
+    """, 'get_ids', ref.global_size, local_size=ref.local_size)
 
     fid = ctx.allocate(product(ref.np_global_size), numpy.int32)
     lx = ctx.allocate(ref.np_global_size, numpy.int32)
@@ -161,7 +161,7 @@ def test_sizes(ctx, grid_limits, gl_size, gs_is_multiple):
     ref = ReferenceIds(grid_size, local_size, gs_is_multiple)
     ctx.override_device_params(max_grid_sizes=grid_limits)
 
-    get_sizes = ctx.compile_static('get_sizes', ref.global_size, ref.local_size, """
+    get_sizes = ctx.compile_static("""
     KERNEL void get_sizes(GLOBAL_MEM int *sizes)
     {
         if (virtual_global_flat_id() > 0) return;
@@ -174,7 +174,7 @@ def test_sizes(ctx, grid_limits, gl_size, gs_is_multiple):
         }
         sizes[9] = virtual_global_flat_size();
     }
-    """)
+    """, 'get_sizes', ref.global_size, local_size=ref.local_size)
 
     sizes = ctx.allocate(10, numpy.int32)
     get_sizes(sizes)
