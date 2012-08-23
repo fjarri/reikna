@@ -2,6 +2,7 @@
 =====
 
 * TODO: use OpenCL terminology in CLUDA as more general
+* TODO: add 'dumb' local_size finding for CUDA kernels
 * TODO: get rid of _ctx usage in computations (will also require exposing device_params in some way)
 * TODO: generalize Transpose interface (and include Permute)
 * DECIDE: names of delegate calls in computations are a bit misleading.
@@ -16,6 +17,7 @@
 0.2.0
 =====
 
+* DECIDE: fix dynamic shared memory interface for OpenCL kernels
 * TODO: run coverage tests and see if some functionality has to be tested
 * TODO: Write some performance tests
 * DECIDE: profile Computation.__call__() and see if it takes too long, and if the algorithm of assignment args to endpoints should be improved.
@@ -32,6 +34,7 @@ Website/documentation:
 
 CLUDA:
 
+* TODO: add smart local_size finding for static kernels
 * DECIDE: does the forceful enabling of double precision in OpenCL somehow change the performance for single precision?
 * DECIDE: Is there a way to get number of shared memory banks and warp size from AMD device?
 * DECIDE: what are we going to do with OpenCL platforms that do not support intra-block interaction?
