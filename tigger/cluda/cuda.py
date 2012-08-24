@@ -1,3 +1,4 @@
+from itertools import product
 from logging import error
 
 import numpy
@@ -7,6 +8,8 @@ from pycuda.compiler import SourceModule
 
 import tigger.cluda as cluda
 import tigger.cluda.dtypes as dtypes
+from tigger.cluda.helpers import factors
+from tigger.cluda.helpers import product as mul
 from tigger.cluda.kernel import render_prelude, render_template_source
 
 
@@ -58,6 +61,13 @@ class Context:
 
         self._stream = self.create_stream() if stream is None else stream
         self._released = False if owns_context else True
+
+    def override_device_params(self, **kwds):
+        for kwd in kwds:
+            if hasattr(self.device_params, kwd):
+                setattr(self.device_params, kwd, kwds[kwd])
+            else:
+                raise ValueError("Device parameter " + str(kwd) + " does not exist")
 
     def create_stream(self):
         return cuda.Stream()
@@ -123,9 +133,6 @@ class Context:
         if not self.async:
             self.synchronize()
 
-    def compile_raw(self, src):
-        return Module(self, False, src)
-
     def compile(self, template_src, **kwds):
         return Module(self, True, template_src, **kwds)
 
@@ -148,9 +155,10 @@ class DeviceParameters:
             device.max_block_dim_y,
             device.max_block_dim_z]
 
-        self.max_grid_dims = [
+        self.max_grid_sizes = [
             device.max_grid_dim_x,
-            device.max_grid_dim_y]
+            device.max_grid_dim_y,
+            device.max_grid_dim_z]
 
         # there is no corresponding constant in the API at the moment
         self.smem_banks = 16 if device.compute_capability()[0] < 2 else 32
@@ -173,32 +181,12 @@ class Module:
         try:
             self._module = SourceModule(self.source, no_extern_c=True, options=options)
         except:
-            listing = "\n".join([str(i+1) + ":" + l for i, l in enumerate(src.split('\n'))])
+            listing = "\n".join([str(i+1) + ":" + l for i, l in enumerate(self.source.split('\n'))])
             error("Failed to compile:\n" + listing)
             raise
 
     def __getattr__(self, name):
         return Kernel(self._ctx, self._module.get_function(name))
-
-
-def bounding_grid(N, Ms):
-    """
-    For a natural N and M_1, M_2, ... returns (n_1, n_2, ...) such that:
-    1) n_1 * n_2 * ... >= N
-    2) n_i <= M_i
-    3) n_1 * n_2 * ... = min
-    """
-
-    product = lambda l: reduce(lambda x, y: x * y, l, 1)
-    assert product(Ms) >= N
-
-    # stupid algorithm, just for stub
-    if N < Ms[0]:
-        return [N]
-
-    dims = len(Ms)
-    n = int(N ** (1. / dims)) + 1
-    return [n] * dims
 
 
 class Kernel:
@@ -210,53 +198,48 @@ class Kernel:
             cuda.function_attribute.MAX_THREADS_PER_BLOCK)
 
     def prepare(self, global_size, local_size=None, shared=0):
+        self.global_size = (global_size,) if isinstance(global_size, int) else tuple(global_size)
         self.shared = shared
 
-        if isinstance(global_size, int):
-            # Flat indices mode.
-            # In order to emulate it in CUDA, we need the user
-            # to skip threads with idx > size manually.
-
-            if local_size is not None:
-                if not isinstance(local_size, int):
-                    if len(local_size) > 1:
-                        raise ValueError("Global/local work sizes have differing dimensions")
-                    local_size = local_size[0]
-            else:
-                # temporary stub
-                local_size = min(self._ctx.device_params.max_work_group_size, global_size)
-
-            # since there is a maximum on a grid width, we need to pick a pair gx, gy
-            # so that gx * gy >= grid and gx * gy is minimal.
-            grid_size = (global_size - 1) / local_size + 1
-            self.grid = tuple(bounding_grid(grid_size, self._ctx.device_params.max_grid_dims))
-            self.block = (local_size, 1, 1)
-        else:
-            if local_size is None:
-                raise NotImplementedError(
-                    "Automatic local size with non-flat global size is not supported")
-
-            if isinstance(local_size, int):
-                local_size = (local_size,)
-
-            if len(local_size) != len(global_size):
+        if local_size is not None:
+            self.local_size = (local_size,) if isinstance(local_size, int) else tuple(local_size)
+            if len(self.local_size) != len(self.global_size):
                 raise ValueError("Global/local work sizes have differing dimensions")
+        else:
+            # Dumb algorithm of finding suitable local_size.
+            # Works more or less the same as its OpenCL equivalent.
+            max_size = self.max_work_group_size
+            max_dims = self._ctx.device_params.max_work_item_sizes
 
-            grid = []
-            for gs, ls in zip(global_size, local_size):
-                if gs % ls != 0:
-                    raise ValueError("Global sizes must be multiples of corresponding local sizes")
-                grid.append(gs / ls)
+            def fits_into_dims(block_size):
+                """Checks if block dimensions fit into limits"""
+                for md, bs in zip(max_dims, block_size):
+                    if md < bs:
+                        return False
+                return True
 
-            self.block = local_size
-            self.grid = tuple(grid)
+            local_size_dims = [zip(*factors(g, limit=max_size))[0] for g in global_size]
+            local_sizes = [t for t in product(*local_size_dims)
+                if mul(t) <= max_size and fits_into_dims(t)]
+            local_size = max(local_sizes, key=mul)
+            self.local_size = local_size + (1,) * (3 - len(local_size))
+
+        grid = []
+        for gs, ls in zip(self.global_size, self.local_size):
+            if gs % ls != 0:
+                raise ValueError("Global sizes must be multiples of corresponding local sizes")
+            grid.append(gs / ls)
+        self.grid = tuple(grid)
 
     def prepared_call(self, *args):
-        self._kernel(*args, grid=self.grid, block=self.block,
+        self._kernel(*args, grid=self.grid, block=self.local_size,
             stream=self._ctx._stream, shared=self.shared)
         self._ctx._synchronize()
 
     def __call__(self, *args, **kwds):
-        # Python 2.* cannot handle explicit keywords after variable-length positional arguments
-        self.prepare(**kwds)
+        if 'global_size' in kwds:
+            prep_args = (kwds.pop('global_size'),)
+        else:
+            prep_args = tuple()
+        self.prepare(*prep_args, **kwds)
         self.prepared_call(*args)
