@@ -32,16 +32,14 @@ class Dummy(Computation):
         <%def name="dummy(C, D, A, B, coeff)">
         ${kernel_definition}
         {
-            int idx = LID_0 + LSIZE_0 * GID_0;
-            if (idx < ${basis.size})
-            {
-                ${A.ctype} a = ${A.load}(idx);
-                ${B.ctype} b = ${B.load}(idx);
-                ${C.ctype} c = ${func.mul(A.dtype, coeff.dtype)}(a, ${coeff});
-                ${D.ctype} d = ${func.div(B.dtype, coeff.dtype)}(b, ${coeff});
-                ${C.store}(idx, c);
-                ${D.store}(idx, d);
-            }
+            VIRTUAL_SKIP_THREADS;
+            int idx = virtual_global_id(0);
+            ${A.ctype} a = ${A.load}(idx);
+            ${B.ctype} b = ${B.load}(idx);
+            ${C.ctype} c = ${func.mul(A.dtype, coeff.dtype)}(a, ${coeff});
+            ${D.ctype} d = ${func.div(B.dtype, coeff.dtype)}(b, ${coeff});
+            ${C.store}(idx, c);
+            ${D.store}(idx, d);
         }
         </%def>
         """)

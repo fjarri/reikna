@@ -20,8 +20,8 @@ ${kernel_definition}
 {
     LOCAL_MEM ${ctype} shared_mem[${smem_size}];
 
-    int tid = LID_FLAT;
-    int bid = GID_FLAT;
+    int tid = get_local_id(0);
+    int bid = get_group_id(0);
 
     int part_length = ${(blocks_per_part - 1) * block_size + last_block_size};
     int part_num = bid / ${blocks_per_part};

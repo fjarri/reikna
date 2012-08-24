@@ -41,16 +41,14 @@ class Elementwise(Computation):
         <%def name='elementwise(""" + ", ".join(names) + """)'>
         ${kernel_definition}
         {
-            int idx = ID_FLAT;
+            VIRTUAL_SKIP_THREADS;
+            int idx = virtual_global_flat_id();
             int size = ${basis.size};
-            if (idx < ${basis.size})
-            {
         """ +
         self._code +
         """
-            }
         }
         </%def>
         """)
 
-        operations.add_kernel(template, 'elementwise', names, global_size=basis.size)
+        operations.add_kernel(template, 'elementwise', names, global_size=(basis.size,))

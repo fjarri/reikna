@@ -99,9 +99,8 @@ class Reduce(Computation):
                 operation_code=basis.operation)
 
             operations.add_kernel(
-                TEMPLATE, 'reduce',
-                [output_name, input_name],
-                global_size=global_size, local_size=block_size, render_kwds=render_kwds)
+                TEMPLATE, 'reduce', [output_name, input_name],
+                global_size=(global_size,), local_size=(block_size,), render_kwds=render_kwds)
 
             size = new_size
             input_name = output_name

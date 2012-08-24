@@ -18,11 +18,11 @@ ${kernel_definition}
     //   memory.
     LOCAL_MEM ${ctype} block[(${block_width} + 1) * ${block_width}];
 
-    unsigned int lid_x = LID_FLAT % ${block_width};
-    unsigned int lid_y = LID_FLAT / ${block_width};
+    unsigned int lid_x = virtual_local_id(0);
+    unsigned int lid_y = virtual_local_id(1);
 
-    unsigned int gid_x = GID_FLAT % ${grid_width};
-    unsigned int gid_y = GID_FLAT / ${grid_width};
+    unsigned int gid_x = virtual_group_id(0);
+    unsigned int gid_y = virtual_group_id(1);
 
     unsigned int xBlock = ${block_width} * gid_x;
     unsigned int yBlock = ${block_width} * gid_y;
