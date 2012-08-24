@@ -4,6 +4,7 @@ import pytest
 
 import tigger.cluda as cluda
 import tigger.cluda.dtypes as dtypes
+from tigger.cluda.helpers import product
 from helpers import *
 
 
@@ -11,8 +12,9 @@ TEST_DTYPES = [
 	numpy.int8, numpy.int16, numpy.int32, numpy.int64,
 	numpy.uint8, numpy.uint16, numpy.uint32, numpy.uint64,
 	numpy.float32, numpy.float64,
-	numpy.complex64, numpy.complex128
-]
+	numpy.complex64, numpy.complex128]
+
+TEST_GLOBAL_SIZES = [(100,), (137,), (10, 10), (15, 25), (7, 11, 13), (5, 10, 25)]
 
 
 def simple_context_test(ctx):
@@ -25,10 +27,12 @@ def simple_context_test(ctx):
 
     assert diff_is_negligible(a, a_back)
 
+
 def test_create_new_context(cluda_api):
 	ctx = cluda_api.Context.create()
 	simple_context_test(ctx)
 	ctx.release()
+
 
 def test_connect_to_context(cluda_api):
 	ctx = cluda_api.Context.create()
@@ -45,6 +49,7 @@ def test_connect_to_context(cluda_api):
 
 	ctx.release()
 
+
 def test_connect_to_context_and_stream(cluda_api):
 	ctx = cluda_api.Context.create()
 	stream = ctx.create_stream()
@@ -60,6 +65,7 @@ def test_connect_to_context_and_stream(cluda_api):
 	ctx2.release()
 
 	ctx.release()
+
 
 def test_transfers(ctx):
 	a = get_test_array(1024, numpy.float32)
@@ -97,6 +103,7 @@ def test_transfers(ctx):
 		a_back = from_d(a_copy)
 		assert diff_is_negligible(a, a_back)
 
+
 @pytest.mark.parametrize(
 	"dtype", TEST_DTYPES,
 	ids=[dtypes.normalize_type(dtype).name for dtype in TEST_DTYPES])
@@ -131,3 +138,28 @@ def test_dtype_support(ctx, dtype):
 	dest_dev = ctx.empty_like(a_dev)
 	test(dest_dev, a_dev, b_dev, global_size=N)
 	assert diff_is_negligible(ctx.from_device(dest_dev), a)
+
+
+@pytest.mark.parametrize("global_size", TEST_GLOBAL_SIZES, ids=[str(x) for x in TEST_GLOBAL_SIZES])
+def test_find_local_size(ctx, global_size):
+	"""
+	Check that if None is passed as local_size, kernel can find some local_size to run with
+	(not necessarily optimal).
+	"""
+
+	module = ctx.compile(
+	"""
+	KERNEL void test(GLOBAL_MEM int *dest)
+	{
+	  const int i = get_global_id(0) +
+	  	get_global_id(1) * get_global_size(0) +
+	  	get_global_id(2) * get_global_size(1) * get_global_size(0);
+	  dest[i] = i;
+	}
+	""")
+	test = module.test
+	dest_dev = ctx.allocate(global_size, numpy.int32)
+	test(dest_dev, global_size=global_size)
+
+	assert diff_is_negligible(dest_dev.get().ravel(),
+		numpy.arange(product(global_size)).astype(numpy.int32))
