@@ -142,11 +142,10 @@ class KernelCall:
     def prepare(self, ctx, tr_tree):
         transformation_code = tr_tree.transformations_for(self.base_argnames)
         self.full_src = transformation_code + self.src
-        self.module = ctx.compile(self.full_src)
-        self.kernel = getattr(self.module, self.name)
+        self.kernel = ctx.compile_static(self.full_src, self.name,
+            self.global_size, local_size=self.local_size, shared=self.shared)
         self.leaf_argnames = [name for name, _ in tr_tree.leaf_signature(self.base_argnames)]
-        self.kernel.prepare(self.global_size, local_size=self.local_size, shared=self.shared)
 
     def __call__(self, *args):
-        self.kernel.prepared_call(*args)
+        self.kernel(*args)
 
