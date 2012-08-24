@@ -118,6 +118,9 @@ class ReferenceIds:
 
 
 def test_ids(ctx_with_gs_limits, gl_size, gs_is_multiple):
+    """
+    Test that virtual IDs are correct for each thread.
+    """
 
     ctx = ctx_with_gs_limits
     grid_size, local_size = gl_size
@@ -171,6 +174,9 @@ def test_ids(ctx_with_gs_limits, gl_size, gs_is_multiple):
 
 
 def test_sizes(ctx_with_gs_limits, gl_size, gs_is_multiple):
+    """
+    Test that virtual sizes are correct.
+    """
 
     ctx = ctx_with_gs_limits
     grid_size, local_size = gl_size
