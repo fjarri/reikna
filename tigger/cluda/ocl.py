@@ -208,6 +208,8 @@ class Kernel:
     def __init__(self, ctx, kernel):
         self._ctx = ctx
         self._kernel = kernel
+        self.max_work_group_size = kernel.get_work_group_info(
+            cl.kernel_work_group_info.WORK_GROUP_SIZE)
 
     def prepare(self, global_size, local_size=None, shared=0):
         if local_size is None:

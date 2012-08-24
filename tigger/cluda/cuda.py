@@ -206,6 +206,8 @@ class Kernel:
     def __init__(self, ctx, kernel):
         self._ctx = ctx
         self._kernel = kernel
+        self.max_work_group_size = kernel.get_attribute(
+            cuda.function_attribute.MAX_THREADS_PER_BLOCK)
 
     def prepare(self, global_size, local_size=None, shared=0):
         self.shared = shared
