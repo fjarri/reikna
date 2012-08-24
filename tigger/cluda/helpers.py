@@ -1,3 +1,4 @@
+import collections
 import os.path
 from mako.template import Template
 
