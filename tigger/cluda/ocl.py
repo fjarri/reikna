@@ -209,9 +209,12 @@ class Kernel:
         self._ctx = ctx
         self._kernel = kernel
 
-    def prepare(self, global_size=1, local_size=None, shared=0):
-        self.local_size = (local_size,) if isinstance(local_size, int) else local_size
-        self.global_size = (global_size,) if isinstance(global_size, int) else global_size
+    def prepare(self, global_size, local_size=None, shared=0):
+        if local_size is None:
+            self.local_size = None
+        else:
+            self.local_size = (local_size,) if isinstance(local_size, int) else tuple(local_size)
+        self.global_size = (global_size,) if isinstance(global_size, int) else tuple(global_size)
         self.shared = shared
 
     def prepared_call(self, *args):
@@ -222,7 +225,11 @@ class Kernel:
         self._ctx._synchronize()
 
     def __call__(self, *args, **kwds):
-        self.prepare(**kwds)
+        if 'global_size' in kwds:
+            prep_args = (kwds.pop('global_size'),)
+        else:
+            prep_args = tuple()
+        self.prepare(*prep_args, **kwds)
         self.prepared_call(*args)
 
 
