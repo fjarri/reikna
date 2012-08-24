@@ -9,7 +9,7 @@ import tigger.cluda as cluda
 import tigger.cluda.dtypes as dtypes
 from tigger.cluda.helpers import wrap_in_tuple
 from tigger.cluda.kernel import render_prelude, render_template_source
-from tigger.cluda.vsize import VirtualSizes
+from tigger.cluda.vsize import VirtualSizes, render_stub_vsize_funcs
 
 
 API_ID = cluda.API_OCL
@@ -241,18 +241,25 @@ class StaticKernel:
 
     def __init__(self, ctx, src, name, global_size, local_size=None, shared=0, render_kwds=None):
         self._ctx = ctx
+        self.shared = shared
 
         if render_kwds is None:
             render_kwds = {}
 
         prelude = render_prelude(self._ctx)
+        stub_vsize_funcs = render_stub_vsize_funcs()
+        src = render_template_source(src, **render_kwds)
 
-        vs = VirtualSizes(ctx.device_params, global_size, local_size)
+        # We need the first approximation of the maximum thread number for a kernel.
+        # Stub virtual size functions instead of real ones will not change it (hopefully).
+        stub_module = ctx._compile(str(prelude + stub_vsize_funcs + src))
+        stub_kernel = getattr(stub_module, name)
+        max_work_group_size = stub_kernel.get_work_group_info(
+            cl.kernel_work_group_info.WORK_GROUP_SIZE, self._ctx.device)
+
+        vs = VirtualSizes(ctx.device_params, max_work_group_size, global_size, local_size)
         static_prelude = vs.render_vsize_funcs()
         self.global_size, self.local_size = vs.get_call_sizes()
-        self.shared = shared
-
-        src = render_template_source(src, **render_kwds)
 
         # Casting source code to ASCII explicitly
         # New versions of Mako produce Unicode output by default,
