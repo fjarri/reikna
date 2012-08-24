@@ -11,6 +11,7 @@ import tigger.cluda.dtypes as dtypes
 from tigger.cluda.helpers import factors
 from tigger.cluda.helpers import product as mul
 from tigger.cluda.kernel import render_prelude, render_template_source
+from tigger.cluda.vsize import VirtualSizes
 
 
 cuda.init()
@@ -133,8 +134,23 @@ class Context:
         if not self.async:
             self.synchronize()
 
-    def compile(self, template_src, **kwds):
-        return Module(self, True, template_src, **kwds)
+    def _compile(self, src):
+        options = ['-use_fast_math'] if self.fast_math else []
+        try:
+            module = SourceModule(src, no_extern_c=True, options=options)
+        except:
+            listing = "\n".join([str(i+1) + ":" + l for i, l in enumerate(src.split('\n'))])
+            error("Failed to compile:\n" + listing)
+            raise
+        return module
+
+    def compile(self, template_src, render_kwds=None):
+        return Module(self, template_src, render_kwds=render_kwds)
+
+    def compile_static(self, template_src, name, global_size,
+            local_size=None, shared=0, render_kwds=None):
+        return StaticKernel(self, template_src, name, global_size,
+            local_size=local_size, shared=shared, render_kwds=render_kwds)
 
     def release(self):
         if not self._released:
@@ -168,22 +184,16 @@ class DeviceParameters:
 
 class Module:
 
-    def __init__(self, ctx, is_template, src, **kwds):
+    def __init__(self, ctx, src, render_kwds=None):
         self._ctx = ctx
-        options = ['-use_fast_math'] if self._ctx.fast_math else []
 
+        if render_kwds is None:
+            render_kwds = {}
         prelude = render_prelude(self._ctx)
+        src = render_template_source(src, **render_kwds)
 
-        if is_template:
-            src = render_template_source(src, **kwds)
         self.source = prelude + src
-
-        try:
-            self._module = SourceModule(self.source, no_extern_c=True, options=options)
-        except:
-            listing = "\n".join([str(i+1) + ":" + l for i, l in enumerate(self.source.split('\n'))])
-            error("Failed to compile:\n" + listing)
-            raise
+        self._module = ctx._compile(self.source)
 
     def __getattr__(self, name):
         return Kernel(self._ctx, self._module.get_function(name))
@@ -243,3 +253,32 @@ class Kernel:
             prep_args = tuple()
         self.prepare(*prep_args, **kwds)
         self.prepared_call(*args)
+
+
+class StaticKernel:
+
+    def __init__(self, ctx, src, name, global_size, local_size=None, shared=0, render_kwds=None):
+        self._ctx = ctx
+
+        if render_kwds is None:
+            render_kwds = {}
+
+        prelude = render_prelude(self._ctx)
+
+        vs = VirtualSizes(ctx.device_params, global_size, local_size)
+        static_prelude = vs.render_vsize_funcs()
+        self.global_size, self.local_size = vs.get_call_sizes()
+        self.grid = [g / l for g, l in zip(self.global_size, self.local_size)]
+        self.shared = shared
+
+        src = render_template_source(src, **render_kwds)
+
+        self.source = prelude + static_prelude + src
+        self._module = ctx._compile(self.source)
+
+        self._kernel = self._module.get_function(name)
+
+    def __call__(self, *args):
+        self._kernel(*args, grid=self.grid, block=self.local_size,
+            stream=self._ctx._stream, shared=self.shared)
+        self._ctx._synchronize()
