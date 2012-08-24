@@ -9,14 +9,8 @@ class VirtualSizes:
     def __init__(self, device_params, global_size, local_size):
         self.params = device_params
 
-        if isinstance(global_size, int):
-            global_size = (global_size,)
-
-        if isinstance(local_size, int):
-            local_size = (local_size,)
-
-        self.global_size = global_size
-        self.local_size = local_size
+        self.global_size = wrap_in_tuple(global_size)
+        self.local_size = wrap_in_tuple(local_size)
 
         if len(self.global_size) != len(self.local_size):
             raise ValueError("Global/local work sizes have differing dimensions")
