@@ -268,7 +268,7 @@ class StaticKernel:
         vs = VirtualSizes(ctx.device_params, global_size, local_size)
         static_prelude = vs.render_vsize_funcs()
         self.global_size, self.local_size = vs.get_call_sizes()
-        self.grid = [g / l for g, l in zip(self.global_size, self.local_size)]
+        self.grid = tuple(g / l for g, l in zip(self.global_size, self.local_size))
         self.shared = shared
 
         src = render_template_source(src, **render_kwds)
