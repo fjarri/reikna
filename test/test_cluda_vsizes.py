@@ -55,11 +55,20 @@ def pytest_generate_tests(metafunc):
         gl_sizes = [(g, l) for g, l in itertools.product(grid_sizes, local_sizes)
             if len(g) == len(l)]
         metafunc.parametrize('gl_size', gl_sizes, ids=[str(x) for x in gl_sizes])
+    if 'incorrect_gl_size' in metafunc.funcargnames:
+        grid_sizes = [
+            (31**3+1,),
+            (31**2, 32), (31*20, 31*20),
+            (31, 31, 32), (150, 150, 150)]
+        local_sizes = [(4,), (4, 4), (4, 4, 4)]
+        gl_sizes = [(g, l) for g, l in itertools.product(grid_sizes, local_sizes)
+            if len(g) == len(l)]
+        metafunc.parametrize('incorrect_gl_size', gl_sizes, ids=[str(x) for x in gl_sizes])
 
 
 class ReferenceIds:
 
-    def __init__(self, grid_size, local_size, gs_is_multiple):
+    def __init__(self, grid_size, local_size, gs_is_multiple=True):
         global_size = [g * l for g, l in zip(grid_size, local_size)]
         if not gs_is_multiple:
             global_size = [g - 1 for g in global_size]
@@ -208,3 +217,22 @@ def test_sizes(ctx_with_gs_limits, gl_size, gs_is_multiple):
 
     ref_sizes = numpy.array(ls + gs + gls + [product(gls)]).astype(numpy.int32)
     assert diff_is_negligible(sizes.get(), ref_sizes)
+
+
+def test_incorrect_sizes(ctx_with_gs_limits, incorrect_gl_size):
+    """
+    Test that for sizes which exceed context capability the exception is raised
+    """
+
+    ctx = ctx_with_gs_limits
+    grid_size, local_size = incorrect_gl_size
+
+    ref = ReferenceIds(grid_size, local_size)
+
+    with pytest.raises(ValueError):
+        kernel = ctx.compile_static("""
+        KERNEL void kernel(GLOBAL_MEM int *temp)
+        {
+            temp[0] = 1;
+        }
+        """, 'kernel', ref.global_size, local_size=ref.local_size)
