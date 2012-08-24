@@ -52,6 +52,7 @@ class Context:
         self.context = context
         self.async = async
         self.device_params = DeviceParameters(context.get_info(cl.context_info.DEVICES)[0])
+        self.device = self.context.devices[0]
 
         self._queue = self.create_stream() if stream is None else stream
 
@@ -209,7 +210,7 @@ class Kernel:
         self._ctx = ctx
         self._kernel = kernel
         self.max_work_group_size = kernel.get_work_group_info(
-            cl.kernel_work_group_info.WORK_GROUP_SIZE)
+            cl.kernel_work_group_info.WORK_GROUP_SIZE, self._ctx.device)
 
     def prepare(self, global_size, local_size=None, shared=0):
         if local_size is None:
