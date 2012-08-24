@@ -7,21 +7,53 @@ from tigger.cluda.helpers import min_blocks, product
 import tigger.cluda.dtypes as dtypes
 from helpers import *
 
+from pytest_contextgen import parametrize_context_tuple, create_context_in_tuple
 
-GRID_LIMITS = [[31, 31], [31, 31, 31]]
-GRID_LIMITS_IDS = [str(x) for x in GRID_LIMITS]
 
-GRID_SIZES = [
-    (13,), (35,), (31*31*4,),
-    (13, 15), (35, 13),
-    (13, 15, 17), (75, 33, 5)]
-LOCAL_SIZES = [(4,), (4, 4), (4, 4, 4)]
-GL_SIZES = [(g, l) for g, l in itertools.product(GRID_SIZES, LOCAL_SIZES)
-    if len(g) == len(l)]
-GL_SIZES_IDS = [str(x) for x in GL_SIZES]
+pytest_funcarg__ctx_with_gs_limits = create_context_in_tuple
 
-GS_IS_MULTIPLE = [True, False]
-GS_IS_MULTIPLE_IDS = ["gs_is_multiple", "gs_is_not_multiple"]
+
+def set_context_gs_limits(metafunc, cc):
+    """
+    Parametrize contexts with small grid limits for testing purposes
+    """
+    new_ccs = []
+    rem_ids = []
+    for gl in [[31, 31], [31, 31, 31]]:
+
+        # If the context will not support these limits, skip
+        ctx = cc()
+        mgs = ctx.device_params.max_grid_sizes
+        if len(gl) > len(mgs) or (len(mgs) > 2 and len(gl) > 2 and mgs[2] < gl[2]):
+            continue
+
+        # New context creator function
+        def new_cc():
+            ctx = cc()
+            ctx.override_device_params(max_grid_sizes=gl)
+            return ctx
+
+        rem_ids.append(str(gl))
+        new_ccs.append(new_cc)
+
+    return new_ccs, [tuple()] * len(new_ccs), rem_ids
+
+
+def pytest_generate_tests(metafunc):
+    if 'ctx_with_gs_limits' in metafunc.funcargnames:
+        parametrize_context_tuple(metafunc, 'ctx_with_gs_limits', set_context_gs_limits)
+    if 'gs_is_multiple' in metafunc.funcargnames:
+        metafunc.parametrize('gs_is_multiple', [True, False],
+            ids=["gs_is_multiple", "gs_is_not_multiple"])
+    if 'gl_size' in metafunc.funcargnames:
+        grid_sizes = [
+            (13,), (35,), (31*31*4,),
+            (13, 15), (35, 13),
+            (13, 15, 17), (75, 33, 5)]
+        local_sizes = [(4,), (4, 4), (4, 4, 4)]
+        gl_sizes = [(g, l) for g, l in itertools.product(grid_sizes, local_sizes)
+            if len(g) == len(l)]
+        metafunc.parametrize('gl_size', gl_sizes, ids=[str(x) for x in gl_sizes])
 
 
 class ReferenceIds:
@@ -85,20 +117,12 @@ class ReferenceIds:
         return lids + gids * (self.local_size[dim] if dim < len(self.local_size) else 0)
 
 
-@pytest.mark.parametrize('grid_limits', GRID_LIMITS, ids=GRID_LIMITS_IDS)
-@pytest.mark.parametrize('gl_size', GL_SIZES, ids=GL_SIZES_IDS)
-@pytest.mark.parametrize('gs_is_multiple', GS_IS_MULTIPLE, ids=GS_IS_MULTIPLE_IDS)
-def test_ids(ctx, grid_limits, gl_size, gs_is_multiple):
+def test_ids(ctx_with_gs_limits, gl_size, gs_is_multiple):
 
+    ctx = ctx_with_gs_limits
     grid_size, local_size = gl_size
 
-    if len(grid_limits) == 3 and ctx.device_params.max_grid_sizes[2] < grid_limits[2]:
-        pytest.skip()
-    if product(grid_limits) < product(grid_size):
-        pytest.skip()
-
     ref = ReferenceIds(grid_size, local_size, gs_is_multiple)
-    ctx.override_device_params(max_grid_sizes=grid_limits)
 
     get_ids = ctx.compile_static("""
     KERNEL void get_ids(GLOBAL_MEM int *fid,
@@ -146,20 +170,12 @@ def test_ids(ctx, grid_limits, gl_size, gs_is_multiple):
     assert diff_is_negligible(glz.get(), ref.predict_global_ids(2))
 
 
-@pytest.mark.parametrize('grid_limits', GRID_LIMITS, ids=GRID_LIMITS_IDS)
-@pytest.mark.parametrize('gl_size', GL_SIZES, ids=GL_SIZES_IDS)
-@pytest.mark.parametrize('gs_is_multiple', GS_IS_MULTIPLE, ids=GS_IS_MULTIPLE_IDS)
-def test_sizes(ctx, grid_limits, gl_size, gs_is_multiple):
+def test_sizes(ctx_with_gs_limits, gl_size, gs_is_multiple):
 
+    ctx = ctx_with_gs_limits
     grid_size, local_size = gl_size
 
-    if len(grid_limits) == 3 and ctx.device_params.max_grid_sizes[2] < grid_limits[2]:
-        pytest.skip()
-    if product(grid_limits) < product(grid_size):
-        pytest.skip()
-
     ref = ReferenceIds(grid_size, local_size, gs_is_multiple)
-    ctx.override_device_params(max_grid_sizes=grid_limits)
 
     get_sizes = ctx.compile_static("""
     KERNEL void get_sizes(GLOBAL_MEM int *sizes)
