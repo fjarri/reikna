@@ -34,10 +34,18 @@ def log2(n):
             pos += pow
     return pos
 
-def factors(n):
+def factors(n, limit=None):
+    if limit is None:
+        limit = n
+
     result = []
-    for i in range(1, int(n ** 0.5) + 1):
+    for i in range(1, min(limit, int(n ** 0.5) + 1)):
         div, mod = divmod(n, i)
         if mod == 0:
             result.append((i, div))
-    return result + [(div, f) for f, div in reversed(result)]
+
+    if limit > result[-1][0]:
+        result = result + [(div, f) for f, div in reversed(result)]
+        return [r for r in result if r[0] <= limit]
+    else:
+        return result
