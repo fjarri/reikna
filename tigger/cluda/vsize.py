@@ -18,13 +18,18 @@ class VirtualSizes:
         self.global_size = global_size
         self.local_size = local_size
 
-        assert len(self.global_size) == len(self.local_size)
-        assert len(self.global_size) <= 3
+        if len(self.global_size) != len(self.local_size):
+            raise ValueError("Global/local work sizes have differing dimensions")
+        if len(self.global_size) > 3:
+            raise ValueError("Virtual sizes are supported for 1D to 3D grids only")
 
         self.naive_bounding_grid = [min_blocks(gs, ls)
             for gs, ls in zip(self.global_size, self.local_size)]
-        assert product(self.local_size) <= self.params.max_work_group_size
-        assert product(self.naive_bounding_grid) <= product(self.params.max_grid_sizes)
+
+        if product(self.local_size) > self.params.max_work_group_size:
+            raise ValueError("Number of work items is too high")
+        if product(self.naive_bounding_grid) > product(self.params.max_grid_sizes):
+            raise ValueError("Number of work groups is too high")
 
         self.grid_parts = self.get_rearranged_grid(self.naive_bounding_grid)
         gdims = len(self.params.max_grid_sizes)
