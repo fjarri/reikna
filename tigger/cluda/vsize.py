@@ -4,16 +4,39 @@ from tigger.cluda.helpers import *
 TEMPLATE = template_for(__file__)
 
 
+def find_local_size(device_params, max_workgroup_size, dims):
+    """
+    Simple algorithm to find local_size with given limitations
+    """
+    unit = device_params.warp_size
+    max_dims = device_params.max_work_item_sizes
+
+    result = [1] * dims
+    pos = 0
+    while product(result) <= max_workgroup_size / unit:
+        if result[pos] * unit > max_dims[pos]:
+            pos += 1
+            continue
+
+        result[pos] *= unit
+
+    return tuple(result)
+
+
 def render_stub_vsize_funcs():
     return TEMPLATE.get_def('stub_funcs').render()
 
 
 class VirtualSizes:
 
-    def __init__(self, device_params, global_size, local_size):
+    def __init__(self, device_params, max_workgroup_size, global_size, local_size):
         self.params = device_params
 
         self.global_size = wrap_in_tuple(global_size)
+
+        if local_size is None:
+            local_size = find_local_size(device_params, max_workgroup_size, len(global_size))
+
         self.local_size = wrap_in_tuple(local_size)
 
         if len(self.global_size) != len(self.local_size):
