@@ -75,18 +75,15 @@ class MatrixMul(Computation):
 
         bso = basis.block_size_override
         block_width = self._ctx.device_params.smem_banks if bso is None else bso
-        block_size = block_width ** 2
 
-        if block_size > self._ctx.device_params.max_work_group_size:
+        if block_width ** 2 > self._ctx.device_params.max_work_group_size:
             # If it is not CPU, current solution may affect performance
             block_width = int(numpy.sqrt(self._ctx.device_params.max_work_group_size))
-            block_size = block_width ** 2
 
         blocks_per_matrix = min_blocks(basis.a_height, block_width)
         grid_width = min_blocks(basis.b_width, block_width)
-        grid_size = grid_width * blocks_per_matrix * basis.batch
 
-        shared = block_size * (basis.a_dtype.itemsize + basis.b_dtype.itemsize)
+        shared = block_width ** 2 * (basis.a_dtype.itemsize + basis.b_dtype.itemsize)
 
         render_kwds = dict(
             block_width=block_width,
@@ -94,8 +91,9 @@ class MatrixMul(Computation):
             blocks_per_matrix=blocks_per_matrix)
 
         operations.add_kernel(
-            TEMPLATE, 'matrixmul',
-            ['out', 'a', 'b'],
-            global_size=grid_size * block_size, local_size=block_size, shared=shared,
+            TEMPLATE, 'matrixmul', ['out', 'a', 'b'],
+            global_size=(grid_width * block_width, blocks_per_matrix * basis.batch * block_width),
+            local_size=(block_width, block_width),
+            shared=shared,
             render_kwds=render_kwds
         )

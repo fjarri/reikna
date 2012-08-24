@@ -10,10 +10,10 @@ ${kernel_definition}
     LOCAL_MEM ${a.ctype} As[${block_width ** 2}];
     LOCAL_MEM ${b.ctype} Bs[${block_width ** 2}];
 
-    int bx = GID_FLAT % ${grid_width};
-    int by = GID_FLAT / ${grid_width};
-    int tx = LID_FLAT % ${block_width};
-    int ty = LID_FLAT / ${block_width};
+    int bx = virtual_group_id(0);
+    int by = virtual_group_id(1);
+    int tx = virtual_local_id(0);
+    int ty = virtual_local_id(1);
 
     int matrix_num = by / ${blocks_per_matrix};
     by -= ${blocks_per_matrix} * matrix_num;
