@@ -231,8 +231,8 @@ def test_incorrect_sizes(ctx_with_gs_limits, incorrect_gl_size):
 
     with pytest.raises(ValueError):
         kernel = ctx.compile_static("""
-        KERNEL void kernel(GLOBAL_MEM int *temp)
+        KERNEL void test(GLOBAL_MEM int *temp)
         {
             temp[0] = 1;
         }
-        """, 'kernel', ref.global_size, local_size=ref.local_size)
+        """, 'test', ref.global_size, local_size=ref.local_size)
