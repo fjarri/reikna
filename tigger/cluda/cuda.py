@@ -8,7 +8,7 @@ from pycuda.compiler import SourceModule
 
 import tigger.cluda as cluda
 import tigger.cluda.dtypes as dtypes
-from tigger.cluda.helpers import factors
+from tigger.cluda.helpers import factors, wrap_in_tuple
 from tigger.cluda.helpers import product as mul
 from tigger.cluda.kernel import render_prelude, render_template_source
 from tigger.cluda.vsize import VirtualSizes
@@ -208,11 +208,11 @@ class Kernel:
             cuda.function_attribute.MAX_THREADS_PER_BLOCK)
 
     def prepare(self, global_size, local_size=None, shared=0):
-        self.global_size = (global_size,) if isinstance(global_size, int) else tuple(global_size)
+        self.global_size = wrap_in_tuple(global_size)
         self.shared = shared
 
         if local_size is not None:
-            self.local_size = (local_size,) if isinstance(local_size, int) else tuple(local_size)
+            self.local_size = wrap_in_tuple(local_size)
             if len(self.local_size) != len(self.global_size):
                 raise ValueError("Global/local work sizes have differing dimensions")
         else:
@@ -228,7 +228,7 @@ class Kernel:
                         return False
                 return True
 
-            local_size_dims = [zip(*factors(g, limit=max_size))[0] for g in global_size]
+            local_size_dims = [zip(*factors(g, limit=max_size))[0] for g in self.global_size]
             local_sizes = [t for t in product(*local_size_dims)
                 if mul(t) <= max_size and fits_into_dims(t)]
             local_size = max(local_sizes, key=mul)

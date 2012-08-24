@@ -49,3 +49,9 @@ def factors(n, limit=None):
         return [r for r in result if r[0] <= limit]
     else:
         return result
+
+def wrap_in_tuple(x):
+    if isinstance(x, collections.Iterable):
+        return tuple(x)
+    else:
+        return (x,)

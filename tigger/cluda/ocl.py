@@ -7,6 +7,7 @@ import pyopencl.array as clarray
 
 import tigger.cluda as cluda
 import tigger.cluda.dtypes as dtypes
+from tigger.cluda.helpers import wrap_in_tuple
 from tigger.cluda.kernel import render_prelude, render_template_source
 from tigger.cluda.vsize import VirtualSizes
 
@@ -216,8 +217,8 @@ class Kernel:
         if local_size is None:
             self.local_size = None
         else:
-            self.local_size = (local_size,) if isinstance(local_size, int) else tuple(local_size)
-        self.global_size = (global_size,) if isinstance(global_size, int) else tuple(global_size)
+            self.local_size = wrap_in_tuple(local_size)
+        self.global_size = wrap_in_tuple(global_size)
         self.shared = shared
 
     def prepared_call(self, *args):
