@@ -4,6 +4,10 @@ from tigger.cluda.helpers import *
 TEMPLATE = template_for(__file__)
 
 
+def render_stub_vsize_funcs():
+    return TEMPLATE.get_def('stub_funcs').render()
+
+
 class VirtualSizes:
 
     def __init__(self, device_params, global_size, local_size):
@@ -119,7 +123,7 @@ class VirtualSizes:
         return [[f] + res[0]]
 
     def render_vsize_funcs(self):
-        return TEMPLATE.render(vs=self, product=product)
+        return TEMPLATE.get_def('normal_funcs').render(vs=self, product=product)
 
     def get_call_sizes(self):
         return tuple(self.k_global_size), tuple(self.k_local_size)

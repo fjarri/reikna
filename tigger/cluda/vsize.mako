@@ -1,3 +1,5 @@
+<%def name="normal_funcs()">
+
 WITHIN_KERNEL int virtual_local_id(int dim)
 {
     return get_local_id(dim);
@@ -104,4 +106,31 @@ WITHIN_KERNEL bool virtual_skip_workgroups()
     return false;
 }
 
-#define VIRTUAL_SKIP_THREADS if(virtual_skip_workgroups() || virtual_skip_threads()) return;
+#define VIRTUAL_SKIP_THREADS if(virtual_skip_workgroups() || virtual_skip_threads()) return
+
+</%def>
+
+<%def name="stub_funcs()">
+
+#define virtual_local_id get_local_id
+#define virtual_local_size get_local_size
+#define virtual_group_id get_group_id
+#define virtual_group_size get_group_size
+#define virtual_global_id get_global_id
+#define virtual_global_size get_global_size
+
+WITHIN_KERNEL int virtual_global_flat_size()
+{
+    return virtual_global_size(0) * virtual_global_size(1) * virtual_global_size(2);
+}
+
+WITHIN_KERNEL int virtual_global_flat_id()
+{
+    return virtual_global_id(0) +
+        virtual_global_id(1) * virtual_global_size(0) +
+        virtual_global_id(2) * virtual_global_size(1) * virtual_global_size(0);
+}
+
+#define VIRTUAL_SKIP_THREADS
+
+</%def>
