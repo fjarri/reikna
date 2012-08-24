@@ -61,11 +61,11 @@ def pair_context_with_doubles(metafunc, cc):
     if d == "supported":
         for dv in [False, True]:
             if not dv or cc().supports_dtype(numpy.float64):
-                vals.append(dv)
+                vals.append((dv,))
                 ids.append(ds(dv))
     else:
         dv = d == 'yes'
-        vals.append(dv)
+        vals.append((dv,))
         ids.append(ds(dv))
 
     return [cc] * len(vals), vals, ids
