@@ -31,6 +31,7 @@ def set_context_gs_limits(metafunc, cc):
         def new_cc():
             ctx = cc()
             ctx.override_device_params(max_grid_sizes=gl)
+            ctx.release()
             return ctx
 
         rem_ids.append(str(gl))
