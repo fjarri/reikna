@@ -47,6 +47,11 @@
         return 1;
     }
 
+    WITHIN_KERNEL int get_global_size(int dim)
+    {
+        return get_group_size(dim) * get_local_size(dim);
+    }
+
     WITHIN_KERNEL int get_global_id(int dim)
     {
         return get_local_id(dim) + get_group_id(dim) * get_local_size(dim);
