@@ -1,4 +1,4 @@
-from itertools import product
+import itertools
 from logging import error
 
 import numpy
@@ -8,8 +8,7 @@ from pycuda.compiler import SourceModule
 
 import tigger.cluda as cluda
 import tigger.cluda.dtypes as dtypes
-from tigger.cluda.helpers import factors, wrap_in_tuple
-from tigger.cluda.helpers import product as mul
+from tigger.cluda.helpers import factors, wrap_in_tuple, product
 from tigger.cluda.kernel import render_prelude, render_template_source
 from tigger.cluda.vsize import VirtualSizes
 
@@ -229,9 +228,9 @@ class Kernel:
                 return True
 
             local_size_dims = [zip(*factors(g, limit=max_size))[0] for g in self.global_size]
-            local_sizes = [t for t in product(*local_size_dims)
-                if mul(t) <= max_size and fits_into_dims(t)]
-            local_size = max(local_sizes, key=mul)
+            local_sizes = [t for t in itertools.product(*local_size_dims)
+                if product(t) <= max_size and fits_into_dims(t)]
+            local_size = max(local_sizes, key=product)
             self.local_size = local_size + (1,) * (3 - len(local_size))
 
         grid = []
