@@ -121,7 +121,7 @@ WITHIN_KERNEL bool virtual_skip_workgroups()
 
 WITHIN_KERNEL int virtual_global_flat_size()
 {
-    return virtual_global_size(0) * virtual_global_size(1) * virtual_global_size(2);
+    return get_global_size(0) * get_global_size(1) * get_global_size(2);
 }
 
 WITHIN_KERNEL int virtual_global_flat_id()
