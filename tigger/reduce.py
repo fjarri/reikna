@@ -37,10 +37,10 @@ class Reduce(Computation):
             [('input', ArrayValue(basis.shape, basis.dtype))],
             [])
 
-    def _construct_operations(self, basis, operations):
+    def _construct_operations(self, basis, device_params, operations):
 
         # may fail if the user passes particularly sophisticated operation
-        max_reduce_power = self._ctx.device_params.max_work_group_size
+        max_reduce_power = device_params.max_work_group_size
 
         axis = basis.axis if basis.axis >= 0 else len(basis.shape) + axis
 
@@ -54,11 +54,8 @@ class Reduce(Computation):
             tr_shape = (basis.shape[0], product(basis.shape[1:]))
             operations.add_allocation('_tr_output', (tr_shape[1], tr_shape[0]), basis.dtype)
 
-            transpose = Transpose(self._ctx)
+            transpose = self.get_nested_computation(Transpose)
             transpose.set_basis_for(operations.values['_tr_output'], operations.values['input'])
-            #transpose.set_basis(dtype=dtypes.normalize_type(basis.dtype),
-            #    input_height=tr_shape[0],
-            #    input_width=tr_shape[1])
             operations.add_computation(transpose, '_tr_output', 'input')
             input_name = '_tr_output'
         else:
@@ -95,7 +92,7 @@ class Reduce(Computation):
             render_kwds = dict(
                 blocks_per_part=blocks_per_part, last_block_size=last_block_size,
                 log2=log2, block_size=block_size,
-                warp_size=self._ctx.device_params.warp_size,
+                warp_size=device_params.warp_size,
                 operation_code=basis.operation)
 
             operations.add_kernel(

@@ -24,6 +24,13 @@ class Computation:
         self._operations_prepared = False
         self._transformations_prepared = False
 
+    def get_nested_computation(self, cls):
+        """
+        Returns an object of supplied computation class,
+        created with the same parameters (context, debug mode etc) as the current one.
+        """
+        return cls(self._ctx, debug=self._debug)
+
     def _get_base_names(self):
         """
         Returns three lists (outs, ins, scalars) with names of base computation parameters.
@@ -87,7 +94,7 @@ class Computation:
 
     def _prepare_operations(self):
         self._operations = OperationRecorder(self._ctx, self._basis, self._get_base_values())
-        self._construct_operations(self._basis, self._operations)
+        self._construct_operations(self._basis, self._ctx.device_params, self._operations)
 
     def _prepare_transformations(self):
         self._tr_tree.propagate_to_leaves(self._get_base_values())

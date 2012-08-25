@@ -34,7 +34,7 @@ class Elementwise(Computation):
 
         return stores, loads, params
 
-    def _construct_operations(self, basis, operations):
+    def _construct_operations(self, basis, device_params, operations):
 
         names = self._base_stores + self._base_loads + self._base_params
         template = template_from("""

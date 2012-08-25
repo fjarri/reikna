@@ -35,14 +35,14 @@ class Transpose(Computation):
             [('input', ArrayValue(input_shape, basis.dtype))],
             [])
 
-    def _construct_operations(self, basis, operations):
+    def _construct_operations(self, basis, device_params, operations):
 
         bso = basis.block_size_override
-        block_width = self._ctx.device_params.smem_banks if bso is None else bso
+        block_width = device_params.smem_banks if bso is None else bso
 
-        if block_width ** 2 > self._ctx.device_params.max_work_group_size:
+        if block_width ** 2 > device_params.max_work_group_size:
             # If it is not CPU, current solution may affect performance
-            block_width = int(numpy.sqrt(self._ctx.device_params.max_work_group_size))
+            block_width = int(numpy.sqrt(device_params.max_work_group_size))
 
         blocks_per_matrix = min_blocks(basis.input_height, block_width)
         grid_width = min_blocks(basis.input_width, block_width)
