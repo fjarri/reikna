@@ -10,6 +10,8 @@
 * TODO: update reference documentation (and in the meantime prepend internal fields with underscores)
 * TODO: decide on a synthax for operation in Reduce and Elementwise
 * TODO: pass argnames as keywords to prepare_for() in Elementwise
+* TODO: remove core.helpers which is identical to cluda.helpers
+* TODO: merge prelude.mako and functions.mako
 
 
 0.2.0
@@ -21,6 +23,7 @@
 * DECIDE: profile Computation.__call__() and see if it takes too long, and if the algorithm of assignment args to endpoints should be improved.
 * TODO: Flatten kernel list before execution, and assign argument numbers
 * TODO: add FFT (and mark pyfft as deprecated)
+* TODO: do not create special mul/div function for scalars
 
 
 1.0.0 (production-quality version... hopefully)
@@ -68,6 +71,10 @@ Computations:
 
 1.*
 ===
+
+CLUDA:
+
+* TODO: add support for rational numbers (based on int2)
 
 Core:
 
