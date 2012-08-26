@@ -6,9 +6,9 @@ from mako.template import Template
 from mako import exceptions
 
 from tigger.cluda import dtypes
+from tigger.cluda.helpers import template_for
 
-_PRELUDE = Template(filename=os.path.join(os.path.split(__file__)[0], "prelude.mako"))
-_FUNCTIONS = Template(filename=os.path.join(os.path.split(__file__)[0], "functions.mako"))
+TEMPLATE = template_for(__file__)
 
 
 class FuncCollector:
@@ -51,11 +51,15 @@ class FuncCollector:
         return name
 
     def render(self):
-        return _FUNCTIONS.render(dtypes=dtypes, functions=self.functions)
+        src = []
+        for func_name, params in self.functions.items():
+            tmpl_name, args = params
+            src.append(TEMPLATE.get_def(tmpl_name).render(func_name, *args, dtypes=dtypes))
+        return "\n".join(src)
 
 
 def render_prelude(ctx):
-    return _PRELUDE.render(api=ctx.api.API_ID)
+    return TEMPLATE.get_def('prelude').render(api=ctx.api.API_ID)
 
 def render_without_funcs(template, func_c, *args, **kwds):
     # add some "built-ins" to kernel

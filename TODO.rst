@@ -10,7 +10,6 @@
 * TODO: decide on a synthax for operation in Reduce and Elementwise
 * TODO: pass argnames as keywords to prepare_for() in Elementwise
 * TODO: remove core.helpers which is identical to cluda.helpers
-* TODO: merge prelude.mako and functions.mako
 
 
 0.2.0
