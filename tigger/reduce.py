@@ -23,10 +23,15 @@ class Reduce(Computation):
         assert input.size % output.size == 0
         assert input.size > output.size
 
-        bs = dict(shape=input.shape, dtype=input.dtype)
+        bs = dict(dtype=input.dtype)
 
         if axis is not None:
+            bs['shape'] = input.shape
             bs['axis'] = axis if axis >= 0 else len(input.shape) + axis
+        else:
+            bs['shape'] = (product(input.shape),)
+            bs['axis'] = 0
+
         if operation is not None:
             bs['operation'] = operation
 
