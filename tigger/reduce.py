@@ -26,7 +26,7 @@ class Reduce(Computation):
         bs = dict(shape=input.shape, dtype=input.dtype)
 
         if axis is not None:
-            bs['axis'] = axis
+            bs['axis'] = axis if axis >= 0 else len(input.shape) + axis
         if operation is not None:
             bs['operation'] = operation
 
@@ -42,7 +42,7 @@ class Reduce(Computation):
         # may fail if the user passes particularly sophisticated operation
         max_reduce_power = device_params.max_work_group_size
 
-        axis = basis.axis if basis.axis >= 0 else len(basis.shape) + axis
+        axis = basis.axis
 
         size = product(basis.shape)
         final_size = product(reduced_shape(basis.shape, basis.axis))
@@ -50,16 +50,18 @@ class Reduce(Computation):
         if len(basis.shape) == 1 or axis == len(basis.shape) - 1:
             # normal reduction
             input_name = 'input'
-        elif axis == 0:
-            tr_shape = (basis.shape[0], product(basis.shape[1:]))
-            operations.add_allocation('_tr_output', (tr_shape[1], tr_shape[0]), basis.dtype)
+        else:
+            tr_axes = tuple(xrange(len(basis.shape)))
+            tr_axes = tr_axes[:axis] + tr_axes[axis+1:] + (axis,)
+            tr_shape = tuple(basis.shape[i] for i in tr_axes)
+
+            operations.add_allocation('_tr_output', tr_shape, basis.dtype)
 
             transpose = self.get_nested_computation(Transpose)
-            transpose.set_basis_for(operations.values['_tr_output'], operations.values['input'])
+            transpose.set_basis_for(operations.values['_tr_output'], operations.values['input'],
+                axes=tr_axes)
             operations.add_computation(transpose, '_tr_output', 'input')
             input_name = '_tr_output'
-        else:
-            raise NotImplementedError()
 
         reduction_stage = 0
         while size > final_size:
