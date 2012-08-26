@@ -87,7 +87,7 @@ class Transpose(Computation):
             axes = tuple(reversed(xrange(len(input.shape))))
         else:
             assert set(axes) == set(xrange(len(input.shape)))
-        bs.axes = axes
+        bs.axes = tuple(axes)
 
         return bs
 
