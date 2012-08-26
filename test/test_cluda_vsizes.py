@@ -201,7 +201,7 @@ def test_sizes(ctx_with_gs_limits, gl_size, gs_is_multiple):
         for (int i = 0; i < 3; i++)
         {
             sizes[i] = virtual_local_size(i);
-            sizes[i + 3] = virtual_group_size(i);
+            sizes[i + 3] = virtual_num_groups(i);
             sizes[i + 6] = virtual_global_size(i);
         }
         sizes[9] = virtual_global_flat_size();

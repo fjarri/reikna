@@ -10,7 +10,7 @@ WITHIN_KERNEL int virtual_local_size(int dim)
     return get_local_size(dim);
 }
 
-WITHIN_KERNEL int virtual_group_size(int dim)
+WITHIN_KERNEL int virtual_num_groups(int dim)
 {
 %for dim in xrange(len(vs.naive_bounding_grid)):
     if (dim == ${dim}) return ${vs.naive_bounding_grid[dim] if dim < len(vs.naive_bounding_grid) else 1};
@@ -115,7 +115,7 @@ WITHIN_KERNEL bool virtual_skip_workgroups()
 #define virtual_local_id get_local_id
 #define virtual_local_size get_local_size
 #define virtual_group_id get_group_id
-#define virtual_group_size get_group_size
+#define virtual_num_groups get_num_groups
 #define virtual_global_id get_global_id
 #define virtual_global_size get_global_size
 

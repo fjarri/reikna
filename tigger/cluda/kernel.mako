@@ -41,7 +41,7 @@
         return 1;
     }
 
-    WITHIN_KERNEL int get_group_size(int dim)
+    WITHIN_KERNEL int get_num_groups(int dim)
     {
     %for n in xrange(3):
         if(dim == ${n}) return gridDim.${dimnames[n]};
@@ -51,7 +51,7 @@
 
     WITHIN_KERNEL int get_global_size(int dim)
     {
-        return get_group_size(dim) * get_local_size(dim);
+        return get_num_groups(dim) * get_local_size(dim);
     }
 
     WITHIN_KERNEL int get_global_id(int dim)
