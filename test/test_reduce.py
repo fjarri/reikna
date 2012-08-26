@@ -7,51 +7,28 @@ from helpers import *
 from tigger.reduce import Reduce
 import tigger.cluda.dtypes as dtypes
 
-output_sizes = [1, 13, 128, 1535, 2048]
-multipliers = [140, 113 * 117, 512 * 231, 512 * 512 + 150]
-reduce_pairs = [(output_size, multiplier)
-    for output_size, multiplier in itertools.product(output_sizes, multipliers)
-    if output_size * multiplier <= 2 ** 20]
-reduce_pairs_ids = [str(x) + "x" + str(y) for x, y in reduce_pairs]
+
+shapes = [
+    (2,), (13,), (1535,), (512 * 231,),
+    (140, 3), (13, 598), (1536, 789),
+    (5, 15, 19), (134, 25, 23), (145, 56, 178)]
+shapes_and_axes = [(shape, axis) for shape, axis in itertools.product(shapes, [None, 0, 1, 2])
+    if axis is None or axis < len(shape)]
+shapes_and_axes_ids = [str(shape) + "," + str(axis) for shape, axis in shapes_and_axes]
 
 
-@pytest.mark.parametrize(('output_size', 'multiplier'), reduce_pairs, ids=reduce_pairs_ids)
-def test_normal(ctx, output_size, multiplier):
-
-    rd = Reduce(ctx)
-
-    input_shape = (output_size, multiplier)
-
-    a = get_test_array(input_shape, numpy.int64)
-    a_dev = ctx.to_device(a)
-    b_dev = ctx.allocate(output_size, numpy.int64)
-
-    rd.prepare(dtype=numpy.int64, shape=input_shape, axis=1,
-        operation="return val1 + val2;")
-    rd(b_dev, a_dev)
-    assert diff_is_negligible(ctx.from_device(b_dev), a.sum(1))
-
-    rd.prepare_for(b_dev, a_dev, operation="return val1 + val2;")
-    rd(b_dev, a_dev)
-    assert diff_is_negligible(ctx.from_device(b_dev), a.sum(1))
-
-
-@pytest.mark.parametrize(('output_size', 'multiplier'), reduce_pairs, ids=reduce_pairs_ids)
-def test_sparse(ctx, output_size, multiplier):
+@pytest.mark.parametrize(('shape', 'axis'), shapes_and_axes, ids=shapes_and_axes_ids)
+def test_normal(ctx, shape, axis):
 
     rd = Reduce(ctx)
 
-    input_shape = (multiplier, output_size)
-
-    a = get_test_array(input_shape, numpy.int64)
+    a = get_test_array(shape, numpy.int64)
     a_dev = ctx.to_device(a)
-    b_dev = ctx.allocate(output_size, numpy.int64)
+    b_ref = a.sum(axis)
+    if len(b_ref.shape) == 0:
+        b_ref = numpy.array([b_ref], numpy.int64)
+    b_dev = ctx.allocate(b_ref.shape, numpy.int64)
 
-    rd.prepare(dtype=numpy.int64, shape=input_shape, axis=0,
-        operation="return val1 + val2;")
+    rd.prepare_for(b_dev, a_dev, operation="return val1 + val2;", axis=axis)
     rd(b_dev, a_dev)
-    assert diff_is_negligible(ctx.from_device(b_dev), a.sum(0))
-
-    rd.prepare_for(b_dev, a_dev, axis=0, operation="return val1 + val2;")
-    rd(b_dev, a_dev)
-    assert diff_is_negligible(ctx.from_device(b_dev), a.sum(0))
+    assert diff_is_negligible(b_dev.get(), b_ref)
