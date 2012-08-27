@@ -3,7 +3,7 @@ import itertools
 import pytest
 
 import tigger.cluda as cluda
-from tigger.cluda.helpers import min_blocks, product
+from tigger.helpers import min_blocks, product
 import tigger.cluda.dtypes as dtypes
 from helpers import *
 

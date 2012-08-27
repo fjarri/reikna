@@ -7,7 +7,7 @@ import pyopencl.array as clarray
 
 import tigger.cluda as cluda
 import tigger.cluda.dtypes as dtypes
-from tigger.cluda.helpers import wrap_in_tuple
+from tigger.helpers import wrap_in_tuple
 from tigger.cluda.kernel import render_prelude, render_template_source
 from tigger.cluda.vsize import VirtualSizes, render_stub_vsize_funcs
 

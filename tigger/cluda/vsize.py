@@ -1,5 +1,5 @@
 import numpy
-from tigger.cluda.helpers import *
+from tigger.helpers import *
 
 TEMPLATE = template_for(__file__)
 

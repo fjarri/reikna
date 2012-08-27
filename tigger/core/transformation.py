@@ -5,7 +5,7 @@ from mako.template import Template
 
 import tigger.cluda.dtypes as dtypes
 from tigger.cluda.kernel import render_without_funcs, FuncCollector
-from tigger.core.helpers import AttrDict, product
+from tigger.helpers import AttrDict, product
 
 
 INDEX_NAME = "idx"

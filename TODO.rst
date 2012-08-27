@@ -9,7 +9,6 @@
 * TODO: update reference documentation (and in the meantime prepend internal fields with underscores)
 * TODO: decide on a synthax for operation in Reduce and Elementwise
 * TODO: pass argnames as keywords to prepare_for() in Elementwise
-* TODO: remove core.helpers which is identical to cluda.helpers
 
 
 0.2.0
