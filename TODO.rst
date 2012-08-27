@@ -35,10 +35,6 @@ CLUDA:
 * DECIDE: what are we going to do with OpenCL platforms that do not support intra-block interaction?
   (for example, Apple's implementation)
 * DECIDE: make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
-* DECIDE: OpenCL supports global sizes which are not multiple to warp size.
-  This can be used to increase performance (not much though).
-  CUDA also supports block sizes which are not multiples of warp size, but since there is no analogue for the global size, arbitrary number of threads are still not achievable.
-* TODO: implement better dynamic local size calculation (if local_size=None).
 
 Core:
 
