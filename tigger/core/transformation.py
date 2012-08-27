@@ -175,34 +175,34 @@ def wrap_value(value):
 
 class Transformation:
 
-    def __init__(self, load=1, store=1, parameters=0,
-            derive_s_from_lp=None,
-            derive_lp_from_s=None,
-            derive_l_from_sp=None,
-            derive_sp_from_l=None,
-            code="${store.s1}(${load.l1});"):
-        self.load = load
-        self.store = store
+    def __init__(self, inputs=1, outputs=1, parameters=0,
+            derive_o_from_ip=None,
+            derive_ip_from_o=None,
+            derive_i_from_op=None,
+            derive_op_from_i=None,
+            code="${o1.store}(${i1.load});"):
+        self.inputs = inputs
+        self.outputs = outputs
         self.parameters = parameters
 
-        def get_derivation_func(return_tuple, l1, l2=0):
+        def get_derivation_func(return_tuple, n1, n2=0):
             def func(*x):
                 dtype = dtypes.result_type(*x)
                 if return_tuple:
-                    return [dtype] * l1, [dtype] * l2
+                    return [dtype] * n1, [dtype] * n2
                 else:
-                    return [dtype] * l1
+                    return [dtype] * n1
             return func
 
-        if derive_s_from_lp is None: derive_s_from_lp = get_derivation_func(False, store)
-        if derive_lp_from_s is None: derive_lp_from_s = get_derivation_func(True, load, parameters)
-        if derive_l_from_sp is None: derive_l_from_sp = get_derivation_func(False, load)
-        if derive_sp_from_l is None: derive_sp_from_l = get_derivation_func(True, store, parameters)
+        if derive_o_from_ip is None: derive_o_from_ip = get_derivation_func(False, outputs)
+        if derive_ip_from_o is None: derive_ip_from_o = get_derivation_func(True, inputs, parameters)
+        if derive_i_from_op is None: derive_i_from_op = get_derivation_func(False, inputs)
+        if derive_op_from_i is None: derive_op_from_i = get_derivation_func(True, outputs, parameters)
 
-        self.derive_s_from_lp = derive_s_from_lp
-        self.derive_lp_from_s = derive_lp_from_s
-        self.derive_l_from_sp = derive_l_from_sp
-        self.derive_sp_from_l = derive_sp_from_l
+        self.derive_o_from_ip = derive_o_from_ip
+        self.derive_ip_from_o = derive_ip_from_o
+        self.derive_i_from_op = derive_i_from_op
+        self.derive_op_from_i = derive_op_from_i
 
         self.code = Template(code)
 
@@ -210,6 +210,29 @@ class Transformation:
 NODE_LOAD = 0
 NODE_STORE = 1
 NODE_SCALAR = 2
+
+
+class TransformationArgument:
+
+    def __init__(self, nodes, kind, number, name, node_type):
+        self.label = kind + str(number + 1)
+        self._name = name
+        self.dtype = nodes[self._name].value.dtype
+        self.ctype = dtypes.ctype(self.dtype)
+
+        if node_type == NODE_LOAD:
+            if kind == 'i':
+                self.load = load_macro_call_tr(self._name)
+            elif kind == 'o':
+                self.store = "return"
+        else:
+            if kind == 'i':
+                self.load = "val"
+            elif kind == 'o':
+                self.store = store_macro_call(self._name)
+
+    def __str__(self):
+        return leaf_name(self._name)
 
 
 class TransformationTree:
@@ -231,15 +254,15 @@ class TransformationTree:
         for name in stores:
             self.nodes[name] = AttrDict(name=name, type=NODE_STORE,
                 value=ArrayValue(None, None),
-                parent=None, children=None, tr_to_parent=None, tr_to_children=None)
+                children=None, tr_to_children=None)
         for name in loads:
             self.nodes[name] = AttrDict(name=name, type=NODE_LOAD,
                 value=ArrayValue(None, None),
-                parent=None, children=None, tr_to_parent=None, tr_to_children=None)
+                children=None, tr_to_children=None)
         for name in scalars:
             self.nodes[name] = AttrDict(name=name, type=NODE_SCALAR,
                 value=ScalarValue(None, None),
-                parent=None, children=None, tr_to_parent=None, tr_to_children=None)
+                children=None, tr_to_children=None)
 
 
     def leaf_signature(self, base_names=None):
@@ -316,7 +339,7 @@ class TransformationTree:
             # derive type
             child_dtypes = [self.nodes[child].value.dtype for child in node.children]
             tr = node.tr_to_children
-            derive_types = tr.derive_l_from_sp if node.type == NODE_STORE else tr.derive_s_from_lp
+            derive_types = tr.derive_i_from_op if node.type == NODE_STORE else tr.derive_o_from_ip
             node.value.dtype = dtypes.normalize_type(derive_types(*child_dtypes)[0])
 
             # derive shape
@@ -340,7 +363,7 @@ class TransformationTree:
                 return
 
             tr = node.tr_to_children
-            derive_types = tr.derive_sp_from_l if node.type == NODE_STORE else tr.derive_lp_from_s
+            derive_types = tr.derive_op_from_i if node.type == NODE_STORE else tr.derive_ip_from_o
             arr_dtypes, scalar_dtypes = derive_types(node.value.dtype)
             arr_dtypes = dtypes.normalize_types(arr_dtypes)
             scalar_dtypes = dtypes.normalize_types(scalar_dtypes)
@@ -433,51 +456,42 @@ class TransformationTree:
                     outtype=dtypes.ctype(node.value.dtype),
                     fname=load_function_name(node.name),
                     arglist=build_arglist(all_children))
-                load_names = node.children[:tr.load]
-                param_names = node.children[tr.load:]
+                load_names = node.children[:tr.inputs]
+                param_names = node.children[tr.inputs:]
 
-                load = AttrDict()
-                param = AttrDict()
-                dtype = AttrDict()
+                args = {}
                 for i, name in enumerate(load_names):
-                    label = 'l' + str(i+1)
-                    load[label] = load_macro_call_tr(name)
-                    dtype[label] = self.nodes[name].value.dtype
+                    arg = TransformationArgument(self.nodes, 'i', i, name, node.type)
+                    args[arg.label] = arg
                 for i, name in enumerate(param_names):
-                    label = 'p' + str(i+1)
-                    param[label] = leaf_name(name)
-                    dtype[label] = self.nodes[name].value.dtype
+                    arg = TransformationArgument(self.nodes, 'p', i, name, node.type)
+                    args[arg.label] = arg
 
-                store = AttrDict(s1='return')
-                dtype.s1 = node.value.dtype
+                arg = TransformationArgument(self.nodes, 'o', 0, node.name, node.type)
+                args[arg.label] = arg
+
             else:
                 definition = "INLINE WITHIN_KERNEL void {fname}({arglist}, int idx, {intype} val)".format(
                     intype=dtypes.ctype(node.value.dtype),
                     fname=store_function_name(node.name),
                     arglist=build_arglist(all_children))
 
-                store_names = node.children[:tr.store]
-                param_names = node.children[tr.store:]
+                store_names = node.children[:tr.outputs]
+                param_names = node.children[tr.outputs:]
 
-                store = AttrDict()
-                dtype = AttrDict()
-                param = AttrDict()
+                args = {}
                 for i, name in enumerate(store_names):
-                    label = 's' + str(i+1)
-                    store[label] = store_macro_call(name)
-                    dtype[label] = self.nodes[name].value.dtype
+                    arg = TransformationArgument(self.nodes, 'o', i, name, node.type)
+                    args[arg.label] = arg
                 for i, name in enumerate(param_names):
-                    label = 'p' + str(i+1)
-                    param[label] = leaf_name(name)
-                    dtype[label] = self.nodes[name].value.dtype
+                    arg = TransformationArgument(self.nodes, 'p', i, name, node.type)
+                    args[arg.label] = arg
 
-                load = AttrDict(l1='val')
-                dtype.l1 = node.value.dtype
+                arg = TransformationArgument(self.nodes, 'i', 0, node.name, node.type)
+                args[arg.label] = arg
 
-            ctype = AttrDict({key:dtypes.ctype(dt) for key, dt in dtype.items()})
 
-            code_src = render_without_funcs(tr.code, func_c,
-                load=load, store=store, dtype=dtype, ctype=ctype, param=param)
+            code_src = render_without_funcs(tr.code, func_c, **args)
 
             code_list.append("// node " + node.name + "\n" +
                 definition + "\n{\n" + code_src + "\n}\n" +
@@ -531,15 +545,15 @@ class TransformationTree:
         parent = self.nodes[array_arg]
 
         if parent.type == NODE_STORE:
-            if tr.load > 1:
+            if tr.inputs > 1:
                 raise ValueError("Transformation for an output node must have one input")
-            if tr.store != len(new_array_args):
+            if tr.outputs != len(new_array_args):
                 raise ValueError("Number of array argument names does not match the transformation")
 
         if parent.type == NODE_LOAD:
-            if tr.store > 1:
+            if tr.outputs > 1:
                 raise ValueError("Transformation for an input node must have one output")
-            if tr.load != len(new_array_args):
+            if tr.inputs != len(new_array_args):
                 raise ValueError("Number of array argument names does not match the transformation")
 
         if tr.parameters != len(new_scalar_args):

@@ -4,9 +4,6 @@
 * TODO: use OpenCL terminology in CLUDA as more general
 * TODO: update reference documentation (and in the meantime prepend internal fields with underscores)
 
-* TODO: fix code format in transformations according to the kernel one
-* TODO: change "load/store" parameter names to "input/output" - load/store are operations on them.
-
 * TODO: decide on a synthax for operation in Reduce and Elementwise
 * TODO: pass argnames as keywords to prepare_for() in Elementwise
 

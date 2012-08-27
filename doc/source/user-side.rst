@@ -52,20 +52,20 @@ Computations and transformations are based on two classes, which provide the use
 
 		Returns a string with the signature of the computation, containing argument names, types and shapes (in case of arrays).
 
-.. py:class:: Transformation(load=1, store=1, parameters=0, derive_s_from_lp=None,         derive_lp_from_s=None, derive_l_from_sp=None, derive_sp_from_l=None, code="${store.s1}(${load.l1});")
+.. py:class:: Transformation(load=1, store=1, parameters=0, derive_o_from_ip=None,         derive_ip_from_o=None, derive_i_from_op=None, derive_op_from_i=None, code="${store.s1}(${load.l1});")
 
 		Creates an elementwise transformation.
 
 		:param load: number of input array values.
 		:param store: number of output array values.
 		:param parameters: number of scalar parameters for the transformation.
-		:param derive_s_from_lp: a function taking ``load`` + ``parameters`` dtype parameters and returning list with ``store`` dtypes.
+		:param derive_o_from_ip: a function taking ``load`` + ``parameters`` dtype parameters and returning list with ``store`` dtypes.
 			Used to derive types in the transformation tree after call to :py:meth:`Computation.prepare_for` when the transformation is connected to the input argument.
-		:param derive_lp_from_s: a function taking ``store`` dtype parameters and returning tuple of two lists with ``load`` and ``parameters`` dtypes.
+		:param derive_ip_from_o: a function taking ``store`` dtype parameters and returning tuple of two lists with ``load`` and ``parameters`` dtypes.
 			Used to derive types in the transformation tree after call to :py:meth:`Computation.prepare` when the transformation is connected to the input argument.
-		:param derive_l_from_sp: a function taking ``store`` + ``parameters`` dtype parameters and returning list with ``load`` dtypes.
+		:param derive_i_from_op: a function taking ``store`` + ``parameters`` dtype parameters and returning list with ``load`` dtypes.
 			Used to derive types in the transformation tree after call to :py:meth:`Computation.prepare_for` when the transformation is connected to the output argument.
-		:param derive_sp_from_l: a function taking ``load`` dtype parameters and returning tuple of two lists with ``store`` and ``parameters`` dtypes.
+		:param derive_op_from_i: a function taking ``load`` dtype parameters and returning tuple of two lists with ``store`` and ``parameters`` dtypes.
 			Used to derive types in the transformation tree after call to :py:meth:`Computation.prepare` when the transformation is connected to the output argument.
 		:param code: template source with the transformation code.
 			See :ref:`How to write transformations <how-to-transformations>` section for details.

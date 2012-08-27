@@ -63,41 +63,41 @@ def mock_dummy(a, b, coeff):
 
 # Identity transformation: Output = Input
 tr_trivial = Transformation(
-    load=1, store=1,
-    code="${store.s1}(${load.l1});")
+    inputs=1, outputs=1,
+    code="${o1.store}(${i1.load});")
 
 # Output = Input1 * Parameter1 + Input 2
 tr_2_to_1 = Transformation(
-    load=2, store=1, parameters=1,
-    derive_s_from_lp=lambda l1, l2, p1: [l1],
-    derive_lp_from_s=lambda s1: ([s1, s1], [numpy.float32]),
-    derive_l_from_sp=lambda s1, p1: [s1, s1],
-    derive_sp_from_l=lambda l1, l2: ([l1], [numpy.float32]),
+    inputs=2, outputs=1, parameters=1,
+    derive_o_from_ip=lambda i1, i2, p1: [i1],
+    derive_ip_from_o=lambda o1: ([o1, o1], [numpy.float32]),
+    derive_i_from_op=lambda o1, p1: [o1, o1],
+    derive_op_from_i=lambda i1, i2: ([i1], [numpy.float32]),
     code="""
-        ${ctype.s1} t = ${func.mul(dtype.s1, dtype.l1)}(
-            ${func.cast(dtype.s1, dtype.p1)}(${param.p1}), ${load.l1});
-        ${store.s1}(t + ${load.l2});
+        ${o1.ctype} t = ${func.mul(o1.dtype, i1.dtype)}(
+            ${func.cast(o1.dtype, p1.dtype)}(${p1}), ${i1.load});
+        ${o1.store}(t + ${i2.load});
     """)
 
 # Output1 = Input / 2, Output2 = Input / 2
 tr_1_to_2 = Transformation(
-    load=1, store=2,
+    inputs=1, outputs=2,
     code="""
-        ${ctype.s1} t = ${func.mul(dtype.l1, numpy.float32)}(${load.l1}, 0.5);
-        ${store.s1}(t);
-        ${store.s2}(t);
+        ${o1.ctype} t = ${func.mul(i1.dtype, numpy.float32)}(${i1.load}, 0.5);
+        ${o1.store}(t);
+        ${o2.store}(t);
     """)
 
 # Output = Input * Parameter
 tr_scale = Transformation(
-    load=1, store=1, parameters=1,
-    derive_s_from_lp=lambda l1, p1: [l1],
-    derive_lp_from_s=lambda s1: ([s1], [numpy.float32]),
-    derive_l_from_sp=lambda s1, p1: [s1],
-    derive_sp_from_l=lambda l1: ([l1], [numpy.float32]),
+    inputs=1, outputs=1, parameters=1,
+    derive_o_from_ip=lambda i1, p1: [i1],
+    derive_ip_from_o=lambda o1: ([o1], [numpy.float32]),
+    derive_i_from_op=lambda o1, p1: [o1],
+    derive_op_from_i=lambda i1: ([i1], [numpy.float32]),
     code="""
-        ${store.s1}(
-            ${func.mul(dtype.l1, dtype.p1, out=dtype.s1)}(${load.l1}, ${param.p1})
+        ${o1.store}(
+            ${func.mul(i1.dtype, p1.dtype, out=o1.dtype)}(${i1.load}, ${p1})
         );
     """)
 
@@ -261,10 +261,10 @@ def test_type_propagation_conflict(some_ctx):
     # This transformation connects an external complex input
     # to an internal real input (by discarding the complex part)
     tr_complex_to_real = Transformation(
-        load=1, store=1,
-        derive_s_from_lp=lambda l1, _: [dtypes.real_for(l1)],
-        derive_lp_from_s=lambda s1: ([dtypes.complex_for(s1)], []),
-        code="${store.s1}((${load.l1}).x);")
+        inputs=1, outputs=1,
+        derive_o_from_ip=lambda i1, _: [dtypes.real_for(i1)],
+        derive_ip_from_o=lambda o1: ([dtypes.complex_for(o1)], []),
+        code="${o1.store}((${i1.load}).x);")
 
     d = Dummy(some_ctx)
 
