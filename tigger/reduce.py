@@ -17,7 +17,7 @@ def reduced_shape(shape, axis):
 class Reduce(Computation):
 
     def _get_default_basis(self):
-        return dict(shape=(1,1), dtype=numpy.float32, axis=-1,
+        return dict(shape=(1,1), dtype=numpy.float32, axis=None,
             operation="return val1 + val2;")
 
     def _get_basis_for(self, output, input, axis=None, operation=None):
@@ -40,7 +40,12 @@ class Reduce(Computation):
         return bs
 
     def _get_base_signature(self, basis):
-        return ([('output', ArrayValue(reduced_shape(basis.shape, basis.axis), basis.dtype))],
+        if basis.axis is None:
+            output_shape = (1,)
+        else:
+            output_shape = reduced_shape(basis.shape, basis.axis)
+
+        return ([('output', ArrayValue(output_shape, basis.dtype))],
             [('input', ArrayValue(basis.shape, basis.dtype))],
             [])
 
