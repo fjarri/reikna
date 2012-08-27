@@ -51,7 +51,8 @@ Core:
 
 Computations:
 
-* CHECK: check if matrixmul with flat blocks is slower than the one with 2D blocks
+* CHECK: need to find a balance between creating more workgroups or making loops inside kernels
+  See, for example, matrximul (batch is processed using loop)
 * TODO: add DHT
 * TODO: add random number generation (MD5 and DCMT seem to be the best candidates)
 * TODO: add bitonic sort
