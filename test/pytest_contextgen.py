@@ -1,4 +1,6 @@
 from itertools import product
+import gc
+
 import numpy
 
 
@@ -100,7 +102,10 @@ def create_context_in_tuple(request):
         remainder = tuple()
 
     ctx = cc()
-    request.addfinalizer(lambda: ctx.release())
+    def finalizer():
+        ctx.release()
+        gc.collect()
+    request.addfinalizer(finalizer)
 
     if isinstance(params, tuple):
         return (ctx,) + remainder
