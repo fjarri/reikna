@@ -28,7 +28,7 @@ class Dummy(Computation):
             [('A', av), ('B', av)],
             [('coeff', sv)])
 
-    def _construct_operations(self, basis, operations):
+    def _construct_operations(self, basis, device_params, operations):
         template = template_from("""
         <%def name="dummy(C, D, A, B, coeff)">
         ${kernel_definition}
