@@ -75,7 +75,7 @@ class Transpose(Computation):
         return dict(dtype=numpy.float32, input_shape=(1, 1), axes=(1, 0),
             block_size_override=None)
 
-    def _construct_basis(self, output, input, axes=None):
+    def _get_basis_for(self, output, input, axes=None):
 
         bs = AttrDict()
 
@@ -102,7 +102,7 @@ class Transpose(Computation):
             [('input', ArrayValue(basis.input_shape, basis.dtype))],
             [])
 
-    def _add_transpose(self, basis, device_params, operations,
+    def _add_transpose(self, operations, basis, device_params,
             output_name, input_name, batch, input_height, input_width):
 
         bso = basis.block_size_override
@@ -127,7 +127,7 @@ class Transpose(Computation):
             local_size=(block_width, block_width),
             render_kwds=render_kwds)
 
-    def _construct_operations(self, basis, device_params, operations):
+    def _construct_operations(self, operations, basis, device_params):
         transposes = get_transposes(basis.input_shape, basis.axes)
 
         temp_shape = (product(basis.input_shape),)
@@ -156,5 +156,5 @@ class Transpose(Computation):
         for tr, arg_pair in zip(transposes, args):
             batch, height, width = tr
             oname, iname = arg_pair
-            self._add_transpose(basis, device_params, operations,
+            self._add_transpose(operations, basis, device_params,
                 oname, iname, batch, height, width)

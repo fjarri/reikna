@@ -20,7 +20,7 @@ class Reduce(Computation):
         return dict(shape=(1,1), dtype=numpy.float32, axis=-1,
             operation="return val1 + val2;")
 
-    def _construct_basis(self, output, input, axis=None, operation=None):
+    def _get_basis_for(self, output, input, axis=None, operation=None):
         assert input.dtype == output.dtype
         assert input.size % output.size == 0
         assert input.size > output.size
@@ -44,7 +44,7 @@ class Reduce(Computation):
             [('input', ArrayValue(basis.shape, basis.dtype))],
             [])
 
-    def _construct_operations(self, basis, device_params, operations):
+    def _construct_operations(self, operations, basis, device_params):
 
         # may fail if the user passes particularly sophisticated operation
         max_reduce_power = device_params.max_work_group_size

@@ -15,7 +15,7 @@ class MatrixMul(Computation):
             block_size_override=None,
             out_shape=(1, 1))
 
-    def _construct_basis(self, out, a, b):
+    def _get_basis_for(self, out, a, b):
 
         bs = AttrDict()
 
@@ -73,7 +73,7 @@ class MatrixMul(Computation):
             ],
             [])
 
-    def _construct_operations(self, basis, device_params, operations):
+    def _construct_operations(self, operations, basis, device_params):
 
         bso = basis.block_size_override
         block_width = device_params.smem_banks if bso is None else bso

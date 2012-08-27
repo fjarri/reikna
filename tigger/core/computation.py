@@ -90,11 +90,11 @@ class Computation:
             values[name] = new_value
 
         self._tr_tree.propagate_to_base(values)
-        return self._construct_basis(*self._tr_tree.base_values(), **kwds)
+        return self._get_basis_for(*self._tr_tree.base_values(), **kwds)
 
     def _prepare_operations(self):
         self._operations = OperationRecorder(self._ctx, self._basis, self._get_base_values())
-        self._construct_operations(self._basis, self._ctx.device_params, self._operations)
+        self._construct_operations(self._operations, self._basis, self._ctx.device_params)
 
     def _prepare_transformations(self):
         self._tr_tree.propagate_to_leaves(self._get_base_values())

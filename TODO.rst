@@ -2,11 +2,11 @@
 =====
 
 * TODO: use OpenCL terminology in CLUDA as more general
-* DECIDE: names of delegate calls in computations are a bit misleading.
-  "construct" functions do different things, for instance.
+* TODO: update reference documentation (and in the meantime prepend internal fields with underscores)
+
 * TODO: fix code format in transformations according to the kernel one
 * TODO: change "load/store" parameter names to "input/output" - load/store are operations on them.
-* TODO: update reference documentation (and in the meantime prepend internal fields with underscores)
+
 * TODO: decide on a synthax for operation in Reduce and Elementwise
 * TODO: pass argnames as keywords to prepare_for() in Elementwise
 
@@ -20,6 +20,7 @@
 * DECIDE: profile Computation.__call__() and see if it takes too long, and if the algorithm of assignment args to endpoints should be improved.
 * TODO: Flatten kernel list before execution, and assign argument numbers
 * TODO: add FFT (and mark pyfft as deprecated)
+  Problem here: some kernels can be out of registers or local memory, and need to be recompiled.
 * TODO: do not create special mul/div function for scalars
 
 

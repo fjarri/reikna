@@ -17,7 +17,7 @@ class Elementwise(Computation):
         res['size'] = 1
         return res
 
-    def _construct_basis(self, *args):
+    def _get_basis_for(self, *args):
 
         bs = dict(size=args[0].size)
 
@@ -36,7 +36,7 @@ class Elementwise(Computation):
 
         return stores, loads, params
 
-    def _construct_operations(self, basis, device_params, operations):
+    def _construct_operations(self, operations, basis, device_params):
 
         names = self._base_stores + self._base_loads + self._base_params
         template = template_from("""

@@ -17,7 +17,7 @@ class Dummy(Computation):
     def _get_default_basis(self):
         return dict(arr_dtype=numpy.float32, coeff_dtype=numpy.float32, size=1)
 
-    def _construct_basis(self, C, D, A, B, coeff):
+    def _get_basis_for(self, C, D, A, B, coeff):
         return dict(arr_dtype=C.dtype, coeff_dtype=coeff.dtype, size=C.size)
 
     def _get_base_signature(self, basis):
@@ -28,7 +28,7 @@ class Dummy(Computation):
             [('A', av), ('B', av)],
             [('coeff', sv)])
 
-    def _construct_operations(self, basis, device_params, operations):
+    def _construct_operations(self, operations, basis, device_params):
         template = template_from("""
         <%def name="dummy(C, D, A, B, coeff)">
         ${kernel_definition}
