@@ -85,8 +85,6 @@ class MatrixMul(Computation):
         blocks_per_matrix = min_blocks(basis.a_height, block_width)
         grid_width = min_blocks(basis.b_width, block_width)
 
-        shared = block_width ** 2 * (basis.a_dtype.itemsize + basis.b_dtype.itemsize)
-
         render_kwds = dict(
             block_width=block_width,
             grid_width=grid_width,
@@ -96,6 +94,5 @@ class MatrixMul(Computation):
             TEMPLATE, 'matrixmul', ['out', 'a', 'b'],
             global_size=(grid_width * block_width, blocks_per_matrix * basis.batch * block_width),
             local_size=(block_width, block_width),
-            shared=shared,
             render_kwds=render_kwds
         )

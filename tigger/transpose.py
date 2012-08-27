@@ -115,8 +115,6 @@ class Transpose(Computation):
         blocks_per_matrix = min_blocks(input_height, block_width)
         grid_width = min_blocks(input_width, block_width)
 
-        shared = block_width * (block_width + 1) * basis.dtype.itemsize
-
         render_kwds = dict(
             input_width=input_width, input_height=input_height, batch=batch,
             block_width=block_width,
@@ -127,7 +125,7 @@ class Transpose(Computation):
             TEMPLATE, 'transpose', [output_name, input_name],
             global_size=(grid_width * block_width, blocks_per_matrix * batch * block_width),
             local_size=(block_width, block_width),
-            shared=shared, render_kwds=render_kwds)
+            render_kwds=render_kwds)
 
     def _construct_operations(self, basis, device_params, operations):
         transposes = get_transposes(basis.input_shape, basis.axes)
