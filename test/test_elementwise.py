@@ -29,7 +29,7 @@ def test_errors(ctx):
     elw(b_dev, a_dev, param)
     assert diff_is_negligible(ctx.from_device(b_dev), a[:N] + a[N:] + param)
 
-    elw.prepare_for(b_dev, a_dev, numpy.float32(param), code=code, argtypes=argtypes)
+    elw.prepare_for(b_dev, a_dev, numpy.float32(param), code=code)
     elw(b_dev, a_dev, param)
     assert diff_is_negligible(ctx.from_device(b_dev), a[:N] + a[N:] + param)
 
