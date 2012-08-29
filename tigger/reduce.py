@@ -16,11 +16,24 @@ def reduced_shape(shape, axis):
 
 class Reduce(Computation):
 
+    def _get_argnames(self):
+        return ('output',), ('input',), tuple()
+
     def _get_default_basis(self):
         return dict(shape=(1,1), dtype=numpy.float32, axis=None,
             operation="return val1 + val2;")
 
-    def _get_basis_for(self, output, input, axis=None, operation=None):
+    def _get_argvalues(self, argnames, basis):
+        if basis.axis is None:
+            output_shape = (1,)
+        else:
+            output_shape = reduced_shape(basis.shape, basis.axis)
+
+        return dict(
+            output=ArrayValue(output_shape, basis.dtype),
+            input=ArrayValue(basis.shape, basis.dtype))
+
+    def _get_basis_for(self, argnames, output, input, axis=None, operation="return val1 + val2;"):
         assert input.dtype == output.dtype
         assert input.size % output.size == 0
         assert input.size > output.size
@@ -39,17 +52,7 @@ class Reduce(Computation):
 
         return bs
 
-    def _get_base_signature(self, basis):
-        if basis.axis is None:
-            output_shape = (1,)
-        else:
-            output_shape = reduced_shape(basis.shape, basis.axis)
-
-        return ([('output', ArrayValue(output_shape, basis.dtype))],
-            [('input', ArrayValue(basis.shape, basis.dtype))],
-            [])
-
-    def _construct_operations(self, operations, basis, device_params):
+    def _construct_operations(self, operations, argnames, basis, device_params):
 
         # may fail if the user passes particularly sophisticated operation
         max_reduce_power = device_params.max_work_group_size

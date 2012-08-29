@@ -15,7 +15,10 @@ class MatrixMul(Computation):
             block_size_override=None,
             out_shape=(1, 1))
 
-    def _get_basis_for(self, out, a, b):
+    def _get_argnames(self):
+        return ('out',), ('a', 'b'), tuple()
+
+    def _get_basis_for(self, argnames, out, a, b):
 
         bs = AttrDict()
 
@@ -60,20 +63,17 @@ class MatrixMul(Computation):
 
         return bs
 
-    def _get_base_signature(self, basis):
+    def _get_argvalues(self, argnames, basis):
 
         a_shape = (basis.batch if basis.batched_a else 1, basis.a_height, basis.a_width)
         b_shape = (basis.batch if basis.batched_b else 1, basis.a_width, basis.b_width)
 
-        return (
-            [('out', ArrayValue(basis.out_shape, basis.out_dtype))],
-            [
-                ('a', ArrayValue(a_shape, basis.a_dtype)),
-                ('b', ArrayValue(b_shape, basis.b_dtype))
-            ],
-            [])
+        return dict(
+            out=ArrayValue(basis.out_shape, basis.out_dtype),
+            a=ArrayValue(a_shape, basis.a_dtype),
+            b=ArrayValue(b_shape, basis.b_dtype))
 
-    def _construct_operations(self, operations, basis, device_params):
+    def _construct_operations(self, operations, argnames, basis, device_params):
 
         bso = basis.block_size_override
         block_width = device_params.smem_banks if bso is None else bso

@@ -8,8 +8,14 @@ from tigger.core.transformation import *
 from tigger.core.operation import OperationRecorder
 
 
-class NotPreparedError(Exception):
+class InvalidStateError(Exception):
     pass
+
+
+STATE_UNDEFINED = 0
+STATE_ARGNAMES_SET = 1
+STATE_OPERATIONS_BUILT = 2
+STATE_PREPARED = 3
 
 
 class Computation:
@@ -18,11 +24,23 @@ class Computation:
         self._ctx = ctx
         self._debug = debug
 
-        # Initialize root nodes of the transformation tree
+        self._state = STATE_UNDEFINED
         self._basis = AttrDict(self._get_default_basis())
+
+        if hasattr(self, '_get_argnames'):
+        # Initialize root nodes of the transformation tree
+            self._argnames = self._get_argnames()
+            self._init_transformation_tree()
+
+    def _init_transformation_tree(self):
         self._tr_tree = TransformationTree(*self._get_base_names())
-        self._operations_prepared = False
-        self._transformations_prepared = False
+        self._state = STATE_ARGNAMES_SET
+
+    def set_argnames(self, outputs, inputs, scalars):
+        assert self._state == STATE_UNDEFINED
+        self._argnames = (tuple(outputs), tuple(inputs), tuple(scalars))
+        self._init_transformation_tree()
+        return self
 
     def get_nested_computation(self, cls):
         """
@@ -35,18 +53,14 @@ class Computation:
         """
         Returns three lists (outs, ins, scalars) with names of base computation parameters.
         """
-        parts = self._get_base_signature(self._basis)
-        return tuple([name for name, _ in part] for part in parts)
+        return self._argnames
 
     def _get_base_values(self):
         """
         Returns a dictionary with names and corresponding value objects for
         base computation parameters.
         """
-        result = {}
-        for part in self._get_base_signature(self._basis):
-            result.update({name:value for name, value in part})
-        return result
+        return self._get_argvalues(self._argnames, self._basis)
 
     def _get_base_dtypes(self):
         """
@@ -90,11 +104,12 @@ class Computation:
             values[name] = new_value
 
         self._tr_tree.propagate_to_base(values)
-        return self._get_basis_for(*self._tr_tree.base_values(), **kwds)
+        return self._get_basis_for(self._argnames, *self._tr_tree.base_values(), **kwds)
 
     def _prepare_operations(self):
         self._operations = OperationRecorder(self._ctx, self._basis, self._get_base_values())
-        self._construct_operations(self._operations, self._basis, self._ctx.device_params)
+        self._construct_operations(
+            self._operations, self._argnames, self._basis, self._ctx.device_params)
 
     def _prepare_transformations(self):
         self._tr_tree.propagate_to_leaves(self._get_base_values())
@@ -111,23 +126,32 @@ class Computation:
         """
         Connects given transformation to the external array argument.
         """
+        if self._state == STATE_UNDEFINED:
+            raise InvalidStateError("Base argument names are undefined")
+
         if new_scalar_args is None:
             new_scalar_args = []
         self._tr_tree.connect(tr, array_arg, new_array_args, new_scalar_args)
-        self._transformations_prepared = False
+        self._state = min(self._state, STATE_OPERATIONS_BUILT)
 
     def set_basis(self, **kwds):
+        if self._state == STATE_UNDEFINED:
+            raise InvalidStateError("Base argument names are undefined")
+
         unknown_keys = set(kwds).difference(set(self._basis))
         if len(unknown_keys) > 0:
             raise KeyError("Unknown basis keys: " + ", ".join(unknown_keys))
 
         if self._basis_needs_update(kwds):
             self._basis.update(kwds)
-            self._operations_prepared = False
+            self._state = STATE_ARGNAMES_SET
 
         return self
 
     def set_basis_for(self, *args, **kwds):
+        if self._state == STATE_UNDEFINED:
+            raise InvalidStateError("Base argument names are undefined")
+
         new_basis = self._basis_for(args, kwds)
         return self.set_basis(**new_basis)
 
@@ -137,15 +161,14 @@ class Computation:
         """
         self.set_basis(**kwds)
 
-        if not self._operations_prepared:
+        if self._state == STATE_ARGNAMES_SET:
             self._prepare_operations()
-            self._operations_prepared = True
-            self._transformations_prepared = False
+            self._state = STATE_OPERATIONS_BUILT
 
-        if not self._transformations_prepared:
+        if self._state == STATE_OPERATIONS_BUILT:
             self._prepare_transformations()
-            self._transformations_prepared = True
             self._operations.optimize_execution()
+            self._state = STATE_PREPARED
 
         return self
 
@@ -171,8 +194,8 @@ class Computation:
         """
         Executes computation.
         """
-        if not self._operations_prepared or not self._transformations_prepared:
-            raise NotPreparedError("The computation must be prepared before execution")
+        if self._state != STATE_PREPARED:
+            raise InvalidStateError("The computation must be fully prepared before execution")
 
         if self._debug:
             new_basis = self._basis_for(args, kwds)

@@ -6,51 +6,51 @@ from tigger.core import *
 
 class Elementwise(Computation):
 
-    def __init__(self, ctx, code, signature, **kwds):
-        self._code = code
-        self._base_stores, self._base_loads, self._base_params = signature
-        Computation.__init__(self, ctx, **kwds)
-
     def _get_default_basis(self):
-        res = {(name + '_dtype'):numpy.float32 for name in
-            self._base_stores + self._base_loads + self._base_params}
-        res['size'] = 1
-        return res
+        basis = dict(
+            size=1,
+            argtypes=dict(),
+            code=dict(functions="", kernel=""))
 
-    def _get_basis_for(self, *args):
+        return basis
 
-        bs = dict(size=args[0].size)
+    def _get_argvalues(self, argnames, basis):
+        outputs, inputs, params = argnames
+        values = {name:ArrayValue((basis.size,), basis.argtypes[name])
+            for name in outputs + inputs}
+        values.update({name:ScalarValue(None, basis.argtypes[name])
+            for name in params})
 
-        names = self._base_stores + self._base_loads + self._base_params
-        for arg, name in zip(args, names):
-            bs[name + '_dtype'] = arg.dtype
+        return values
 
-        return bs
+    def _get_basis_for(self, argnames, *args, **kwds):
 
-    def _get_base_signature(self, basis):
+        # Python 2 does not support explicit kwds after *args
+        code = kwds.pop('code', dict(functions="", kernel=""))
 
-        stores = [(name, ArrayValue(None, basis[name + '_dtype'])) for name in self._base_stores]
-        stores[0][1].shape = (basis.size,)
-        loads = [(name, ArrayValue(None, basis[name + '_dtype'])) for name in self._base_loads]
-        params = [(name, ScalarValue(None, basis[name + '_dtype'])) for name in self._base_params]
+        # map argument names to values
+        outputs, inputs, params = argnames
+        argtypes = {name:arg.dtype for name, arg in zip(outputs + inputs + params, args)}
 
-        return stores, loads, params
+        return dict(size=args[0].size, argtypes=argtypes, code=code)
 
-    def _construct_operations(self, operations, basis, device_params):
+    def _construct_operations(self, operations, argnames, basis, device_params):
 
-        names = self._base_stores + self._base_loads + self._base_params
+        names = sum(argnames, tuple())
         template = template_from("""
-        <%def name='elementwise(""" + ", ".join(names) + """)'>
+        <%def name='elementwise(""" + ", ".join(names) + """)'>""" +
+        basis.code.pop('functions', '') +
+        """
         ${kernel_definition}
         {
             VIRTUAL_SKIP_THREADS;
             int idx = virtual_global_flat_id();
-            int size = ${basis.size};
         """ +
-        self._code +
+        basis.code['kernel'] +
         """
         }
         </%def>
         """)
 
-        operations.add_kernel(template, 'elementwise', names, global_size=(basis.size,))
+        operations.add_kernel(template, 'elementwise', names,
+            global_size=(basis.size,), render_kwds=dict(size=basis.size))
