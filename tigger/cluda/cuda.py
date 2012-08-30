@@ -242,7 +242,7 @@ class Kernel:
 
     def prepared_call(self, *args):
         self._kernel(*args, grid=self.grid, block=self.local_size,
-            stream=self._ctx._stream, local_mem=self.local_mem)
+            stream=self._ctx._stream, shared=self.local_mem)
         self._ctx._synchronize()
 
     def __call__(self, *args, **kwds):
