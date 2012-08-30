@@ -8,6 +8,7 @@
 0.2.0
 =====
 
+* DECIDE: if user calls prepare_for() with no keyword argument passed, does it mean that he wants default values, or the values that are currently in the basis? This can be fixed by setting the strict order of prepare and connect calls.
 * DECIDE: fix dynamic shared memory interface for OpenCL kernels
 * TODO: run coverage tests and see if some functionality has to be tested
 * TODO: Write some performance tests
