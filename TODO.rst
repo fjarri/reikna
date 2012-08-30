@@ -32,6 +32,7 @@ CLUDA:
 * DECIDE: what are we going to do with OpenCL platforms that do not support intra-block interaction?
   (for example, Apple's implementation)
 * DECIDE: make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
+* DECIDE: change type of id()/size() functions to size_t in case of CUDA?
 
 Core:
 
