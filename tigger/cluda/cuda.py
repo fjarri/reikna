@@ -54,9 +54,9 @@ class Context:
 
     def __init__(self, context, queue=None, fast_math=True, async=True, owns_context=False):
         self.api = cluda.api(API_ID)
-        self.fast_math = fast_math
-        self.context = context
-        self.async = async
+        self._fast_math = fast_math
+        self._context = context
+        self._async = async
         self.device_params = DeviceParameters(context.get_device())
 
         self._stream = self.create_queue() if queue is None else queue
@@ -74,7 +74,7 @@ class Context:
 
     def supports_dtype(self, dtype):
         if dtypes.is_double(dtype):
-            major, minor = self.context.get_device().compute_capability()
+            major, minor = self._context.get_device().compute_capability()
             return (major == 1 and minor == 3) or major >= 2
         else:
             return True
@@ -130,11 +130,11 @@ class Context:
         self._stream.synchronize()
 
     def _synchronize(self):
-        if not self.async:
+        if not self._async:
             self.synchronize()
 
     def _compile(self, src):
-        options = ['-use_fast_math'] if self.fast_math else []
+        options = ['-use_fast_math'] if self._fast_math else []
         try:
             module = SourceModule(src, no_extern_c=True, options=options)
         except:
@@ -153,7 +153,7 @@ class Context:
 
     def release(self):
         if not self._released:
-            self.context.detach()
+            self._context.detach()
             self._released = True
 
     def __del__(self):
@@ -203,7 +203,7 @@ class Kernel:
     def __init__(self, ctx, kernel):
         self._ctx = ctx
         self._kernel = kernel
-        self.max_work_group_size = kernel.get_attribute(
+        self._max_work_group_size = kernel.get_attribute(
             cuda.function_attribute.MAX_THREADS_PER_BLOCK)
 
     def prepare(self, global_size, local_size=None, local_mem=0):
@@ -217,7 +217,7 @@ class Kernel:
         else:
             # Dumb algorithm of finding suitable local_size.
             # Works more or less the same as its OpenCL equivalent.
-            max_size = self.max_work_group_size
+            max_size = self._max_work_group_size
             max_dims = self._ctx.device_params.max_work_item_sizes
 
             def fits_into_dims(block_size):
@@ -258,7 +258,7 @@ class StaticKernel:
 
     def __init__(self, ctx, src, name, global_size, local_size=None, local_mem=0, render_kwds=None):
         self._ctx = ctx
-        self.local_mem = local_mem
+        self._local_mem = local_mem
 
         if render_kwds is None:
             render_kwds = {}
@@ -276,8 +276,8 @@ class StaticKernel:
 
         vs = VirtualSizes(ctx.device_params, max_work_group_size, global_size, local_size)
         static_prelude = vs.render_vsize_funcs()
-        self.global_size, self.local_size = vs.get_call_sizes()
-        self.grid = tuple(g / l for g, l in zip(self.global_size, self.local_size))
+        self._global_size, self._local_size = vs.get_call_sizes()
+        self._grid = tuple(g / l for g, l in zip(self._global_size, self._local_size))
 
         self.source = prelude + static_prelude + src
         self._module = ctx._compile(self.source)
@@ -285,6 +285,6 @@ class StaticKernel:
         self._kernel = self._module.get_function(name)
 
     def __call__(self, *args):
-        self._kernel(*args, grid=self.grid, block=self.local_size,
-            stream=self._ctx._stream, local_mem=self.local_mem)
+        self._kernel(*args, grid=self._grid, block=self._local_size,
+            stream=self._ctx._stream, shared=self._local_mem)
         self._ctx._synchronize()

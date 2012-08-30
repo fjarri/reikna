@@ -49,11 +49,11 @@ class Context:
 
     def __init__(self, context, queue=None, fast_math=True, async=True):
         self.api = cluda.api(API_ID)
-        self.fast_math = fast_math
-        self.context = context
-        self.async = async
+        self._fast_math = fast_math
+        self._context = context
+        self._async = async
         self.device_params = DeviceParameters(context.get_info(cl.context_info.DEVICES)[0])
-        self.device = self.context.devices[0]
+        self._device = self._context.devices[0]
 
         self._queue = self.create_queue() if queue is None else queue
 
@@ -65,11 +65,11 @@ class Context:
                 raise ValueError("Device parameter " + str(kwd) + " does not exist")
 
     def create_queue(self):
-        return cl.CommandQueue(self.context)
+        return cl.CommandQueue(self._context)
 
     def supports_dtype(self, dtype):
         if dtypes.is_double(dtype):
-            extensions = self.context.devices[0].extensions
+            extensions = self._context.devices[0].extensions
             return "cl_khr_fp64" in extensions or "cl_amd_fp64" in extensions
         else:
             return True
@@ -86,7 +86,7 @@ class Context:
         else:
             arr_device = dest
 
-        arr_device.set(arr, queue=self._queue, async=self.async)
+        arr_device.set(arr, queue=self._queue, async=self._async)
 
         if dest is None:
             return arr_device
@@ -119,16 +119,16 @@ class Context:
         self._queue.finish()
 
     def _synchronize(self):
-        if not self.async:
+        if not self._async:
             self.synchronize()
 
     def release(self):
         pass
 
     def _compile(self, src):
-        options = "-cl-mad-enable -cl-fast-relaxed-math" if self.fast_math else ""
+        options = "-cl-mad-enable -cl-fast-relaxed-math" if self._fast_math else ""
         try:
-            module = cl.Program(self.context, src).build(options=options)
+            module = cl.Program(self._context, src).build(options=options)
         except:
             listing = "\n".join([str(i+1) + ":" + l for i, l in enumerate(src.split('\n'))])
             error("Failed to compile:\n" + listing)
@@ -210,22 +210,22 @@ class Kernel:
     def __init__(self, ctx, kernel):
         self._ctx = ctx
         self._kernel = kernel
-        self.max_work_group_size = kernel.get_work_group_info(
-            cl.kernel_work_group_info.WORK_GROUP_SIZE, self._ctx.device)
+        self._max_work_group_size = kernel.get_work_group_info(
+            cl.kernel_work_group_info.WORK_GROUP_SIZE, self._ctx._device)
 
     def prepare(self, global_size, local_size=None, local_mem=0):
         if local_size is None:
-            self.local_size = None
+            self._local_size = None
         else:
-            self.local_size = wrap_in_tuple(local_size)
-        self.global_size = wrap_in_tuple(global_size)
-        self.local_mem = local_mem
+            self._local_size = wrap_in_tuple(local_size)
+        self._global_size = wrap_in_tuple(global_size)
+        self._local_mem = local_mem
 
     def prepared_call(self, *args):
 
         # Unlike PyCuda, PyOpenCL does not allow passing array objects as is
         args = [x.data if isinstance(x, clarray.Array) else x for x in args]
-        self._kernel(self._ctx._queue, self.global_size, self.local_size, *args)
+        self._kernel(self._ctx._queue, self._global_size, self._local_size, *args)
         self._ctx._synchronize()
 
     def __call__(self, *args, **kwds):
@@ -241,7 +241,7 @@ class StaticKernel:
 
     def __init__(self, ctx, src, name, global_size, local_size=None, local_mem=0, render_kwds=None):
         self._ctx = ctx
-        self.local_mem = local_mem
+        self._local_mem = local_mem
 
         if render_kwds is None:
             render_kwds = {}
@@ -255,11 +255,11 @@ class StaticKernel:
         stub_module = ctx._compile(str(prelude + stub_vsize_funcs + src))
         stub_kernel = getattr(stub_module, name)
         max_work_group_size = stub_kernel.get_work_group_info(
-            cl.kernel_work_group_info.WORK_GROUP_SIZE, self._ctx.device)
+            cl.kernel_work_group_info.WORK_GROUP_SIZE, self._ctx._device)
 
         vs = VirtualSizes(ctx.device_params, max_work_group_size, global_size, local_size)
         static_prelude = vs.render_vsize_funcs()
-        self.global_size, self.local_size = vs.get_call_sizes()
+        self._global_size, self._local_size = vs.get_call_sizes()
 
         # Casting source code to ASCII explicitly
         # New versions of Mako produce Unicode output by default,
@@ -271,5 +271,5 @@ class StaticKernel:
 
     def __call__(self, *args):
         args = [x.data if isinstance(x, clarray.Array) else x for x in args]
-        self._kernel(self._ctx._queue, self.global_size, self.local_size, *args)
+        self._kernel(self._ctx._queue, self._global_size, self._local_size, *args)
         self._ctx._synchronize()

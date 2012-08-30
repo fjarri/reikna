@@ -189,6 +189,10 @@ It is referred here (and references from other parts of this documentation) as :
 
 .. py:class:: Module
 
+    .. py:attribute:: source
+
+        Contains module source code.
+
     .. py:attribute:: kernel_name
 
         Contains :py:class:`Kernel` object for the kernel ``kernel_name``.
@@ -216,6 +220,10 @@ It is referred here (and references from other parts of this documentation) as :
         Shortcut for successive call to :py:meth:`prepare` and :py:meth:`prepared_call`.
 
 .. py:class:: StaticKernel
+
+    .. py:attribute:: source
+
+        Contains module source code.
 
     .. py:method:: __call__(*args)
 
