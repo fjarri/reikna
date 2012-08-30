@@ -31,12 +31,15 @@ class Computation:
         # Initialize root nodes of the transformation tree
             self._argnames = self._get_argnames()
             self._init_transformation_tree()
+        else:
+        # make set_argnames() visible
+            self.set_argnames = self._set_argnames
 
     def _init_transformation_tree(self):
         self._tr_tree = TransformationTree(*self._get_base_names())
         self._state = STATE_ARGNAMES_SET
 
-    def set_argnames(self, outputs, inputs, scalars):
+    def _set_argnames(self, outputs, inputs, scalars):
         assert self._state == STATE_UNDEFINED
         self._argnames = (tuple(outputs), tuple(inputs), tuple(scalars))
         self._init_transformation_tree()
