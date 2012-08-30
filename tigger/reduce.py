@@ -5,7 +5,7 @@ from tigger.cluda import dtypes
 from tigger.core import *
 from tigger.transpose import Transpose
 
-TEMPLATE = template_for(__file__)
+TEMPLATE_SRC = template_source_for(__file__)
 
 
 def reduced_shape(shape, axis):
@@ -14,14 +14,16 @@ def reduced_shape(shape, axis):
     return tuple(l)
 
 
+DEFAULT_CODE = dict(kernel="return input1 + input2;")
+
+
 class Reduce(Computation):
 
     def _get_argnames(self):
         return ('output',), ('input',), tuple()
 
     def _get_default_basis(self):
-        return dict(shape=(1,1), dtype=numpy.float32, axis=None,
-            operation="return val1 + val2;")
+        return dict(shape=(1,1), dtype=numpy.float32, axis=None, code=DEFAULT_CODE)
 
     def _get_argvalues(self, argnames, basis):
         if basis.axis is None:
@@ -33,7 +35,7 @@ class Reduce(Computation):
             output=ArrayValue(output_shape, basis.dtype),
             input=ArrayValue(basis.shape, basis.dtype))
 
-    def _get_basis_for(self, argnames, output, input, axis=None, operation="return val1 + val2;"):
+    def _get_basis_for(self, argnames, output, input, axis=None, code=DEFAULT_CODE):
         assert input.dtype == output.dtype
         assert input.size % output.size == 0
         assert input.size > output.size
@@ -48,7 +50,7 @@ class Reduce(Computation):
             bs['axis'] = 0
 
         if operation is not None:
-            bs['operation'] = operation
+            bs['code'] = code
 
         return bs
 
@@ -109,11 +111,13 @@ class Reduce(Computation):
             render_kwds = dict(
                 blocks_per_part=blocks_per_part, last_block_size=last_block_size,
                 log2=log2, block_size=block_size,
-                warp_size=device_params.warp_size,
-                operation_code=basis.operation)
+                warp_size=device_params.warp_size)
+
+            template = template_from(
+                template_defs_for_code(basis.code, ['output', 'input']) + TEMPLATE_SRC)
 
             operations.add_kernel(
-                TEMPLATE, 'reduce', [output_name, input_name],
+                template, 'reduce', [output_name, input_name],
                 global_size=(global_size,), local_size=(block_size,), render_kwds=render_kwds)
 
             size = new_size

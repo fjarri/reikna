@@ -4,10 +4,6 @@
 * TODO: use OpenCL terminology in CLUDA as more general
 * TODO: update reference documentation (and in the meantime prepend internal fields with underscores)
 
-* TODO: decide on a synthax for operation in Reduce and Elementwise
-* TODO: add ability to include custom prelude (functions or includes) with transformations,
-  or in places where the code is passed to computations (Reduce, Elementwise)
-
 
 0.2.0
 =====

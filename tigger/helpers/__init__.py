@@ -16,13 +16,24 @@ class AttrDict(dict):
     def __repr__(self):
         return "AttrDict(" + dict.__repr__(self) + ")"
 
-
-def template_for(filename):
+def template_source_for(filename):
     name, ext = os.path.splitext(filename)
-    return Template(filename=name + ".mako")
+    return open(name + ".mako").read()
 
 def template_from(template_str):
     return Template(template_str)
+
+def template_defs_for_code(code, argnames):
+    return (
+        "<%def name='code_functions(" + ", ".join(argnames) + ")'>\n" +
+        code.pop('functions', "") +
+        "\n</%def>" +
+        "<%def name='code_kernel(" + ", ".join(argnames) + ")'>\n" +
+        code['kernel'] +
+        "\n</%def>")
+
+def template_for(filename):
+    return template_from(template_source_for(filename))
 
 def min_blocks(length, block):
     return (length - 1) / block + 1

@@ -1,5 +1,7 @@
 <%def name="reduce(output, input)">
 
+${code_functions(output, input)}
+
 <%
     log2_warp_size = log2(warp_size)
     log2_block_size = log2(block_size)
@@ -11,9 +13,9 @@
     ctype = output.ctype
 %>
 
-INLINE WITHIN_KERNEL ${ctype} _reduction_op(${ctype} val1, ${ctype} val2)
+INLINE WITHIN_KERNEL ${ctype} _reduction_op(${ctype} input1, ${ctype} input2)
 {
-    ${operation_code}
+    ${code_kernel(output, input)}
 }
 
 ${kernel_definition}
