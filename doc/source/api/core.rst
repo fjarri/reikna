@@ -1,5 +1,5 @@
-General user-side API
-=====================
+Core functionality
+==================
 
 Under construction.
 

@@ -20,8 +20,10 @@ Contents
    :maxdepth: 2
 
    tutorial
-   cluda
-   user-side
+   guide-computations
+   guide-transformations
+   guide-contributing
+   api/index
    history
 
 Indices and tables
