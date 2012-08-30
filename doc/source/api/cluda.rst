@@ -127,7 +127,7 @@ It is referred here (and references from other parts of this documentation) as :
             to be used while rendering the template.
         :returns: a :py:class:`Module` object.
 
-    .. py:method:: compile_static(self, template_src, name, global_size, local_size=None, local_mem=0, render_kwds=None)
+    .. py:method:: compile_static(template_src, name, global_size, local_size=None, local_mem=0, render_kwds=None)
 
         Creates a kernel object with fixed call sizes,
         which allows to overcome some backend limitations.
