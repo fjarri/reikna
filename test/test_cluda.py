@@ -69,8 +69,8 @@ def test_create_new_context(cluda_api):
 def test_connect_to_context(cluda_api):
     ctx = cluda_api.Context.create()
 
-    ctx2 = cluda_api.Context(ctx.context)
-    ctx3 = cluda_api.Context(ctx.context, async=False)
+    ctx2 = cluda_api.Context(ctx._context)
+    ctx3 = cluda_api.Context(ctx._context, async=False)
 
     simple_context_test(ctx)
     simple_context_test(ctx2)
@@ -86,8 +86,8 @@ def test_connect_to_context_and_queue(cluda_api):
     ctx = cluda_api.Context.create()
     queue = ctx.create_queue()
 
-    ctx2 = cluda_api.Context(ctx.context, queue=queue)
-    ctx3 = cluda_api.Context(ctx.context, queue=queue, async=False)
+    ctx2 = cluda_api.Context(ctx._context, queue=queue)
+    ctx3 = cluda_api.Context(ctx._context, queue=queue, async=False)
 
     simple_context_test(ctx)
     simple_context_test(ctx2)
