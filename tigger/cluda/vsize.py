@@ -49,11 +49,11 @@ class VirtualSizes:
 
         if product(self.local_size) > self.params.max_work_group_size:
             raise ValueError("Number of work items is too high")
-        if product(self.naive_bounding_grid) > product(self.params.max_grid_sizes):
+        if product(self.naive_bounding_grid) > product(self.params.max_num_groups):
             raise ValueError("Number of work groups is too high")
 
         self.grid_parts = self.get_rearranged_grid(self.naive_bounding_grid)
-        gdims = len(self.params.max_grid_sizes)
+        gdims = len(self.params.max_num_groups)
         self.grid = [product([row[i] for row in self.grid_parts])
             for i in xrange(gdims)]
         self.k_local_size = list(self.local_size) + [1] * (gdims - len(self.local_size))
@@ -66,7 +66,7 @@ class VirtualSizes:
         # 2) the overhead of empty threads is considered negligible
         #    (usually it will be true because it will be hidden by global memory latency)
         # 3) assuming len(grid) <= 3
-        max_grid = self.params.max_grid_sizes
+        max_grid = self.params.max_num_groups
         if len(grid) == 1:
             return self.get_rearranged_grid_1d(grid, max_grid)
         elif len(grid) == 2:

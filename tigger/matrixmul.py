@@ -76,7 +76,7 @@ class MatrixMul(Computation):
     def _construct_operations(self, operations, argnames, basis, device_params):
 
         bso = basis.block_size_override
-        block_width = device_params.smem_banks if bso is None else bso
+        block_width = device_params.local_mem_banks if bso is None else bso
 
         if block_width ** 2 > device_params.max_work_group_size:
             # If it is not CPU, current solution may affect performance

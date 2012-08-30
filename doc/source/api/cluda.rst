@@ -52,21 +52,21 @@ It is referred here (and references from other parts of this documentation) as :
 
         Returns a list of device objects from the platform.
 
-.. py:class:: Context(context, stream=None, fast_math=True, async=True)
+.. py:class:: Context(context, queue=None, fast_math=True, async=True)
 
     Wraps existing context in the CLUDA context object.
 
     :param context: a context to wrap
     :type context: :py:class:`pycuda.driver.Context` object for ``API_CUDA``, or :py:class:`pyopencl.Context` object for ``API_OCL``.
-    :param stream: a stream to serialize operations to.
+    :param queue: a queue to serialize operations to.
         If not given, a new one will be created internally.
-    :type stream: :py:class:`pycuda.driver.Stream` object for ``API_CUDA``, or :py:class:`pyopencl.CommandQueue` object for ``API_OCL``.
+    :type queue: :py:class:`pycuda.driver.Stream` object for ``API_CUDA``, or :py:class:`pyopencl.CommandQueue` object for ``API_OCL``.
     :param fast_math: whether to enable fast mathematical operations during compilation.
     :param async: whether to execute all operations with this context asynchronously (you would generally want to set it to ``False`` only for profiling purposes).
 
     .. py:classmethod:: create(device=None, fast_math=True, async=True)
 
-        Creates the new :py:class:`tigger.cluda.api.Context` object with its own context and stream inside.
+        Creates the new :py:class:`tigger.cluda.api.Context` object with its own context and queues inside.
         Intended for cases when you want to base your whole program on CLUDA.
 
         :param device: device to create context for, element of the list returned by :py:meth:`Platform.get_devices`.
@@ -103,7 +103,7 @@ It is referred here (and references from other parts of this documentation) as :
         The effect of ``dest`` parameter is the same as in :py:meth:`to_device`.
         If ``async`` is ``True``, the transfer is asynchronous (the context-wide asynchronisity setting does not apply here).
 
-        Alternatively, one might use :py:meth:`Array.get()`.
+        Alternatively, one might use :py:meth:`Array.get`.
 
     .. py:method:: copy_array(arr, dest=None, src_offset=0, dest_offset=0, size=None)
 
@@ -118,11 +118,29 @@ It is referred here (and references from other parts of this documentation) as :
 
         Forcefully synchronize the context with the main thread.
 
-    .. py:method:: compile(template_src, **kwds)
+    .. py:method:: compile(template_src, render_kwds=None)
 
-        Compiles ``Mako`` template source with ``kwds`` passed to the ``render()`` function and returns :py:class:`Module` object.
-        In addition to ``kwds``, some pre-defined keywords, and defines from API-specific prelude are available inside the kernel.
-        See :ref:`Kernel toolbox <cluda-kernel-toolbox>` for details.
+        Creates a module object from the given template.
+
+        :param template_src: Mako template source to render
+        :param render_kwds: a dictionary with additional parameters
+            to be used while rendering the template.
+        :returns: a :py:class:`Module` object.
+
+    .. py:method:: compile_static(self, template_src, name, global_size, local_size=None, local_mem=0, render_kwds=None)
+
+        Creates a kernel object with fixed call sizes,
+        which allows to overcome some backend limitations.
+
+        :param template_src: Mako template source to render
+        :param name: name of the kernel function
+        :param global_size: global size to be used
+        :param local_size: local size to be used.
+            If ``None``, some suitable one will be picked.
+        :param local_mem: amount of dynamically allocated local memory to be used (in bytes).
+        :param render_kwds: a dictionary with additional parameters
+            to be used while rendering the template.
+        :returns: a :py:class:`StaticKernel` object.
 
     .. py:method:: release()
 
@@ -155,19 +173,19 @@ It is referred here (and references from other parts of this documentation) as :
 
     .. py:attribute:: max_work_item_sizes
 
-        3-element list with maximum block dimensions.
+        List with maximum local_size for each dimension.
 
-    .. py:attribute:: max_grid_dims
+    .. py:attribute:: max_num_groups
 
-        2-element list with maximum grid dimensions.
+        List with maximum number of workgroups for each dimension.
 
     .. py:attribute:: warp_size
 
         Warp size (nVidia), or wavefront size (AMD), or SIMD width is supposed to be the number of threads that are executed simultaneously on the same computation unit (so you can assume that they are perfectly synchronized).
 
-    .. py:attribute:: smem_banks
+    .. py:attribute:: local_mem_banks
 
-        Shared (local for AMD) memory banks is a number of successive 32-bit words you can access without getting bank conflicts.
+        Number of local (shared in CUDA) memory banks is a number of successive 32-bit words you can access without getting bank conflicts.
 
 .. py:class:: Module
 
@@ -177,17 +195,31 @@ It is referred here (and references from other parts of this documentation) as :
 
 .. py:class:: Kernel
 
-    .. py:method:: prepare(block=(1, 1, 1), grid=(1, 1), shared=0)
+    .. py:method:: prepare(global_size, local_size=None, local_mem=0)
 
         Prepare kernel for execution with given parameters.
 
+        :param global_size: an integer or a tuple of integers,
+            specifying total number of work items to run.
+        :param local_size: an integer or a tuple of integers,
+            specifying the size of a single work group.
+            Should have the same number of dimensions as ``global_size``.
+            If ``None`` is passed, some ``local_size`` will be picked internally.
+        :param local_mem: amount of dynamic local memory (in bytes)
+
     .. py:method:: prepared_call(*args)
 
-        Execute kernel.
+        Execute the kernel.
 
     .. py:method:: __call__(*args, **kwds)
 
         Shortcut for successive call to :py:meth:`prepare` and :py:meth:`prepared_call`.
+
+.. py:class:: StaticKernel
+
+    .. py:method:: __call__(*args)
+
+        Execute the kernel.
 
 
 .. _cluda-kernel-toolbox:
@@ -247,30 +279,37 @@ Second, there is a set of macros attached to any kernel depending on the API it 
 
 .. c:macro:: LOCAL_MEM_ARG
 
-    Modifier for the local memory argument to the device-only functions.
+    Modifier for the local memory argument in the device-only functions.
 
 .. c:macro:: INLINE
 
     Modifier for inline functions.
 
-.. c:macro:: LID_0
-.. c:macro:: LID_1
-.. c:macro:: LID_2
+.. c:function:: int get_local_id(int dim)
+.. c:function:: int get_group_id(int dim)
+.. c:function:: int get_global_id(int dim)
+.. c:function:: int get_local_size(int dim)
+.. c:function:: int get_num_groups(int dim)
+.. c:function:: int get_global_size(int dim)
 
-    Thread identifiers in a block for three dimensions.
+    Local, group and global identifiers and sizes.
+    In case of CUDA mimic the behavior of corresponding OpenCL functions.
 
-.. c:macro:: GID_0
-.. c:macro:: GID_1
-.. c:macro:: GID_2
+.. c:function:: int virtual_local_id(int dim)
+.. c:function:: int virtual_group_id(int dim)
+.. c:function:: int virtual_global_id(int dim)
+.. c:function:: int virtual_local_size(int dim)
+.. c:function:: int virtual_num_groups(int dim)
+.. c:function:: int virtual_global_size(int dim)
 
-    Block identifiers in a grid for three dimensions.
+    Only available in :py:class:`~tigger.cluda.api.StaticKernel` objects obtained from :py:meth:`~tigger.cluda.api.Context.compile_static`.
+    Since its dimensions can differ from actual call dimensions, these functions have to be used.
 
-.. c:macro:: LSIZE_0
-.. c:macro:: LSIZE_1
-.. c:macro:: LSIZE_2
+.. c:function:: int virtual_global_flat_id(int dim)
+.. c:function:: int virtual_global_flat_size(int dim)
 
-    Block sizes for three dimensions.
-
+    Only available in :py:class:`~tigger.cluda.api.StaticKernel` objects obtained from :py:meth:`~tigger.cluda.api.Context.compile_static`.
+    useful for addressing input and output arrays.
 
 Datatype tools
 --------------

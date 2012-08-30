@@ -47,7 +47,7 @@ class Context:
 
         return cls(ctx, **kwds)
 
-    def __init__(self, context, stream=None, fast_math=True, async=True):
+    def __init__(self, context, queue=None, fast_math=True, async=True):
         self.api = cluda.api(API_ID)
         self.fast_math = fast_math
         self.context = context
@@ -55,7 +55,7 @@ class Context:
         self.device_params = DeviceParameters(context.get_info(cl.context_info.DEVICES)[0])
         self.device = self.context.devices[0]
 
-        self._queue = self.create_stream() if stream is None else stream
+        self._queue = self.create_queue() if queue is None else queue
 
     def override_device_params(self, **kwds):
         for kwd in kwds:
@@ -64,7 +64,7 @@ class Context:
             else:
                 raise ValueError("Device parameter " + str(kwd) + " does not exist")
 
-    def create_stream(self):
+    def create_queue(self):
         return cl.CommandQueue(self.context)
 
     def supports_dtype(self, dtype):
@@ -139,9 +139,9 @@ class Context:
         return Module(self, template_src, render_kwds=render_kwds)
 
     def compile_static(self, template_src, name, global_size,
-            local_size=None, shared=0, render_kwds=None):
+            local_size=None, local_mem=0, render_kwds=None):
         return StaticKernel(self, template_src, name, global_size,
-            local_size=local_size, shared=shared, render_kwds=render_kwds)
+            local_size=local_size, local_mem=local_mem, render_kwds=render_kwds)
 
 
 class DeviceParameters:
@@ -158,27 +158,27 @@ class DeviceParameters:
             self.max_work_group_size = device.max_work_group_size
             self.max_work_item_sizes = device.max_work_item_sizes
 
-        self.max_grid_sizes = [sys.maxint, sys.maxint, sys.maxint]
+        self.max_num_groups = [sys.maxint, sys.maxint, sys.maxint]
 
         if device.type == cl.device_type.CPU:
             # For CPU both values do not make much sense,
             # so we are just setting them to maximum
-            self.smem_banks = self.max_work_group_size
+            self.local_mem_banks = self.max_work_group_size
             self.warp_size = self.max_work_group_size
         elif "cl_nv_device_attribute_query" in device.extensions:
             # If NV extensions are available, use them to query info
-            self.smem_banks = 16 if device.compute_capability_major_nv < 2 else 32
+            self.local_mem_banks = 16 if device.compute_capability_major_nv < 2 else 32
             self.warp_size = device.warp_size_nv
         elif device.vendor == 'NVIDIA':
             # nVidia device, but no extensions.
             # Must be APPLE OpenCL implementation.
-            self.smem_banks = 16
+            self.local_mem_banks = 16
             self.warp_size = 16
         else:
             # AMD card.
             # Do not know how to query this info, so settle for most probable values.
 
-            self.smem_banks = 32
+            self.local_mem_banks = 32
 
             # An alternative is to query CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE
             # for some arbitrary kernel.
@@ -213,13 +213,13 @@ class Kernel:
         self.max_work_group_size = kernel.get_work_group_info(
             cl.kernel_work_group_info.WORK_GROUP_SIZE, self._ctx.device)
 
-    def prepare(self, global_size, local_size=None, shared=0):
+    def prepare(self, global_size, local_size=None, local_mem=0):
         if local_size is None:
             self.local_size = None
         else:
             self.local_size = wrap_in_tuple(local_size)
         self.global_size = wrap_in_tuple(global_size)
-        self.shared = shared
+        self.local_mem = local_mem
 
     def prepared_call(self, *args):
 
@@ -239,9 +239,9 @@ class Kernel:
 
 class StaticKernel:
 
-    def __init__(self, ctx, src, name, global_size, local_size=None, shared=0, render_kwds=None):
+    def __init__(self, ctx, src, name, global_size, local_size=None, local_mem=0, render_kwds=None):
         self._ctx = ctx
-        self.shared = shared
+        self.local_mem = local_mem
 
         if render_kwds is None:
             render_kwds = {}

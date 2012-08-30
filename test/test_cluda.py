@@ -33,7 +33,7 @@ def pair_context_with_gs(metafunc, cc):
 
         # If the context will not support these limits, skip
         ctx = cc()
-        mgs = ctx.device_params.max_grid_sizes
+        mgs = ctx.device_params.max_num_groups
         ctx.release()
         if len(gs) > len(mgs) or (len(mgs) > 2 and len(gs) > 2 and mgs[2] < gs[2]):
             continue
@@ -82,12 +82,12 @@ def test_connect_to_context(cluda_api):
     ctx.release()
 
 
-def test_connect_to_context_and_stream(cluda_api):
+def test_connect_to_context_and_queue(cluda_api):
     ctx = cluda_api.Context.create()
-    stream = ctx.create_stream()
+    queue = ctx.create_queue()
 
-    ctx2 = cluda_api.Context(ctx.context, stream=stream)
-    ctx3 = cluda_api.Context(ctx.context, stream=stream, async=False)
+    ctx2 = cluda_api.Context(ctx.context, queue=queue)
+    ctx3 = cluda_api.Context(ctx.context, queue=queue, async=False)
 
     simple_context_test(ctx)
     simple_context_test(ctx2)

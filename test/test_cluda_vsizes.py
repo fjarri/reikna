@@ -23,7 +23,7 @@ def set_context_gs_limits(metafunc, cc):
 
         # If the context will not support these limits, skip
         ctx = cc()
-        mgs = ctx.device_params.max_grid_sizes
+        mgs = ctx.device_params.max_num_groups
         ctx.release()
         if len(gl) > len(mgs) or (len(mgs) > 2 and len(gl) > 2 and mgs[2] < gl[2]):
             continue
@@ -31,7 +31,7 @@ def set_context_gs_limits(metafunc, cc):
         # New context creator function
         def new_cc():
             ctx = cc()
-            ctx.override_device_params(max_grid_sizes=gl)
+            ctx.override_device_params(max_num_groups=gl)
             return ctx
 
         rem_ids.append(str(gl))

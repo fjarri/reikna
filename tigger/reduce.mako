@@ -20,7 +20,7 @@ INLINE WITHIN_KERNEL ${ctype} _reduction_op(${ctype} input1, ${ctype} input2)
 
 ${kernel_definition}
 {
-    LOCAL_MEM ${ctype} shared_mem[${smem_size}];
+    LOCAL_MEM ${ctype} local_mem[${smem_size}];
 
     int tid = get_local_id(0);
     int bid = get_group_id(0);
@@ -30,9 +30,9 @@ ${kernel_definition}
     int index_in_part = ${block_size} * (bid % ${blocks_per_part}) + tid;
 
     if(bid % ${blocks_per_part} == ${blocks_per_part} - 1 && tid >= ${last_block_size})
-        shared_mem[tid] = ${dtypes.zero_ctr(basis.dtype)};
+        local_mem[tid] = ${dtypes.zero_ctr(basis.dtype)};
     else
-        shared_mem[tid] = ${input.load}(part_length * part_num + index_in_part);
+        local_mem[tid] = ${input.load}(part_length * part_num + index_in_part);
 
     LOCAL_BARRIER;
 
@@ -42,8 +42,8 @@ ${kernel_definition}
     %for reduction_pow in xrange(log2_block_size - 1, log2_warp_size, -1):
         if(tid < ${2 ** reduction_pow})
         {
-            shared_mem[tid] = _reduction_op(shared_mem[tid],
-                shared_mem[tid + ${2 ** reduction_pow}]);
+            local_mem[tid] = _reduction_op(local_mem[tid],
+                local_mem[tid + ${2 ** reduction_pow}]);
         }
         LOCAL_BARRIER;
     %endfor
@@ -54,9 +54,9 @@ ${kernel_definition}
     if (tid < ${warp_size}) {
     #ifdef CUDA
     // Fix for Fermi videocards, see Compatibility Guide 1.2.2
-    volatile ${ctype} *smem = shared_mem;
+    volatile ${ctype} *smem = local_mem;
     #else
-    LOCAL_MEM ${ctype} *smem = shared_mem;
+    LOCAL_MEM ${ctype} *smem = local_mem;
     #endif
 
     ${ctype} ttt;
@@ -68,7 +68,7 @@ ${kernel_definition}
     %endif
 
     if (tid == 0)
-        ${output.store}(bid, shared_mem[0]);
+        ${output.store}(bid, local_mem[0]);
 }
 
 </%def>

@@ -23,7 +23,7 @@ WITHIN_KERNEL int virtual_group_id(int dim)
 %for dim in xrange(len(vs.naive_bounding_grid)):
     if (dim == ${dim}) {
         int res = 0;
-    %for rdim in xrange(len(vs.params.max_grid_sizes)):
+    %for rdim in xrange(len(vs.params.max_num_groups)):
     <%
         widths = [p[rdim] for p in vs.grid_parts]
         width_greater = product(widths[:dim+1])

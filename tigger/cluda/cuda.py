@@ -52,14 +52,14 @@ class Context:
         kwds['owns_context'] = True
         return cls(ctx, **kwds)
 
-    def __init__(self, context, stream=None, fast_math=True, async=True, owns_context=False):
+    def __init__(self, context, queue=None, fast_math=True, async=True, owns_context=False):
         self.api = cluda.api(API_ID)
         self.fast_math = fast_math
         self.context = context
         self.async = async
         self.device_params = DeviceParameters(context.get_device())
 
-        self._stream = self.create_stream() if stream is None else stream
+        self._stream = self.create_queue() if queue is None else queue
         self._released = False if owns_context else True
 
     def override_device_params(self, **kwds):
@@ -69,7 +69,7 @@ class Context:
             else:
                 raise ValueError("Device parameter " + str(kwd) + " does not exist")
 
-    def create_stream(self):
+    def create_queue(self):
         return cuda.Stream()
 
     def supports_dtype(self, dtype):
@@ -147,9 +147,9 @@ class Context:
         return Module(self, template_src, render_kwds=render_kwds)
 
     def compile_static(self, template_src, name, global_size,
-            local_size=None, shared=0, render_kwds=None):
+            local_size=None, local_mem=0, render_kwds=None):
         return StaticKernel(self, template_src, name, global_size,
-            local_size=local_size, shared=shared, render_kwds=render_kwds)
+            local_size=local_size, local_mem=local_mem, render_kwds=render_kwds)
 
     def release(self):
         if not self._released:
@@ -170,13 +170,13 @@ class DeviceParameters:
             device.max_block_dim_y,
             device.max_block_dim_z]
 
-        self.max_grid_sizes = [
+        self.max_num_groups = [
             device.max_grid_dim_x,
             device.max_grid_dim_y,
             device.max_grid_dim_z]
 
         # there is no corresponding constant in the API at the moment
-        self.smem_banks = 16 if device.compute_capability()[0] < 2 else 32
+        self.local_mem_banks = 16 if device.compute_capability()[0] < 2 else 32
 
         self.warp_size = device.warp_size
 
@@ -206,9 +206,9 @@ class Kernel:
         self.max_work_group_size = kernel.get_attribute(
             cuda.function_attribute.MAX_THREADS_PER_BLOCK)
 
-    def prepare(self, global_size, local_size=None, shared=0):
+    def prepare(self, global_size, local_size=None, local_mem=0):
         self.global_size = wrap_in_tuple(global_size)
-        self.shared = shared
+        self.local_mem = local_mem
 
         if local_size is not None:
             self.local_size = wrap_in_tuple(local_size)
@@ -242,7 +242,7 @@ class Kernel:
 
     def prepared_call(self, *args):
         self._kernel(*args, grid=self.grid, block=self.local_size,
-            stream=self._ctx._stream, shared=self.shared)
+            stream=self._ctx._stream, local_mem=self.local_mem)
         self._ctx._synchronize()
 
     def __call__(self, *args, **kwds):
@@ -256,9 +256,9 @@ class Kernel:
 
 class StaticKernel:
 
-    def __init__(self, ctx, src, name, global_size, local_size=None, shared=0, render_kwds=None):
+    def __init__(self, ctx, src, name, global_size, local_size=None, local_mem=0, render_kwds=None):
         self._ctx = ctx
-        self.shared = shared
+        self.local_mem = local_mem
 
         if render_kwds is None:
             render_kwds = {}
@@ -286,5 +286,5 @@ class StaticKernel:
 
     def __call__(self, *args):
         self._kernel(*args, grid=self.grid, block=self.local_size,
-            stream=self._ctx._stream, shared=self.shared)
+            stream=self._ctx._stream, local_mem=self.local_mem)
         self._ctx._synchronize()
