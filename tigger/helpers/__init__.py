@@ -1,11 +1,18 @@
+"""
+This module contains various auxiliary functions which are used throughout the library.
+"""
+
 import collections
 import os.path
 from mako.template import Template
 
-product = lambda x: reduce(lambda x1, x2: x1 * x2, x, 1)
-
 
 class AttrDict(dict):
+    """
+    An extension of the standard ``dict`` class
+    which allows one to address its elements as attributes
+    (for example, ``d.key`` instead of ``d['key']``).
+    """
 
     def __getattr__(self, attr):
         return self[attr]
@@ -16,14 +23,37 @@ class AttrDict(dict):
     def __repr__(self):
         return "AttrDict(" + dict.__repr__(self) + ")"
 
+
+def product(seq):
+    """
+    Returns the product of elements in the iterable ``seq``.
+    """
+    return reduce(lambda x1, x2: x1 * x2, seq, 1)
+
+
 def template_source_for(filename):
+    """
+    Returns the contents of the file which has the same name as ``filename``
+    and the extension ``.mako``.
+    Typically used in computation modules as ``template_source_for(__filename__)``.
+    """
     name, ext = os.path.splitext(filename)
     return open(name + ".mako").read()
 
+
 def template_from(template_str):
+    """
+    Creates a Mako template object from a given string.
+    """
     return Template(template_str)
 
+
 def template_defs_for_code(code, argnames):
+    """
+    Returns the template source with two Mako defs ``code_functions`` and ``code_kernel``,
+    taking parameters with names from ``argnames``
+    and containing template snippets from ``code['kernel']`` and ``code['functions']`` (optional).
+    """
     return (
         "<%def name='code_functions(" + ", ".join(argnames) + ")'>\n" +
         code.pop('functions', "") +
@@ -32,13 +62,29 @@ def template_defs_for_code(code, argnames):
         code['kernel'] +
         "\n</%def>")
 
+
 def template_for(filename):
+    """
+    Returns the Mako template object created from the file
+    which has the same name as ``filename`` and the extension ``.mako``.
+    Typically used in computation modules as ``template_for(__filename__)``.
+    """
     return template_from(template_source_for(filename))
 
+
 def min_blocks(length, block):
+    """
+    Returns minimum number of blocks with length ``block``
+    necessary to cover the array with length ``length``.
+    """
     return (length - 1) / block + 1
 
+
 def log2(n):
+    """
+    Integer-valued logarigthm with base 2.
+    If ``n`` is not a power of 2, the result is rounded to the smallest number.
+    """
     pos = 0
     for pow in [16, 8, 4, 2, 1]:
         if n >= 2 ** pow:
@@ -46,7 +92,13 @@ def log2(n):
             pos += pow
     return pos
 
+
 def factors(n, limit=None):
+    """
+    Returns the list of pairs ``(factor, n/factor)`` for all factors of ``n``
+    (including 1 and ``n``), sorted by ``factor``.
+    If ``limit`` is set, only pairs with ``factor <= limit`` are returned.
+    """
     if limit is None:
         limit = n
 
@@ -62,7 +114,12 @@ def factors(n, limit=None):
     else:
         return result
 
+
 def wrap_in_tuple(x):
+    """
+    If ``x`` is a sequence, converts it to a ``tuple``,
+    otherwise returns a tuple with a single element ``x``.
+    """
     if isinstance(x, collections.Iterable):
         return tuple(x)
     else:
