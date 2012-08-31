@@ -70,10 +70,29 @@ def get_transposes(shape, axes=None):
 
 
 class Transpose(Computation):
+    """
+    Changes the order of axes in a multidimensional array.
+    Works analogous to :py:func:`numpy.transpose`.
+
+    .. py:method:: prepare_for(output, input, axes=None)
+
+        :param output: output array
+        :param input: input array
+        :param axes: tuple with the new axes order.
+            If ``None``, then axes will be reversed.
+
+    .. py:method:: prepare(dtype=numpy.float32, input_shape=(1, 1), \\
+            axes=(1, 0), block_width_override=None)
+
+        :param dtype: dtype of the array
+        :param input_shape: shape of the input array
+        :param axes: tuple with the new axes order
+        :param block_width_override: custom block width for the kernel
+    """
 
     def _get_default_basis(self):
         return dict(dtype=numpy.float32, input_shape=(1, 1), axes=(1, 0),
-            block_size_override=None)
+            block_width_override=None)
 
     def _get_argnames(self):
         return ('output',), ('input',), tuple()
@@ -107,7 +126,7 @@ class Transpose(Computation):
     def _add_transpose(self, operations, basis, device_params,
             output_name, input_name, batch, input_height, input_width):
 
-        bso = basis.block_size_override
+        bso = basis.block_width_override
         block_width = device_params.local_mem_banks if bso is None else bso
 
         if block_width ** 2 > device_params.max_work_group_size:

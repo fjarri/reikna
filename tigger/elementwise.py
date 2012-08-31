@@ -4,13 +4,33 @@ from tigger.helpers import *
 from tigger.core import *
 
 
+EMPTY = dict(functions="", kernel="")
+
+
 class Elementwise(Computation):
+    """
+    A general class for elementwise computations.
+
+    .. py:method:: set_argnames(outputs, inputs, scalars)
+
+    .. py:method:: prepare_for(*args, code=EMPTY)
+
+        :param args: arrays and scalars, according to the lists passed to :py:meth:`set_argnames`.
+        :param code: kernel code.
+
+    .. py:method:: prepare(size=1, argtypes={}, code=EMPTY)
+
+        :param size: base size for the computation (== number of work items to use)
+        :param argtypes: dictionary containing dtypes associated with argument names
+            passed to :py:meth:`set_argnames`.
+        :param code: kernel code.
+    """
 
     def _get_default_basis(self):
         basis = dict(
             size=1,
             argtypes=dict(),
-            code=dict(functions="", kernel=""))
+            code=EMPTY)
 
         return basis
 
@@ -26,7 +46,7 @@ class Elementwise(Computation):
     def _get_basis_for(self, argnames, *args, **kwds):
 
         # Python 2 does not support explicit kwds after *args
-        code = kwds.pop('code', dict(functions="", kernel=""))
+        code = kwds.pop('code', EMPTY)
 
         # map argument names to values
         outputs, inputs, params = argnames

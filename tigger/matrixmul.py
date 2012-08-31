@@ -7,12 +7,36 @@ TEMPLATE = template_for(__file__)
 
 
 class MatrixMul(Computation):
+    """
+    Multiplies two matrices using last two dimensions and batching over remaining dimensions.
+
+    .. py:method:: prepare_for(out, a, b)
+
+        :param out: buffer for the result
+        :param a: first matrix
+        :param b: second matrix
+
+    .. py:method:: prepare(a_dtype=numpy.float32, b_dtype=numpy.float32, \\
+        out_dtype=numpy.float32, a_height=1, a_width=1, b_width=1, batch=1,  \\
+        batched_a=False, batched_b=False, block_width_override=None, out_shape=(1, 1))
+
+        :param a_dtype: dtype of the first matrix
+        :param b_dtype: dtype of the second matrix
+        :param out_dtype: dtype of the output
+        :param a_height: height of the first matrix
+        :param a_width: width of the first matrix
+        :param b_width: width of the second matrix
+        :param batch: number of matrices to batch over
+        :param batched_a: batch over matrices in ``a``
+        :param batched_b: batch over matrices in ``b``
+        :param block_width_override: custom block width for the kernel
+    """
 
     def _get_default_basis(self):
         return dict(a_dtype=numpy.float32, b_dtype=numpy.float32, out_dtype=numpy.float32,
             a_height=1, a_width=1, b_width=1, batch=1,
             batched_a=False, batched_b=False,
-            block_size_override=None,
+            block_width_override=None,
             out_shape=(1, 1))
 
     def _get_argnames(self):
@@ -75,7 +99,7 @@ class MatrixMul(Computation):
 
     def _construct_operations(self, operations, argnames, basis, device_params):
 
-        bso = basis.block_size_override
+        bso = basis.block_width_override
         block_width = device_params.local_mem_banks if bso is None else bso
 
         if block_width ** 2 > device_params.max_work_group_size:

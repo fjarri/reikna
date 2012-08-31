@@ -20,10 +20,10 @@ Computations and transformations are based on two classes, which provide the use
         :param new_array_args: list of the names for the new leaf array parameters.
         :param new_scalar_args: list of the names for the new leaf scalar parameters.
 
-    .. py:method:: set_argnames(*argnames)
+    .. py:method:: set_argnames(outputs, inputs, scalars)
 
         Set argument names for the computation.
-        This method should be called first after the creation of the computation object, and is only available in the computations with variable argument number (for example, :py:class:`~tigger.Elementwise`.)
+        This method should be called first after the creation of the computation object, and is only available in the computations with variable argument number (for example, :py:class:`~tigger.elementwise.Elementwise`.)
 
     .. py:method:: set_basis(**kwds)
 

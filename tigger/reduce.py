@@ -14,16 +14,35 @@ def reduced_shape(shape, axis):
     return tuple(l)
 
 
-DEFAULT_CODE = dict(kernel="return input1 + input2;")
+SUM = dict(kernel="return input1 + input2;")
 
 
 class Reduce(Computation):
+    """
+    Reduces the array over given axis using given binary operation.
+
+    .. py:method:: prepare_for(output, input, axis=None, code=SUM)
+
+        :param output: output buffer
+        :param input: input buffer
+        :param axis: axis over which reduction is performed.
+            If ``None``, the whole array will be reduced to a single element.
+        :param code: dictionary {kernel, functions} with the reduction code.
+
+    .. py:method:: prepare(shape=(1,1), dtype=numpy.float32, axis=None, code=SUM)
+
+        :param shape: shape of the input buffer
+        :param dtype: dtype of the input buffer
+        :param axis: axis over which reduction is performed.
+            If ``None``, the whole array will be reduced to a single element.
+        :param code: dictionary {kernel, functions} with the reduction code.
+    """
 
     def _get_argnames(self):
         return ('output',), ('input',), tuple()
 
     def _get_default_basis(self):
-        return dict(shape=(1,1), dtype=numpy.float32, axis=None, code=DEFAULT_CODE)
+        return dict(shape=(1,1), dtype=numpy.float32, axis=None, code=SUM)
 
     def _get_argvalues(self, argnames, basis):
         if basis.axis is None:
@@ -35,7 +54,7 @@ class Reduce(Computation):
             output=ArrayValue(output_shape, basis.dtype),
             input=ArrayValue(basis.shape, basis.dtype))
 
-    def _get_basis_for(self, argnames, output, input, axis=None, code=DEFAULT_CODE):
+    def _get_basis_for(self, argnames, output, input, axis=None, code=SUM):
         assert input.dtype == output.dtype
         assert input.size % output.size == 0
         assert input.size > output.size
