@@ -10,9 +10,12 @@
 
 * DECIDE: if user calls prepare_for() with no keyword argument passed, does it mean that he wants default values, or the values that are currently in the basis? This can be fixed by setting the strict order of prepare and connect calls.
 * DECIDE: fix dynamic shared memory interface for OpenCL kernels
+* DECIDE: create policy for wrapping raw computations into more convenient classes
+* DECIDE: create policy for providing pre-made computations like sin()/cos()
+* DECIDE: profile Computation.__call__() and see if it takes too long, and if the algorithm of assignment args to endpoints should be improved.
+
 * TODO: run coverage tests and see if some functionality has to be tested
 * TODO: Write some performance tests
-* DECIDE: profile Computation.__call__() and see if it takes too long, and if the algorithm of assignment args to endpoints should be improved.
 * TODO: Flatten kernel list before execution, and assign argument numbers
 * TODO: add FFT (and mark pyfft as deprecated)
   Problem here: some kernels can be out of registers or local memory, and need to be recompiled.
@@ -57,8 +60,6 @@ Computations:
 * TODO: add random number generation (MD5 and DCMT seem to be the best candidates)
 * TODO: add bitonic sort
 * TODO: add filter
-* DECIDE: create policy for wrapping raw computations into more convenient classes
-* DECIDE: create policy for providing pre-made computations like sin()/cos()
 
 
 1.*
