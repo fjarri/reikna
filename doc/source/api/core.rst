@@ -103,7 +103,7 @@ Computations and transformations are based on two classes, which provide the use
         Adds an allocation to the list of actions.
         The ``name`` can be used later in the list of argument names for kernels.
 
-    .. py:method:: add_kernel(template, defname, argnames, global_size, local_size=None, local_mem=0, render_kwds=None)
+    .. py:method:: add_kernel(template, defname, argnames, global_size, local_size=None, render_kwds=None)
 
         Adds kernel execution to the list of actions.
         See the details on how to write kernels in the :ref:`kernel writing guide <guide-contributing>`.
@@ -115,7 +115,6 @@ Computations and transformations are based on two classes, which provide the use
         :param global_size: global size to use for the call.
         :param local_size: local size to use for the call.
             If ``None``, the local size will be picked automatically.
-        :param local_mem: amount of dynamic local memory, in bytes.
         :param render_kwds: dictionary with additional values used to render the template.
 
     .. py:method:: add_computation(computation, *argnames)
