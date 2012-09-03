@@ -463,7 +463,7 @@ class TransformationTree:
                     arg = TransformationArgument(self.nodes, 'i', i, name, node.type)
                     args[arg.label] = arg
                 for i, name in enumerate(scalar_names):
-                    arg = TransformationArgument(self.nodes, 'p', i, name, node.type)
+                    arg = TransformationArgument(self.nodes, 's', i, name, node.type)
                     args[arg.label] = arg
 
                 arg = TransformationArgument(self.nodes, 'o', 0, node.name, node.type)
@@ -483,7 +483,7 @@ class TransformationTree:
                     arg = TransformationArgument(self.nodes, 'o', i, name, node.type)
                     args[arg.label] = arg
                 for i, name in enumerate(scalar_names):
-                    arg = TransformationArgument(self.nodes, 'p', i, name, node.type)
+                    arg = TransformationArgument(self.nodes, 's', i, name, node.type)
                     args[arg.label] = arg
 
                 arg = TransformationArgument(self.nodes, 'i', 0, node.name, node.type)

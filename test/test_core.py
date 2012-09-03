@@ -69,13 +69,13 @@ tr_trivial = Transformation(
 # Output = Input1 * Parameter1 + Input 2
 tr_2_to_1 = Transformation(
     inputs=2, outputs=1, scalars=1,
-    derive_o_from_is=lambda i1, i2, p1: [i1],
+    derive_o_from_is=lambda i1, i2, s1: [i1],
     derive_is_from_o=lambda o1: ([o1, o1], [numpy.float32]),
-    derive_i_from_os=lambda o1, p1: [o1, o1],
+    derive_i_from_os=lambda o1, s1: [o1, o1],
     derive_os_from_i=lambda i1, i2: ([i1], [numpy.float32]),
     code="""
         ${o1.ctype} t = ${func.mul(o1.dtype, i1.dtype)}(
-            ${func.cast(o1.dtype, p1.dtype)}(${p1}), ${i1.load});
+            ${func.cast(o1.dtype, s1.dtype)}(${s1}), ${i1.load});
         ${o1.store}(t + ${i2.load});
     """)
 
@@ -91,13 +91,13 @@ tr_1_to_2 = Transformation(
 # Output = Input * Parameter
 tr_scale = Transformation(
     inputs=1, outputs=1, scalars=1,
-    derive_o_from_is=lambda i1, p1: [i1],
+    derive_o_from_is=lambda i1, s1: [i1],
     derive_is_from_o=lambda o1: ([o1], [numpy.float32]),
-    derive_i_from_os=lambda o1, p1: [o1],
+    derive_i_from_os=lambda o1, s1: [o1],
     derive_os_from_i=lambda i1: ([i1], [numpy.float32]),
     code="""
         ${o1.store}(
-            ${func.mul(i1.dtype, p1.dtype, out=o1.dtype)}(${i1.load}, ${p1})
+            ${func.mul(i1.dtype, s1.dtype, out=o1.dtype)}(${i1.load}, ${s1})
         );
     """)
 
