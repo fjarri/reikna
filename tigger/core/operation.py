@@ -32,7 +32,7 @@ class OperationRecorder:
         self._allocations[name] = value
 
     def add_kernel(self, template, defname, argnames,
-            global_size, local_size=None, local_mem=0, render_kwds=None):
+            global_size, local_size=None, render_kwds=None):
 
         subtemplate = template.get_def(defname)
 
@@ -56,7 +56,7 @@ class OperationRecorder:
         src = render_template(subtemplate, *args, **render_kwds)
 
         self.operations.append(KernelCall(defname, argnames, src,
-            global_size, local_size=local_size, local_mem=local_mem))
+            global_size, local_size=local_size))
 
     def add_computation(self, computation, *argnames):
         self.operations.append(ComputationCall(computation, *argnames))
@@ -131,19 +131,18 @@ class ComputationCall:
 class KernelCall:
 
     def __init__(self, name, base_argnames, base_src, global_size,
-            local_size=None, local_mem=0):
+            local_size=None):
         self.name = name
         self.base_argnames = list(base_argnames)
         self.local_size = local_size
         self.global_size = global_size
         self.src = base_src
-        self.local_mem = local_mem
 
     def prepare(self, ctx, tr_tree):
         transformation_code = tr_tree.transformations_for(self.base_argnames)
         self.full_src = transformation_code + self.src
         self.kernel = ctx.compile_static(self.full_src, self.name,
-            self.global_size, local_size=self.local_size, local_mem=self.local_mem)
+            self.global_size, local_size=self.local_size)
         self.leaf_argnames = [name for name, _ in tr_tree.leaf_signature(self.base_argnames)]
 
     def __call__(self, *args):

@@ -137,7 +137,7 @@ It is referred here (and references from other parts of this documentation) as :
         :param global_size: global size to be used
         :param local_size: local size to be used.
             If ``None``, some suitable one will be picked.
-        :param local_mem: amount of dynamically allocated local memory to be used (in bytes).
+        :param local_mem: (**CUDA API only**) amount of dynamically allocated local memory to be used (in bytes).
         :param render_kwds: a dictionary with additional parameters
             to be used while rendering the template.
         :returns: a :py:class:`StaticKernel` object.
@@ -209,7 +209,7 @@ It is referred here (and references from other parts of this documentation) as :
             specifying the size of a single work group.
             Should have the same number of dimensions as ``global_size``.
             If ``None`` is passed, some ``local_size`` will be picked internally.
-        :param local_mem: amount of dynamic local memory (in bytes)
+        :param local_mem: (**CUDA API only**) amount of dynamic local memory (in bytes)
 
     .. py:method:: prepared_call(*args)
 

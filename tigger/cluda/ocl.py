@@ -139,9 +139,9 @@ class Context:
         return Module(self, template_src, render_kwds=render_kwds)
 
     def compile_static(self, template_src, name, global_size,
-            local_size=None, local_mem=0, render_kwds=None):
+            local_size=None, render_kwds=None):
         return StaticKernel(self, template_src, name, global_size,
-            local_size=local_size, local_mem=local_mem, render_kwds=render_kwds)
+            local_size=local_size, render_kwds=render_kwds)
 
 
 class DeviceParameters:
@@ -213,13 +213,12 @@ class Kernel:
         self._max_work_group_size = kernel.get_work_group_info(
             cl.kernel_work_group_info.WORK_GROUP_SIZE, self._ctx._device)
 
-    def prepare(self, global_size, local_size=None, local_mem=0):
+    def prepare(self, global_size, local_size=None):
         if local_size is None:
             self._local_size = None
         else:
             self._local_size = wrap_in_tuple(local_size)
         self._global_size = wrap_in_tuple(global_size)
-        self._local_mem = local_mem
 
     def prepared_call(self, *args):
 
@@ -239,9 +238,8 @@ class Kernel:
 
 class StaticKernel:
 
-    def __init__(self, ctx, src, name, global_size, local_size=None, local_mem=0, render_kwds=None):
+    def __init__(self, ctx, src, name, global_size, local_size=None, render_kwds=None):
         self._ctx = ctx
-        self._local_mem = local_mem
 
         if render_kwds is None:
             render_kwds = {}
