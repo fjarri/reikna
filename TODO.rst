@@ -20,7 +20,6 @@
 * TODO: Flatten kernel list before execution, and assign argument numbers
 * TODO: add FFT (and mark pyfft as deprecated)
   Problem here: some kernels can be out of registers or local memory, and need to be recompiled.
-* TODO: do not create special mul/div function for scalars
 
 
 1.0.0 (production-quality version... hopefully)
