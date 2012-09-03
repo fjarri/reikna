@@ -2,7 +2,6 @@ import numpy
 
 from tigger.helpers import *
 from tigger.core import *
-from tigger.core.computation import STATE_UNDEFINED
 
 
 EMPTY = dict(functions="", kernel="")
