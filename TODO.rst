@@ -1,7 +1,6 @@
 0.1.0
 =====
 
-* TODO: use "scalar" instead of "parameter"
 * TODO:
     1) remove set_basis() and set_basis_for()
     2) remove get_nested_computation()
@@ -22,6 +21,7 @@
 0.2.0
 =====
 
+* TODO: move part of core.transformation to a template
 * TODO: run coverage tests and see if some functionality has to be tested
 * TODO: Write some performance tests
 * TODO: Flatten kernel list before execution, and assign argument numbers

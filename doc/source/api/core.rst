@@ -78,20 +78,20 @@ Computations and transformations are based on two classes, which provide the use
         Must fill the ``operations`` object with actions required to execute the computation.
         See the :py:class:`OperationRecorder` class reference for the list of available actions.
 
-.. py:class:: Transformation(inputs=1, outputs=1, parameters=0, derive_o_from_ip=None,         derive_ip_from_o=None, derive_i_from_op=None, derive_op_from_i=None, code="${store.s1}(${load.l1});")
+.. py:class:: Transformation(inputs=1, outputs=1, scalars=0, derive_o_from_is=None,         derive_is_from_o=None, derive_i_from_os=None, derive_os_from_i=None, code="${store.s1}(${load.l1});")
 
         Creates an elementwise transformation.
 
         :param inputs: number of input array values.
         :param outputs: number of output array values.
         :param parameters: number of scalar parameters for the transformation.
-        :param derive_o_from_ip: a function taking ``inputs`` + ``parameters`` dtype parameters and returning list with ``outputs`` dtypes.
+        :param derive_o_from_is: a function taking ``inputs`` + ``parameters`` dtype parameters and returning list with ``outputs`` dtypes.
             Used to derive types in the transformation tree after call to :py:meth:`Computation.prepare_for` when the transformation is connected to the input argument.
-        :param derive_ip_from_o: a function taking ``outputs`` dtype parameters and returning tuple of two lists with ``inputs`` and ``parameters`` dtypes.
+        :param derive_is_from_o: a function taking ``outputs`` dtype parameters and returning tuple of two lists with ``inputs`` and ``parameters`` dtypes.
             Used to derive types in the transformation tree after call to :py:meth:`Computation.prepare` when the transformation is connected to the input argument.
-        :param derive_i_from_op: a function taking ``outputs`` + ``parameters`` dtype parameters and returning list with ``inputs`` dtypes.
+        :param derive_i_from_os: a function taking ``outputs`` + ``parameters`` dtype parameters and returning list with ``inputs`` dtypes.
             Used to derive types in the transformation tree after call to :py:meth:`Computation.prepare_for` when the transformation is connected to the output argument.
-        :param derive_op_from_i: a function taking ``inputs`` dtype parameters and returning tuple of two lists with ``outputs`` and ``parameters`` dtypes.
+        :param derive_os_from_i: a function taking ``inputs`` dtype parameters and returning tuple of two lists with ``outputs`` and ``parameters`` dtypes.
             Used to derive types in the transformation tree after call to :py:meth:`Computation.prepare` when the transformation is connected to the output argument.
         :param code: template source with the transformation code.
             See :ref:`How to write transformations <how-to-transformations>` section for details.

@@ -166,13 +166,13 @@ Therefore the total of four transformations is required, although two is enough 
 
 The format of required lambdas is the following (here ``iN``, ``oN`` and ``pN`` are :py:class:`numpy.dtype` objects):
 
-* ``derive_o_from_ip(i1, ..., p1, ...)`` is called when the transformation is connected to the output node, and the derivation from the *root* nodes is required (:py:meth:`~tigger.core.Computation.prepare` was called, or the basis was changed by :py:meth:`~tigger.core.Computation.prepare_for`).
+* ``derive_o_from_is(i1, ..., p1, ...)`` is called when the transformation is connected to the output node, and the derivation from the *root* nodes is required (:py:meth:`~tigger.core.Computation.prepare` was called, or the basis was changed by :py:meth:`~tigger.core.Computation.prepare_for`).
   Returns an iterable ``(o1, ...)``.
-* ``derive_ip_from_o(o1, ...)`` is called when the transformation is connected to the output node, and the derivation from the *leaf* nodes is required (:py:meth:`~tigger.core.Computation.prepare_for` was called).
+* ``derive_is_from_o(o1, ...)`` is called when the transformation is connected to the output node, and the derivation from the *leaf* nodes is required (:py:meth:`~tigger.core.Computation.prepare_for` was called).
   Returns a pair of iterables ``(i1, ...), (p1, ...)``.
-* ``derive_i_from_op(o1, ..., p1, ...)`` is called when the transformation is connected to the *input* node, and the derivation from the *leaf* nodes is required (:py:meth:`~tigger.core.Computation.prepare_for` was called).
+* ``derive_i_from_os(o1, ..., p1, ...)`` is called when the transformation is connected to the *input* node, and the derivation from the *leaf* nodes is required (:py:meth:`~tigger.core.Computation.prepare_for` was called).
   Returns an iterable ``(i1, ...)``.
-* ``derive_op_from_i(i1, ...)`` is called when the transformation is connected to the *input* node, and the derivation from the *root* nodes is required .
+* ``derive_os_from_i(i1, ...)`` is called when the transformation is connected to the *input* node, and the derivation from the *root* nodes is required .
   Returns a pair of iterables ``(o1, ...), (p1, ...)`` (:py:meth:`~tigger.core.Computation.prepare` was called, or the basis was changed by :py:meth:`~tigger.core.Computation.prepare_for`).
 
 The last part of the constructor is a ``code`` parameter.

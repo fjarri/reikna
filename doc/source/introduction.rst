@@ -195,8 +195,8 @@ Let us change the previous example and connect transformations to it.
 
     split_to_interleaved = Transformation(
         load=2, store=1,
-        derive_o_from_ip=lambda l1, l2: [dtypes.complex_for(l1)],
-        derive_ip_from_o=lambda s1: ([dtypes.real_for(s1), dtypes.real_for(s1)], []),
+        derive_o_from_is=lambda l1, l2: [dtypes.complex_for(l1)],
+        derive_is_from_o=lambda s1: ([dtypes.real_for(s1), dtypes.real_for(s1)], []),
         code="""
             ${store.s1}(${dtypes.complex_ctr(numpy.complex64)}(${load.l1}, ${load.l2}));
         """)
