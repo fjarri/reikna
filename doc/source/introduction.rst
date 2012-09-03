@@ -1,5 +1,5 @@
-Tutorial
-========
+Introduction
+============
 
 This section contains brief illustration of what Tigger does.
 For detailed information see corresponding reference pages.
@@ -29,7 +29,7 @@ Consider the following example, which is very similar to the one from the index 
         GLOBAL_MEM float *a,
         GLOBAL_MEM float *b)
     {
-      const int i = LID_0;
+      const int i = get_local_id(0);
       dest[i] = a[i] * b[i];
     }
     """)
@@ -42,7 +42,7 @@ Consider the following example, which is very similar to the one from the index 
     b_dev = ctx.to_device(b)
     dest_dev = ctx.empty_like(a_dev)
 
-    multiply_them(dest_dev, a_dev, b_dev, block=(N,1,1), grid=(1,1))
+    multiply_them(dest_dev, a_dev, b_dev, local_size=(N,), global_size=(N,))
     print ctx.from_device(dest_dev) - a * b
 
 If you are familiar with PyCuda or PyOpenCL, you will easily understand all the steps we have done here.

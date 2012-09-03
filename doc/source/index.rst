@@ -19,10 +19,8 @@ Contents
 .. toctree::
    :maxdepth: 2
 
-   tutorial
-   guide-computations
-   guide-transformations
-   guide-contributing
+   introduction
+   guide
    api/index
    history
 
