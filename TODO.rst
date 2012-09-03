@@ -1,25 +1,30 @@
 0.1.0
 =====
 
-* TODO: update reference documentation (and in the meantime prepend internal fields with underscores)
+* TODO: pass 'argnames' to _get_default_basis()
 * TODO: use "scalar" instead of "parameter"
+* TODO:
+    1) remove set_basis() and set_basis_for()
+    2) remove get_nested_computation()
+    3) force strict order ctr -> set_argnames -> connect -> prepare/prepare_for
+       (this will fix the issue with default parameters in prepare_for)
+    4) use operations.add_operation(cls, argname1, argname2, ..., **kwds) for nested computations
 * TODO: create a module with some pre-created transformations
 * TODO: create some elementwise computations derived from Elementwise
-* TODO: pass 'argnames' to _get_default_basis()
-* TODO: mark all code examples as doctests
-
+* DECIDE: how to handle not-enough-resourcses error (too many registers/local memory)?
+  1) When compiling, if such error occurs, reduce maximum workgroup size by warp size and
+     call _construct_operations() again.
+     Throw OutOfResourcesError if could not find proper local size?
+* TODO: update reference documentation
+* TODO: mark all code examples as doctests and check that they pass
 
 0.2.0
 =====
-
-* DECIDE: load parameters as ${p1.load} instead of ${p1}?
-* DECIDE: if user calls prepare_for() with no keyword argument passed, does it mean that he wants default values, or the values that are currently in the basis? This can be fixed by setting the strict order of prepare and connect calls.
 
 * TODO: run coverage tests and see if some functionality has to be tested
 * TODO: Write some performance tests
 * TODO: Flatten kernel list before execution, and assign argument numbers
 * TODO: add FFT (and mark pyfft as deprecated)
-  Problem here: some kernels can be out of registers or local memory, and need to be recompiled.
 
 
 1.0.0 (production-quality version... hopefully)
@@ -52,6 +57,7 @@ Core:
 * TODO: add usual transformations and derivation functions for convenience
 * TODO: take not only CLUDA context as a parameter for computation constructor, but also CommandQueue, opencl context, cuda stream and so on.
 * TODO: optimize allocation calls throughout the context
+* TODO: cache results of _construct_operations based on the basis, device_params, argnames and attached transformations
 
 Computations:
 
