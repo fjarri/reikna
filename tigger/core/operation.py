@@ -58,8 +58,8 @@ class OperationRecorder:
         self.operations.append(KernelCall(defname, argnames, src,
             global_size, local_size=local_size))
 
-    def add_computation(self, computation, *argnames):
-        self.operations.append(ComputationCall(computation, *argnames))
+    def add_computation(self, cls, *argnames, **kwds):
+        self.operations.append(ComputationCall(cls, *argnames, **kwds))
 
     def get_allocation_values(self):
         return self._allocations
@@ -72,7 +72,7 @@ class OperationRecorder:
                 for tr, array_arg, new_array_args, new_scalar_args in tr_tree.connections_for(
                         operation.argnames):
                     operation.connect(tr, array_arg, new_array_args, new_scalar_args)
-                operation.prepare()
+                operation.prepare(self.values)
 
     def connect(self, tr, array_arg, new_array_args, new_scalar_args):
         for op in self.operations:
@@ -100,9 +100,10 @@ class Allocate:
 
 class ComputationCall:
 
-    def __init__(self, computation, *argnames):
+    def __init__(self, computation, *argnames, **kwds):
         self.computation = computation
         self.argnames = argnames
+        self.kwds = kwds
 
         argnames = [x for x, _ in self.computation.leaf_signature()]
         self.map_to_internal = {external_name:internal_name
@@ -110,8 +111,10 @@ class ComputationCall:
         self.map_to_external = {internal_name:external_name
             for external_name, internal_name in zip(self.argnames, argnames)}
 
-    def prepare(self):
-        self.computation.prepare()
+    def prepare(self, values):
+        args = [values[name] for name in self.argnames]
+        self.computation.prepare_for(*args, **self.kwds)
+
         replace = lambda x: self.map_to_external.get(x, x)
         argnames = [x for x, _ in self.computation.leaf_signature()]
         self.leaf_argnames = [replace(name) for name in argnames]

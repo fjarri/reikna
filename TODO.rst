@@ -1,12 +1,6 @@
 0.1.0
 =====
 
-* TODO:
-    1) remove set_basis() and set_basis_for()
-    2) remove get_nested_computation()
-    3) force strict order ctr -> set_argnames -> connect -> prepare/prepare_for
-       (this will fix the issue with default parameters in prepare_for)
-    4) use operations.add_operation(cls, argname1, argname2, ..., **kwds) for nested computations
 * TODO: create a module with some pre-created transformations
 * TODO: create some elementwise computations derived from Elementwise
 * DECIDE: how to handle not-enough-resourcses error (too many registers/local memory)?

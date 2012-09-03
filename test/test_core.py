@@ -107,13 +107,6 @@ def test_non_prepared_call(some_ctx):
     with pytest.raises(InvalidStateError):
         d(None, None, None, None, None)
 
-def test_connect_resets_prepared_state(some_ctx):
-    d = Dummy(some_ctx)
-    d.prepare(size=1024)
-    d.connect(tr_trivial, 'A', ['A_prime'])
-    with pytest.raises(InvalidStateError):
-        d(None, None, None, None, None)
-
 def test_incorrect_connections(some_ctx):
     d = Dummy(some_ctx)
     d.connect(tr_trivial, 'A', ['A_prime'])
@@ -244,17 +237,6 @@ def test_prepare_unknown_key(some_ctx):
     d = Dummy(some_ctx)
     with pytest.raises(KeyError):
         d.prepare(unknown_key=1)
-
-def test_prepare_same_keys(some_ctx):
-    d = Dummy(some_ctx)
-    kwds = dict(arr_dtype=numpy.complex64, size=1024)
-
-    d.prepare(**kwds)
-
-    # Prepare second time with the same keywords.
-    # There is no way to check that the kernel building stage is skipped in this case,
-    # so we're doing it only for the sake of coverage.
-    d.prepare(**kwds)
 
 def test_type_propagation_conflict(some_ctx):
 

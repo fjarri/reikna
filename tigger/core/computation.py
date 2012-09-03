@@ -12,10 +12,13 @@ class InvalidStateError(Exception):
     pass
 
 
-STATE_UNDEFINED = 0
-STATE_READY_FOR_OPERATIONS = 1
-STATE_READY_FOR_TRANSFORMATIONS = 2
-STATE_PREPARED = 3
+# Computation is not ready for calling overloaded methods from derived classes.
+STATE_NOT_INITIALIZED = 0
+# Computation is initialized and ready for calling preparations
+# or adding transformations.
+STATE_INITIALIZED = 1
+# Computation is fully prepared and ready to use
+STATE_PREPARED = 2
 
 
 class Computation:
@@ -24,7 +27,7 @@ class Computation:
         self._ctx = ctx
         self._debug = debug
 
-        self._state = STATE_UNDEFINED
+        self._state = STATE_NOT_INITIALIZED
 
         # finish initialization only if the computation has fixed argument list
         if hasattr(self, '_get_argnames'):
@@ -34,10 +37,10 @@ class Computation:
     def _finish_init(self):
         self._basis = AttrDict(self._get_default_basis())
         self._tr_tree = TransformationTree(*self._get_base_names())
-        self._state = STATE_READY_FOR_OPERATIONS
+        self._state = STATE_INITIALIZED
 
     def _set_argnames(self, outputs, inputs, scalars):
-        if self._state != STATE_UNDEFINED:
+        if self._state != STATE_NOT_INITIALIZED:
             raise InvalidStateError("Argument names were already set once")
         self._argnames = (tuple(outputs), tuple(inputs), tuple(scalars))
         self._finish_init()
@@ -127,17 +130,20 @@ class Computation:
         """
         Connects given transformation to the external array argument.
         """
-        if self._state == STATE_UNDEFINED:
-            raise InvalidStateError("Base argument names are undefined")
+        if self._state != STATE_INITIALIZED:
+            raise InvalidStateError(
+                "Cannot connect transformations after the computation has been prepared")
 
         if new_scalar_args is None:
             new_scalar_args = []
         self._tr_tree.connect(tr, array_arg, new_array_args, new_scalar_args)
-        self._state = min(self._state, STATE_READY_FOR_TRANSFORMATIONS)
 
-    def set_basis(self, **kwds):
-        if self._state == STATE_UNDEFINED:
-            raise InvalidStateError("Base argument names are undefined")
+    def prepare(self, **kwds):
+        """
+        Prepares the computation for given basis.
+        """
+        if self._state != STATE_INITIALIZED:
+            raise InvalidStateError("Cannot prepare the same computation twice")
 
         unknown_keys = set(kwds).difference(set(self._basis))
         if len(unknown_keys) > 0:
@@ -145,31 +151,11 @@ class Computation:
 
         if self._basis_needs_update(kwds):
             self._basis.update(kwds)
-            self._state = STATE_READY_FOR_OPERATIONS
 
-        return self
-
-    def set_basis_for(self, *args, **kwds):
-        if self._state == STATE_UNDEFINED:
-            raise InvalidStateError("Base argument names are undefined")
-
-        new_basis = self._basis_for(args, kwds)
-        return self.set_basis(**new_basis)
-
-    def prepare(self, **kwds):
-        """
-        Prepares the computation for given basis.
-        """
-        self.set_basis(**kwds)
-
-        if self._state == STATE_READY_FOR_OPERATIONS:
-            self._prepare_operations()
-            self._state = STATE_READY_FOR_TRANSFORMATIONS
-
-        if self._state == STATE_READY_FOR_TRANSFORMATIONS:
-            self._prepare_transformations()
-            self._operations.optimize_execution()
-            self._state = STATE_PREPARED
+        self._prepare_operations()
+        self._prepare_transformations()
+        self._operations.optimize_execution()
+        self._state = STATE_PREPARED
 
         return self
 

@@ -94,13 +94,7 @@ class Reduce(Computation):
             operations.add_allocation('_tr_output', tr_shape, basis.dtype)
 
             transpose = self.get_nested_computation(Transpose)
-            transpose.set_basis_for(operations.values['_tr_output'], operations.values['input'],
-                axes=tr_axes)
-            operations.add_computation(transpose, '_tr_output', 'input')
-
-            #operations.add_computation_with_basis(Transpose, '_tr_output', 'input',
-            #    shape=..., axes=..., dtype=...)
-            #operations.add_computation(Transpose, '_tr_output', 'input', axes=tr_axes)
+            operations.add_computation(transpose, '_tr_output', 'input', axes=tr_axes)
 
             input_name = '_tr_output'
 

@@ -53,6 +53,10 @@ Computations and transformations are based on two classes, which provide the use
 
         Returns a string with the signature of the computation, containing argument names, types and shapes (in case of arrays).
 
+    .. py:method:: get_nested_computation(cls)
+
+        Calls ``cls`` constructor with the same arguments and keywords its own constructor was called.
+
     The following methods are for overriding by computations inheriting :py:class:`Computation` class.
 
     .. py:method:: _get_argnames()
