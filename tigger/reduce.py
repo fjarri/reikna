@@ -41,7 +41,7 @@ class Reduce(Computation):
     def _get_argnames(self):
         return ('output',), ('input',), tuple()
 
-    def _get_default_basis(self):
+    def _get_default_basis(self, argnames):
         return dict(shape=(1,1), dtype=numpy.float32, axis=None, code=SUM)
 
     def _get_argvalues(self, argnames, basis):

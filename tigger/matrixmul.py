@@ -32,7 +32,7 @@ class MatrixMul(Computation):
         :param block_width_override: custom block width for the kernel
     """
 
-    def _get_default_basis(self):
+    def _get_default_basis(self, argnames):
         return dict(a_dtype=numpy.float32, b_dtype=numpy.float32, out_dtype=numpy.float32,
             a_height=1, a_width=1, b_width=1, batch=1,
             batched_a=False, batched_b=False,

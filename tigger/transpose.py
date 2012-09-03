@@ -90,7 +90,7 @@ class Transpose(Computation):
         :param block_width_override: custom block width for the kernel
     """
 
-    def _get_default_basis(self):
+    def _get_default_basis(self, argnames):
         return dict(dtype=numpy.float32, input_shape=(1, 1), axes=(1, 0),
             block_width_override=None)
 

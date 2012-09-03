@@ -1,7 +1,6 @@
 0.1.0
 =====
 
-* TODO: pass 'argnames' to _get_default_basis()
 * TODO: use "scalar" instead of "parameter"
 * TODO:
     1) remove set_basis() and set_basis_for()

@@ -26,7 +26,7 @@ class Elementwise(Computation):
         :param code: kernel code.
     """
 
-    def _get_default_basis(self):
+    def _get_default_basis(self, argnames):
         basis = dict(
             size=1,
             argtypes=dict(),

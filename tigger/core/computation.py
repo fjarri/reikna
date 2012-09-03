@@ -25,24 +25,24 @@ class Computation:
         self._debug = debug
 
         self._state = STATE_UNDEFINED
-        self._basis = AttrDict(self._get_default_basis())
 
         if hasattr(self, '_get_argnames'):
         # Initialize root nodes of the transformation tree
             self._argnames = self._get_argnames()
-            self._init_transformation_tree()
+            self._finish_init()
         else:
         # make set_argnames() visible
             self.set_argnames = self._set_argnames
 
-    def _init_transformation_tree(self):
+    def _finish_init(self):
+        self._basis = AttrDict(self._get_default_basis(self._argnames))
         self._tr_tree = TransformationTree(*self._get_base_names())
         self._state = STATE_ARGNAMES_SET
 
     def _set_argnames(self, outputs, inputs, scalars):
         assert self._state == STATE_UNDEFINED
         self._argnames = (tuple(outputs), tuple(inputs), tuple(scalars))
-        self._init_transformation_tree()
+        self._finish_init()
         return self
 
     def get_nested_computation(self, cls):

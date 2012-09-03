@@ -17,7 +17,7 @@ class Dummy(Computation):
     def _get_argnames(self):
         return ('C', 'D'), ('A', 'B'), ('coeff',)
 
-    def _get_default_basis(self):
+    def _get_default_basis(self, argnames):
         return dict(arr_dtype=numpy.float32, coeff_dtype=numpy.float32, size=1)
 
     def _get_basis_for(self, argnames, C, D, A, B, coeff):
