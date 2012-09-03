@@ -15,6 +15,8 @@
   1) When compiling, if such error occurs, reduce maximum workgroup size by warp size and
      call _construct_operations() again.
      Throw OutOfResourcesError if could not find proper local size?
+* TODO: move all possible reference documentation to corresponding modules
+* TODO: make headings in python style: ## (parts), ** (chapters), = (sections), -, ^, "
 * TODO: update reference documentation
 * TODO: mark all code examples as doctests and check that they pass
 
