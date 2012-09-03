@@ -1,18 +1,19 @@
 0.1.0
 =====
 
-* TODO: use OpenCL terminology in CLUDA as more general
 * TODO: update reference documentation (and in the meantime prepend internal fields with underscores)
+* TODO: use "scalar" instead of "parameter"
+* TODO: create a module with some pre-created transformations
+* TODO: create some elementwise computations derived from Elementwise
+* TODO: pass 'argnames' to _get_default_basis()
+* TODO: mark all code examples as doctests
 
 
 0.2.0
 =====
 
+* DECIDE: load parameters as ${p1.load} instead of ${p1}?
 * DECIDE: if user calls prepare_for() with no keyword argument passed, does it mean that he wants default values, or the values that are currently in the basis? This can be fixed by setting the strict order of prepare and connect calls.
-* DECIDE: fix dynamic shared memory interface for OpenCL kernels
-* DECIDE: create policy for wrapping raw computations into more convenient classes
-* DECIDE: create policy for providing pre-made computations like sin()/cos()
-* DECIDE: profile Computation.__call__() and see if it takes too long, and if the algorithm of assignment args to endpoints should be improved.
 
 * TODO: run coverage tests and see if some functionality has to be tested
 * TODO: Write some performance tests
@@ -51,6 +52,7 @@ Core:
 * TODO: add a global DEBUG variable that will create all computations in debug mode by default
 * TODO: add usual transformations and derivation functions for convenience
 * TODO: take not only CLUDA context as a parameter for computation constructor, but also CommandQueue, opencl context, cuda stream and so on.
+* TODO: optimize allocation calls throughout the context
 
 Computations:
 
