@@ -2,6 +2,7 @@ import numpy
 
 from tigger.helpers import *
 from tigger.core import *
+from tigger.core.computation import STATE_UNDEFINED
 
 
 EMPTY = dict(functions="", kernel="")
@@ -24,9 +25,30 @@ class Elementwise(Computation):
         :param argtypes: dictionary containing dtypes associated with argument names
             passed to :py:meth:`set_argnames`.
         :param code: kernel code.
+
+    .. py:method:: set_argnames(outputs, inputs, scalars)
+
+        Set argument names for the computation.
+        This method should be called first after the creation of the
+        :py:class:`~tigger.elementwise.Elementwise` object.
+        Returns ``self``.
     """
 
-    def _get_default_basis(self, argnames):
+    # For now I cannot think of any other computation requiring variable number of arguments.
+    # So instead of being generic and passing argument names list to every overloaded method
+    # of every computation, I employ this semi-hack with the usage of some
+    # undocumented machinery from the base class.
+    # Namely, Computation constructor notices missing _get_argnames() method
+    # and relays initialization until _set_argnames() is called
+    #
+    # If other computations like this appear, I will have to return to the "generic" solution,
+    # where set_argnames() method is available to any Computation object which
+    # did not overload _get_argnames(), and "argnames" is passed to all overloadable methods.
+    # Or, perhaps, make this method documented.
+    def set_argnames(self, outputs, inputs, scalars):
+        return self._set_argnames(outputs, inputs, scalars)
+
+    def _get_default_basis(self):
         basis = dict(
             size=1,
             argtypes=dict(),
@@ -34,8 +56,8 @@ class Elementwise(Computation):
 
         return basis
 
-    def _get_argvalues(self, argnames, basis):
-        outputs, inputs, params = argnames
+    def _get_argvalues(self, basis):
+        outputs, inputs, params = self._get_base_names()
         values = {name:ArrayValue((basis.size,), basis.argtypes[name])
             for name in outputs + inputs}
         values.update({name:ScalarValue(None, basis.argtypes[name])
@@ -43,20 +65,20 @@ class Elementwise(Computation):
 
         return values
 
-    def _get_basis_for(self, argnames, *args, **kwds):
+    def _get_basis_for(self, *args, **kwds):
 
         # Python 2 does not support explicit kwds after *args
         code = kwds.pop('code', EMPTY)
 
         # map argument names to values
-        outputs, inputs, params = argnames
+        outputs, inputs, params = self._get_base_names()
         argtypes = {name:arg.dtype for name, arg in zip(outputs + inputs + params, args)}
 
         return dict(size=args[0].size, argtypes=argtypes, code=code)
 
-    def _construct_operations(self, operations, argnames, basis, device_params):
+    def _construct_operations(self, operations, basis, device_params):
 
-        names = sum(argnames, tuple())
+        names = sum(self._get_base_names(), tuple())
         name_str = ", ".join(names)
 
         template = template_from(

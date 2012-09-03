@@ -90,14 +90,14 @@ class Transpose(Computation):
         :param block_width_override: custom block width for the kernel
     """
 
-    def _get_default_basis(self, argnames):
+    def _get_default_basis(self):
         return dict(dtype=numpy.float32, input_shape=(1, 1), axes=(1, 0),
             block_width_override=None)
 
     def _get_argnames(self):
         return ('output',), ('input',), tuple()
 
-    def _get_basis_for(self, argnames, output, input, axes=None):
+    def _get_basis_for(self, output, input, axes=None):
 
         bs = AttrDict()
 
@@ -115,7 +115,7 @@ class Transpose(Computation):
 
         return bs
 
-    def _get_argvalues(self, argnames, basis):
+    def _get_argvalues(self, basis):
 
         output_shape = transpose_shape(basis.input_shape, basis.axes)
 
@@ -148,7 +148,7 @@ class Transpose(Computation):
             local_size=(block_width, block_width),
             render_kwds=render_kwds)
 
-    def _construct_operations(self, operations, argnames, basis, device_params):
+    def _construct_operations(self, operations, basis, device_params):
         transposes = get_transposes(basis.input_shape, basis.axes)
 
         temp_shape = (product(basis.input_shape),)

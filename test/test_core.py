@@ -17,18 +17,18 @@ class Dummy(Computation):
     def _get_argnames(self):
         return ('C', 'D'), ('A', 'B'), ('coeff',)
 
-    def _get_default_basis(self, argnames):
+    def _get_default_basis(self):
         return dict(arr_dtype=numpy.float32, coeff_dtype=numpy.float32, size=1)
 
-    def _get_basis_for(self, argnames, C, D, A, B, coeff):
+    def _get_basis_for(self, C, D, A, B, coeff):
         return dict(arr_dtype=C.dtype, coeff_dtype=coeff.dtype, size=C.size)
 
-    def _get_argvalues(self, argnames, basis):
+    def _get_argvalues(self, basis):
         av = ArrayValue((basis.size,), basis.arr_dtype)
         sv = ScalarValue(None, basis.coeff_dtype)
         return dict(C=av, D=av, A=av, B=av, coeff=sv)
 
-    def _construct_operations(self, operations, argnames, basis, device_params):
+    def _construct_operations(self, operations, basis, device_params):
         template = template_from("""
         <%def name="dummy(C, D, A, B, coeff)">
         ${kernel_definition}

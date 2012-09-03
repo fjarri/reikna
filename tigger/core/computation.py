@@ -13,8 +13,8 @@ class InvalidStateError(Exception):
 
 
 STATE_UNDEFINED = 0
-STATE_ARGNAMES_SET = 1
-STATE_OPERATIONS_BUILT = 2
+STATE_READY_FOR_OPERATIONS = 1
+STATE_READY_FOR_TRANSFORMATIONS = 2
 STATE_PREPARED = 3
 
 
@@ -26,21 +26,19 @@ class Computation:
 
         self._state = STATE_UNDEFINED
 
+        # finish initialization only if the computation has fixed argument list
         if hasattr(self, '_get_argnames'):
-        # Initialize root nodes of the transformation tree
             self._argnames = self._get_argnames()
             self._finish_init()
-        else:
-        # make set_argnames() visible
-            self.set_argnames = self._set_argnames
 
     def _finish_init(self):
-        self._basis = AttrDict(self._get_default_basis(self._argnames))
+        self._basis = AttrDict(self._get_default_basis())
         self._tr_tree = TransformationTree(*self._get_base_names())
-        self._state = STATE_ARGNAMES_SET
+        self._state = STATE_READY_FOR_OPERATIONS
 
     def _set_argnames(self, outputs, inputs, scalars):
-        assert self._state == STATE_UNDEFINED
+        if self._state != STATE_UNDEFINED:
+            raise InvalidStateError("Argument names were already set once")
         self._argnames = (tuple(outputs), tuple(inputs), tuple(scalars))
         self._finish_init()
         return self
@@ -63,7 +61,7 @@ class Computation:
         Returns a dictionary with names and corresponding value objects for
         base computation parameters.
         """
-        return self._get_argvalues(self._argnames, self._basis)
+        return self._get_argvalues(self._basis)
 
     def _get_base_dtypes(self):
         """
@@ -107,12 +105,12 @@ class Computation:
             values[name] = new_value
 
         self._tr_tree.propagate_to_base(values)
-        return self._get_basis_for(self._argnames, *self._tr_tree.base_values(), **kwds)
+        return self._get_basis_for(*self._tr_tree.base_values(), **kwds)
 
     def _prepare_operations(self):
         self._operations = OperationRecorder(self._ctx, self._basis, self._get_base_values())
         self._construct_operations(
-            self._operations, self._argnames, self._basis, self._ctx.device_params)
+            self._operations, self._basis, self._ctx.device_params)
 
     def _prepare_transformations(self):
         self._tr_tree.propagate_to_leaves(self._get_base_values())
@@ -135,7 +133,7 @@ class Computation:
         if new_scalar_args is None:
             new_scalar_args = []
         self._tr_tree.connect(tr, array_arg, new_array_args, new_scalar_args)
-        self._state = min(self._state, STATE_OPERATIONS_BUILT)
+        self._state = min(self._state, STATE_READY_FOR_TRANSFORMATIONS)
 
     def set_basis(self, **kwds):
         if self._state == STATE_UNDEFINED:
@@ -147,7 +145,7 @@ class Computation:
 
         if self._basis_needs_update(kwds):
             self._basis.update(kwds)
-            self._state = STATE_ARGNAMES_SET
+            self._state = STATE_READY_FOR_OPERATIONS
 
         return self
 
@@ -164,11 +162,11 @@ class Computation:
         """
         self.set_basis(**kwds)
 
-        if self._state == STATE_ARGNAMES_SET:
+        if self._state == STATE_READY_FOR_OPERATIONS:
             self._prepare_operations()
-            self._state = STATE_OPERATIONS_BUILT
+            self._state = STATE_READY_FOR_TRANSFORMATIONS
 
-        if self._state == STATE_OPERATIONS_BUILT:
+        if self._state == STATE_READY_FOR_TRANSFORMATIONS:
             self._prepare_transformations()
             self._operations.optimize_execution()
             self._state = STATE_PREPARED

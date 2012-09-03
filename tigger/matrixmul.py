@@ -32,7 +32,7 @@ class MatrixMul(Computation):
         :param block_width_override: custom block width for the kernel
     """
 
-    def _get_default_basis(self, argnames):
+    def _get_default_basis(self):
         return dict(a_dtype=numpy.float32, b_dtype=numpy.float32, out_dtype=numpy.float32,
             a_height=1, a_width=1, b_width=1, batch=1,
             batched_a=False, batched_b=False,
@@ -42,7 +42,7 @@ class MatrixMul(Computation):
     def _get_argnames(self):
         return ('out',), ('a', 'b'), tuple()
 
-    def _get_basis_for(self, argnames, out, a, b):
+    def _get_basis_for(self, out, a, b):
 
         bs = AttrDict()
 
@@ -87,7 +87,7 @@ class MatrixMul(Computation):
 
         return bs
 
-    def _get_argvalues(self, argnames, basis):
+    def _get_argvalues(self, basis):
 
         a_shape = (basis.batch if basis.batched_a else 1, basis.a_height, basis.a_width)
         b_shape = (basis.batch if basis.batched_b else 1, basis.a_width, basis.b_width)
@@ -97,7 +97,7 @@ class MatrixMul(Computation):
             a=ArrayValue(a_shape, basis.a_dtype),
             b=ArrayValue(b_shape, basis.b_dtype))
 
-    def _construct_operations(self, operations, argnames, basis, device_params):
+    def _construct_operations(self, operations, basis, device_params):
 
         bso = basis.block_width_override
         block_width = device_params.local_mem_banks if bso is None else bso

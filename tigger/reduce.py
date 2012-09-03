@@ -41,10 +41,10 @@ class Reduce(Computation):
     def _get_argnames(self):
         return ('output',), ('input',), tuple()
 
-    def _get_default_basis(self, argnames):
+    def _get_default_basis(self):
         return dict(shape=(1,1), dtype=numpy.float32, axis=None, code=SUM)
 
-    def _get_argvalues(self, argnames, basis):
+    def _get_argvalues(self, basis):
         if basis.axis is None:
             output_shape = (1,)
         else:
@@ -54,7 +54,7 @@ class Reduce(Computation):
             output=ArrayValue(output_shape, basis.dtype),
             input=ArrayValue(basis.shape, basis.dtype))
 
-    def _get_basis_for(self, argnames, output, input, axis=None, code=SUM):
+    def _get_basis_for(self, output, input, axis=None, code=SUM):
         assert input.dtype == output.dtype
         assert input.size % output.size == 0
         assert input.size > output.size
@@ -73,7 +73,7 @@ class Reduce(Computation):
 
         return bs
 
-    def _construct_operations(self, operations, argnames, basis, device_params):
+    def _construct_operations(self, operations, basis, device_params):
 
         # may fail if the user passes particularly sophisticated operation
         max_reduce_power = device_params.max_work_group_size
@@ -97,6 +97,11 @@ class Reduce(Computation):
             transpose.set_basis_for(operations.values['_tr_output'], operations.values['input'],
                 axes=tr_axes)
             operations.add_computation(transpose, '_tr_output', 'input')
+
+            #operations.add_computation_with_basis(Transpose, '_tr_output', 'input',
+            #    shape=..., axes=..., dtype=...)
+            #operations.add_computation(Transpose, '_tr_output', 'input', axes=tr_axes)
+
             input_name = '_tr_output'
 
         reduction_stage = 0
