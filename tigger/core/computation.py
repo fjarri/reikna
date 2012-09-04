@@ -194,7 +194,7 @@ class Computation:
 
         if len(args) != len(self._leaf_signature):
             raise TypeError("Computation takes " + str(len(self._leaf_signature)) +
-                " arguments (" + len(args) + " given")
+                " arguments (" + str(len(args)) + " given)")
 
         # Assign arguments to names and cast scalar values
         arg_dict = dict(self._operations.allocations)
