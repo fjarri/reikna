@@ -15,6 +15,9 @@
 0.2.0
 =====
 
+* DECIDE: remove prepare() completely?
+  It will simplify derivation of types in transformations, in particular removing issue
+  with loss of information in "inside out" derivations.
 * TODO: move part of core.transformation to a template
 * TODO: run coverage tests and see if some functionality has to be tested
 * TODO: Write some performance tests
