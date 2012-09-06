@@ -5,7 +5,7 @@ Tutorial: basics
 Usage of computations
 =====================
 
-All Tigger computation classes are derived from :py:class:`~tigger.core.Computation` class and therefore share the same API and behavior.
+All ``Tigger`` computation classes are derived from :py:class:`~tigger.core.Computation` class and therefore share the same API and behavior.
 Each computation is parametrized by a dictionary called *basis*, and, sometimes, by names and positions of its arguments (when they can vary, for example, in :py:class:`~tigger.elementwise.Elementwise`).
 
 Before use a computation has to be fully prepared by calling either :py:meth:`~tigger.core.Computation.prepare` or :py:meth:`~tigger.core.Computation.prepare_for`.
@@ -36,7 +36,7 @@ Computations and transformations
 One often needs to perform some simple processing on the input or output values of a computation.
 This can be scaling, splitting complex values into components, and so on.
 Some of them require additional memory to store intermediate results, and all of them involve additional overhead of calling the kernel, and passing values to and from device memory.
-Tigger porvides an API to write such transformations and attach them to "core" computations, effectively compiling the transformation code into the main kernel, thus avoiding all these drawbacks.
+``Tigger`` porvides an API to write such transformations and attach them to "core" computations, effectively compiling the transformation code into the main kernel, thus avoiding all these drawbacks.
 
 Transformation tree
 ===================
