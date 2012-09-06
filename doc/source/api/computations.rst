@@ -1,14 +1,14 @@
 Computations
 ============
 
-.. autoclass:: tigger.matrixmul.MatrixMul
+.. automodule:: tigger.matrixmul
     :members:
 
-.. autoclass:: tigger.elementwise.Elementwise
+.. automodule:: tigger.elementwise
     :members:
 
-.. autoclass:: tigger.transpose.Transpose
+.. automodule:: tigger.transpose
     :members:
 
-.. autoclass:: tigger.reduce.Reduce
+.. automodule:: tigger.reduce
     :members:
