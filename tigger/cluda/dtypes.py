@@ -27,15 +27,14 @@ def is_integer(dtype):
 
 def _promote_dtype(dtype):
     # not all numpy datatypes are supported by GPU, so we may need to promote
-    dtype = numpy.dtype(dtype)
+    dtype = normalize_type(dtype)
     if dtype.kind == 'i' and dtype.itemsize < 4:
-        return numpy.int32
+        dtype = numpy.int32
     elif dtype.kind == 'f' and dtype.itemsize < 4:
-        return numpy.float32
+        dtype = numpy.float32
     elif dtype.kind == 'c' and dtype.itemsize < 8:
-        return numpy.complex64
-    else:
-        return dtype
+        dtype = numpy.complex64
+    return normalize_type(dtype)
 
 def result_type(*dtypes):
     """
