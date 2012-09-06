@@ -42,7 +42,7 @@ class MatrixMul(Computation):
     def _get_argnames(self):
         return ('out',), ('a', 'b'), tuple()
 
-    def _get_basis_for(self, out, a, b):
+    def _get_basis_for(self, default_basis, out, a, b):
 
         bs = AttrDict()
 

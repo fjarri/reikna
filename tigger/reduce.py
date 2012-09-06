@@ -54,7 +54,11 @@ class Reduce(Computation):
             output=ArrayValue(output_shape, basis.dtype),
             input=ArrayValue(basis.shape, basis.dtype))
 
-    def _get_basis_for(self, output, input, axis=None, code=SUM):
+    def _get_basis_for(self, default_basis, output, input, **kwds):
+
+        code = kwds.get('code', default_basis.code)
+        axis = kwds.get('axis', default_basis.axis)
+
         assert input.dtype == output.dtype
         assert input.size % output.size == 0
         assert input.size > output.size

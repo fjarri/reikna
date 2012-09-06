@@ -64,10 +64,10 @@ class Elementwise(Computation):
 
         return values
 
-    def _get_basis_for(self, *args, **kwds):
+    def _get_basis_for(self, default_basis, *args, **kwds):
 
         # Python 2 does not support explicit kwds after *args
-        code = kwds.pop('code', EMPTY)
+        code = kwds.get('code', default_basis.code)
 
         # map argument names to values
         outputs, inputs, params = self._get_base_names()

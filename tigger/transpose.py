@@ -97,7 +97,9 @@ class Transpose(Computation):
     def _get_argnames(self):
         return ('output',), ('input',), tuple()
 
-    def _get_basis_for(self, output, input, axes=None):
+    def _get_basis_for(self, default_basis, output, input, **kwds):
+
+        axes = kwds.get('axes', default_basis.axes)
 
         bs = AttrDict()
 
