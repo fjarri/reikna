@@ -82,8 +82,10 @@ The arguments are split into three groups: outputs, inputs and scalar arguments.
     def _get_argnames(self):
         return ('output',), ('input1', 'input2'), ('param',)
 
-If you do not implement this method, :py:meth:`~tigger.core.Computation.set_argnames` method will be available to users, and supplied argument names will be passed to other methods discussed below as ``argnames`` parameter.
-This is how computations with variable arguments, like :py:class:`~tigger.elementwise.Elementwise` are defined.
+If you do not implement this method, you will need to implement a method that calls :py:meth:`~tigger.core.Computation._set_argnames`, which will finish initialization.
+This method has to be called prior to :py:meth:`~tigger.core.Computation.connect` and :py:meth:`~tigger.core.Computation.prepare`.
+This is only necessary if your computation class can have different number of arguments depending on some parameters.
+For an example, see the implementation of :py:class:tigger.elementwise.Elementwise`.
 
 Then you need to think about what values will constitute a basis for the computation.
 Basis should contain all the information to fully specify kernels, allocations and all other computation details.
