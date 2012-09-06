@@ -199,7 +199,7 @@ class Transformation:
         Used to derive types in the transformation tree after call to
         :py:meth:`Computation.prepare` when the transformation is connected to the output argument.
     :param code: template source with the transformation code.
-        See :ref:`How to write transformations <how-to-transformations>` section for details.
+        See :ref:`guide-writing-a-transformation` section for details.
     """
 
     def __init__(self, inputs=1, outputs=1, scalars=0,

@@ -67,7 +67,7 @@ As an example, let us consider an elementwise computation object with one output
 
     comp = TestComputation(ctx)
 
-The class is described here just for reference, the detailed explanation about writing your own computation classes is given in :ref:`the following sections <guide-contributing>`.
+The class is described here just for reference, the detailed explanation about writing your own computation classes is given in :ref:`the guide <guide-writing-a-computation>`.
 Its initial transformation tree looks like:
 
 (pic with base values out, in1, in2, param)
@@ -85,7 +85,7 @@ Now let us attach the transformation to the output which will split it into two 
 
     comp.connect(transformations.split_complex, 'out', ['out1', 'out2'])
 
-We have used the pre-created transformation here for simplicity; writing your own transformations will be described :ref:`later <guide-write-transformations>`.
+We have used the pre-created transformation here for simplicity; writing your own transformations will be described :ref:`later <guide-writing-a-transformation>`.
 In addition, we want ``in2`` to be scaled before being passed to the main computation.
 To achieve this, we connect the scaling transformation to it:
 
@@ -142,6 +142,7 @@ For the purpose of this guide you only need to know several things about the syn
 * a pair of ``<%`` and ``%>`` executes Python code inside, which may introduce some local variables
 * a pair of ``<%def name="func(a, b)">`` and ``</%def>`` defines a template function, which actually becomes a Python function which can be called as ``func(a, b)`` from other part of the template and returns a rendered string
 
+.. _guide-writing-a-transformation:
 
 Writing a transformation
 ========================
@@ -174,7 +175,7 @@ It is a string with the Mako template which describes the transformation.
 Variables ``i1``, ..., ``o1``, ..., ``p1``, ... are available in the template and help specify load and store actions for inputs, outputs and parameters, and also to obtain their datatypes.
 Each of these variables has attributes ``dtype`` (contains the :py:class:`numpy.dtype`), ``ctype`` (contains a string with corresponding C type) and either of ``load`` (for inputs) or ``store`` (for outputs).
 ``${i1.load}`` can be used as a variable, and ``${o1.store}(val)`` is a function that takes one variable.
-Also the ``dtypes`` variable is available in the template and gives access :py:mod:`~tigger.cluda.dtypes` module, and ``func`` is a module-like object containing generalizations of arithmetic functions (see :ref:`kernel-toolbox` for details).
+Also the ``dtypes`` variable is available in the template and gives access :py:mod:`~tigger.cluda.dtypes` module, and ``func`` is a module-like object containing generalizations of arithmetic functions (see :ref:`cluda-kernel-toolbox` for details).
 
 For example, for a scaling transformation with one input, one output and one parameter the code may look like:
 
@@ -188,6 +189,7 @@ Second, since any of the ``i1`` and ``p1`` can be complex, we had to use the gen
 The result is passed to the output by calling ``${o1.store}``.
 If the transformation has several outputs, it will have several ``store`` statements.
 
+.. _guide-writing-a-computation:
 
 Writing a computation
 =====================
