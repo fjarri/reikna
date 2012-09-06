@@ -96,3 +96,30 @@ class Elementwise(Computation):
 
         operations.add_kernel(template, 'elementwise', names,
             global_size=(basis.size,), render_kwds=dict(size=basis.size))
+
+
+def specialize_elementwise(outputs, inputs, scalars, code):
+
+    outputs = wrap_in_tuple(outputs)
+    inputs = wrap_in_tuple(inputs)
+    scalars = wrap_in_tuple(scalars)
+
+    argnames = outputs + inputs + scalars
+
+    class SpecializedElementwise(Elementwise):
+
+        def _get_argnames(self):
+            return outputs, inputs, scalars
+
+        def _get_default_basis(self):
+            basis = Elementwise._get_default_basis(self)
+            basis['code'] = code
+            return basis
+
+        def _get_basis_for(self, default_basis, *args):
+            if len(args) != len(argnames):
+                raise TypeError("The computation takes exactly " +
+                    str(len(argnames)) + "arguments")
+            return Elementwise._get_basis_for(self, default_basis, *args)
+
+    return SpecializedElementwise
