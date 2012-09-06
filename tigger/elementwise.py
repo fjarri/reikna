@@ -99,6 +99,14 @@ class Elementwise(Computation):
 
 
 def specialize_elementwise(outputs, inputs, scalars, code):
+    """
+    Returns an Elementwise class specialized for given argument names and code.
+
+    :param outputs: a string or a list of strings with output argument names.
+    :param inputs: a string or a list of strings with input argument names.
+    :param scalars: ``None``, a string, or a list of strings with scalar argument names.
+    :param code: ``dict(kernel, functions)`` with kernel code.
+    """
 
     outputs = wrap_in_tuple(outputs)
     inputs = wrap_in_tuple(inputs)
