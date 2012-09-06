@@ -20,7 +20,7 @@ scale_param = Transformation(
 
 
 def scale_const(multiplier):
-    dtype = min_scalar_type(multiplier)
+    dtype = dtypes.min_scalar_type(multiplier)
     return Transformation(
         inputs=1, outputs=1,
         code="${o1.store}(${func.mul(i1.dtype, numpy." + str(dtype) + ", out=o1.dtype)}(" +
@@ -45,4 +45,4 @@ combine_complex = Transformation(
     derive_is_from_o=lambda o1: ([dtypes.real_for(o1), dtypes.real_for(o1)], []),
     derive_i_from_os=lambda o1: [dtypes.real_for(o1), dtypes.real_for(o1)],
     derive_os_from_i=lambda i1, i2: ([dtypes.complex_for(o1)], []),
-    code="${o1.store}(COMPLEX_CTR(${i1.load}, ${i2.load}));")
+    code="${o1.store}(COMPLEX_CTR(${o1.ctype})(${i1.load}, ${i2.load}));")
