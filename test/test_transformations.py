@@ -3,7 +3,7 @@ Test standard transformations
 """
 import pytest
 
-from tigger.elementwise import Elementwise
+from tigger.elementwise import Elementwise, specialize_elementwise
 import tigger.transformations as tr
 
 from helpers import *
@@ -19,18 +19,8 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize('any_dtype', dtypes, ids=[str(x) for x in dtypes])
 
 
-class TestComputation(Elementwise):
-
-    def _get_argnames(self):
-        return ('output',), ('input',), tuple()
-
-    def _get_default_basis(self):
-        basis = Elementwise._get_default_basis(self)
-        basis['code'] = dict(kernel="${output.store}(idx, ${input.load}(idx));")
-        return basis
-
-    def _get_basis_for(self, default_basis, output, input):
-        return Elementwise._get_basis_for(self, default_basis, output, input)
+TestComputation = specialize_elementwise('output', 'input', None,
+    dict(kernel="${output.store}(idx, ${input.load}(idx));"))
 
 
 def test_identity(some_ctx, any_dtype):
