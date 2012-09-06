@@ -19,6 +19,7 @@
   It will simplify derivation of types in transformations, in particular removing issue
   with loss of information in "inside out" derivations.
 * TODO: move part of core.transformation to a template
+* TODO: add custom render keywords for transformations (will help e.g. in tigger.transformations)
 * TODO: run coverage tests and see if some functionality has to be tested
 * TODO: Write some performance tests
 * TODO: Flatten kernel list before execution, and assign argument numbers
