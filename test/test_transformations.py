@@ -29,9 +29,8 @@ class TestComputation(Elementwise):
         basis['code'] = dict(kernel="${output.store}(idx, ${input.load}(idx));")
         return basis
 
-    def prepare_for(self, *args):
-        return Elementwise.prepare_for(self, *args,
-            code=dict(kernel="${output.store}(idx, ${input.load}(idx));"))
+    def _get_basis_for(self, default_basis, output, input):
+        return Elementwise._get_basis_for(self, default_basis, output, input)
 
 
 def test_identity(some_ctx, any_dtype):
