@@ -1,8 +1,9 @@
+*****
 Guide
-=====
+*****
 
 Basic usage of computations
----------------------------
+===========================
 
 All Tigger computation classes are derived from :py:class:`~tigger.core.Computation` class and therefore share the same API and behavior.
 Each computation is parametrized by a dictionary called *basis*, and, sometimes, by names and positions of its arguments (when they can vary, for example, in :py:class:`~tigger.elementwise.Elementwise`).
@@ -38,7 +39,7 @@ Some of them require additional memory to store intermediate results, and all of
 Tigger porvides an API to write such transformations and attach them to "core" computations, effectively compiling the transformation code into the main kernel, thus avoiding all these drawbacks.
 
 Transformation tree
--------------------
+===================
 
 Before talking about transformations themselves, we need to take a closer look at computation signatures.
 Positional arguments of any :py:meth:`~tigger.core.Computation.__call__` method are output buffers, input buffers, and scalar arguments, in this order.
@@ -126,7 +127,7 @@ If :py:meth:`~tigger.core.Computation.prepare_for` is called, the data types and
 
 
 Transformation restrictions
----------------------------
+===========================
 
 #. Transformations are strictly elementwise.
    It means that you cannot specify the index to read from or to write to in the transformation code --- it stays the same as the one in the main kernel.
@@ -138,7 +139,7 @@ Transformation restrictions
 
 
 Mako basics
------------
+===========
 
 Tigger uses `Mako <http://makotemplates.org>`_ extensively as a templating engine for transformations and computations.
 For the purpose of this guide you only need to know several things about the synthax:
@@ -150,7 +151,7 @@ For the purpose of this guide you only need to know several things about the syn
 
 
 Writing a transformation
-------------------------
+========================
 
 Some common transformations are already available from :py:mod:`~tigger.transformations` module.
 But you can create a custom one if you need to.
@@ -196,7 +197,7 @@ If the transformation has several outputs, it will have several ``store`` statem
 
 
 Writing a computation
----------------------
+=====================
 
 A computation must derive :py:class:`~tigger.core.Computation` class and implement several methods.
 As an example, let us implement a computation which calculates ``output = input1 + input2 * param``.
@@ -227,9 +228,3 @@ Method :py:meth:`~tigger.core.Computation._get_default_basis` returns a dcitiona
 ::
 
     def _get_default_basis(self):
-
-
-
-
-
-

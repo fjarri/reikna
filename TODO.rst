@@ -1,7 +1,6 @@
 0.1.0
 =====
 
-* TODO: make headings in python style: ## (parts), ** (chapters), = (sections), -, ^, "
 * TODO: update reference documentation
 * TODO: mark all code examples as doctests and check that they pass
 

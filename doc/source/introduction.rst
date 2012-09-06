@@ -1,12 +1,13 @@
+************
 Introduction
-============
+************
 
 This section contains brief illustration of what Tigger does.
 For detailed information see corresponding reference pages.
 
 
 CLUDA basics
-------------
+============
 
 CLUDA is an abstraction layer on top of PyCuda/PyOpenCL.
 Its main purpose is to separate the rest of Tigger from the difference in their APIs, but it can be used by itself too for some simple tasks.
@@ -102,7 +103,7 @@ For the complete list of things available in CLUDA, please consult :ref:`CLUDA r
 
 
 Computations, user point of view
---------------------------------
+================================
 
 Now it's time for the main part of the functionality.
 Tigger provides GPGPU algorithms in the form of ``Computation`` classes and ``Transformation`` objects.
@@ -160,7 +161,7 @@ If, for some reason, actual arrays are not available at the time of preparation,
 
 
 Transformations
----------------
+===============
 
 Now imagine that you want to multiply complex matrices, but real and imaginary parts of your data are kept in separate arrays.
 You could create elementwise kernels that would join your data into arrays of complex values, but this would require additional storage and additional calls to GPU.

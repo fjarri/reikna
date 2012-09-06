@@ -1,5 +1,6 @@
+*************************************
 Tigger, the pure Python GPGPU library
-=====================================
+*************************************
 
 |documentation_type_subtitle|
 
@@ -13,8 +14,9 @@ The main design goals are:
 Tigger is hosted `on GitHub <http://github.com/Manticore/tigger>`_, issues should be filed there too.
 It is not registered in PyPi at the moment.
 
+********
 Contents
-========
+********
 
 .. toctree::
    :maxdepth: 2
@@ -24,8 +26,9 @@ Contents
    api/index
    history
 
+******************
 Indices and tables
-==================
+******************
 
 * :ref:`genindex`
 * :ref:`modindex`
