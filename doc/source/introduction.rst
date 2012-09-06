@@ -14,14 +14,14 @@ Its main purpose is to separate the rest of Tigger from the difference in their 
 
 Consider the following example, which is very similar to the one from the index page on PyCuda documentation:
 
-::
+.. testcode:: cluda_simple_example
 
     import numpy
     import tigger.cluda as cluda
 
     N = 256
 
-    api = cluda.cuda_api()
+    api = cluda.ocl_api()
     ctx = api.Context.create()
 
     module = ctx.compile("""
@@ -43,27 +43,33 @@ Consider the following example, which is very similar to the one from the index 
     b_dev = ctx.to_device(b)
     dest_dev = ctx.empty_like(a_dev)
 
-    multiply_them(dest_dev, a_dev, b_dev, local_size=(N,), global_size=(N,))
-    print ctx.from_device(dest_dev) - a * b
+    multiply_them(dest_dev, a_dev, b_dev, local_size=N, global_size=N)
+    print (dest_dev.get() - a * b == 0).all()
+
+.. testoutput:: cluda_simple_example
+    :hide:
+
+    True
 
 If you are familiar with PyCuda or PyOpenCL, you will easily understand all the steps we have done here.
-The ``cluda.cuda_api()`` call is the only place where CUDA is mentioned, and if you replace it with ``cluda.ocl_api()`` it will be enough to make the code use OpenCL.
+The ``cluda.ocl_api()`` call is the only place where OpenCL is mentioned, and if you replace it with ``cluda.cuda_api()`` it will be enough to make the code use CUDA.
 The abstraction is achieved by using generic API module on Python side, and special macros (``KERNEL``, ``GLOBAL_MEM`` and others) on kernel side.
 
 The argument of ``compile`` method can also be a template, which is quite useful for metaprogramming, and also used to compensate for the lack of complex number operations in OpenCL.
 Let us illustrate both scenarios by making the initial example multiply complex arrays.
 The template engine of choice in Tigger is `Mako <http://www.makotemplates.org>`_, and you are encouraged to read about it as it is quite useful. For the purpose of this tutorial all we need to know is that its synthax is ``${python_expression()}``, which renders the expression result.
 
-::
+.. testcode:: cluda_template_example
 
     import numpy
+    from numpy.linalg import norm
     import tigger.cluda as cluda
     import tigger.cluda.dtypes as dtypes
 
     N = 256
     dtype = numpy.complex64
 
-    api = cluda.cuda_api()
+    api = cluda.ocl_api()
     ctx = api.Context.create()
 
     module = ctx.compile("""
@@ -72,10 +78,10 @@ The template engine of choice in Tigger is `Mako <http://www.makotemplates.org>`
         GLOBAL_MEM ${ctype} *a,
         GLOBAL_MEM ${ctype} *b)
     {
-      const int i = LID_0;
+      const int i = get_local_id(0);
       dest[i] = ${func.mul(dtype, dtype)}(a[i], b[i]);
     }
-    """, dtype=dtype, ctype=dtypes.ctype(dtype))
+    """, render_kwds=dict(dtype=dtype, ctype=dtypes.ctype(dtype)))
 
     multiply_them = module.multiply_them
 
@@ -87,8 +93,13 @@ The template engine of choice in Tigger is `Mako <http://www.makotemplates.org>`
     b_dev = ctx.to_device(b)
     dest_dev = ctx.empty_like(a_dev)
 
-    multiply_them(dest_dev, a_dev, b_dev, block=(N,1,1), grid=(1,1))
-    print ctx.from_device(dest_dev) - a * b
+    multiply_them(dest_dev, a_dev, b_dev, local_size=N, global_size=N)
+    print norm(dest_dev.get() - a * b) / norm(a * b) <= 1e-6
+
+.. testoutput:: cluda_template_example
+    :hide:
+
+    True
 
 Here we passed ``dtype`` and ``ctype`` values to the template, and used ``dtype`` to get the complex number multiplication function (``func`` is one of the "built-in" values that are available in CLUDA templates).
 Alternatively, we could call ``dtypes.ctype()`` inside the template, as ``dtypes`` module is available there too.
@@ -113,14 +124,14 @@ Transformations are compiled into the main computation kernel and are therefore 
 
 As an example, we will consider the matrix multiplication.
 
-::
+.. testcode:: matrixmul_example
 
     import numpy
     from numpy.linalg import norm
     import tigger.cluda as cluda
     from tigger.matrixmul import MatrixMul
 
-    api = cluda.cuda_api()
+    api = cluda.ocl_api()
     ctx = api.Context.create()
 
     shape1 = (100, 200)
@@ -137,7 +148,12 @@ As an example, we will consider the matrix multiplication.
 
     res_reference = numpy.dot(a, b)
 
-    print norm(ctx.from_device(res_dev) - res_reference) / norm(res_reference)
+    print norm(res_dev.get() - res_reference) / norm(res_reference) < 1e-6
+
+.. testoutput:: matrixmul_example
+    :hide:
+
+    True
 
 Most of the code above should be already familiar, with the exception of the creation of ``MatrixMul`` object.
 As any other class derived from ``Computation``, it requires Tigger context as a constructor argument.
@@ -149,11 +165,11 @@ First method can be seen in the example above.
 We know (from the documentation) that ``MatrixMul.__call__()`` takes three array parameters, and we ask it to prepare itself to properly handle arrays ``res_dev``, ``a_dev`` and ``b_dev`` when they are passed to it.
 Alternatively, this information can be obtained from console by examining ``signature`` property of the object:
 
-::
+.. doctest:: matrixmul_example
 
     >>> dot = MatrixMul(ctx)
-    >>> dot.signature
-    [('C', ArrayValue(None,None)), ('A', ArrayValue(None,None)), ('B', ArrayValue(None,None))]
+    >>> dot.signature_str()
+    '(array) out, (array) a, (array) b'
 
 The second method is directly specify the parameter basis --- a dictionary of parameters which define all the internal preparations to be done (when ``prepare_for()`` is called, these are derived from its arguments).
 Again, looking at the reference, we can see that ``MatrixMul`` has a dozen of parameters, the most important being input and output arrays types and sizes.
@@ -169,7 +185,7 @@ Transformation API allows you to connect these transformations to the core compu
 
 Let us change the previous example and connect transformations to it.
 
-::
+.. testcode:: transformation_example
 
     import numpy
     from numpy.linalg import norm
@@ -178,7 +194,7 @@ Let us change the previous example and connect transformations to it.
     from tigger.matrixmul import MatrixMul
     from tigger import Transformation
 
-    api = cluda.cuda_api()
+    api = cluda.ocl_api()
     ctx = api.Context.create()
 
     shape1 = (100, 200)
@@ -195,21 +211,26 @@ Let us change the previous example and connect transformations to it.
     dot = MatrixMul(ctx)
 
     split_to_interleaved = Transformation(
-        load=2, store=1,
-        derive_o_from_is=lambda l1, l2: [dtypes.complex_for(l1)],
-        derive_is_from_o=lambda s1: ([dtypes.real_for(s1), dtypes.real_for(s1)], []),
+        inputs=2, outputs=1,
+        derive_o_from_is=lambda i1, i2: [dtypes.complex_for(i1)],
+        derive_is_from_o=lambda o1: ([dtypes.real_for(o1), dtypes.real_for(o1)], []),
         code="""
-            ${store.s1}(${dtypes.complex_ctr(numpy.complex64)}(${load.l1}, ${load.l2}));
+            ${o1.store}(${dtypes.complex_ctr(numpy.complex64)}(${i1.load}, ${i2.load}));
         """)
-    dot.connect(split_to_interleaved, 'A', ['A_re', 'A_im'])
-    dot.connect(split_to_interleaved, 'B', ['B_re', 'B_im'])
+    dot.connect(split_to_interleaved, 'a', ['a_re', 'a_im'])
+    dot.connect(split_to_interleaved, 'b', ['b_re', 'b_im'])
     dot.prepare_for(res_dev, a_re_dev, a_im_dev, b_re_dev, b_im_dev)
 
     dot(res_dev, a_re_dev, a_im_dev, b_re_dev, b_im_dev)
 
     res_reference = numpy.dot(a_re + 1j * a_im, b_re + 1j * b_im)
 
-    print norm(ctx.from_device(res_dev) - res_reference) / norm(res_reference)
+    print norm(ctx.from_device(res_dev) - res_reference) / norm(res_reference) < 1e-6
+
+.. testoutput:: transformation_example
+    :hide:
+
+    True
 
 This requires a bit of explanation.
 First, we create a transformation ``split_to_interleaved`` with two inputs and one output.
