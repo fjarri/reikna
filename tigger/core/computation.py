@@ -49,14 +49,14 @@ class Computation:
         Must return a dictionary with :py:class:`~tigger.core.ArrayValue` and
         :py:class:`~tigger.core.ScalarValue` objects assigned to the argument names.
 
-    .. py:method:: _get_basis_for(argnames, *args, **kwds)
+    .. py:method:: _get_basis_for(default_basis, *args, **kwds)
 
         Must return a dictionary with basis values for the computation working with ``args``,
         given optional parameters ``kwds``.
         If names of positional and keyword arguments are known in advance,
         it is better to use them explicitly in the signature.
 
-    .. py:method:: _construct_operations(operations, argnames, basis, device_params)
+    .. py:method:: _construct_operations(operations, basis, device_params)
 
         Must fill the ``operations`` object with actions required to execute the computation.
         See the :py:class:`~tigger.core.operation.OperationRecorder` class reference
@@ -82,6 +82,10 @@ class Computation:
         self._state = STATE_INITIALIZED
 
     def _set_argnames(self, outputs, inputs, scalars):
+        """
+        Special method to use by computations with variable number of arguments.
+        Should be called before any connections and preparations are made.
+        """
         if self._state != STATE_NOT_INITIALIZED:
             raise InvalidStateError("Argument names were already set once")
         self._argnames = (tuple(outputs), tuple(inputs), tuple(scalars))
