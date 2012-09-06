@@ -64,3 +64,36 @@ def test_scale_param(some_ctx, any_dtype):
 
     test(output_dev, input_dev, p1[0], p2[0])
     assert diff_is_negligible(output_dev.get(), input * p1[0] * p2[0])
+
+
+def test_scale_const(some_ctx, any_dtype):
+
+    input = get_test_array((1000,), any_dtype)
+    p = get_test_array((1,), any_dtype)
+    input_dev = some_ctx.to_device(input)
+    output_dev = some_ctx.empty_like(input_dev)
+
+    test = TestComputation(some_ctx)
+    test.connect(tr.scale_const(p[0]), 'input', ['input_prime'])
+    test.prepare_for(output_dev, input_dev)
+
+    test(output_dev, input_dev)
+    assert diff_is_negligible(output_dev.get(), input * p[0])
+
+def test_split_combine_complex(some_ctx):
+
+    i1 = get_test_array((1000,), numpy.float32)
+    i2 = get_test_array((1000,), numpy.float32)
+    i1_dev = some_ctx.to_device(i1)
+    i2_dev = some_ctx.to_device(i2)
+    o1_dev = some_ctx.empty_like(i1)
+    o2_dev = some_ctx.empty_like(i2)
+
+    test = TestComputation(some_ctx)
+    test.connect(tr.combine_complex, 'input', ['i1', 'i2'])
+    test.connect(tr.split_complex, 'output', ['o1', 'o2'])
+    test.prepare_for(o1_dev, o2_dev, i1_dev, i2_dev)
+
+    test(o1_dev, o2_dev, i1_dev, i2_dev)
+    assert diff_is_negligible(o1_dev.get(), i1)
+    assert diff_is_negligible(o2_dev.get(), i2)
