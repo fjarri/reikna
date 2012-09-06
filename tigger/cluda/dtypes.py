@@ -117,7 +117,7 @@ def c_constant(val, dtype=None):
     elif is_integer(dtype):
         return str(val) + ("L" if dtype.itemsize > 4 else "")
     else:
-        return str(val) + ("f" if dtype.itemsize <= 4 else "")
+        return str(float(val)) + ("f" if dtype.itemsize <= 4 else "")
 
 def _register_dtype(dtype, ctype):
     dtype = normalize_type(dtype)
