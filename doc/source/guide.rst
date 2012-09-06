@@ -50,25 +50,20 @@ These names serve as identifiers for connection points, where user can attach tr
 All attached transformations form a tree with roots being these base connection points, and leaves forming the signature of the :py:meth:`~tigger.core.Computation.__call__` method visible to the user.
 As an example, let us consider an elementwise computation object with one output, two inputs and a scalar parameter, which performs the calculation ``out = in1 + in2 + param``:
 
-::
+.. testcode:: transformation_example
 
-    class TestComputation(Elementwise):
+    import numpy
+    import tigger.cluda as cluda
+    from tigger.core import Transformation
+    from tigger.elementwise import specialize_elementwise
+    import tigger.transformations as transformations
 
-        def _get_base_argnames(self):
-            return ('out',), ('in1', 'in2'), ('param',)
+    api = cluda.ocl_api()
+    ctx = api.Context.create()
 
-        def _get_default_basis(self):
-            basis = Elementwise._get_default_basis(self)
-            basis.code = dict(kernel="${out.store}(${in1.load} + ${in2.load} + ${param};"))
-            return basis
-
-        def set_basis(**kwds):
-            assert 'code' not in kwds
-            Elementwise.set_basis(self, **kwds)
-
-        def prepare_for(out, in1, in2, param):
-            return Elementwise.prepare_for(out, in1, in2, param)
-
+    TestComputation = specialize_elementwise(
+        'out', ['in1', 'in2'], 'param',
+        dict(kernel="${out.store}(${in1.load} + ${in2.load} + ${param};"))
 
     comp = TestComputation(ctx)
 
@@ -79,37 +74,35 @@ Its initial transformation tree looks like:
 
 And its signature is
 
-::
+.. doctest:: transformation_example
 
-    >>> print comp.signature
-    (...)
+    >>> comp.signature_str()
+    '(array) out, (array) in1, (array) in2, (scalar) param'
 
 Now let us attach the transformation to the output which will split it into two halves: ``out1 = out / 2``, ``out2 = out / 2``:
 
-::
+.. testcode:: transformation_example
 
-    comp.connect(transformations.split(0.5, 0.5), 'out', ['out1', 'out2'])
+    comp.connect(transformations.split_complex, 'out', ['out1', 'out2'])
 
 We have used the pre-created transformation here for simplicity; writing your own transformations will be described :ref:`later <guide-write-transformations>`.
 In addition, we want ``in2`` to be scaled before being passed to the main computation.
 To achieve this, we connect the scaling transformation to it:
 
-::
+.. testcode:: transformation_example
 
-    comp.connect(transformations.scale_param(), 'in2', ['in2_prime', 'param2'])
+    comp.connect(transformations.scale_param, 'in2', ['in2_prime'], ['param2'])
 
 The transformation tree now looks like (blue contour shows the external signature, arrows show the direction of data):
 
 (pic with new tree)
 
-
-
 And the signature is:
 
-::
+.. doctest:: transformation_example
 
-    >>> print comp.signature
-    (...)
+    >>> comp.signature_str()
+    '(array) out1, (array) out2, (array) in1, (array) in2_prime, (scalar) param, (scalar) param2'
 
 Notice that ``param2`` was moved to the end of the signature.
 This was done in order to keep outputs, inputs and scalar parameters separated.
