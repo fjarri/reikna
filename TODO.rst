@@ -1,7 +1,6 @@
 0.1.0
 =====
 
-* TODO: create some elementwise computations derived from Elementwise
 * DECIDE: how to handle not-enough-resourcses error (too many registers/local memory)?
   1) When compiling, if such error occurs, reduce maximum workgroup size by warp size and
      call _construct_operations() again.
@@ -28,6 +27,7 @@
 * TODO: Write some performance tests
 * TODO: Flatten kernel list before execution, and assign argument numbers
 * TODO: add FFT (and mark pyfft as deprecated)
+* TODO: create some elementwise computations derived from Elementwise
 
 
 1.0.0 (production-quality version... hopefully)
