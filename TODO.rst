@@ -2,7 +2,6 @@
 =====
 
 * TODO: update reference documentation
-* TODO: mark all code examples as doctests and check that they pass
 
 0.2.0
 =====
