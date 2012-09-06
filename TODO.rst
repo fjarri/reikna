@@ -1,10 +1,6 @@
 0.1.0
 =====
 
-* DECIDE: how to handle not-enough-resourcses error (too many registers/local memory)?
-  1) When compiling, if such error occurs, reduce maximum workgroup size by warp size and
-     call _construct_operations() again.
-     Throw OutOfResourcesError if could not find proper local size?
 * TODO: move all possible reference documentation to corresponding modules
 * TODO: make headings in python style: ## (parts), ** (chapters), = (sections), -, ^, "
 * TODO: update reference documentation
@@ -13,6 +9,16 @@
 0.2.0
 =====
 
+* TODO: add FFT (and mark pyfft as deprecated)
+* DECIDE: how to handle not-enough-resourcses error (too many registers/local memory)?
+  1) When compiling, if such error occurs, reduce maximum workgroup size by warp size and
+     call _construct_operations() again.
+     Throw OutOfResourcesError if could not find proper local size?
+  2) The method (1) will limit local size even for those kernels
+     which do not suffer from the lack of registers.
+     Alternatively, we can check resource usage after add_kernel()
+     (because of the strict connect-prepare order,
+     we are sure that all the transformations are set, so we can compile the kernel right away).
 * DECIDE: remove prepare() completely?
   It will simplify derivation of types in transformations, in particular removing issue
   with loss of information in "inside out" derivations.
@@ -24,9 +30,9 @@
 * TODO: move part of core.transformation to a template
 * TODO: add custom render keywords for transformations (will help e.g. in tigger.transformations)
 * TODO: run coverage tests and see if some functionality has to be tested
+* TODO: run pylint
 * TODO: Write some performance tests
 * TODO: Flatten kernel list before execution, and assign argument numbers
-* TODO: add FFT (and mark pyfft as deprecated)
 * TODO: create some elementwise computations derived from Elementwise
 
 
