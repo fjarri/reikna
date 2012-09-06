@@ -22,7 +22,8 @@ Contents
    :maxdepth: 2
 
    introduction
-   guide
+   tutorial-basics
+   tutorial-advanced
    api/index
    history
 
