@@ -22,6 +22,48 @@ STATE_PREPARED = 2
 
 
 class Computation:
+    """
+    Creates a computation class and performs basic initialization for the
+    :py:class:`~tigger.cluda.api.Context` object ``ctx``.
+    Note that the computation is unusable until :py:func:`prepare`
+    or :py:func:`prepare_for` is called.
+    If ``debug`` is ``True``, a couple of additional checks will be performed in runtime
+    during preparation and calls to computation.
+
+    The following methods are for overriding by computations
+    inheriting :py:class:`Computation` class.
+
+    .. py:method:: _get_argnames()
+
+        Must return a tuple ``(outputs, inputs, scalars)``, where each of
+        ``outputs``, ``inputs``, ``scalars`` is a tuple of argument names used by this computation.
+        If this method is not overridden, :py:meth:`set_argnames` will have to be called
+        right after creating the computation object.
+
+    .. py:method:: _get_default_basis()
+
+        Must return a dictionary with default values for the computation basis.
+
+    .. py:method:: _get_argvalues(argnames, basis)
+
+        Must return a dictionary with :py:class:`~tigger.core.ArrayValue` and
+        :py:class:`~tigger.core.ScalarValue` objects assigned to the argument names.
+
+    .. py:method:: _get_basis_for(argnames, *args, **kwds)
+
+        Must return a dictionary with basis values for the computation working with ``args``,
+        given optional parameters ``kwds``.
+        If names of positional and keyword arguments are known in advance,
+        it is better to use them explicitly in the signature.
+
+    .. py:method:: _construct_operations(operations, argnames, basis, device_params)
+
+        Must fill the ``operations`` object with actions required to execute the computation.
+        See the :py:class:`~tigger.core.operation.OperationRecorder` class reference
+        for the list of available actions.
+
+    The rest is public methods.
+    """
 
     def __init__(self, ctx, debug=False):
         self._ctx = ctx
@@ -48,8 +90,8 @@ class Computation:
 
     def get_nested_computation(self, cls):
         """
-        Returns an object of supplied computation class,
-        created with the same parameters (context, debug mode etc) as the current one.
+        Calls ``cls`` constructor with the same arguments and keywords
+        as were given to its own constructor.
         """
         return cls(self._ctx, debug=self._debug)
 
@@ -128,7 +170,12 @@ class Computation:
 
     def connect(self, tr, array_arg, new_array_args, new_scalar_args=None):
         """
-        Connects given transformation to the external array argument.
+        Connects a :py:class:`~tigger.core.Transformation` instance to the computation.
+        After the successful connection the computation resets to teh unprepared state.
+
+        :param array_arg: name of the leaf computation parameter to connect to.
+        :param new_array_args: list of the names for the new leaf array parameters.
+        :param new_scalar_args: list of the names for the new leaf scalar parameters.
         """
         if self._state != STATE_INITIALIZED:
             raise InvalidStateError(
@@ -140,7 +187,7 @@ class Computation:
 
     def prepare(self, **kwds):
         """
-        Prepares the computation for given basis.
+        Prepare the computation based on the given basis parameters.
         """
         if self._state != STATE_INITIALIZED:
             raise InvalidStateError("Cannot prepare the same computation twice")
@@ -161,14 +208,16 @@ class Computation:
 
     def prepare_for(self, *args, **kwds):
         """
-        Prepares the computation for given arguments.
+        Prepare the computation so that it could run with ``args`` supplied to :py:meth:`__call__`.
         """
         new_basis = self._basis_for(args, kwds)
         return self.prepare(**new_basis)
 
     def signature_str(self):
         """
-        Returns pretty-printed computation signature.
+        Returns a string with the signature of the computation,
+        containing argument names, types and shapes (in case of arrays).
+
         This is primarily a debug method.
         """
         res = []
@@ -179,7 +228,10 @@ class Computation:
 
     def __call__(self, *args, **kwds):
         """
-        Executes computation.
+        Execute computation with given arguments.
+        The order and types of arguments are defined by the base computation
+        and connected transformations.
+        The signature can be also viewed by means of :py:meth:`signature_str`.
         """
         if self._state != STATE_PREPARED:
             raise InvalidStateError("The computation must be fully prepared before execution")

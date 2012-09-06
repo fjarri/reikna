@@ -174,6 +174,33 @@ def wrap_value(value):
 
 
 class Transformation:
+    """
+    Defines an elementwise transformation.
+
+    :param inputs: number of input array values.
+    :param outputs: number of output array values.
+    :param parameters: number of scalar parameters for the transformation.
+    :param derive_o_from_is: a function taking ``inputs`` + ``scalars`` dtype parameters
+        and returning list with ``outputs`` dtypes.
+        Used to derive types in the transformation tree after call to
+        :py:meth:`Computation.prepare_for` when the transformation is connected
+        to the input argument.
+    :param derive_is_from_o: a function taking ``outputs`` dtype parameters
+        and returning tuple of two lists with ``inputs`` and ``scalars`` dtypes.
+        Used to derive types in the transformation tree after call to
+        :py:meth:`Computation.prepare` when the transformation is connected to the input argument.
+    :param derive_i_from_os: a function taking ``outputs`` + ``scalars`` dtype parameters
+        and returning list with ``inputs`` dtypes.
+        Used to derive types in the transformation tree after call to
+        :py:meth:`Computation.prepare_for` when the transformation is connected
+        to the output argument.
+    :param derive_os_from_i: a function taking ``inputs`` dtype parameters
+        and returning tuple of two lists with ``outputs`` and ``scalars`` dtypes.
+        Used to derive types in the transformation tree after call to
+        :py:meth:`Computation.prepare` when the transformation is connected to the output argument.
+    :param code: template source with the transformation code.
+        See :ref:`How to write transformations <how-to-transformations>` section for details.
+    """
 
     def __init__(self, inputs=1, outputs=1, scalars=0,
             derive_o_from_is=None,

@@ -26,6 +26,10 @@ class OperationRecorder:
         self._allocations = {}
 
     def add_allocation(self, name, shape, dtype):
+        """
+        Adds an allocation to the list of actions.
+        The ``name`` can be used later in the list of argument names for kernels.
+        """
         assert name not in self.values
         value = ArrayValue(shape, dtype)
         self.values[name] = value
@@ -33,6 +37,21 @@ class OperationRecorder:
 
     def add_kernel(self, template, defname, argnames,
             global_size, local_size=None, render_kwds=None):
+        """
+        Adds kernel execution to the list of actions.
+        See the details on how to write kernels in the
+        :ref:`kernel writing guide <guide-contributing>`.
+
+        :param template: Mako template for the kernel.
+        :param defname: name of the definition inside the template.
+        :param argnames: names of the arguments the kernel takes.
+            These must either belong to the list of external argument names,
+            or be allocated by :py:meth:`add_allocation` earlier.
+        :param global_size: global size to use for the call.
+        :param local_size: local size to use for the call.
+            If ``None``, the local size will be picked automatically.
+        :param render_kwds: dictionary with additional values used to render the template.
+        """
 
         subtemplate = template.get_def(defname)
 
@@ -59,6 +78,11 @@ class OperationRecorder:
             global_size, local_size=local_size))
 
     def add_computation(self, cls, *argnames, **kwds):
+        """
+        Adds a nested computation call. The ``computation`` value must be a computation
+        with necessary basis set and transformations connected.
+        ``argnames`` list specifies which positional arguments will be passed to this kernel.
+        """
         self.operations.append(ComputationCall(cls, *argnames, **kwds))
 
     def get_allocation_values(self):
