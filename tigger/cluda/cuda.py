@@ -230,15 +230,19 @@ class Kernel:
             local_size_dims = [zip(*factors(g, limit=max_size))[0] for g in self.global_size]
             local_sizes = [t for t in itertools.product(*local_size_dims)
                 if product(t) <= max_size and fits_into_dims(t)]
-            local_size = max(local_sizes, key=product)
-            self.local_size = local_size + (1,) * (3 - len(local_size))
+            self.local_size = max(local_sizes, key=product)
+
+        # append missing dimensions, otherwise PyCUDA will complain
+        self.local_size = self.local_size + (1,) * (3 - len(self.local_size))
 
         grid = []
         for gs, ls in zip(self.global_size, self.local_size):
             if gs % ls != 0:
                 raise ValueError("Global sizes must be multiples of corresponding local sizes")
             grid.append(gs / ls)
-        self.grid = tuple(grid)
+
+        # append missing dimensions, otherwise PyCUDA will complain
+        self.grid = tuple(grid) + (1,) * (3 - len(grid))
 
     def prepared_call(self, *args):
         self._kernel(*args, grid=self.grid, block=self.local_size,
