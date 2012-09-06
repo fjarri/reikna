@@ -120,7 +120,11 @@ def wrap_in_tuple(x):
     If ``x`` is a sequence, converts it to a ``tuple``,
     otherwise returns a tuple with a single element ``x``.
     """
-    if isinstance(x, collections.Iterable):
+    if x is None:
+        return tuple()
+    elif isinstance(x, str):
+        return (x,)
+    elif isinstance(x, collections.Iterable):
         return tuple(x)
     else:
         return (x,)
