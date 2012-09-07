@@ -62,6 +62,11 @@ class Computation:
         See the :py:class:`~tigger.core.operation.OperationRecorder` class reference
         for the list of available actions.
 
+    .. py:method:: _set_argnames(outputs, inputs, scalars)
+
+        Special method to use by computations with variable number of arguments.
+        Should be called before any connections and preparations are made.
+
     The rest is public methods.
     """
 
@@ -82,10 +87,6 @@ class Computation:
         self._state = STATE_INITIALIZED
 
     def _set_argnames(self, outputs, inputs, scalars):
-        """
-        Special method to use by computations with variable number of arguments.
-        Should be called before any connections and preparations are made.
-        """
         if self._state != STATE_NOT_INITIALIZED:
             raise InvalidStateError("Argument names were already set once")
         self._argnames = (tuple(outputs), tuple(inputs), tuple(scalars))
