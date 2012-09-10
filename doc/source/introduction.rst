@@ -208,8 +208,8 @@ Let us change the previous example and connect transformations to it.
     res_dev = ctx.allocate((shape1[0], shape2[1]), dtype=numpy.complex64)
 
     dot = MatrixMul(ctx)
-    dot.connect(combine_complex, 'a', ['a_re', 'a_im'])
-    dot.connect(combine_complex, 'b', ['b_re', 'b_im'])
+    dot.connect(combine_complex(), 'a', ['a_re', 'a_im'])
+    dot.connect(combine_complex(), 'b', ['b_re', 'b_im'])
     dot.prepare_for(res_dev, a_re_dev, a_im_dev, b_re_dev, b_im_dev)
 
     dot(res_dev, a_re_dev, a_im_dev, b_re_dev, b_im_dev)
@@ -223,9 +223,6 @@ Let us change the previous example and connect transformations to it.
 
     True
 
-This requires a bit of explanation.
-First, we create a transformation ``split_to_interleaved`` with two inputs and one output.
-Next two parameters are type derivation functions --- they will be used internally to derive basis from ``prepare_for()`` arguments, and signature types from the basis, respectively.
-Code is a small Mako template, which uses two inputs ``${load.l1}`` and ``${load.l2}``, passes them to the complex number constructor and stores the result in ``${store.s1}``.
-This transformation is then attached to endpoints ``A`` and ``B`` --- the input values of basic ``MatrixMul`` computation.
-Finally, we call ``prepare_for()`` which now has a new signature, and the resulting ``dot`` object now works with split complex numbers.
+We have used a pre-created transformation :py:attr:`~tigger.transformations.combine_complex` from :py:mod:`tigger.transformations`, although you can create your own (see :ref:`guide-writing-a-transformation` for details).
+This transformation is attached to endpoints ``a`` and ``b`` --- the input values of the basic :py:class:`~tigger.matrixmul.MatrixMul` computation.
+Finally, we call :py:meth:`~tigger.core.Computation.prepare_for` which now has a new signature, and the resulting ``dot`` object now works with split complex numbers.
