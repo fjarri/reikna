@@ -190,9 +190,8 @@ Let us change the previous example and connect transformations to it.
     import numpy
     from numpy.linalg import norm
     import tigger.cluda as cluda
-    import tigger.cluda.dtypes as dtypes
     from tigger.matrixmul import MatrixMul
-    from tigger import Transformation
+    from tigger.transformations import combine_complex
 
     api = cluda.ocl_api()
     ctx = api.Context.create()
@@ -209,23 +208,15 @@ Let us change the previous example and connect transformations to it.
     res_dev = ctx.allocate((shape1[0], shape2[1]), dtype=numpy.complex64)
 
     dot = MatrixMul(ctx)
-
-    split_to_interleaved = Transformation(
-        inputs=2, outputs=1,
-        derive_o_from_is=lambda i1, i2: [dtypes.complex_for(i1)],
-        derive_is_from_o=lambda o1: ([dtypes.real_for(o1), dtypes.real_for(o1)], []),
-        code="""
-            ${o1.store}(${dtypes.complex_ctr(numpy.complex64)}(${i1.load}, ${i2.load}));
-        """)
-    dot.connect(split_to_interleaved, 'a', ['a_re', 'a_im'])
-    dot.connect(split_to_interleaved, 'b', ['b_re', 'b_im'])
+    dot.connect(combine_complex, 'a', ['a_re', 'a_im'])
+    dot.connect(combine_complex, 'b', ['b_re', 'b_im'])
     dot.prepare_for(res_dev, a_re_dev, a_im_dev, b_re_dev, b_im_dev)
 
     dot(res_dev, a_re_dev, a_im_dev, b_re_dev, b_im_dev)
 
     res_reference = numpy.dot(a_re + 1j * a_im, b_re + 1j * b_im)
 
-    print norm(ctx.from_device(res_dev) - res_reference) / norm(res_reference) < 1e-6
+    print norm(res_dev.get() - res_reference) / norm(res_reference) < 1e-6
 
 .. testoutput:: transformation_example
     :hide:
