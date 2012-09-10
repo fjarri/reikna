@@ -303,6 +303,11 @@ Second, there is a set of macros attached to any kernel depending on the API it 
     Local, group and global identifiers and sizes.
     In case of CUDA mimic the behavior of corresponding OpenCL functions.
 
+.. c:macro:: VIRTUAL_SKIP_THREADS
+
+    This macro should start any kernel compiled with :py:meth:`~tigger.cluda.api.Context.compile_static`.
+    It skips all the empty threads resulting from fitting call parameters into backend limitations.
+
 .. c:function:: int virtual_local_id(int dim)
 .. c:function:: int virtual_group_id(int dim)
 .. c:function:: int virtual_global_id(int dim)
