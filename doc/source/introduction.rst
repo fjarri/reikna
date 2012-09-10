@@ -2,7 +2,7 @@
 Introduction
 ************
 
-This section contains brief illustration of what Tigger does.
+This section contains brief illustration of what ``Tigger`` does.
 For detailed information see corresponding reference pages.
 
 
@@ -10,7 +10,7 @@ CLUDA
 =====
 
 CLUDA is an abstraction layer on top of PyCuda/PyOpenCL.
-Its main purpose is to separate the rest of Tigger from the difference in their APIs, but it can be used by itself too for some simple tasks.
+Its main purpose is to separate the rest of ```Tigger`` from the difference in their APIs, but it can be used by itself too for some simple tasks.
 
 Consider the following example, which is very similar to the one from the index page on PyCuda documentation:
 
@@ -57,7 +57,7 @@ The abstraction is achieved by using generic API module on Python side, and spec
 
 The argument of ``compile`` method can also be a template, which is quite useful for metaprogramming, and also used to compensate for the lack of complex number operations in OpenCL.
 Let us illustrate both scenarios by making the initial example multiply complex arrays.
-The template engine of choice in Tigger is `Mako <http://www.makotemplates.org>`_, and you are encouraged to read about it as it is quite useful. For the purpose of this tutorial all we need to know is that its synthax is ``${python_expression()}``, which renders the expression result.
+The template engine of choice in ``Tigger`` is `Mako <http://www.makotemplates.org>`_, and you are encouraged to read about it as it is quite useful. For the purpose of this example all we need to know is that its synthax is ``${python_expression()}``, which renders the expression result.
 
 .. testcode:: cluda_template_example
 
@@ -105,9 +105,9 @@ Here we passed ``dtype`` and ``ctype`` values to the template, and used ``dtype`
 Alternatively, we could call ``dtypes.ctype()`` inside the template, as ``dtypes`` module is available there too.
 
 You may have notice that CLUDA context is created by means of a static method and not using the constructor.
-The constructor is reserved for more usual scenario, where you want to include some Tigger functionality in your bigger script, and want it to use the existing context and stream/queue.
+The constructor is reserved for more usual scenario, where you want to include some ``Tigger`` functionality in your bigger script, and want it to use the existing context and stream/queue.
 The ``Context`` constructor takes the PyCuda/PyOpenCL context and, optionally, the ``Stream``/``CommandQueue`` object as a ``stream`` parameter.
-All further operations with the Tigger context will be performed using given context and stream.
+All further operations with the ``Tigger`` context will be performed using given context and stream.
 If ``stream`` is not given, an internal stream will be created.
 
 For the complete list of things available in CLUDA, please consult :ref:`CLUDA reference <cluda-reference>`.
@@ -117,7 +117,7 @@ Computations
 ============
 
 Now it's time for the main part of the functionality.
-Tigger provides GPGPU algorithms in the form of ``Computation`` classes and ``Transformation`` objects.
+``Tigger`` provides GPGPU algorithms in the form of ``Computation`` classes and ``Transformation`` objects.
 Computations contain the algorithm itself; examples are matrix multiplication, reduction, sorting and so on.
 Transformations are elementwise operations on inputs/outputs of computations, used for scaling, typecast and other auxiliary purposes.
 Transformations are compiled into the main computation kernel and are therefore quite cheap in terms of performance.
@@ -156,7 +156,7 @@ As an example, we will consider the matrix multiplication.
     True
 
 Most of the code above should be already familiar, with the exception of the creation of ``MatrixMul`` object.
-As any other class derived from ``Computation``, it requires Tigger context as a constructor argument.
+As any other class derived from ``Computation``, it requires ``Tigger`` context as a constructor argument.
 The context serves as a source of data about the target API and device, and provides an execution stream.
 
 After the creation the object has to be prepared.
