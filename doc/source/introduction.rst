@@ -6,8 +6,8 @@ This section contains brief illustration of what Tigger does.
 For detailed information see corresponding reference pages.
 
 
-CLUDA basics
-============
+CLUDA
+=====
 
 CLUDA is an abstraction layer on top of PyCuda/PyOpenCL.
 Its main purpose is to separate the rest of Tigger from the difference in their APIs, but it can be used by itself too for some simple tasks.
@@ -113,8 +113,8 @@ If ``stream`` is not given, an internal stream will be created.
 For the complete list of things available in CLUDA, please consult :ref:`CLUDA reference <cluda-reference>`.
 
 
-Computations, user point of view
-================================
+Computations
+============
 
 Now it's time for the main part of the functionality.
 Tigger provides GPGPU algorithms in the form of ``Computation`` classes and ``Transformation`` objects.
