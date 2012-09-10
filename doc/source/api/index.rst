@@ -9,3 +9,4 @@ API reference
    cluda
    core
    computations
+   transformations
