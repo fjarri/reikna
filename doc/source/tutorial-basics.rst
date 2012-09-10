@@ -83,7 +83,7 @@ Now let us attach the transformation to the output which will split it into two 
 
 .. testcode:: transformation_example
 
-    comp.connect(transformations.split_complex, 'out', ['out1', 'out2'])
+    comp.connect(transformations.split_complex(), 'out', ['out1', 'out2'])
 
 We have used the pre-created transformation here for simplicity; writing your own transformations will be described :ref:`later <guide-writing-a-transformation>`.
 In addition, we want ``in2`` to be scaled before being passed to the main computation.
@@ -91,7 +91,7 @@ To achieve this, we connect the scaling transformation to it:
 
 .. testcode:: transformation_example
 
-    comp.connect(transformations.scale_param, 'in2', ['in2_prime'], ['param2'])
+    comp.connect(transformations.scale_param(), 'in2', ['in2_prime'], ['param2'])
 
 The transformation tree now looks like (blue contour shows the external signature, arrows show the direction of data):
 
