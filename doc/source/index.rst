@@ -4,7 +4,7 @@ Tigger, the pure Python GPGPU library
 
 |documentation_type_subtitle|
 
-Tigger is a library containing various GPU algorithms.
+``Tigger`` is a library containing various GPU algorithms.
 The main design goals are:
 
 * separation of computation cores (matrix multiplication, random numbers generation etc) from simple transformations on their input and output values (scaling, typecast etc);
