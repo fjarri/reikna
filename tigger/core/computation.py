@@ -146,7 +146,7 @@ class Computation:
             pair, arg = pair_arg
             name, value = pair
             if arg is None:
-                new_value = ArrayValue(None, None) if value.is_array else ScalarValue(None, None)
+                new_value = ArrayValue(None, None) if value.is_array else ScalarValue(None)
             else:
                 new_value = wrap_value(arg)
                 if new_value.is_array != value.is_array:

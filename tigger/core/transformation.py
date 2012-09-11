@@ -142,17 +142,14 @@ class ArrayValue(object):
 
 
 class ScalarValue:
-    def __init__(self, value, dtype):
-        self.value = dtypes.cast(dtype)(value) if value is not None else value
+    def __init__(self, dtype):
         self.dtype = dtypes.normalize_type(dtype) if dtype is not None else None
         self.is_array = False
 
     def fill_with(self, other):
-        self.value = other.value
         self.dtype = other.dtype
 
     def clear(self):
-        self.value = None
         self.dtype = None
 
     def __str__(self):
@@ -162,7 +159,7 @@ class ScalarValue:
         return ", ".join(props)
 
     def __repr__(self):
-        return "ScalarValue(" + repr(self.value) + "," + repr(self.dtype) + ")"
+        return "ScalarValue(" + repr(self.dtype) + ")"
 
 
 def wrap_value(value):
@@ -170,7 +167,7 @@ def wrap_value(value):
         return ArrayValue(value.shape, value.dtype)
     else:
         dtype = dtypes.min_scalar_type(value)
-        return ScalarValue(value, dtype)
+        return ScalarValue(dtype)
 
 
 class Transformation:
@@ -288,7 +285,7 @@ class TransformationTree:
                 children=None, tr_to_children=None)
         for name in scalars:
             self.nodes[name] = AttrDict(name=name, type=NODE_SCALAR,
-                value=ScalarValue(None, None),
+                value=ScalarValue(None),
                 children=None, tr_to_children=None)
 
     def leaf_signature(self, base_names=None):
@@ -607,7 +604,7 @@ class TransformationTree:
             else:
                 new_nodes[name] = AttrDict(
                     name=name, type=NODE_SCALAR,
-                    value=ScalarValue(None, None),
+                    value=ScalarValue(None),
                     children=None, tr_to_children=None)
 
         parent.children = new_array_args + new_scalar_args

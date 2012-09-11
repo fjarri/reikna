@@ -59,7 +59,7 @@ class Elementwise(Computation):
         outputs, inputs, params = self._get_base_names()
         values = {name:ArrayValue((basis.size,), basis.argtypes[name])
             for name in outputs + inputs}
-        values.update({name:ScalarValue(None, basis.argtypes[name])
+        values.update({name:ScalarValue(basis.argtypes[name])
             for name in params})
 
         return values

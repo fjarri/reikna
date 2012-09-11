@@ -25,7 +25,7 @@ class Dummy(Computation):
 
     def _get_argvalues(self, basis):
         av = ArrayValue((basis.size,), basis.arr_dtype)
-        sv = ScalarValue(None, basis.coeff_dtype)
+        sv = ScalarValue(basis.coeff_dtype)
         return dict(C=av, D=av, A=av, B=av, coeff=sv)
 
     def _construct_operations(self, operations, basis, device_params):
