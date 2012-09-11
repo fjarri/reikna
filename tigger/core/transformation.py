@@ -5,7 +5,7 @@ from mako.template import Template
 
 import tigger.cluda.dtypes as dtypes
 from tigger.cluda.kernel import render_without_funcs, FuncCollector
-from tigger.helpers import AttrDict, product
+from tigger.helpers import AttrDict, product, wrap_in_tuple
 
 
 INDEX_NAME = "idx"
@@ -101,7 +101,7 @@ def valid_argument_name(name):
 
 class ArrayValue(object):
     def __init__(self, shape, dtype):
-        self.shape = shape
+        self.shape = wrap_in_tuple(shape) if shape is not None else None
         self.dtype = dtypes.normalize_type(dtype) if dtype is not None else None
         self.is_array = True
 
