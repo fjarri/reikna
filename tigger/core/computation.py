@@ -137,7 +137,7 @@ class Computation:
         pairs = self._tr_tree.leaf_signature()
         if len(args) != len(pairs):
             raise TypeError("Computation takes " + str(len(pairs)) +
-                " arguments (" + len(args) + " given")
+                " arguments (" + str(len(args)) + " given)")
 
         # We do not need our args per se, just their properies (types and shapes).
         # So we are creating mock values to propagate through transformation tree.
