@@ -163,7 +163,9 @@ class ScalarValue:
 
 
 def wrap_value(value):
-    if hasattr(value, 'shape') and len(value.shape) > 0:
+    if isinstance(value, ScalarValue) or isinstance(value, ArrayValue):
+        return value
+    elif hasattr(value, 'shape') and len(value.shape) > 0:
         return ArrayValue(value.shape, value.dtype)
     else:
         dtype = dtypes.min_scalar_type(value)
