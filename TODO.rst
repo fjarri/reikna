@@ -23,6 +23,8 @@
 * TODO: Write some performance tests
 * TODO: Flatten kernel list before execution, and assign argument numbers
 * TODO: create some elementwise computations derived from Elementwise
+* TODO: document _debug usage
+* TODO: add "dynamic regime"
 
 
 1.0.0 (production-quality version... hopefully)
