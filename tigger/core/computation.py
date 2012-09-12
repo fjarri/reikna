@@ -33,6 +33,11 @@ class Computation:
     The following methods are for overriding by computations
     inheriting :py:class:`Computation` class.
 
+    .. py:method:: _set_argnames(outputs, inputs, scalars)
+
+        Special method to use by computations with variable number of arguments.
+        Should be called before any connections and preparations are made.
+
     .. py:method:: _get_argnames()
 
         Must return a tuple ``(outputs, inputs, scalars)``, where each of
@@ -40,16 +45,12 @@ class Computation:
         If this method is not overridden, :py:meth:`set_argnames` will have to be called
         right after creating the computation object.
 
-    .. py:method:: _get_default_basis()
-
-        Must return a dictionary with default values for the computation basis.
-
     .. py:method:: _get_argvalues(argnames, basis)
 
         Must return a dictionary with :py:class:`~tigger.core.ArrayValue` and
         :py:class:`~tigger.core.ScalarValue` objects assigned to the argument names.
 
-    .. py:method:: _get_basis_for(default_basis, *args, **kwds)
+    .. py:method:: _get_basis_for(*args, **kwds)
 
         Must return a dictionary with basis values for the computation working with ``args``,
         given optional parameters ``kwds``.
@@ -61,11 +62,6 @@ class Computation:
         Must fill the ``operations`` object with actions required to execute the computation.
         See the :py:class:`~tigger.core.operation.OperationRecorder` class reference
         for the list of available actions.
-
-    .. py:method:: _set_argnames(outputs, inputs, scalars)
-
-        Special method to use by computations with variable number of arguments.
-        Should be called before any connections and preparations are made.
 
     The rest is public methods.
     """
