@@ -66,8 +66,8 @@ rst_epilog = """
 .. _other_documentation_link: {other_documentation_link}
 """.format(
   documentation_type_subtitle=(
-    "*This is the documentation for the latest stable version. "
-    "Current development documentation is* |other_documentation_link|_."
+    ("*This is the documentation for the stable version " + version + ". "
+    "Current development documentation is* |other_documentation_link|_.")
     if version == release else
     "*This is the documentation for the current development version. "
     "Documentation for the latest stable version is* |other_documentation_link|_."
