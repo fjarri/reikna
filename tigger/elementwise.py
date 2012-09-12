@@ -13,24 +13,15 @@ class Elementwise(Computation):
 
     .. py:method:: set_argnames(outputs, inputs, scalars)
 
-    .. py:method:: prepare_for(*args, code=EMPTY)
-
-        :param args: arrays and scalars, according to the lists passed to :py:meth:`set_argnames`.
-        :param code: kernel code.
-
-    .. py:method:: prepare(size=1, argtypes={}, code=EMPTY)
-
-        :param size: base size for the computation (== number of work items to use)
-        :param argtypes: dictionary containing dtypes associated with argument names
-            passed to :py:meth:`set_argnames`.
-        :param code: kernel code.
-
-    .. py:method:: set_argnames(outputs, inputs, scalars)
-
         Set argument names for the computation.
         This method should be called first after the creation of the
         :py:class:`~tigger.elementwise.Elementwise` object.
         Returns ``self``.
+
+    .. py:method:: prepare_for(*args, code=EMPTY)
+
+        :param args: arrays and scalars, according to the lists passed to :py:meth:`set_argnames`.
+        :param code: kernel code.
     """
 
     # For now I cannot think of any other computation requiring variable number of arguments.

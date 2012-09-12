@@ -80,14 +80,6 @@ class Transpose(Computation):
         :param input: input array
         :param axes: tuple with the new axes order.
             If ``None``, then axes will be reversed.
-
-    .. py:method:: prepare(dtype=numpy.float32, input_shape=(1, 1), \\
-            axes=(1, 0), block_width_override=None)
-
-        :param dtype: dtype of the array
-        :param input_shape: shape of the input array
-        :param axes: tuple with the new axes order
-        :param block_width_override: custom block width for the kernel
     """
 
     def _get_argnames(self):

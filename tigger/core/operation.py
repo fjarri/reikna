@@ -39,8 +39,7 @@ class OperationRecorder:
             global_size, local_size=None, render_kwds=None):
         """
         Adds kernel execution to the list of actions.
-        See the details on how to write kernels in the
-        :ref:`kernel writing guide <tutorial-advanced-computation>`.
+        See :ref:`tutorial-advanced-computation` for details on how to write kernels.
 
         :param template: Mako template for the kernel.
         :param defname: name of the definition inside the template.

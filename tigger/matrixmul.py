@@ -9,27 +9,15 @@ TEMPLATE = template_for(__file__)
 class MatrixMul(Computation):
     """
     Multiplies two matrices using last two dimensions and batching over remaining dimensions.
+    For batching to work, the products of remaining dimensions should be equal
+    (then the multiplication will be performed piecewise), or one of them should equal 1
+    (then the multiplication will be batched over the remaining dimensions of the other matrix).
 
     .. py:method:: prepare_for(out, a, b)
 
         :param out: buffer for the result
         :param a: first matrix
         :param b: second matrix
-
-    .. py:method:: prepare(a_dtype=numpy.float32, b_dtype=numpy.float32, \\
-        out_dtype=numpy.float32, a_height=1, a_width=1, b_width=1, batch=1,  \\
-        batched_a=False, batched_b=False, block_width_override=None, out_shape=(1, 1))
-
-        :param a_dtype: dtype of the first matrix
-        :param b_dtype: dtype of the second matrix
-        :param out_dtype: dtype of the output
-        :param a_height: height of the first matrix
-        :param a_width: width of the first matrix
-        :param b_width: width of the second matrix
-        :param batch: number of matrices to batch over
-        :param batched_a: batch over matrices in ``a``
-        :param batched_b: batch over matrices in ``b``
-        :param block_width_override: custom block width for the kernel
     """
 
     def _get_argnames(self):

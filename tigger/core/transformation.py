@@ -102,13 +102,18 @@ def valid_argument_name(name):
 class ArrayValue(object):
     """
     Stub object for array arguments.
+
+    .. py:attribute:: shape
+
+        Tuple specifying the shape of the array.
+
+    .. py:attribute:: dtype
+
+        :py:class:`numpy.dtype` object specifying the data type of the array.
     """
 
     def __init__(self, shape, dtype):
-        #: Tuple specifying the shape of the array
         self.shape = wrap_in_tuple(shape) if shape is not None else None
-
-        #: :py:class:`numpy.dtype` object specifying the data type of the array.
         self.dtype = dtypes.normalize_type(dtype) if dtype is not None else None
         self.is_array = True
 
@@ -151,10 +156,13 @@ class ArrayValue(object):
 class ScalarValue:
     """
     Stub object for scalar arguments.
+
+    .. py:attribute:: dtype
+
+        :py:class:`numpy.dtype` object specifying the data type of the scalar.
     """
 
     def __init__(self, dtype):
-        #: :py:class:`numpy.dtype` object specifying the data type of the scalar.
         self.dtype = dtypes.normalize_type(dtype) if dtype is not None else None
         self.is_array = False
 
@@ -193,10 +201,12 @@ class Transformation:
     :param parameters: number of scalar parameters for the transformation.
     :param derive_o_from_is: a function taking ``inputs`` + ``scalars`` dtype parameters
         and returning the output dtype.
-        Used when the transformation is connected to the input argument.
+        If ``None``, :py:func:`~tigger.cluda.dtypes.result_type` is used.
+        Called when the transformation is connected to the input argument.
     :param derive_i_from_os: a function taking ``outputs`` + ``scalars`` dtype parameters
         and returning the input dtype.
-        Used when the transformation is connected to the output argument.
+        If ``None``, :py:func:`~tigger.cluda.dtypes.result_type` is used.
+        Called when the transformation is connected to the output argument.
     :param code: template source with the transformation code.
         See :ref:`tutorial-advanced-transformation` section for details.
     """

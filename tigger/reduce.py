@@ -28,14 +28,6 @@ class Reduce(Computation):
         :param axis: axis over which reduction is performed.
             If ``None``, the whole array will be reduced to a single element.
         :param code: dictionary {kernel, functions} with the reduction code.
-
-    .. py:method:: prepare(shape=(1,1), dtype=numpy.float32, axis=None, code=SUM)
-
-        :param shape: shape of the input buffer
-        :param dtype: dtype of the input buffer
-        :param axis: axis over which reduction is performed.
-            If ``None``, the whole array will be reduced to a single element.
-        :param code: dictionary {kernel, functions} with the reduction code.
     """
 
     def _get_argnames(self):
