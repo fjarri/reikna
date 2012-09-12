@@ -67,7 +67,7 @@ Writing a computation
 =====================
 
 A computation must derive :py:class:`~tigger.core.Computation` class and implement several methods.
-As an example, let us implement a computation which calculates ``output = input1 + input2 * param``.
+As an example, let us create a computation which calculates ``output = input1 + input2 * param``.
 
 Defining a class:
 
@@ -82,56 +82,38 @@ Defining a class:
 
 Each computation class has to define the following methods:
 
-#.
+#.  First, we have to specify :py:meth:`~tigger.core.Computation._get_argnames` which returns argument names for the computation.
+    The arguments are split into three groups: outputs, inputs and scalar arguments.
+
     ::
 
         def _get_argnames(self):
             return ('output',), ('input1', 'input2'), ('param',)
 
-    First, we have to specify :py:meth:`~tigger.core.Computation._get_argnames` which returns argument names for the computation.
-    The arguments are split into three groups: outputs, inputs and scalar arguments.
-
     If you do not implement this method, you will need to implement a method that calls :py:meth:`~tigger.core.Computation._set_argnames`, which will finish initialization.
-    This method has to be called prior to :py:meth:`~tigger.core.Computation.connect` and :py:meth:`~tigger.core.Computation.prepare`.
+    When the computation object is created, this method has to be called prior to any calls to ``connect`` or ``prepare_for``.
     This is only necessary if your computation class can have different number of arguments depending on some parameters.
     For an example, see the implementation of :py:class:tigger.elementwise.Elementwise`.
 
-    Then you need to think about what values will constitute a basis for the computation.
-    Basis should contain all the information to fully specify kernels, allocations and all other computation details.
-    In our case, we will force all the variables have the same data type (although it is not necessary).
-    In addition we will need to add the array size to the basis.
+#.  Then you need to think about what values will constitute a basis for the computation.
+    Basis should contain all the information necessary to specify kernels, allocations and all other computation details.
+    In our case, we will force all the variables to have the same data type (although it is not necessary).
+    In addition we will need to add the array shape to the basis.
+    The method :py:meth:`~tigger.core.Computation._get_basis_for`, gets executed when the user calls ``prepare_for`` and creates a basis based on the arguments and keywords passed to it.
 
-#.
     ::
 
-        def _get_default_basis(self):
-            return dict(dtype=numpy.float32, size=1)
-
-    Method :py:meth:`~tigger.core.Computation._get_default_basis` returns a dcitionary with default values for the basis:
-
-    In our case the computation depends only on a data type and on a size of arrays being processed.
-
-#.
-    ::
-
-        def _get_basis_for(self, default_basis, output, input1, input2, param):
-            assert output.dtype == input1.dtype
-            assert output.dtype == input2.dtype
-            assert output.dtype == param.dtype
-            assert output.shape == input1.shape
-            assert output.shape == input2.shape
+        def _get_basis_for(self, output, input1, input2, param):
+            assert output.dtype == input1.dtype == input2.dtype == param.dtype
+            assert output.shape == input1.shape == input2.shape
             return dict(shape=output.shape, dtype=output.dtype)
 
-    Next method to overload, :py:meth:`~tigger.core.Computation._get_basis_for`, creates a basis based on the actual parameters passed to the computation.
+    The keywords from ``prepare_for`` are passed directly to :py:meth:`~tigger.core.Computation._get_basis_for`, but positional arguments may not be the same because of attached transformations.
+    Therefore :py:meth:`~tigger.core.Computation._get_basis_for` gets instances of :py:class:`~tigger.core.ArrayValue` and :py:class:`~tigger.core.ScalarValue` as positional arguments.
+    At this stage we do not care about the actual data, only its properties, like shape and data type.
 
-    :py:meth:`~tigger.core.Computation._get_basis_for` gets executed when the user calls :py:meth:`~tigger.core.Computation.prepare_for`.
-    The keywords from :py:meth:`~tigger.core.Computation.prepare_for` are passed directly to :py:meth:`~tigger.core.Computation._get_basis_for`, but positional arguments may not be the same because of attached transformations.
-    Therefore :py:meth:`~tigger.core.Computation._get_basis_for` gets instances of :py:meth:`~tigger.core.ArrayValue` and :py:meth:`~tigger.core.ScalarValue` as positional arguments.
-    At this stage we do not care about the actual data, only its properties, namely ``shape`` and ``dtype``.
-
-    Default basis from the previous method is passed as ``default_basis`` parameter.
-
-#.
+#.  Next method tells what arguments (array/scalar, data types and shapes) the prepared computation expects to get.
+    This method is used in some internal algorithms.
 
     ::
 
@@ -142,10 +124,12 @@ Each computation class has to define the following methods:
                 input2=ArrayValue(basis.shape, basis.dtype),
                 param=ScalarValue(basis.dtype))
 
-    This is the introspection method which tells what arguments (array/scalar, data types and shapes) the prepared computation expects to get.
-    Again, if there are transformations attached, these values will be propagated through the tree (from roots to leaves) before returning to the user.
+#.  The last method actually specifies the actions to be done by the computation.
+    These include kernel calls, allocations and calls to nested computations.
+    The method takes three parameters: ``operations`` is a :py:class:`~tigger.core.operation.OperationRecorder` object, ``basis`` is a basis created by :py:meth:`~tigger.core.Computation._get_basis_for`, and ``device_params`` is a :py:class:`~tigger.cluda.api.DeviceParameters` object, which is used to optimize the computation for the specific device.
 
-#.
+    For our example we only need one action, which is the execution of an elementwise kernel:
+
     ::
 
         def _construct_operations(self, operations, basis, device_params):
@@ -167,22 +151,17 @@ Each computation class has to define the following methods:
             operations.add_kernel(template, 'testcomp', ['output', 'input1', 'input2', 'param'],
                 global_size=(basis.size,), render_kwds=dict(size=basis.size))
 
-
-    The last method actually creates kernels and specifies their call parameters.
-    Every kernel call is based on the separate template function.
+    Every kernel call is based on the separate ``Mako`` template function.
     The template can be specified as a string using :py:func:`~tigger.helpers.template_from`, or loaded as a separate file.
-    Usual pattern in this case is to call it the same as the file where the computation class is defined (for example, ``testcomp.mako`` for ``testcomp.py``), and store it in some variable on module load as ``TEMPLATE = template_for(__file__)`` using :py:func:`~tigger.helpers.template_for`.
+    Usual pattern in this case is to call the template file same as the file where the computation class is defined (for example, ``testcomp.mako`` for ``testcomp.py``), and store it in some variable on module load using :py:func:`~tigger.helpers.template_for` as ``TEMPLATE = template_for(__file__)``.
 
     The template function should take the same number of positional arguments as the kernel; you can view ``<%def ... >`` part as an actual kernel definition, but with the arguments being python objects containing variable metadata.
-    Namely, each object has attributes ``dtype`` and ``ctype``, which contains numpy data type and C type string for the corresponding argument.
+    Namely, every such object has attributes ``dtype`` and ``ctype``, which contain :py:class:`numpy.dtype` object and C type string for the corresponding argument.
     Also, depending on whether the corresponding argument is an output array, an input array or a scalar parameter, the object can be used as ``${obj.store}(val, index)``, ``${obj.load}(index)`` or ``${obj}``.
     This will produce corresponding request to the global memory or kernel arguments.
 
     If you need additional device functions, they have to be specified between ``<%def ... >`` and ``${kernel_definition}`` (the latter is where the actual kernel signature will be rendered).
     Obviously, these functions can still use ``dtype`` and ``ctype`` object properties, although ``store`` and ``load`` will lead to unpredictable results (since they are rendered as macros using main kernel arguments).
 
-    Since kernel call parameters are specified on creation, all kernel calls are rendered as CLUDA static kernels (see :py:meth:`~tigger.cluda.api.Context.compile_static`) and therefore can use all corresponding macros and functions (like :c:func:`virtual_global_flat_id` in our kernel).
-    Also, they should have :c:macro:`VIRTUAL_SKIP_THREADS` at the beginning of the kernel.
-
-    ``operations`` is a :py:class:`~tigger.core.operation.OperationRecorder` object, and ``device_params`` is a :py:class:`~tigger.cluda.api.DeviceParameters` object, which is used to optimize the computation for the specific device.
-
+    Since kernel call parameters (``global_size`` and ``local_size``) are specified on creation, all kernel calls are rendered as CLUDA static kernels (see :py:meth:`~tigger.cluda.api.Context.compile_static`) and therefore can use all the corresponding macros and functions (like :c:func:`virtual_global_flat_id` in our kernel).
+    Also, they must have :c:macro:`VIRTUAL_SKIP_THREADS` at the beginning of the kernel.
