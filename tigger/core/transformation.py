@@ -100,6 +100,10 @@ def valid_argument_name(name):
 
 
 class ArrayValue(object):
+    """
+    Stub object for array arguments.
+    """
+
     def __init__(self, shape, dtype):
         self.shape = wrap_in_tuple(shape) if shape is not None else None
         self.dtype = dtypes.normalize_type(dtype) if dtype is not None else None
@@ -142,6 +146,10 @@ class ArrayValue(object):
 
 
 class ScalarValue:
+    """
+    Stub object for scalar arguments.
+    """
+
     def __init__(self, dtype):
         self.dtype = dtypes.normalize_type(dtype) if dtype is not None else None
         self.is_array = False

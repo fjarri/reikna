@@ -12,3 +12,6 @@ Computations and transformations are based on two classes, which provide the use
 .. autoclass:: tigger.core.operation.OperationRecorder
     :members:
 
+.. autoclass:: tigger.core.ArrayValue
+
+.. autoclass:: tigger.core.ScalarValue
