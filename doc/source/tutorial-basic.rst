@@ -67,9 +67,15 @@ As an example, let us consider an elementwise computation object with one output
 The details of creating the ``TestComputation`` class are not important for this example; they are provided here just for the sake of completeness.
 The initial transformation tree of ``comp`` object looks like:
 
-(pic with base values out, in1, in2, param)
+::
 
-And its signature is
+       | out   | >>
+    >> | in1   |
+    >> | in2   |
+    >> | param |
+
+Here ``||`` denote the base computation (the one defined by the developer), and ``>>`` denote inputs and outputs specified by the user.
+The computation signature is:
 
 .. doctest:: transformation_example
 
@@ -91,11 +97,19 @@ To achieve this, we connect the scaling transformation to it:
 
     comp.connect(transformations.scale_param(), 'in2', ['in2_prime'], ['param2'])
 
-The transformation tree now looks like (blue contour shows the external signature, arrows show the direction of data):
+The transformation tree now looks like:
 
-(pic with new tree)
+::
 
-And the final signature is:
+                         | out   | ----> out1 >>
+                         |       |   \-> out2 >>
+                      >> | in1   |
+    >> in2_prime ------> | in2   |
+                   /  >> | param |
+    >> param2 ----/
+
+As can be seen, nothing has changed from the base computation's point of view: it still gets the same inputs and outputs to the same array.
+But user-supplied parameters (``>>``) have changed, which can be also seen in the result of the :py:meth:`~tigger.core.Computation.signature_str`:
 
 .. doctest:: transformation_example
 
