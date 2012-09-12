@@ -3,12 +3,12 @@ Release history
 ***************
 
 
-0.1.0 (current development version)
-===================================
+0.1.0 (12 Sep 2012)
+===================
 
+* Lots of changes in the API
 * Added elementwise, reduction and transposition computations
 * Extended API reference and added topical guides
-* Lots of changes in API
 
 
 0.0.1 (22 Jul 2012)
