@@ -216,7 +216,7 @@ Let us change the previous example and connect transformations to it.
 
     True
 
-We have used a pre-created transformation :py:func:`~tigger.transformations.combine_complex` from :py:mod:`tigger.transformations` for simplicity; developing a custom transformation is also possible and described in :ref:`guide-writing-a-transformation`.
+We have used a pre-created transformation :py:func:`~tigger.transformations.combine_complex` from :py:mod:`tigger.transformations` for simplicity; developing a custom transformation is also possible and described in :ref:`tutorial-advanced-transformation`.
 From the documentation we know that it transforms two inputs into one output; therefore we need to attach it to one of the inputs of ``dot`` (identified by its name), and provide names for two new inputs.
 
 Names to attach to are obtained from the documentation for the particular computation. By convention they are the same as the names of positional arguments to :py:meth:`~tigger.core.Computation.prepare_for`; for :py:class:`~tigger.matrixmul.MatrixMul` these are ``out``, ``a`` and ``b``.

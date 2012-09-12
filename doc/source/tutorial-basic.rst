@@ -82,7 +82,7 @@ Now let us attach the transformation to the output which will split it into two 
 
     comp.connect(transformations.split_complex(), 'out', ['out1', 'out2'])
 
-We have used the pre-created transformation here for simplicity; writing custom transformations is described in :ref:`guide-writing-a-transformation`.
+We have used the pre-created transformation here for simplicity; writing custom transformations is described in :ref:`tutorial-advanced-transformation`.
 
 In addition, we want ``in2`` to be scaled before being passed to the main computation.
 To achieve this, we connect the scaling transformation to it:

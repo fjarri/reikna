@@ -40,7 +40,7 @@ class OperationRecorder:
         """
         Adds kernel execution to the list of actions.
         See the details on how to write kernels in the
-        :ref:`kernel writing guide <guide-writing-a-computation>`.
+        :ref:`kernel writing guide <tutorial-advanced-computation>`.
 
         :param template: Mako template for the kernel.
         :param defname: name of the definition inside the template.

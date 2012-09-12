@@ -194,7 +194,7 @@ class Transformation:
         and returning the input dtype.
         Used when the transformation is connected to the output argument.
     :param code: template source with the transformation code.
-        See :ref:`guide-writing-a-transformation` section for details.
+        See :ref:`tutorial-advanced-transformation` section for details.
     """
 
     def __init__(self, inputs=1, outputs=1, scalars=0,
