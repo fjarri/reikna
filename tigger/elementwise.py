@@ -47,14 +47,6 @@ class Elementwise(Computation):
     def set_argnames(self, outputs, inputs, scalars):
         return self._set_argnames(outputs, inputs, scalars)
 
-    def _get_default_basis(self):
-        basis = dict(
-            size=1,
-            argtypes=dict(),
-            code=EMPTY)
-
-        return basis
-
     def _get_argvalues(self, basis):
         outputs, inputs, params = self._get_base_names()
         values = {name:ArrayValue((basis.size,), basis.argtypes[name])
@@ -64,10 +56,10 @@ class Elementwise(Computation):
 
         return values
 
-    def _get_basis_for(self, default_basis, *args, **kwds):
+    def _get_basis_for(self, *args, **kwds):
 
         # Python 2 does not support explicit kwds after *args
-        code = kwds.get('code', default_basis.code)
+        code = kwds.get('code', EMPTY)
 
         # map argument names to values
         outputs, inputs, params = self._get_base_names()

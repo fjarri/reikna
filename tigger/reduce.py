@@ -41,9 +41,6 @@ class Reduce(Computation):
     def _get_argnames(self):
         return ('output',), ('input',), tuple()
 
-    def _get_default_basis(self):
-        return dict(shape=(1,1), dtype=numpy.float32, axis=None, code=SUM)
-
     def _get_argvalues(self, basis):
         if basis.axis is None:
             output_shape = (1,)
@@ -54,10 +51,7 @@ class Reduce(Computation):
             output=ArrayValue(output_shape, basis.dtype),
             input=ArrayValue(basis.shape, basis.dtype))
 
-    def _get_basis_for(self, default_basis, output, input, **kwds):
-
-        code = kwds.get('code', default_basis.code)
-        axis = kwds.get('axis', default_basis.axis)
+    def _get_basis_for(self, output, input, code=SUM, axis=None):
 
         assert input.dtype == output.dtype
         assert input.size % output.size == 0

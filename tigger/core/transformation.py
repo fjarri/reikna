@@ -376,44 +376,6 @@ class TransformationTree:
         for name in self.base_names:
             deduce(name)
 
-    def propagate_to_leaves(self, values_dict):
-        # takes {name: mock_val} and propagates it from roots to leaves,
-        # updating nodes
-
-        self._clear_values()
-
-        def propagate(name):
-            node = self.nodes[name]
-            if node.children is None:
-                return
-
-            tr = node.tr_to_children
-            derive_types = tr.derive_os_from_i if node.type == NODE_OUTPUT else tr.derive_is_from_o
-            arr_dtypes, scalar_dtypes = derive_types(node.value.dtype)
-            arr_dtypes = dtypes.normalize_types(arr_dtypes)
-            scalar_dtypes = dtypes.normalize_types(scalar_dtypes)
-            for child, dtype in zip(node.children, arr_dtypes + scalar_dtypes):
-                child_value = self.nodes[child].value
-                if child_value.dtype is None:
-                    child_value.dtype = dtype
-                elif child_value.dtype != dtype:
-                    raise TypePropagationError("Data type conflict in node " + child +
-                        " while propagating types to leaves")
-
-                # currently there is no shape derivation in transformations,
-                # so we can just propagate it without checks
-                if isinstance(child_value, ArrayValue):
-                    child_value.shape = node.value.shape
-
-                propagate(child)
-
-        for name in self.base_names:
-            # Values received from user may point to the same object.
-            # Therefore we're playing it safe and not assigning them.
-            self.nodes[name].value.fill_with(values_dict[name])
-            propagate(name)
-
-
     def transformations_for(self, names):
         # takes [name] for bases and returns necessary transformation code
         # if some of the names are not in base, they are treated as leaves

@@ -3,7 +3,7 @@ import pytest
 
 from tigger.helpers import *
 from tigger.core import *
-from tigger import Transformation
+from tigger import Transformation, ArrayValue, ScalarValue
 
 from helpers import *
 
@@ -17,10 +17,8 @@ class Dummy(Computation):
     def _get_argnames(self):
         return ('C', 'D'), ('A', 'B'), ('coeff',)
 
-    def _get_default_basis(self):
-        return dict(arr_dtype=numpy.float32, coeff_dtype=numpy.float32, size=1)
-
-    def _get_basis_for(self, default_basis, C, D, A, B, coeff):
+    def _get_basis_for(self, C, D, A, B, coeff):
+        assert C.dtype == D.dtype == A.dtype == B.dtype
         return dict(arr_dtype=C.dtype, coeff_dtype=coeff.dtype, size=C.size)
 
     def _get_argvalues(self, basis):
@@ -167,7 +165,12 @@ def test_signature_correctness(some_ctx):
     d.connect(tr_1_to_2, 'C', ['C_half1', 'C_half2'])
     d.connect(tr_trivial, 'C_half1', ['C_new_half1'])
     d.connect(tr_scale, 'D', ['D_prime'], ['D_param'])
-    d.prepare(arr_dtype=numpy.complex64, size=1024)
+
+    array = ArrayValue((1024,), numpy.complex64)
+    scalar = ScalarValue(numpy.float32)
+
+    d.prepare_for(array, array, array, array, array, scalar, scalar, scalar)
+
     assert d.signature_str() == (
         "(array, complex64, (1024,)) C_new_half1, "
         "(array, complex64, (1024,)) C_half2, "
@@ -184,8 +187,11 @@ def test_incorrect_number_of_arguments_in_prepare(some_ctx):
         d.prepare_for(None, None, None, None)
 
 def test_incorrect_number_of_arguments_in_call(some_ctx):
+    array = ArrayValue((1024,), numpy.complex64)
+    scalar = ScalarValue(numpy.float32)
+
     d = Dummy(some_ctx)
-    d.prepare(arr_dtype=numpy.complex64, size=1024)
+    d.prepare_for(array, array, array, array, scalar)
     with pytest.raises(TypeError):
         d(None, None, None, None)
 
@@ -208,8 +214,11 @@ def test_debug_signature_check(some_ctx):
     N1 = 1024
     N2 = 512
 
+    array = ArrayValue(N1, numpy.complex64)
+    scalar = ScalarValue(numpy.float32)
+
     d = Dummy(some_ctx, debug=True)
-    d.prepare(arr_dtype=numpy.complex64, size=N1)
+    d.prepare_for(array, array, array, array, scalar)
 
     A1 = get_test_array(N1, numpy.complex64)
     B1 = get_test_array(N1, numpy.complex64)
@@ -232,34 +241,6 @@ def test_debug_signature_check(some_ctx):
     with pytest.raises(TypeError):
         # array argument in place of scalar
         d(C1, D1, A1, B1, B1)
-
-def test_prepare_unknown_key(some_ctx):
-    d = Dummy(some_ctx)
-    with pytest.raises(KeyError):
-        d.prepare(unknown_key=1)
-
-def test_type_propagation_conflict(some_ctx):
-
-    # This transformation connects an external complex input
-    # to an internal real input (by discarding the complex part)
-    tr_complex_to_real = Transformation(
-        inputs=1, outputs=1,
-        derive_o_from_is=lambda i1, _: [dtypes.real_for(i1)],
-        derive_is_from_o=lambda o1: ([dtypes.complex_for(o1)], []),
-        code="${o1.store}((${i1.load}).x);")
-
-    d = Dummy(some_ctx)
-
-    # Both tr_complex_to_real and tr_trivial are perfectly valid transformtions.
-    # But if we connect them to lead to the same external variable,
-    # there will be a conflict during type derivation:
-    # tr_complex_to_real will need the external variable to be complex,
-    # and tr_trivial will need it to be real.
-    d.connect(tr_complex_to_real, 'A', ['A_new'])
-    d.connect(tr_trivial, 'B', ['A_new'])
-
-    with pytest.raises(TypePropagationError):
-        d.prepare(arr_dtype=numpy.float32, size=1024)
 
 def test_transformations_work(ctx):
 

@@ -82,7 +82,6 @@ class Computation:
             self._finish_init()
 
     def _finish_init(self):
-        self._basis = AttrDict(self._get_default_basis())
         self._tr_tree = TransformationTree(*self._get_base_names())
         self._state = STATE_INITIALIZED
 
@@ -155,7 +154,7 @@ class Computation:
             values[name] = new_value
 
         self._tr_tree.propagate_to_base(values)
-        return self._get_basis_for(self._basis, *self._tr_tree.base_values(), **kwds)
+        return self._get_basis_for(*self._tr_tree.base_values(), **kwds)
 
     def _prepare_operations(self):
         self._operations = OperationRecorder(self._ctx, self._basis, self._get_base_values())
@@ -163,8 +162,6 @@ class Computation:
             self._operations, self._basis, self._ctx.device_params)
 
     def _prepare_transformations(self):
-        self._tr_tree.propagate_to_leaves(self._get_base_values())
-
         self._tr_tree.set_temp_nodes(self._operations.get_allocation_values())
 
         self._operations.prepare(self._tr_tree)
@@ -190,33 +187,22 @@ class Computation:
             new_scalar_args = []
         self._tr_tree.connect(tr, array_arg, new_array_args, new_scalar_args)
 
-    def prepare(self, **kwds):
+    def prepare_for(self, *args, **kwds):
         """
-        Prepare the computation based on the given basis parameters.
+        Prepare the computation so that it could run with ``args`` supplied to :py:meth:`__call__`.
         """
-        if self._state != STATE_INITIALIZED:
+        if self._state == STATE_NOT_INITIALIZED:
+            raise InvalidStateError("Computation is not fully initialized")
+        elif self._state == STATE_PREPARED:
             raise InvalidStateError("Cannot prepare the same computation twice")
 
-        unknown_keys = set(kwds).difference(set(self._basis))
-        if len(unknown_keys) > 0:
-            raise KeyError("Unknown basis keys: " + ", ".join(unknown_keys))
-
-        if self._basis_needs_update(kwds):
-            self._basis.update(kwds)
-
+        self._basis = AttrDict(self._basis_for(args, kwds))
         self._prepare_operations()
         self._prepare_transformations()
         self._operations.optimize_execution()
         self._state = STATE_PREPARED
 
         return self
-
-    def prepare_for(self, *args, **kwds):
-        """
-        Prepare the computation so that it could run with ``args`` supplied to :py:meth:`__call__`.
-        """
-        new_basis = self._basis_for(args, kwds)
-        return self.prepare(**new_basis)
 
     def signature_str(self):
         """

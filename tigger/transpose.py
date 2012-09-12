@@ -90,18 +90,12 @@ class Transpose(Computation):
         :param block_width_override: custom block width for the kernel
     """
 
-    def _get_default_basis(self):
-        return dict(dtype=numpy.float32, input_shape=(1, 1), axes=(1, 0),
-            block_width_override=None)
-
     def _get_argnames(self):
         return ('output',), ('input',), tuple()
 
-    def _get_basis_for(self, default_basis, output, input, **kwds):
+    def _get_basis_for(self, output, input, axes=(1, 0), block_width_override=None):
 
-        axes = kwds.get('axes', default_basis.axes)
-
-        bs = AttrDict()
+        bs = AttrDict(block_width_override=block_width_override)
 
         assert output.dtype is None or output.dtype == input.dtype
         bs.dtype = input.dtype
