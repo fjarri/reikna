@@ -23,10 +23,6 @@ def scale_param():
     """
     return Transformation(
         inputs=1, outputs=1, scalars=1,
-        derive_o_from_is=lambda i1, s1: [i1],
-        derive_is_from_o=lambda o1: ([o1], [o1]),
-        derive_i_from_os=lambda o1, s1: [o1],
-        derive_os_from_i=lambda i1: ([i1], [i1]),
         code="${o1.store}(${func.mul(i1.dtype, s1.dtype, out=o1.dtype)}(${i1.load}, ${s1}));")
 
 
@@ -49,10 +45,7 @@ def split_complex():
     """
     return Transformation(
         inputs=1, outputs=2,
-        derive_o_from_is=lambda i1: [dtypes.real_for(i1), dtypes.real_for(i1)],
-        derive_is_from_o=lambda o1, o2: ([dtypes.complex_for(o1)], []),
-        derive_i_from_os=lambda o1, o2: [dtypes.complex_for(o1)],
-        derive_os_from_i=lambda i1: ([dtypes.real_for(i1), dtypes.real_for(i1)], []),
+        derive_i_from_os=lambda o1, o2: dtypes.complex_for(o1),
         code="""
             ${o1.store}(${i1.load}.x);
             ${o2.store}(${i1.load}.y);
@@ -66,8 +59,5 @@ def combine_complex():
     """
     return Transformation(
         inputs=2, outputs=1,
-        derive_o_from_is=lambda i1, i2: [dtypes.complex_for(i1)],
-        derive_is_from_o=lambda o1: ([dtypes.real_for(o1), dtypes.real_for(o1)], []),
-        derive_i_from_os=lambda o1: [dtypes.real_for(o1), dtypes.real_for(o1)],
-        derive_os_from_i=lambda i1, i2: ([dtypes.complex_for(o1)], []),
+        derive_o_from_is=lambda i1, i2: dtypes.complex_for(i1),
         code="${o1.store}(COMPLEX_CTR(${o1.ctype})(${i1.load}, ${i2.load}));")

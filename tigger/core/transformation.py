@@ -180,55 +180,42 @@ class Transformation:
     :param outputs: number of output array values.
     :param parameters: number of scalar parameters for the transformation.
     :param derive_o_from_is: a function taking ``inputs`` + ``scalars`` dtype parameters
-        and returning list with ``outputs`` dtypes.
-        Used to derive types in the transformation tree after call to
-        :py:meth:`Computation.prepare_for` when the transformation is connected
-        to the input argument.
-    :param derive_is_from_o: a function taking ``outputs`` dtype parameters
-        and returning tuple of two lists with ``inputs`` and ``scalars`` dtypes.
-        Used to derive types in the transformation tree after call to
-        :py:meth:`Computation.prepare` when the transformation is connected to the input argument.
+        and returning the output dtype.
+        Used when the transformation is connected to the input argument.
     :param derive_i_from_os: a function taking ``outputs`` + ``scalars`` dtype parameters
-        and returning list with ``inputs`` dtypes.
-        Used to derive types in the transformation tree after call to
-        :py:meth:`Computation.prepare_for` when the transformation is connected
-        to the output argument.
-    :param derive_os_from_i: a function taking ``inputs`` dtype parameters
-        and returning tuple of two lists with ``outputs`` and ``scalars`` dtypes.
-        Used to derive types in the transformation tree after call to
-        :py:meth:`Computation.prepare` when the transformation is connected to the output argument.
+        and returning the input dtype.
+        Used when the transformation is connected to the output argument.
     :param code: template source with the transformation code.
         See :ref:`guide-writing-a-transformation` section for details.
     """
 
     def __init__(self, inputs=1, outputs=1, scalars=0,
-            derive_o_from_is=None,
-            derive_is_from_o=None,
-            derive_i_from_os=None,
-            derive_os_from_i=None,
+            derive_o_from_is=None, derive_i_from_os=None,
             code="${o1.store}(${i1.load});"):
         self.inputs = inputs
         self.outputs = outputs
         self.scalars = scalars
 
-        def get_derivation_func(return_tuple, n1, n2=0):
-            def func(*x):
-                dtype = dtypes.result_type(*x)
-                if return_tuple:
-                    return [dtype] * n1, [dtype] * n2
-                else:
-                    return [dtype] * n1
-            return func
+        if derive_o_from_is is None:
+            if outputs == 1:
+                derive_o_from_is = dtypes.result_type
+        else:
+            if outputs > 1:
+                raise ValueError(
+                    "This transformation cannot be used for an input and therefore cannot have "
+                    "a ``derive_o_from_is`` parameter")
 
-        if derive_o_from_is is None: derive_o_from_is = get_derivation_func(False, outputs)
-        if derive_is_from_o is None: derive_is_from_o = get_derivation_func(True, inputs, scalars)
-        if derive_i_from_os is None: derive_i_from_os = get_derivation_func(False, inputs)
-        if derive_os_from_i is None: derive_os_from_i = get_derivation_func(True, outputs, scalars)
+        if derive_i_from_os is None:
+            if inputs == 1:
+                derive_i_from_os = dtypes.result_type
+        else:
+            if inputs > 1:
+                raise ValueError(
+                    "This transformation cannot be used for an output and therefore cannot have "
+                    "a ``derive_i_from_os`` parameter")
 
         self.derive_o_from_is = derive_o_from_is
-        self.derive_is_from_o = derive_is_from_o
         self.derive_i_from_os = derive_i_from_os
-        self.derive_os_from_i = derive_os_from_i
 
         self.code = Template(code)
 
@@ -365,7 +352,7 @@ class TransformationTree:
             child_dtypes = [self.nodes[child].value.dtype for child in node.children]
             tr = node.tr_to_children
             derive_types = tr.derive_i_from_os if node.type == NODE_OUTPUT else tr.derive_o_from_is
-            node.value.dtype = dtypes.normalize_type(derive_types(*child_dtypes)[0])
+            node.value.dtype = dtypes.normalize_type(derive_types(*child_dtypes))
 
             # derive shape
             child_shapes = [self.nodes[child].value.shape for child in node.children
