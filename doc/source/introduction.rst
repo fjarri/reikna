@@ -2,15 +2,15 @@
 Introduction
 ************
 
-This section contains brief illustration of what ``Tigger`` does.
-For detailed information see corresponding reference pages.
+This section contains a brief illustration of what ``Tigger`` does.
+For more details see :ref:`basic <tutorial-basic>` and :ref:`advanced <tutorial-advanced>` tutorials.
 
 
 CLUDA
 =====
 
 CLUDA is an abstraction layer on top of PyCuda/PyOpenCL.
-Its main purpose is to separate the rest of ```Tigger`` from the difference in their APIs, but it can be used by itself too for some simple tasks.
+Its main purpose is to separate the rest of ``Tigger`` from the difference in their APIs, but it can be used by itself too for some simple tasks.
 
 Consider the following example, which is very similar to the one from the index page on PyCuda documentation:
 
@@ -53,11 +53,11 @@ Consider the following example, which is very similar to the one from the index 
 
 If you are familiar with PyCuda or PyOpenCL, you will easily understand all the steps we have done here.
 The ``cluda.ocl_api()`` call is the only place where OpenCL is mentioned, and if you replace it with ``cluda.cuda_api()`` it will be enough to make the code use CUDA.
-The abstraction is achieved by using generic API module on Python side, and special macros (``KERNEL``, ``GLOBAL_MEM`` and others) on kernel side.
+The abstraction is achieved by using generic API module on the Python side, and special macros (:c:macro:`KERNEL`, :c:macro:`GLOBAL_MEM`, and others) on the kernel side.
 
-The argument of ``compile`` method can also be a template, which is quite useful for metaprogramming, and also used to compensate for the lack of complex number operations in OpenCL.
+The argument of :py:meth:`~tigger.cluda.api.Context.compile` method can also be a template, which is quite useful for metaprogramming, and also used to compensate for the lack of complex number operations in CUDA and OpenCL.
 Let us illustrate both scenarios by making the initial example multiply complex arrays.
-The template engine of choice in ``Tigger`` is `Mako <http://www.makotemplates.org>`_, and you are encouraged to read about it as it is quite useful. For the purpose of this example all we need to know is that its synthax is ``${python_expression()}``, which renders the expression result.
+The template engine of choice in ``Tigger`` is `Mako <http://www.makotemplates.org>`_, and you are encouraged to read about it as it is quite useful. For the purpose of this example all we need to know is that ``${python_expression()}`` is a synthax construction which renders the expression result.
 
 .. testcode:: cluda_template_example
 
@@ -102,24 +102,24 @@ The template engine of choice in ``Tigger`` is `Mako <http://www.makotemplates.o
     True
 
 Here we passed ``dtype`` and ``ctype`` values to the template, and used ``dtype`` to get the complex number multiplication function (``func`` is one of the "built-in" values that are available in CLUDA templates).
-Alternatively, we could call ``dtypes.ctype()`` inside the template, as ``dtypes`` module is available there too.
+Alternatively, we could call :py:func:`dtypes.ctype() <tigger.cluda.dtypes.ctype>` inside the template, as :py:mod:`~tigger.cluda.dtypes` module is available there too.
 
-You may have notice that CLUDA context is created by means of a static method and not using the constructor.
-The constructor is reserved for more usual scenario, where you want to include some ``Tigger`` functionality in your bigger script, and want it to use the existing context and stream/queue.
-The ``Context`` constructor takes the PyCuda/PyOpenCL context and, optionally, the ``Stream``/``CommandQueue`` object as a ``stream`` parameter.
-All further operations with the ``Tigger`` context will be performed using given context and stream.
-If ``stream`` is not given, an internal stream will be created.
+Note that CLUDA context is created by means of a static method and not using the constructor.
+The constructor is reserved for more probable scenario, where we want to include some ``Tigger`` functionality in a larger program, and we want it to use the existing context and stream/queue.
+The :py:class:`~tigger.cluda.api.Context` constructor takes the PyCuda/PyOpenCL context and, optionally, the ``Stream``/``CommandQueue`` object as a ``queue`` parameter.
+All further operations with the ``Tigger`` context will be performed using the objects provided.
+If ``queue`` is not given, an internal one will be created.
 
-For the complete list of things available in CLUDA, please consult :ref:`CLUDA reference <cluda-reference>`.
+For the complete list of things available in CLUDA, please consult the :ref:`CLUDA reference <api-cluda>`.
 
 
 Computations
 ============
 
 Now it's time for the main part of the functionality.
-``Tigger`` provides GPGPU algorithms in the form of ``Computation`` classes and ``Transformation`` objects.
+``Tigger`` provides GPGPU algorithms in the form of :py:class:`~tigger.core.Computation`-based cores and :py:class:`~tigger.core.Transformation`-based plug-ins.
 Computations contain the algorithm itself; examples are matrix multiplication, reduction, sorting and so on.
-Transformations are elementwise operations on inputs/outputs of computations, used for scaling, typecast and other auxiliary purposes.
+Transformations are elementwise operations on inputs or outputs of computations, used for scaling, typecast and other auxiliary purposes.
 Transformations are compiled into the main computation kernel and are therefore quite cheap in terms of performance.
 
 As an example, we will consider the matrix multiplication.
@@ -155,25 +155,18 @@ As an example, we will consider the matrix multiplication.
 
     True
 
-Most of the code above should be already familiar, with the exception of the creation of ``MatrixMul`` object.
-As any other class derived from ``Computation``, it requires ``Tigger`` context as a constructor argument.
-The context serves as a source of data about the target API and device, and provides an execution stream.
+Most of the code above should be already familiar, with the exception of the creation of :py:class:`~tigger.matrixmul.MatrixMul` object.
+As any other class derived from :py:class:`~tigger.core.Computation`, it requires ``Tigger`` context as a constructor argument.
+The context serves as a source of data about the target API and device, and provides an execution queue.
 
-After the creation the object has to be prepared.
-It does not happen automatically, since there are two preparation methods, and since it is pointless to compile a kernel that will not be used anyway.
-First method can be seen in the example above.
-We know (from the documentation) that ``MatrixMul.__call__()`` takes three array parameters, and we ask it to prepare itself to properly handle arrays ``res_dev``, ``a_dev`` and ``b_dev`` when they are passed to it.
-Alternatively, this information can be obtained from console by examining ``signature`` property of the object:
+Before usage the object has to be prepared.
+It does not happen in the constructor, since the transformations may be connected after that, and they would invalidate previous preparation.
+The preparation consists of passing to the :py:meth:`~tigger.core.Computation.prepare_for` array and scalar arguments we will use to call the computation (or stub :py:class:`~tigger.core.ArrayValue` and :py:class:`~tigger.core.ScalarValue` objects, if real arrays are not available at preparation time), along with some optional keyword arguments.
+The list of required positional and keyword arguments for any computation is specified in its documentation; for :py:class:`~tigger.matrixmul.MatrixMul` it is :py:class:`MatrixMul.prepare_for() <tigger.matrixmul.MatrixMul.prepare_for>`.
 
-.. doctest:: matrixmul_example
+From the documentation we know that we need three array parameters, and we ask :py:class:`~tigger.matrixmul.MatrixMul` to prepare itself to handle arrays ``res_dev``, ``a_dev`` and ``b_dev`` when they are passed to it.
 
-    >>> dot = MatrixMul(ctx)
-    >>> dot.signature_str()
-    '(array) out, (array) a, (array) b'
-
-The second method is directly specify the parameter basis --- a dictionary of parameters which define all the internal preparations to be done (when ``prepare_for()`` is called, these are derived from its arguments).
-Again, looking at the reference, we can see that ``MatrixMul`` has a dozen of parameters, the most important being input and output arrays types and sizes.
-If, for some reason, actual arrays are not available at the time of preparation, ``prepare()`` with necessary keyword arguments can be called instead.
+After the preparation we can use the object as a callable, passing it arrays and scalars with the same data types and shapes we used to prepare the computation.
 
 
 Transformations
@@ -223,6 +216,10 @@ Let us change the previous example and connect transformations to it.
 
     True
 
-We have used a pre-created transformation :py:attr:`~tigger.transformations.combine_complex` from :py:mod:`tigger.transformations`, although you can create your own (see :ref:`guide-writing-a-transformation` for details).
-This transformation is attached to endpoints ``a`` and ``b`` --- the input values of the basic :py:class:`~tigger.matrixmul.MatrixMul` computation.
-Finally, we call :py:meth:`~tigger.core.Computation.prepare_for` which now has a new signature, and the resulting ``dot`` object now works with split complex numbers.
+We have used a pre-created transformation :py:func:`~tigger.transformations.combine_complex` from :py:mod:`tigger.transformations` for simplicity; developing a custom transformation is also possible and described in :ref:`guide-writing-a-transformation`.
+From the documentation we know that it transforms two inputs into one output; therefore we need to attach it to one of the inputs of ``dot`` (identified by its name), and provide names for two new inputs.
+
+Names to attach to are obtained from the documentation for the particular computation. By convention they are the same as the names of positional arguments to :py:meth:`~tigger.core.Computation.prepare_for`; for :py:class:`~tigger.matrixmul.MatrixMul` these are ``out``, ``a`` and ``b``.
+
+In the current example we have attached the transformations to both inputs.
+Note that ``prepare_for`` has a new signature now, and the resulting ``dot`` object now works with split complex numbers.

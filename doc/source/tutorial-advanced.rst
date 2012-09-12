@@ -1,3 +1,5 @@
+.. _tutorial-advanced:
+
 *************************
 Tutorial: advanced topics
 *************************

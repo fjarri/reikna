@@ -1,4 +1,4 @@
-.. _cluda-reference:
+.. _api-cluda:
 
 CLUDA layer
 ===========
