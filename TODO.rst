@@ -1,8 +1,3 @@
-0.1.0
-=====
-
-* TODO: update reference documentation
-
 0.2.0
 =====
 
