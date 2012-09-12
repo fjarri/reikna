@@ -111,15 +111,10 @@ def specialize_elementwise(outputs, inputs, scalars, code):
         def _get_argnames(self):
             return outputs, inputs, scalars
 
-        def _get_default_basis(self):
-            basis = Elementwise._get_default_basis(self)
-            basis['code'] = code
-            return basis
-
         def _get_basis_for(self, *args):
             if len(args) != len(argnames):
                 raise TypeError("The computation takes exactly " +
                     str(len(argnames)) + "arguments")
-            return Elementwise._get_basis_for(self, *args)
+            return Elementwise._get_basis_for(self, *args, code=code)
 
     return SpecializedElementwise
