@@ -33,6 +33,8 @@ class Computation:
     The following methods are for overriding by computations
     inheriting :py:class:`Computation` class.
 
+    .. py:module:: tigger.core
+
     .. py:method:: _set_argnames(outputs, inputs, scalars)
 
         Special method to use by computations with variable number of arguments.
