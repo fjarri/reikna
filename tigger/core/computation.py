@@ -112,13 +112,6 @@ class Computation:
         """
         return self._get_argvalues(self._basis)
 
-    def _get_base_dtypes(self):
-        """
-        Returns a dictionary with names and corresponding dtypes for
-        base computation parameters.
-        """
-        return {name:value.dtype for name, value in self._get_base_values().items()}
-
     def _basis_needs_update(self, new_basis):
         """
         Tells whether ``new_basis`` has some values differing from the current basis.
