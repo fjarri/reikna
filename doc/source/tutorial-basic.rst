@@ -7,18 +7,12 @@ Tutorial: basics
 Usage of computations
 =====================
 
-All ``Tigger`` computation classes are derived from :py:class:`~tigger.core.Computation` class and therefore share the same API and behavior.
-Each computation is parametrized by a dictionary called *basis*, and, sometimes, by names and positions of its arguments (when they can vary, for example, in :py:class:`~tigger.elementwise.Elementwise`).
+All ``Tigger`` computation classes are derived from the :py:class:`~tigger.core.Computation` class and therefore share the same API and behavior.
+Each computation is parametrized by a dictionary called **basis** (which is hidden from the user), and, sometimes, by the names and positions of its arguments (when they can vary, for example, in :py:class:`~tigger.elementwise.Elementwise`).
 
-Before use a computation has to be fully prepared by calling either :py:meth:`~tigger.core.Computation.prepare` or :py:meth:`~tigger.core.Computation.prepare_for`.
-The former method one directly reassigns values in the basis:
-
-::
-
-    tr = Transpose(ctx).prepare(dtype=numpy.float64, input_shape=(200, 100))
-
-Here we are preparing transposition object with explicitly set data type and input shape, but with ``axes`` parameter keeping its default value ``None``.
-The latter method derives basis from a set of positional arguments and optional keyword arguments, where the arguments are the same as you are going to pass to :py:meth:`~tigger.core.Computation.__call__`:
+Before use a computation has to be fully prepared by means of calling :py:meth:`~tigger.core.Computation.prepare_for`.
+This method derives the basis from a set of positional arguments and optional keyword arguments.
+The positional arguments should be either the same arrays and scalars you are going to pass to the computation call (which means the same shapes and data types), or their replacements in the form of :py:class:`~tigger.core.ArrayValue` and :py:class:`~tigger.core.ScalarValue` objects:
 
 ::
 
@@ -27,29 +21,30 @@ The latter method derives basis from a set of positional arguments and optional 
     tr = Transpose(ctx).prepare_for(output, input)
     tr(output, input)
 
-Here ``dtype`` and ``input_shape`` were derived from shapes and types of ``output`` and ``input`` values.
-
-Consequently, API of each computation class is fully defined by documenting these two preparation functions. Namely, :py:meth:`~tigger.core.Computation.__call__` has the same positional arguments as :py:meth:`~tigger.core.Computation.prepare_for`, :py:meth:`~tigger.core.Computation.set_basis` has the same arguments as :py:meth:`~tigger.core.Computation.prepare`, and so on.
+Consequently, API of each computation class is fully defined by the documentation for its ``prepare_for`` method.
+In particular, ``__call__`` has the same positional arguments as ``prepare_for``, and base computation argument names (used to attach transformations) are the names of these positional arguments.
 
 
 Computations and transformations
 ================================
 
-One often needs to perform some simple processing on the input or output values of a computation.
+One often needs to perform some simple processing of the input or output values of a computation.
 This can be scaling, splitting complex values into components, and so on.
-Some of them require additional memory to store intermediate results, and all of them involve additional overhead of calling the kernel, and passing values to and from device memory.
-``Tigger`` porvides an API to write such transformations and attach them to "core" computations, effectively compiling the transformation code into the main kernel, thus avoiding all these drawbacks.
+Some of these operations require additional memory to store intermediate results, and all of them involve additional overhead of calling the kernel, and passing values to and from the device memory.
+``Tigger`` porvides an API to define such transformations and attach them to "core" computations, effectively compiling the transformation code into the main kernel, thus avoiding all these drawbacks.
 
 Transformation tree
 ===================
 
-Before talking about transformations themselves, we need to take a closer look at computation signatures.
-Positional arguments of any :py:meth:`~tigger.core.Computation.__call__` method are output buffers, input buffers, and scalar arguments, in this order.
+Before talking about transformations themselves, we need to take a closer look at the computation signatures.
+Positional arguments of any ``__call__`` method of a class derived from :py:meth:`~tigger.core.Computation` are output arrays, input arrays, and scalar arguments, in this order.
 All these values are eventually passed to the computation kernel.
-Also, all these values have a name, which can be seen in the documentation for the :py:meth:`~tigger.core.Computation.prepare_for` method of the corresponding computation.
-These names serve as identifiers for connection points, where user can attach transformations.
 
-All attached transformations form a tree with roots being these base connection points, and leaves forming the signature of the :py:meth:`~tigger.core.Computation.__call__` method visible to the user.
+All the positional arguments have an identifier which is unique for the given computation object.
+Identifiers for the base computation (without any connected transformation) are, by convention, the names of the positional arguments to ``prepare_for`` for the computation.
+These identifiers serve as connection points, where the user can attach transformations.
+
+All attached transformations form a tree with roots being these base connection points, and leaves forming defining the positional arguments to ``prepare_for`` and ``__call__`` methods visible to the user.
 As an example, let us consider an elementwise computation object with one output, two inputs and a scalar parameter, which performs the calculation ``out = in1 + in2 + param``:
 
 .. testcode:: transformation_example
@@ -69,8 +64,8 @@ As an example, let us consider an elementwise computation object with one output
 
     comp = TestComputation(ctx)
 
-The class is described here just for reference, the detailed explanation about writing your own computation classes is given in :ref:`the guide <guide-writing-a-computation>`.
-Its initial transformation tree looks like:
+The details of creating the ``TestComputation`` class are not important for this example; they are provided here just for the sake of completeness.
+The initial transformation tree of ``comp`` object looks like:
 
 (pic with base values out, in1, in2, param)
 
@@ -87,7 +82,8 @@ Now let us attach the transformation to the output which will split it into two 
 
     comp.connect(transformations.split_complex(), 'out', ['out1', 'out2'])
 
-We have used the pre-created transformation here for simplicity; writing your own transformations will be described :ref:`later <guide-writing-a-transformation>`.
+We have used the pre-created transformation here for simplicity; writing custom transformations is described in :ref:`guide-writing-a-transformation`.
+
 In addition, we want ``in2`` to be scaled before being passed to the main computation.
 To achieve this, we connect the scaling transformation to it:
 
@@ -99,7 +95,7 @@ The transformation tree now looks like (blue contour shows the external signatur
 
 (pic with new tree)
 
-And the signature is:
+And the final signature is:
 
 .. doctest:: transformation_example
 
@@ -107,13 +103,12 @@ And the signature is:
     '(array) out1, (array) out2, (array) in1, (array) in2_prime, (scalar) param, (scalar) param2'
 
 Notice that ``param2`` was moved to the end of the signature.
-This was done in order to keep outputs, inputs and scalar parameters separated.
+This was done in order to keep outputs, inputs and scalar parameters grouped.
 Except for that, the order of the final signature is obtained by traversing the transformation tree depth-first.
 
-The resulting computation returns value ``in1 + (in2_prime * param2) + param`` split in half.
+The resulting computation returns the value ``in1 + (in2_prime * param2) + param`` split in half.
 In order to run it, we have to prepare it first.
-If :py:meth:`~tigger.core.Computation.prepare` is called, the data types and shapes for each of the value in the tree will be propagated from the roots.
-If :py:meth:`~tigger.core.Computation.prepare_for` is called, the data types and shapes will be propagated to the roots and used to prepare the original computation.
+When ``prepare_for`` is called, the data types and shapes of the given arguments will be propagated to the roots and used to prepare the original computation.
 
 ::
 
@@ -124,8 +119,10 @@ If :py:meth:`~tigger.core.Computation.prepare_for` is called, the data types and
 Transformation restrictions
 ===========================
 
+There are some limitations of the transformation mechanics:
+
 #. Transformations are strictly elementwise.
-   It means that you cannot specify the index to read from or to write to in the transformation code --- it stays the same as the one in the main kernel.
+   It means that you cannot specify the index to read from or to write to in the transformation code --- it stays the same as the one used to read the value in the main kernel.
 #. Transformations connected to the input nodes must have only one output, and transformations connected to the output nodes must have only one input.
    This restriction is, in fact, enforced by the signature of :py:meth:`~tigger.core.Computation.connect`.
 #. External endpoints of the output transformations cannot point to existing nodes in the transformation tree.
