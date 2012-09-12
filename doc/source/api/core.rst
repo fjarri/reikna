@@ -13,5 +13,7 @@ Computations and transformations are based on two classes, which provide the use
     :members:
 
 .. autoclass:: tigger.core.ArrayValue
+    :members:
 
 .. autoclass:: tigger.core.ScalarValue
+    :members:

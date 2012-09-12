@@ -105,7 +105,10 @@ class ArrayValue(object):
     """
 
     def __init__(self, shape, dtype):
+        #: Tuple specifying the shape of the array
         self.shape = wrap_in_tuple(shape) if shape is not None else None
+
+        #: :py:class:`numpy.dtype` object specifying the data type of the array.
         self.dtype = dtypes.normalize_type(dtype) if dtype is not None else None
         self.is_array = True
 
@@ -151,6 +154,7 @@ class ScalarValue:
     """
 
     def __init__(self, dtype):
+        #: :py:class:`numpy.dtype` object specifying the data type of the scalar.
         self.dtype = dtypes.normalize_type(dtype) if dtype is not None else None
         self.is_array = False
 
