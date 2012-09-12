@@ -16,14 +16,6 @@
      Alternatively, we can check resource usage after add_kernel()
      (because of the strict connect-prepare order,
      we are sure that all the transformations are set, so we can compile the kernel right away).
-* DECIDE: remove prepare() completely?
-  It will simplify derivation of types in transformations, in particular removing issue
-  with loss of information in "inside out" derivations.
-* DECIDE: currently prepare_for() takes **kwds and parses it inside,
-  taking values from default_basis if needed.
-  This makes it easier to specify default values in one place, but we lose error check on
-  keyword names.
-  If prepare() is gone, this problem disappears too, since we do not need default_basis anymore.
 * TODO: move part of core.transformation to a template
 * TODO: add custom render keywords for transformations (will help e.g. in tigger.transformations)
 * TODO: run coverage tests and see if some functionality has to be tested
