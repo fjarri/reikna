@@ -7,7 +7,7 @@ import pyopencl.array as clarray
 
 import tigger.cluda as cluda
 import tigger.cluda.dtypes as dtypes
-from tigger.helpers import wrap_in_tuple
+from tigger.helpers import wrap_in_tuple, product
 from tigger.cluda.kernel import render_prelude, render_template_source
 from tigger.cluda.vsize import VirtualSizes, render_stub_vsize_funcs
 
@@ -269,6 +269,11 @@ class StaticKernel:
         self._module = ctx._compile(self.source)
 
         self._kernel = getattr(self._module, name)
+
+        self.max_work_group_size = self._kernel.get_work_group_info(
+            cl.kernel_work_group_info.WORK_GROUP_SIZE, self._ctx._device)
+        if self.max_work_group_size < product(self._local_size):
+            raise cluda.OutOfResourcesError("Not enough registers/local memory for this local size")
 
     def __call__(self, *args):
         args = [x.data if isinstance(x, clarray.Array) else x for x in args]

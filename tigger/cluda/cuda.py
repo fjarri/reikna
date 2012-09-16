@@ -293,6 +293,11 @@ class StaticKernel:
 
         self._kernel = self._module.get_function(name)
 
+        self.max_work_group_size = self._kernel.get_attribute(
+            cuda.function_attribute.MAX_THREADS_PER_BLOCK)
+        if self.max_work_group_size < product(self._local_size):
+            raise cluda.OutOfResourcesError("Not enough registers/local memory for this local size")
+
     def __call__(self, *args):
         self._kernel(*args, grid=self._grid, block=self._local_size, stream=self._ctx._stream)
         self._ctx._synchronize()

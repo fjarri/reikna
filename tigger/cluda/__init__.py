@@ -1,3 +1,7 @@
+class OutOfResourcesError(Exception):
+    pass
+
+
 #: Identifier for the PyCUDA-based API
 API_CUDA = 'cuda'
 
