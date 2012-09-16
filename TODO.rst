@@ -20,6 +20,14 @@
 * TODO: create some elementwise computations derived from Elementwise
 * TODO: document _debug usage
 * TODO: add "dynamic regime"
+* TODO: add "raises" sections to Computation/OperationRecorder methods
+* TODO: new operation.add_view() function:
+  1) If applied to an already created temporary array, just creates its view.
+  2) If applied to an output array, check the transformations attached to it.
+     If they finish in the single array of the same size or larger, create a view.
+     Otherwise create an allocation.
+  3) If applied to an output array, and the allocation was already created, create a view of it.
+  For testing purposes, 2) and 3) are not necessary - just create a new allocation.
 
 
 1.0.0 (production-quality version... hopefully)
@@ -62,6 +70,7 @@ Computations:
 * TODO: add random number generation (MD5 and DCMT seem to be the best candidates)
 * TODO: add bitonic sort
 * TODO: add filter
+* TODO: add full support of numpy.fft.fftn interface to FFT
 
 
 1.*
