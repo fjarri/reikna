@@ -150,7 +150,7 @@ class Context:
     def compile_static(self, template_src, name, global_size,
             local_size=None, local_mem=0, render_kwds=None):
         return StaticKernel(self, template_src, name, global_size,
-            local_size=local_size, local_mem=local_mem, render_kwds=render_kwds)
+            local_size=local_size, render_kwds=render_kwds)
 
     def release(self):
         if not self._released:
@@ -266,9 +266,8 @@ class Kernel:
 
 class StaticKernel:
 
-    def __init__(self, ctx, src, name, global_size, local_size=None, local_mem=0, render_kwds=None):
+    def __init__(self, ctx, src, name, global_size, local_size=None, render_kwds=None):
         self._ctx = ctx
-        self._local_mem = local_mem
 
         if render_kwds is None:
             render_kwds = {}
@@ -295,6 +294,5 @@ class StaticKernel:
         self._kernel = self._module.get_function(name)
 
     def __call__(self, *args):
-        self._kernel(*args, grid=self._grid, block=self._local_size,
-            stream=self._ctx._stream, shared=self._local_mem)
+        self._kernel(*args, grid=self._grid, block=self._local_size, stream=self._ctx._stream)
         self._ctx._synchronize()
