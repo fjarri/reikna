@@ -144,19 +144,27 @@ class Computation:
 
             values[name] = new_value
 
+        # FIXME: this method is not really supposed to change the object state
+
+        # First pass
         self._tr_tree.propagate_to_base(values)
-        return self._get_basis_for(*self._tr_tree.base_values(), **kwds)
+        basis = AttrDict(self._get_basis_for(*self._tr_tree.base_values(), **kwds))
+        base_values = self._get_argvalues(basis)
 
-    def _prepare_operations(self):
-        self._operations = OperationRecorder(self._ctx, self._basis, self._get_base_values())
-        self._construct_operations(
-            self._operations, self._basis, self._ctx.device_params)
+        # We cannot propagate array types back from base to leaves
+        # (this creates ambiguity), but we have to set scalar types to those
+        # set by the computation's preparation function, and rerun the basis generation.
+        # This will not change results if array types are derived from scalar types
+        # (by means of result_type(), for example), but will help set the correct leaf type
+        # if the type of the scalar parameter is enforced by the computation
+        # (for example, integer inversion value in FFT).
+        for name, value in base_values.items():
+            if not value.is_array:
+                values[name] = value
 
-    def _prepare_transformations(self):
-        self._tr_tree.set_temp_nodes(self._operations.get_allocation_values())
-
-        self._operations.prepare(self._tr_tree)
-        self._leaf_signature = self.leaf_signature()
+        # Second pass
+        self._tr_tree.propagate_to_base(values)
+        return AttrDict(self._get_basis_for(*self._tr_tree.base_values(), **kwds))
 
     def leaf_signature(self):
         return self._tr_tree.leaf_signature()
@@ -187,9 +195,18 @@ class Computation:
         elif self._state == STATE_PREPARED:
             raise InvalidStateError("Cannot prepare the same computation twice")
 
-        self._basis = AttrDict(self._basis_for(args, kwds))
-        self._prepare_operations()
-        self._prepare_transformations()
+        self._basis = self._basis_for(args, kwds)
+
+        # prepare operations
+        self._operations = OperationRecorder(self._ctx, self._basis, self._get_base_values())
+        self._construct_operations(
+            self._operations, self._basis, self._ctx.device_params)
+
+        # prepare transformations
+        self._tr_tree.set_temp_nodes(self._operations.get_allocation_values())
+        self._operations.prepare(self._tr_tree)
+        self._leaf_signature = self.leaf_signature()
+
         self._operations.optimize_execution()
         self._state = STATE_PREPARED
 
