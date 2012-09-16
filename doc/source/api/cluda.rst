@@ -187,6 +187,14 @@ It is referred here (and references from other parts of this documentation) as :
 
         Number of local (shared in CUDA) memory banks is a number of successive 32-bit words you can access without getting bank conflicts.
 
+    .. py:attribute:: local_mem_size
+
+        Size of the local (shared in CUDA) memory per workgroup, in bytes.
+
+    .. py:attribute:: min_mem_coalesce_width
+
+        Dictionary ``{word_size:elements}``, where ``elements`` is the number of elements with size ``word_size`` in global memory that allow coalesced access.
+
 .. py:class:: Module
 
     .. py:attribute:: source

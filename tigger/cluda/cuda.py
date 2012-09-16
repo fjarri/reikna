@@ -5,6 +5,7 @@ import numpy
 import pycuda.gpuarray as gpuarray
 import pycuda.driver as cuda
 from pycuda.compiler import SourceModule
+from pycuda.tools import DeviceData
 
 import tigger.cluda as cluda
 import tigger.cluda.dtypes as dtypes
@@ -179,6 +180,11 @@ class DeviceParameters:
         self.local_mem_banks = 16 if device.compute_capability()[0] < 2 else 32
 
         self.warp_size = device.warp_size
+
+        devdata = DeviceData(device)
+        self.min_mem_coalesce_width = {
+            size:devdata.align_words(word_size=size) for size in [4, 8, 16]}
+        self.local_mem_size = device.max_shared_memory_per_block
 
 
 class Module:

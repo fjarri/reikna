@@ -45,6 +45,7 @@ CLUDA:
   (for example, Apple's implementation)
 * DECIDE: make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
 * DECIDE: change type of id()/size() functions to size_t in case of CUDA?
+* TODO: find a way to get ``min_mem_coalesce_width`` for OpenCL
 
 Core:
 
