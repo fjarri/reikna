@@ -251,7 +251,8 @@ class LocalFFTKernel(_FFTKernel):
         self._block_size = block_size
 
         lmem_size = getSharedMemorySize(n, radix_array, threads_per_xform, xforms_per_block,
-            self._device_params.local_mem_banks, self._device_params.min_mem_coalesce_width)
+            self._device_params.local_mem_banks,
+            self._device_params.min_mem_coalesce_width[self._basis.dtype.itemsize])
 
         assert lmem_size * self._basis.dtype.itemsize < self._device_params.local_mem_size
 
