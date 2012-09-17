@@ -496,7 +496,6 @@ class FFT(Computation):
             while local_size >= 1:
                 try:
                     gs, ls, kwds = kernel.prepare_for(local_size)
-                    print i, local_size, ls
                     operations.add_kernel(
                         TEMPLATE, kernel.name,
                         [mem_out, mem_in, 'direction'],
