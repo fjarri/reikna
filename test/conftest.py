@@ -17,6 +17,21 @@ def pytest_addoption(parser):
     parser.addoption("--fast-math", dest="fast_math", action="store",
         help="Use fast math: no/yes/both",
         default="yes", choices=["no", "yes", "both"])
+    parser.addoption("--device-include-mask", action="append",
+        help="Run tests on matching devices only",
+        default=[])
+    parser.addoption("--device-exclude-mask", action="append",
+        help="Run tests on matching devices only",
+        default=[])
+    parser.addoption("--platform-include-mask", action="append",
+        help="Run tests on matching platforms only",
+        default=[])
+    parser.addoption("--platform-exclude-mask", action="append",
+        help="Run tests on matching platforms only",
+        default=[])
+    parser.addoption("--include-duplicate-devices", action="store_true",
+        help="Run tests on all available devices and not only on uniquely named ones",
+        default=False)
 
 
 pytest_funcarg__ctx_and_double = create_context_in_tuple
@@ -24,19 +39,30 @@ pytest_funcarg__ctx = create_context_in_tuple
 pytest_funcarg__some_ctx = create_context_in_tuple
 
 
+def pytest_report_header(config):
+    ccs, cc_ids = get_contexts(config)
+    devices = {cc.device_id:(cc.platform_name + ", " + cc.device_name) for cc in ccs}
+    if len(devices) == 0:
+        raise ValueError("No devices match the criteria")
+
+    print "Running tests on:"
+    for device_id in sorted(devices):
+        print "  " + device_id +  ": " + devices[device_id]
+
+
 def pytest_generate_tests(metafunc):
     if 'ctx_and_double' in metafunc.funcargnames:
         parametrize_context_tuple(metafunc, 'ctx_and_double', pair_context_with_doubles)
 
     if 'ctx' in metafunc.funcargnames:
-        ccs, cc_ids = get_contexts(metafunc)
+        ccs, cc_ids = get_contexts(metafunc.config)
         metafunc.parametrize('ctx', ccs, ids=cc_ids, indirect=True)
 
     if 'some_ctx' in metafunc.funcargnames:
         # Just some context for tests that only check context-independent stuff.
-        ccs, cc_ids = get_contexts(metafunc)
+        ccs, cc_ids = get_contexts(metafunc.config)
         metafunc.parametrize('some_ctx', [ccs[0]], ids=[cc_ids[0]], indirect=True)
 
     if 'cluda_api' in metafunc.funcargnames:
-        apis, api_ids = get_apis(metafunc)
+        apis, api_ids = get_apis(metafunc.config)
         metafunc.parametrize('cluda_api', apis, ids=api_ids)
