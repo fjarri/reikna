@@ -505,7 +505,7 @@ class FFT(Computation):
                         [mem_out, mem_in, 'direction'],
                         global_size=gs, local_size=ls, render_kwds=kwds)
                 except OutOfResourcesError:
-                    local_size -= device_params.warp_size
+                    local_size /= 2
                     continue
 
                 break
