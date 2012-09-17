@@ -18,8 +18,9 @@ class Argument:
 
 class OperationRecorder:
 
-    def __init__(self, ctx, basis, base_values):
+    def __init__(self, ctx, tr_tree, basis, base_values):
         self._ctx = ctx
+        self._tr_tree = tr_tree
         self.basis = basis
         self.values = AttrDict(base_values)
         self.operations = []
@@ -34,6 +35,7 @@ class OperationRecorder:
         value = ArrayValue(shape, dtype)
         self.values[name] = value
         self._allocations[name] = value
+        self._tr_tree.add_temp_node(name, value)
 
     def add_kernel(self, template, defname, argnames,
             global_size, local_size=None, render_kwds=None):
@@ -73,8 +75,9 @@ class OperationRecorder:
         render_kwds.update(additional_kwds)
         src = render_template(subtemplate, *args, **render_kwds)
 
-        self.operations.append(KernelCall(defname, argnames, src,
-            global_size, local_size=local_size))
+        op = KernelCall(defname, argnames, src, global_size, local_size=local_size)
+        op.prepare(self._ctx, self._tr_tree)
+        self.operations.append(op)
 
     def add_computation(self, cls, *argnames, **kwds):
         """
@@ -82,26 +85,15 @@ class OperationRecorder:
         with necessary basis set and transformations connected.
         ``argnames`` list specifies which positional arguments will be passed to this kernel.
         """
-        self.operations.append(ComputationCall(cls, *argnames, **kwds))
+        operation = ComputationCall(cls, *argnames, **kwds)
+        connections = self._tr_tree.connections_for(operation.argnames)
+        for tr, array_arg, new_array_args, new_scalar_args in connections:
+            operation.connect(tr, array_arg, new_array_args, new_scalar_args)
+        operation.prepare(self.values)
+        self.operations.append(operation)
 
     def get_allocation_values(self):
         return self._allocations
-
-    def prepare(self, tr_tree):
-        for operation in self.operations:
-            if isinstance(operation, KernelCall):
-                operation.prepare(self._ctx, tr_tree)
-            elif isinstance(operation, ComputationCall):
-                for tr, array_arg, new_array_args, new_scalar_args in tr_tree.connections_for(
-                        operation.argnames):
-                    operation.connect(tr, array_arg, new_array_args, new_scalar_args)
-                operation.prepare(self.values)
-
-    def connect(self, tr, array_arg, new_array_args, new_scalar_args):
-        for op in self.operations:
-            if isinstance(op, ComputationCall):
-                op.connect(
-                    tr, array_arg, new_array_args, new_scalar_args=new_scalar_args)
 
     def optimize_execution(self):
 

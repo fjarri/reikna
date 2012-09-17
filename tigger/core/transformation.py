@@ -346,18 +346,16 @@ class TransformationTree:
     def all_children(self, name):
         return [name for name, _ in self.leaf_signature([name])]
 
-    def _clear_values(self):
-        for name in self.nodes:
-            self.nodes[name].value.clear()
-
-    def set_temp_nodes(self, values_dict):
-         self.temp_nodes = {name:AttrDict(value=value) for name, value in values_dict.items()}
+    def add_temp_node(self, name, value):
+         self.temp_nodes[name] = AttrDict(value=value)
 
     def propagate_to_base(self, values_dict):
         # takes {name: mock_val} and propagates it from leaves to roots,
         # updating nodes
 
-        self._clear_values()
+        # clear the transformation tree
+        for name in self.nodes:
+            self.nodes[name].value.clear()
 
         def deduce(name):
             node = self.nodes[name]

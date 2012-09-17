@@ -198,15 +198,12 @@ class Computation:
         self._basis = self._basis_for(args, kwds)
 
         # prepare operations
-        self._operations = OperationRecorder(self._ctx, self._basis, self._get_base_values())
+        self._operations = OperationRecorder(
+            self._ctx, self._tr_tree, self._basis, self._get_base_values())
         self._construct_operations(
             self._operations, self._basis, self._ctx.device_params)
 
-        # prepare transformations
-        self._tr_tree.set_temp_nodes(self._operations.get_allocation_values())
-        self._operations.prepare(self._tr_tree)
         self._leaf_signature = self.leaf_signature()
-
         self._operations.optimize_execution()
         self._state = STATE_PREPARED
 
