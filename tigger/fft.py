@@ -244,7 +244,8 @@ class LocalFFTKernel(_FFTKernel):
 
         threads_per_xform = n / radix_array[0]
         block_size = 64 if threads_per_xform <= 64 else threads_per_xform
-        assert block_size <= max_block_size
+        if block_size > max_block_size:
+            raise OutOfResourcesError
         xforms_per_block = block_size / threads_per_xform
         self._blocks_num = 1
         self._xforms_per_block = xforms_per_block
@@ -254,7 +255,8 @@ class LocalFFTKernel(_FFTKernel):
             self._device_params.local_mem_banks,
             self._device_params.min_mem_coalesce_width[self._basis.dtype.itemsize])
 
-        assert lmem_size * self._basis.dtype.itemsize < self._device_params.local_mem_size
+        if lmem_size * self._basis.dtype.itemsize / 2 > self._device_params.local_mem_size:
+            raise OutOfResourcesError
 
         self._kwds = dict(
             n=n, radix_arr=radix_array,
@@ -337,7 +339,8 @@ class GlobalFFTKernel(_FFTKernel):
             else:
                 smem_size = self._block_size * radix1
 
-        assert smem_size * self._basis.dtype.itemsize / 2 < self._device_params.local_mem_size
+        if smem_size * self._basis.dtype.itemsize / 2 > self._device_params.local_mem_size:
+            raise OutOfResourcesError
 
         self._blocks_num = num_blocks
         self._xforms_per_block = 1
