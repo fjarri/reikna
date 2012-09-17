@@ -180,7 +180,7 @@ WITHIN_KERNEL void fftKernel16(complex_t *a, const int direction)
     a[14] = complex_mul(a[14], temp);
     temp  = complex_ctr(w1, direction * w0);
     a[13] = complex_mul(a[13], temp);
-    temp  = complex_ctr(-w0, direction * w1);
+    temp  = complex_ctr(-w0, -direction * w1);
     a[15] = complex_mul(a[15], temp);
 
     fftKernel4(a, direction);
