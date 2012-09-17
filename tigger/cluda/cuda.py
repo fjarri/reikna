@@ -34,10 +34,17 @@ class Platform:
     version = ".".join(str(x) for x in cuda.get_version())
 
     def get_devices(self):
-        return [cuda.Device(num) for num in xrange(cuda.Device.count())]
+        return [Device(num) for num in xrange(cuda.Device.count())]
 
     def __str__(self):
         return self.name + " " + self.version
+
+
+class Device(cuda.Device):
+
+    def __init__(self, device_num):
+        cuda.Device.__init__(self, device_num)
+        self.name = self.name()
 
 
 class Context:
