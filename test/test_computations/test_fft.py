@@ -40,10 +40,9 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize('shape_and_axes', vals, ids=ids)
 
 
-def test_errors(ctx_and_double, shape_and_axes):
+def test_errors(ctx, shape_and_axes):
 
-    ctx, double = ctx_and_double
-    dtype = numpy.complex128 if double else numpy.complex64
+    dtype = numpy.complex64
 
     shape, axes = shape_and_axes
 
