@@ -273,6 +273,10 @@ class TransformationArgument:
 class TransformationTree:
 
     def __init__(self, outputs, inputs, scalars):
+        self._outputs = outputs
+        self._inputs = inputs
+        self._scalars = scalars
+
         self.nodes = {}
         self.temp_nodes = {}
         self.base_names = outputs + inputs + scalars
@@ -298,6 +302,19 @@ class TransformationTree:
             self.nodes[name] = AttrDict(name=name, type=NODE_SCALAR,
                 value=ScalarValue(None),
                 children=None, tr_to_children=None)
+
+    def copy(self):
+        tree = TransformationTree(self._outputs, self._inputs, self._scalars)
+
+        # recreate connections
+        connections = self.connections_for(self._outputs + self._inputs + self._scalars)
+        for tr, array_arg, new_array_args, new_scalar_args in connections:
+            tree.connect(tr, array_arg, new_array_args, new_scalar_args)
+
+        # repopulate nodes
+        tree.propagate_to_base({name:value for name, value in self.leaf_signature()})
+
+        return tree
 
     def leaf_signature(self, base_names=None):
 

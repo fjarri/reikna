@@ -26,7 +26,8 @@ class Dummy(Computation):
         sv = ScalarValue(basis.coeff_dtype)
         return dict(C=av, D=av, A=av, B=av, coeff=sv)
 
-    def _construct_operations(self, operations, basis, device_params):
+    def _construct_operations(self, basis, device_params):
+        operations = self._get_operation_recorder()
         template = template_from("""
         <%def name="dummy(C, D, A, B, coeff)">
         ${kernel_definition}
@@ -50,6 +51,7 @@ class Dummy(Computation):
             ['C', 'D', 'A', 'B', 'coeff'],
             global_size=min_blocks(basis.size, block_size) * block_size,
             local_size=block_size)
+        return operations
 
 
 # A function which does the same job as base Dummy kernel

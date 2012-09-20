@@ -165,4 +165,3 @@ class KernelCall:
 
     def __call__(self, *args):
         self.kernel(*args)
-

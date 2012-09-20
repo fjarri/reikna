@@ -126,13 +126,15 @@ Each computation class has to define the following methods:
 
 #.  The last method actually specifies the actions to be done by the computation.
     These include kernel calls, allocations and calls to nested computations.
-    The method takes three parameters: ``operations`` is a :py:class:`~tigger.core.operation.OperationRecorder` object, ``basis`` is a basis created by :py:meth:`~tigger.core.Computation._get_basis_for`, and ``device_params`` is a :py:class:`~tigger.cluda.api.DeviceParameters` object, which is used to optimize the computation for the specific device.
+    The method takes two parameters: ``basis`` is a basis created by :py:meth:`~tigger.core.Computation._get_basis_for`, and ``device_params`` is a :py:class:`~tigger.cluda.api.DeviceParameters` object, which is used to optimize the computation for the specific device.
+    It must return a filled :py:class:`~tigger.core.operation.OperationRecorder` object.
 
     For our example we only need one action, which is the execution of an elementwise kernel:
 
     ::
 
-        def _construct_operations(self, operations, basis, device_params):
+        def _construct_operations(self, basis, device_params):
+            operations = self._get_operation_recorder()
             template = template_from(
                 """
                 <%def name='testcomp(k_output, k_input1, k_input2, k_param)'>
@@ -150,6 +152,7 @@ Each computation class has to define the following methods:
 
             operations.add_kernel(template, 'testcomp', ['output', 'input1', 'input2', 'param'],
                 global_size=(basis.size,), render_kwds=dict(size=basis.size))
+            return operations
 
     Every kernel call is based on the separate ``Mako`` template function.
     The template can be specified as a string using :py:func:`~tigger.helpers.template_from`, or loaded as a separate file.

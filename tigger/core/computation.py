@@ -40,6 +40,11 @@ class Computation:
         Special method to use by computations with variable number of arguments.
         Should be called before any connections and preparations are made.
 
+    .. py:method:: _get_operation_recorder()
+
+        Returns an instance of :py:class:`~tigger.core.operation.OperationRecorder` class
+        which is used in :py:meth:`_construct_operations`.
+
     .. py:method:: _get_argnames()
 
         Must return a tuple ``(outputs, inputs, scalars)``, where each of
@@ -59,9 +64,10 @@ class Computation:
         If names of positional and keyword arguments are known in advance,
         it is better to use them explicitly in the signature.
 
-    .. py:method:: _construct_operations(operations, basis, device_params)
+    .. py:method:: _construct_operations(basis, device_params)
 
-        Must fill the ``operations`` object with actions required to execute the computation.
+        Must fill and return the :py:class:`~tigger.core.operation.OperationRecorder`
+        object with actions required to execute the computation.
         See the :py:class:`~tigger.core.operation.OperationRecorder` class reference
         for the list of available actions.
 
@@ -196,18 +202,18 @@ class Computation:
             raise InvalidStateError("Cannot prepare the same computation twice")
 
         self._basis = self._basis_for(args, kwds)
-
-        # prepare operations
-        self._operations = OperationRecorder(
-            self._ctx, self._tr_tree, self._basis, self._get_base_values())
-        self._construct_operations(
-            self._operations, self._basis, self._ctx.device_params)
-
         self._leaf_signature = self.leaf_signature()
+
+        self._operations = self._construct_operations(self._basis, self._ctx.device_params)
         self._operations.optimize_execution()
+
         self._state = STATE_PREPARED
 
         return self
+
+    def _get_operation_recorder(self):
+        return OperationRecorder(
+            self._ctx, self._tr_tree.copy(), self._basis, self._get_base_values())
 
     def signature_str(self):
         """
