@@ -4,8 +4,6 @@
 * TODO: add full support of numpy.fft.fftn interface to FFT
 * TODO: move part of core.transformation to a template
 * TODO: add custom render keywords for transformations (will help e.g. in tigger.transformations)
-* TODO: run coverage tests and see if some functionality has to be tested
-* TODO: run pylint
 * TODO: Write some performance tests
 * TODO: Flatten kernel list before execution, and assign argument numbers
 * TODO: create some elementwise computations derived from Elementwise
@@ -21,6 +19,9 @@
   For testing purposes, 2) and 3) are not necessary - just create a new allocation.
 * TODO: create "fallback" when if _construct_operations() does not catch OutOfResources,
   it is called again with reduced local size
+* TODO: run coverage tests and see if some functionality has to be tested,
+  and check existing testcases for redundancy (fft and vsizes in particular)
+* TODO: run pylint
 
 
 1.0.0 (production-quality version... hopefully)
