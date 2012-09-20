@@ -367,7 +367,7 @@ class GlobalFFTKernel(_FFTKernel):
         return kernels
 
 
-def get_fft_1d_kernels(basis, device_params, axis):
+def get_fft_1d_kernels(basis, device_params, axis, local_kernel_limit):
     """Create and compile kernels for one of the dimensions"""
 
     kernels = []
@@ -381,7 +381,7 @@ def get_fft_1d_kernels(basis, device_params, axis):
             kernels.extend(GlobalFFTKernel.createChain(basis, device_params,
                 x, 1, axis))
         elif x > 1:
-            if x / MAX_RADIX <= device_params.max_work_group_size:
+            if x / MAX_RADIX <= local_kernel_limit:
                 kernels.append(LocalFFTKernel(basis, device_params, x))
             else:
                 kernels.extend(GlobalFFTKernel.createChain(basis, device_params,
@@ -396,10 +396,10 @@ def get_fft_1d_kernels(basis, device_params, axis):
     return kernels
 
 
-def get_fft_kernels(basis, device_params):
+def get_fft_kernels(basis, device_params, local_kernel_limit):
     kernels = []
     for i, axis in enumerate(reversed(basis.axes)):
-        kernels.extend(get_fft_1d_kernels(basis, device_params, axis))
+        kernels.extend(get_fft_1d_kernels(basis, device_params, axis, local_kernel_limit))
     kernels[-1].enable_normalization()
 
     return kernels
@@ -438,33 +438,67 @@ class FFT(Computation):
             input=ArrayValue(basis.shape, basis.dtype),
             direction=ScalarValue(numpy.int32))
 
-    def _construct_operations(self, operations, basis, device_params):
+    def _construct_operations(self, basis, device_params):
 
-        kernels = get_fft_kernels(basis, device_params)
+        # While resource consumption of GlobalFFTKernel can be made lower by passing
+        # lower value to prepare_for(), LocalFFTKernel may have to be split into several kernels.
+        # Therefore, if GlobalFFTKernel.prepare_for() raises OutOfResourcesError,
+        # we just call prepare_for() with lower limit, but if LocalFFTKernel.prepare_for()
+        # does that, we have to recreate the whole chain.
+        local_kernel_limit = device_params.max_work_group_size
+        kernel_calls = []
 
-        # dumb algorithm using a lot of temporary memory
-        temp_names = ['_temp_buffer1', '_temp_buffer2']
-        curr_temp = 0
-        operations.add_allocation(temp_names[0], product(basis.shape), basis.dtype)
-        operations.add_allocation(temp_names[1], product(basis.shape), basis.dtype)
-        for i, kernel in enumerate(kernels):
-            mem_in = 'input' if i == 0 else mem_out
-            mem_out = 'output' if i == len(kernels) - 1 else temp_names[curr_temp]
-            curr_temp = 1 - curr_temp
+        while local_kernel_limit >= 1:
+            # Starting from scratch.
+            operations = self._get_operation_recorder()
+            kernels = get_fft_kernels(basis, device_params, local_kernel_limit)
 
-            local_size = device_params.max_work_group_size
-            while local_size >= 1:
-                try:
-                    gs, ls, kwds = kernel.prepare_for(local_size)
-                    operations.add_kernel(
-                        TEMPLATE, kernel.name,
-                        [mem_out, mem_in, 'direction'],
-                        global_size=gs, local_size=ls, render_kwds=kwds)
-                except OutOfResourcesError:
-                    local_size /= 2
-                    continue
+            # dumb algorithm using a lot of temporary memory
+            temp_names = ['_temp_buffer1', '_temp_buffer2']
+            curr_temp = 0
+            operations.add_allocation(temp_names[0], product(basis.shape), basis.dtype)
+            operations.add_allocation(temp_names[1], product(basis.shape), basis.dtype)
 
-                break
+            for i, kernel in enumerate(kernels):
+                mem_in = 'input' if i == 0 else mem_out
+                mem_out = 'output' if i == len(kernels) - 1 else temp_names[curr_temp]
+                curr_temp = 1 - curr_temp
+                argnames = [mem_out, mem_in, 'direction']
+
+                # Try to find local size for each of the kernels
+                local_size = device_params.max_work_group_size
+                local_kernel_fail = False # marks the event when LocalFFTKernel is out of resources
+                while local_size >= 1 and not local_kernel_fail:
+                    try:
+                        gs, ls, kwds = kernel.prepare_for(local_size)
+                        operations.add_kernel(
+                            TEMPLATE, kernel.name, argnames,
+                            global_size=gs, local_size=ls, render_kwds=kwds)
+                    except OutOfResourcesError:
+                        if isinstance(kernel, GlobalFFTKernel):
+                            local_size /= 2
+                        else:
+                            local_kernel_fail = True
+                        continue
+
+                    kernel_calls.append((kernel.name, argnames, gs, ls, kwds))
+                    break
+                else:
+                    raise ValueError(
+                        "Could not find suitable call parameters for one of the global kernels")
+
+                if local_kernel_fail:
+                    break
+            else:
+                # everything went well, returning list of calls
+                return operations
+
+            # The cycle above received 'break', meaning that LocalFFTKernel was out of resources.
+            # Reduce the limit and try to create operations from scratch again.
+            local_kernel_limit /= 2
+
+        else:
+            raise ValueError("Could not find suitable call parameters for one of the local kernels")
 
         """
         temp_buffer_needed = False
@@ -527,4 +561,3 @@ class FFT(Computation):
                 operations.add_kernel(kernel,
                     [mem_out, mem_in, 'direction'])
         """
-
