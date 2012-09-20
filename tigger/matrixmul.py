@@ -78,8 +78,9 @@ class MatrixMul(Computation):
             a=ArrayValue(a_shape, basis.a_dtype),
             b=ArrayValue(b_shape, basis.b_dtype))
 
-    def _construct_operations(self, operations, basis, device_params):
+    def _construct_operations(self, basis, device_params):
 
+        operations = self._get_operation_recorder()
         bso = basis.block_width_override
         block_width = device_params.local_mem_banks if bso is None else bso
 
@@ -100,3 +101,4 @@ class MatrixMul(Computation):
             global_size=(grid_width * block_width, blocks_per_matrix * basis.batch * block_width),
             local_size=(block_width, block_width),
             render_kwds=render_kwds)
+        return operations

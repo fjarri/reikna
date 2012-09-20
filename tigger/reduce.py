@@ -63,7 +63,9 @@ class Reduce(Computation):
 
         return bs
 
-    def _construct_operations(self, operations, basis, device_params):
+    def _construct_operations(self, basis, device_params):
+
+        operations = self._get_operation_recorder()
 
         # may fail if the user passes particularly sophisticated operation
         max_reduce_power = device_params.max_work_group_size
@@ -130,3 +132,5 @@ class Reduce(Computation):
 
             size = new_size
             input_name = output_name
+
+        return operations

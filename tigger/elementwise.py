@@ -58,8 +58,9 @@ class Elementwise(Computation):
 
         return dict(size=args[0].size, argtypes=argtypes, code=code)
 
-    def _construct_operations(self, operations, basis, device_params):
+    def _construct_operations(self, basis, device_params):
 
+        operations = self._get_operation_recorder()
         names = sum(self._get_base_names(), tuple())
         name_str = ", ".join(names)
 
@@ -79,6 +80,7 @@ class Elementwise(Computation):
 
         operations.add_kernel(template, 'elementwise', names,
             global_size=(basis.size,), render_kwds=dict(size=basis.size))
+        return operations
 
 
 def specialize_elementwise(outputs, inputs, scalars, code):

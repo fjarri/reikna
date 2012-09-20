@@ -136,7 +136,8 @@ class Transpose(Computation):
             local_size=(block_width, block_width),
             render_kwds=render_kwds)
 
-    def _construct_operations(self, operations, basis, device_params):
+    def _construct_operations(self, basis, device_params):
+        operations = self._get_operation_recorder()
         transposes = get_transposes(basis.input_shape, basis.axes)
 
         temp_shape = (product(basis.input_shape),)
@@ -167,3 +168,5 @@ class Transpose(Computation):
             oname, iname = arg_pair
             self._add_transpose(operations, basis, device_params,
                 oname, iname, batch, height, width)
+
+        return operations
