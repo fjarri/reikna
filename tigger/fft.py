@@ -271,13 +271,14 @@ class GlobalFFTKernel(_FFTKernel):
     """Generator for 'global' FFT kernel chain."""
 
     def __init__(self, basis, device_params, pass_num,
-            n, curr_n, horiz_bs, axis, batch_size):
+            n, curr_n, horiz_bs, axis, local_batch):
+
         _FFTKernel.__init__(self, basis, device_params)
         self._n = n
         self._curr_n = curr_n
         self._horiz_bs = horiz_bs
         self._axis = axis
-        self._starting_batch_size = batch_size
+        self._local_batch = local_batch
         self._pass_num = pass_num
         self.name = 'fft_global'
 
@@ -289,17 +290,14 @@ class GlobalFFTKernel(_FFTKernel):
 
     def _generate(self, max_block_size):
 
-        vertical = False if (self._axis == len(self._basis.shape) - 1) else True
-
-        radix_arr, radix1_arr, radix2_arr = get_global_radix_info(self._n)
-
-        num_passes = len(radix_arr)
-
+        vertical = not (self._axis == len(self._basis.shape) - 1)
         radix_init = self._horiz_bs if vertical else 1
 
+        radix_arr, radix1_arr, radix2_arr = get_global_radix_info(self._n)
         radix = radix_arr[self._pass_num]
         radix1 = radix1_arr[self._pass_num]
         radix2 = radix2_arr[self._pass_num]
+        num_passes = len(radix_arr)
 
         stride_in = radix_init
         for i in range(num_passes):
@@ -312,14 +310,14 @@ class GlobalFFTKernel(_FFTKernel):
 
         threads_per_xform = radix2
 
-        batch_size = max_block_size if radix2 == 1 else self._starting_batch_size
-        batch_size = min(batch_size, stride_in)
-        block_size = min(batch_size * threads_per_xform, max_block_size)
-        batch_size = block_size / threads_per_xform
+        local_batch = max_block_size if radix2 == 1 else self._local_batch
+        local_batch = min(local_batch, stride_in)
+        block_size = min(local_batch * threads_per_xform, max_block_size)
+        local_batch = block_size / threads_per_xform
 
         numIter = radix1 / radix2
 
-        blocks_per_xform = stride_in / batch_size
+        blocks_per_xform = stride_in / local_batch
         blocks_num = blocks_per_xform
         if not vertical:
             blocks_num *= self._horiz_bs
@@ -328,7 +326,7 @@ class GlobalFFTKernel(_FFTKernel):
             lmem_size = 0
         else:
             if stride_out == 1:
-                lmem_size = (radix + 1) * batch_size
+                lmem_size = (radix + 1) * local_batch
             else:
                 lmem_size = block_size * radix1
 
@@ -339,7 +337,7 @@ class GlobalFFTKernel(_FFTKernel):
 
         kwds = dict(
             n=self._n, curr_n=self._curr_n, pass_num=self._pass_num,
-            lmem_size=lmem_size, batch_size=batch_size,
+            lmem_size=lmem_size, local_batch=local_batch,
             horiz_bs=self._horiz_bs, vertical=vertical,
             max_block_size=max_block_size)
 
@@ -348,20 +346,17 @@ class GlobalFFTKernel(_FFTKernel):
     @staticmethod
     def createChain(basis, device_params, n, horiz_bs, axis):
 
-        batch_size = device_params.min_mem_coalesce_width[basis.dtype.itemsize]
         vertical = not (axis == len(basis.shape) - 1)
+        coalesce_width = device_params.min_mem_coalesce_width[basis.dtype.itemsize]
+        local_batch = min(horiz_bs, coalesce_width) if vertical else coalesce_width
 
-        radix_arr, radix1_arr, radix2_arr = get_global_radix_info(n)
-
-        num_passes = len(radix_arr)
+        radix_arr, _, _ = get_global_radix_info(n)
 
         curr_n = n
-        batch_size = min(horiz_bs, batch_size) if vertical else batch_size
-
         kernels = []
-        for pass_num in range(num_passes):
+        for pass_num in range(len(radix_arr)):
             kernels.append(GlobalFFTKernel(
-                basis, device_params, pass_num, n, curr_n, horiz_bs, axis, batch_size))
+                basis, device_params, pass_num, n, curr_n, horiz_bs, axis, local_batch))
             curr_n /= radix_arr[pass_num]
 
         return kernels

@@ -753,12 +753,12 @@ ${insertBaseKernels()}
         for i in range(pass_num):
             stride_out *= radix_arr[i]
 
-        block_size = min(batch_size * radix2, max_block_size)
+        block_size = min(local_batch * radix2, max_block_size)
 
         num_iter = radix1 / radix2
-        input_multiplier = block_size / batch_size
+        input_multiplier = block_size / local_batch
         log2_stride_out = log2(stride_out)
-        blocks_per_xform = stride_in / batch_size
+        blocks_per_xform = stride_in / local_batch
 
         m = log2(n)
     %>
@@ -780,8 +780,8 @@ ${kernel_definition}
     %if vertical:
         x_num = block_id >> ${log2_blocks_per_xform};
         block_id = block_id & ${blocks_per_xform - 1};
-        index_in = mad24(block_id, ${batch_size}, x_num << ${log2(n * horiz_bs)});
-        tid = mul24(block_id, ${batch_size});
+        index_in = mad24(block_id, ${local_batch}, x_num << ${log2(n * horiz_bs)});
+        tid = mul24(block_id, ${local_batch});
         i = tid >> ${log2_stride_out};
         j = tid & ${stride_out - 1};
         <%
@@ -798,7 +798,7 @@ ${kernel_definition}
     %else:
         b_num = block_id & ${blocks_per_xform - 1};
         x_num = block_id >> ${log2_blocks_per_xform};
-        index_in = mul24(b_num, ${batch_size});
+        index_in = mul24(b_num, ${local_batch});
         tid = index_in;
         i = tid >> ${log2_stride_out};
         j = tid & ${stride_out - 1};
@@ -813,10 +813,10 @@ ${kernel_definition}
     %endif
 
     ## Load Data
-    <% log2_batch_size = log2(batch_size) %>
+    <% log2_local_batch = log2(local_batch) %>
     tid = thread_id;
-    i = tid & ${batch_size - 1};
-    j = tid >> ${log2_batch_size};
+    i = tid & ${local_batch - 1};
+    j = tid >> ${log2_local_batch};
     index_in += mad24(j, ${stride_in}, i);
 
     input_shift += index_in;
@@ -855,7 +855,7 @@ ${kernel_definition}
 
             %for k in range(num_iter):
                 %for t in range(radix2):
-                    a[${k * radix2 + t}].${comp} = lmem[lmem_load_index + ${t * batch_size + k * block_size}];
+                    a[${k * radix2 + t}].${comp} = lmem[lmem_load_index + ${t * local_batch + k * block_size}];
                 %endfor
             %endfor
             LOCAL_BARRIER;
@@ -872,7 +872,7 @@ ${kernel_definition}
         real_t ang1, ang;
         complex_t w;
 
-        int l = ((b_num << ${log2_batch_size}) + i) >> ${log2_stride_out};
+        int l = ((b_num << ${log2_local_batch}) + i) >> ${log2_stride_out};
         int k = j << ${log2(radix1 / radix2)};
         ang1 = ${wrap_const(2 * numpy.pi / curr_n)} * l * direction;
         %for t in range(radix1):
