@@ -271,13 +271,12 @@ class GlobalFFTKernel(_FFTKernel):
     """Generator for 'global' FFT kernel chain."""
 
     def __init__(self, basis, device_params, pass_num,
-            n, curr_n, horiz_bs, axis, vert_bs, batch_size):
+            n, curr_n, horiz_bs, axis, batch_size):
         _FFTKernel.__init__(self, basis, device_params)
         self._n = n
         self._curr_n = curr_n
         self._horiz_bs = horiz_bs
         self._axis = axis
-        self._vert_bs = vert_bs
         self._starting_batch_size = batch_size
         self._pass_num = pass_num
         self._basis = basis
@@ -324,8 +323,6 @@ class GlobalFFTKernel(_FFTKernel):
         num_blocks = blocks_per_xform
         if not vertical:
             num_blocks *= self._horiz_bs
-        else:
-            num_blocks *= self._vert_bs
 
         if radix2 == 1:
             smem_size = 0
@@ -349,7 +346,7 @@ class GlobalFFTKernel(_FFTKernel):
         self._kwds = dict(
             n=self._n, curr_n=self._curr_n, pass_num=self._pass_num,
             shared_mem=smem_size, batch_size=batch_size,
-            horiz_bs=self._horiz_bs, vert_bs=self._vert_bs, vertical=vertical,
+            horiz_bs=self._horiz_bs, vertical=vertical,
             max_block_size=max_block_size,
             log2=log2, getGlobalRadixInfo=getGlobalRadixInfo,
             normalize=self._normalize,
@@ -358,7 +355,7 @@ class GlobalFFTKernel(_FFTKernel):
             global_batch=self.get_batch())
 
     @staticmethod
-    def createChain(basis, device_params, n, horiz_bs, axis, vert_bs):
+    def createChain(basis, device_params, n, horiz_bs, axis):
 
         batch_size = device_params.min_mem_coalesce_width[basis.dtype.itemsize]
         vertical = not (axis == len(basis.shape) - 1)
@@ -374,7 +371,7 @@ class GlobalFFTKernel(_FFTKernel):
 
         for pass_num in range(num_passes):
             kernel = GlobalFFTKernel(
-                basis, device_params, pass_num, n, curr_n, horiz_bs, axis, vert_bs, batch_size)
+                basis, device_params, pass_num, n, curr_n, horiz_bs, axis, batch_size)
 
             # FIXME: Commented to avoid connection between kernels.
             # Seems to work fine this way too.
@@ -400,7 +397,7 @@ def get_fft_1d_kernels(basis, device_params, axis):
         x = basis.shape[-1]
         if x > max_smem_fft_size:
             kernels.extend(GlobalFFTKernel.createChain(basis, device_params,
-                x, 1, axis, 1))
+                x, 1, axis))
         elif x > 1:
             radix_array = getRadixArray(x, 0)
             if x / radix_array[0] <= device_params.max_work_group_size:
@@ -414,13 +411,13 @@ def get_fft_1d_kernels(basis, device_params, axis):
                 else:
                     # TODO: find out which conditions are necessary to execute this code
                     kernels.extend(GlobalFFTKernel.createChain(basis, device_params,
-                        x, 1, axis, 1))
+                        x, 1, axis))
     else:
         l = basis.shape[axis]
         if l > 1:
             kernels.extend(GlobalFFTKernel.createChain(
                 basis, device_params, l,
-                product(basis.shape[axis+1:]), axis, 1))
+                product(basis.shape[axis+1:]), axis))
 
     return kernels
 
