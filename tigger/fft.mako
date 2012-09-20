@@ -659,9 +659,6 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 
 <%def name="fft_local(output, input, direction)">
 
-## scalar, complex, kernel_name, n, radix_arr, shared_mem, \
-## threads_per_xform, xforms_per_block, min_mem_coalesce_width, num_smem_banks
-
     <%
         max_radix = radix_arr[0]
         num_radix = len(radix_arr)
@@ -733,9 +730,6 @@ ${kernel_definition}
 </%def>
 
 <%def name="fft_global(output, input, direction)">
-
-## scalar, complex, split, kernel_name, n, curr_n, pass_num, shared_mem, \
-##    batch_size, horiz_bs, vert_bs, vertical, max_block_size
 
 ${insertBaseKernels()}
 
