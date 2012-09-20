@@ -8,9 +8,6 @@ from tigger.cluda import OutOfResourcesError
 TEMPLATE = template_for(__file__)
 
 
-X_DIRECTION = 0
-Y_DIRECTION = 1
-Z_DIRECTION = 2
 MAX_RADIX = 16
 
 
@@ -195,8 +192,7 @@ class _FFTKernel:
         return product([self._basis.shape[i] for i in self._basis.axes])
 
     def get_batch(self):
-        axis_nums = {X_DIRECTION: -1, Y_DIRECTION:-2, Z_DIRECTION:-3}
-        return product(self._basis.shape[:axis_nums[self._dir]])
+        return product(self._basis.shape[:self._axis])
 
     def prepare_for(self, max_local_size):
         self._generate(max_local_size)
@@ -205,11 +201,9 @@ class _FFTKernel:
         xforms_per_block = self._xforms_per_block
 
         batch = self.get_batch()
-        if self._dir == X_DIRECTION:
+        if self._axis == len(self._basis.shape) - 1:
             blocks_num = min_blocks(batch, xforms_per_block) * self._blocks_num
-        elif self._dir == Y_DIRECTION:
-            blocks_num = self._blocks_num * batch
-        elif self._dir == Z_DIRECTION:
+        else:
             blocks_num = self._blocks_num * batch
 
         local_size = self._block_size
@@ -225,6 +219,7 @@ class LocalFFTKernel(_FFTKernel):
         _FFTKernel.__init__(self, basis, device_params)
         self._n = n
         self.name = "fft_local"
+        self._basis = basis
 
     def _generate(self, max_block_size):
         n = self._n
@@ -239,7 +234,7 @@ class LocalFFTKernel(_FFTKernel):
         assert n / radix_array[0] <= max_block_size, \
             "Required number of threads per xform greater than maximum block size for local mem fft"
 
-        self._dir = X_DIRECTION
+        self._axis = len(self._basis.shape) - 1
         self.inplace_possible = True
 
         threads_per_xform = n / radix_array[0]
@@ -276,22 +271,23 @@ class GlobalFFTKernel(_FFTKernel):
     """Generator for 'global' FFT kernel chain."""
 
     def __init__(self, basis, device_params, pass_num,
-            n, curr_n, horiz_bs, dir, vert_bs, batch_size):
+            n, curr_n, horiz_bs, axis, vert_bs, batch_size):
         _FFTKernel.__init__(self, basis, device_params)
         self._n = n
         self._curr_n = curr_n
         self._horiz_bs = horiz_bs
-        self._dir = dir
+        self._axis = axis
         self._vert_bs = vert_bs
         self._starting_batch_size = batch_size
         self._pass_num = pass_num
+        self._basis = basis
         self.name = 'fft_global'
 
     def _generate(self, max_block_size):
 
         batch_size = self._starting_batch_size
 
-        vertical = False if self._dir == X_DIRECTION else True
+        vertical = False if (self._axis == len(self._basis.shape) - 1) else True
 
         radix_arr, radix1_arr, radix2_arr = getGlobalRadixInfo(self._n)
 
@@ -362,10 +358,10 @@ class GlobalFFTKernel(_FFTKernel):
             global_batch=self.get_batch())
 
     @staticmethod
-    def createChain(basis, device_params, n, horiz_bs, dir, vert_bs):
+    def createChain(basis, device_params, n, horiz_bs, axis, vert_bs):
 
         batch_size = device_params.min_mem_coalesce_width[basis.dtype.itemsize]
-        vertical = not dir == X_DIRECTION
+        vertical = not (axis == len(basis.shape) - 1)
 
         radix_arr, radix1_arr, radix2_arr = getGlobalRadixInfo(n)
 
@@ -378,7 +374,7 @@ class GlobalFFTKernel(_FFTKernel):
 
         for pass_num in range(num_passes):
             kernel = GlobalFFTKernel(
-                basis, device_params, pass_num, n, curr_n, horiz_bs, dir, vert_bs, batch_size)
+                basis, device_params, pass_num, n, curr_n, horiz_bs, axis, vert_bs, batch_size)
 
             # FIXME: Commented to avoid connection between kernels.
             # Seems to work fine this way too.
@@ -404,38 +400,27 @@ def get_fft_1d_kernels(basis, device_params, axis):
         x = basis.shape[-1]
         if x > max_smem_fft_size:
             kernels.extend(GlobalFFTKernel.createChain(basis, device_params,
-                x, 1, X_DIRECTION, 1))
+                x, 1, axis, 1))
         elif x > 1:
             radix_array = getRadixArray(x, 0)
             if x / radix_array[0] <= device_params.max_work_group_size:
                 kernels.append(LocalFFTKernel(basis, device_params, x))
-                #kernel.compile(self._params.max_block_size)
-                #kernels.append(kernel)
             else:
                 radix_array = getRadixArray(x, MAX_RADIX)
                 # TODO: danger - what if during preparation it turns out that
                 # maximum work group size for this kernel should be smaller?
                 if x / radix_array[0] <= device_params.max_work_group_size:
                     kernels.append(LocalFFTKernel(basis, device_params, x))
-                    #kernel.compile(self._params.max_block_size)
-                    #kernels.append(kernel)
                 else:
                     # TODO: find out which conditions are necessary to execute this code
                     kernels.extend(GlobalFFTKernel.createChain(basis, device_params,
-                        x, 1 , X_DIRECTION, 1))
-    elif axis == len(basis.shape) - 2:
-        y = basis.shape[-2]
-        if y > 1:
-            kernels.extend(GlobalFFTKernel.createChain(
-                basis, device_params, y, basis.shape[-1], Y_DIRECTION, 1))
-    elif axis == len(basis.shape) - 3:
-        z = basis.shape[-3]
-        if z > 1:
-            kernels.extend(GlobalFFTKernel.createChain(
-                basis, device_params, z,
-                basis.shape[-1] * basis.shape[-2], Z_DIRECTION, 1))
+                        x, 1, axis, 1))
     else:
-        raise ValueError("Unsupported axis number")
+        l = basis.shape[axis]
+        if l > 1:
+            kernels.extend(GlobalFFTKernel.createChain(
+                basis, device_params, l,
+                product(basis.shape[axis+1:]), axis, 1))
 
     return kernels
 
@@ -571,4 +556,3 @@ class FFT(Computation):
                 operations.add_kernel(kernel,
                     [mem_out, mem_in, 'direction'])
         """
-
