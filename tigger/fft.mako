@@ -280,7 +280,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 
         ii = thread_id & ${mem_coalesce_width - 1};
         jj = thread_id >> ${log2(mem_coalesce_width)};
-        smem_store_index = mad24(jj, ${n + threads_per_xform}, ii);
+        lmem_store_index = mad24(jj, ${n + threads_per_xform}, ii);
 
         {
             int offset = mad24(block_id, ${xforms_per_block}, jj);
@@ -316,12 +316,12 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 
         ii = thread_id & ${threads_per_xform - 1};
         jj = thread_id >> ${log2_threads_per_xform};
-        smem_load_index = mad24(jj, ${n + threads_per_xform}, ii);
+        lmem_load_index = mad24(jj, ${n + threads_per_xform}, ii);
 
         %for comp in ('x', 'y'):
             %for i in range(num_outer_iter):
                 %for j in range(num_inner_iter):
-                    smem[smem_store_index + ${j * mem_coalesce_width + \
+                    lmem[lmem_store_index + ${j * mem_coalesce_width + \
                         i * (block_size / mem_coalesce_width) * (n + threads_per_xform)}] =
                         a[${i * num_inner_iter + j}].${comp};
                 %endfor
@@ -329,7 +329,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             LOCAL_BARRIER;
 
             %for i in range(radix):
-                a[${i}].${comp} = smem[smem_load_index + ${i * threads_per_xform}];
+                a[${i}].${comp} = lmem[lmem_load_index + ${i * threads_per_xform}];
             %endfor
             LOCAL_BARRIER;
         %endfor
@@ -342,7 +342,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 
         ii = thread_id & ${n - 1};
         jj = thread_id >> ${log2(n)};
-        smem_store_index = mad24(jj, ${n + threads_per_xform}, ii);
+        lmem_store_index = mad24(jj, ${n + threads_per_xform}, ii);
 
         if((block_id == blocks_num - 1) && s)
         {
@@ -366,21 +366,21 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
         %if threads_per_xform > 1:
             ii = thread_id & ${threads_per_xform - 1};
             jj = thread_id >> ${log2_threads_per_xform};
-            smem_load_index = mad24(jj, ${n + threads_per_xform}, ii);
+            lmem_load_index = mad24(jj, ${n + threads_per_xform}, ii);
         %else:
             ii = 0;
             jj = thread_id;
-            smem_load_index = mul24(jj, ${n + threads_per_xform});
+            lmem_load_index = mul24(jj, ${n + threads_per_xform});
         %endif
 
         %for comp in ('x', 'y'):
             %for i in range(radix):
-                smem[smem_store_index + ${i * (block_size / n) * (n + threads_per_xform)}] = a[${i}].${comp};
+                lmem[lmem_store_index + ${i * (block_size / n) * (n + threads_per_xform)}] = a[${i}].${comp};
             %endfor
             LOCAL_BARRIER;
 
             %for i in range(radix):
-                a[${i}].${comp} = smem[smem_load_index + ${i * threads_per_xform}];
+                a[${i}].${comp} = lmem[lmem_load_index + ${i * threads_per_xform}];
             %endfor
             LOCAL_BARRIER;
         %endfor
@@ -418,10 +418,10 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             num_inner_iter = n / mem_coalesce_width
             num_outer_iter = xforms_per_block / (block_size / mem_coalesce_width)
         %>
-        smem_load_index  = mad24(jj, ${n + threads_per_xform}, ii);
+        lmem_load_index  = mad24(jj, ${n + threads_per_xform}, ii);
         ii = thread_id & ${mem_coalesce_width - 1};
         jj = thread_id >> ${log2(mem_coalesce_width)};
-        smem_store_index = mad24(jj, ${n + threads_per_xform}, ii);
+        lmem_store_index = mad24(jj, ${n + threads_per_xform}, ii);
 
         %for comp in ('x', 'y'):
             %for i in range(max_radix):
@@ -430,13 +430,13 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
                     k = i / num_iter
                     ind = j * radix + k
                 %>
-                smem[smem_load_index + ${i * threads_per_xform}] = a[${ind}].${comp};
+                lmem[lmem_load_index + ${i * threads_per_xform}] = a[${ind}].${comp};
             %endfor
             LOCAL_BARRIER;
 
             %for i in range(num_outer_iter):
                 %for j in range(num_inner_iter):
-                    a[${i*num_inner_iter + j}].${comp} = smem[smem_store_index + ${j * mem_coalesce_width + \
+                    a[${i*num_inner_iter + j}].${comp} = lmem[lmem_store_index + ${j * mem_coalesce_width + \
                         i * (block_size / mem_coalesce_width) * (n + threads_per_xform)}];
                 %endfor
             %endfor
@@ -468,10 +468,10 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
         %endfor
         }
     %else:
-        smem_load_index = mad24(jj, ${n + threads_per_xform}, ii);
+        lmem_load_index = mad24(jj, ${n + threads_per_xform}, ii);
         ii = thread_id & ${n - 1};
         jj = thread_id >> ${log2(n)};
-        smem_store_index = mad24(jj, ${n + threads_per_xform}, ii);
+        lmem_store_index = mad24(jj, ${n + threads_per_xform}, ii);
 
         %for comp in ('x', 'y'):
             %for i in range(max_radix):
@@ -480,12 +480,12 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
                     k = i / num_iter
                     ind = j * radix + k
                 %>
-                smem[smem_load_index + ${i * threads_per_xform}] = a[${ind}].${comp};
+                lmem[lmem_load_index + ${i * threads_per_xform}] = a[${ind}].${comp};
             %endfor
             LOCAL_BARRIER;
 
             %for i in range(max_radix):
-                a[${i}].${comp} = smem[smem_store_index + ${i * (block_size / n) * (n + threads_per_xform)}];
+                a[${i}].${comp} = lmem[lmem_store_index + ${i * (block_size / n) * (n + threads_per_xform)}];
             %endfor
             LOCAL_BARRIER;
         %endfor
@@ -549,7 +549,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
     %for z in range(num_iter):
         %for k in range(radix):
             <% index = k * (threads_req + offset) + z * threads_per_xform %>
-            smem[smem_store_index + ${index}] = a[${z * radix + k}].${comp};
+            lmem[lmem_store_index + ${index}] = a[${z * radix + k}].${comp};
         %endfor
     %endfor
     LOCAL_BARRIER;
@@ -581,7 +581,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 
         %for z in range(radix_next):
             <% st = kk * vert_stride + jj * inter_block_hstride + ii * intra_block_hstride + z * stride %>
-            a[${i * radix_next + z}].${comp} = smem[smem_load_index + ${st}];
+            a[${i * radix_next + z}].${comp} = lmem[lmem_load_index + ${st}];
         %endfor
     %endfor
     LOCAL_BARRIER;
@@ -625,22 +625,22 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
         i = mad24(jj, ${incr}, i);
     %endif
 
-    smem_load_index = mad24(j, ${threads_req + offset}, i);
+    lmem_load_index = mad24(j, ${threads_req + offset}, i);
 </%def>
 
 <%def name="insertLocalStoreIndexArithmetic(threads_req, xforms_per_block, radix, offset, mid_pad)">
     %if xforms_per_block == 1:
-        smem_store_index = ii;
+        lmem_store_index = ii;
     %else:
-        smem_store_index = mad24(jj, ${(threads_req + offset) * radix + mid_pad}, ii);
+        lmem_store_index = mad24(jj, ${(threads_req + offset) * radix + mid_pad}, ii);
     %endif
 </%def>
 
-<%def name="insertVariableDefinitions(direction, shared_mem, temp_array_size)">
+<%def name="insertVariableDefinitions(direction, lmem_size, temp_array_size)">
 
-    %if shared_mem > 0:
-        LOCAL_MEM real_t smem[${shared_mem}];
-        size_t smem_store_index, smem_load_index;
+    %if lmem_size > 0:
+        LOCAL_MEM real_t lmem[${lmem_size}];
+        size_t lmem_store_index, lmem_load_index;
     %endif
 
     complex_t a[${temp_array_size}];
@@ -670,7 +670,7 @@ ${kernel_definition}
 {
     VIRTUAL_SKIP_THREADS;
 
-    ${insertVariableDefinitions(direction, shared_mem, max_radix)}
+    ${insertVariableDefinitions(direction, lmem_size, max_radix)}
     int ii;
     %if num_radix > 1:
         int i, j;
@@ -707,8 +707,8 @@ ${kernel_definition}
         %if r < num_radix - 1:
             ${insertTwiddleKernel(radix_arr[r], num_iter, radix_prev, data_len, threads_per_xform)}
             <%
-                lMemSize, offset, mid_pad = getPadding(threads_per_xform, radix_prev, threads_req,
-                    xforms_per_block, radix_arr[r], num_smem_banks)
+                lMemSize, offset, mid_pad = get_padding(threads_per_xform, radix_prev, threads_req,
+                    xforms_per_block, radix_arr[r], local_mem_banks)
             %>
             ${insertLocalStoreIndexArithmetic(threads_req, xforms_per_block, radix_arr[r], offset, mid_pad)}
             ${insertLocalLoadIndexArithmetic(radix_prev, radix_arr[r], threads_req, threads_per_xform, xforms_per_block, offset, mid_pad)}
@@ -734,7 +734,7 @@ ${kernel_definition}
 ${insertBaseKernels()}
 
     <%
-        radix_arr, radix1_arr, radix2_arr = getGlobalRadixInfo(n)
+        radix_arr, radix1_arr, radix2_arr = get_global_radix_info(n)
 
         num_passes = len(radix_arr)
 
@@ -767,7 +767,7 @@ ${kernel_definition}
 {
     VIRTUAL_SKIP_THREADS;
 
-    ${insertVariableDefinitions(direction, shared_mem, radix1)}
+    ${insertVariableDefinitions(direction, lmem_size, radix1)}
     int index_in, index_out, x_num, tid, i, j;
     %if not vertical or pass_num < num_passes - 1:
         int b_num;
@@ -844,18 +844,18 @@ ${kernel_definition}
 
         ## shuffle
         index_in = mad24(j, ${block_size * num_iter}, i);
-        smem_store_index = tid;
-        smem_load_index = index_in;
+        lmem_store_index = tid;
+        lmem_load_index = index_in;
 
         %for comp in ('x', 'y'):
             %for k in range(radix1):
-                smem[smem_store_index + ${k * block_size}] = a[${k}].${comp};
+                lmem[lmem_store_index + ${k * block_size}] = a[${k}].${comp};
             %endfor
             LOCAL_BARRIER;
 
             %for k in range(num_iter):
                 %for t in range(radix2):
-                    a[${k * radix2 + t}].${comp} = smem[smem_load_index + ${t * batch_size + k * block_size}];
+                    a[${k * radix2 + t}].${comp} = lmem[lmem_load_index + ${t * batch_size + k * block_size}];
                 %endfor
             %endfor
             LOCAL_BARRIER;
@@ -885,20 +885,20 @@ ${kernel_definition}
 
     ## Store Data
     %if stride_out == 1:
-        smem_store_index = mad24(i, ${radix + 1}, j << ${log2(radix1 / radix2)});
-        smem_load_index = mad24(tid >> ${log2(radix)}, ${radix + 1}, tid & ${radix - 1});
+        lmem_store_index = mad24(i, ${radix + 1}, j << ${log2(radix1 / radix2)});
+        lmem_load_index = mad24(tid >> ${log2(radix)}, ${radix + 1}, tid & ${radix - 1});
 
         %for comp in ('x', 'y'):
             %for i in range(radix1 / radix2):
                 %for j in range(radix2):
-                    smem[smem_store_index + ${i + j * radix1}] = a[${i * radix2 + j}].${comp};
+                    lmem[lmem_store_index + ${i + j * radix1}] = a[${i * radix2 + j}].${comp};
                 %endfor
             %endfor
             LOCAL_BARRIER;
 
             %if block_size >= radix:
                 %for i in range(radix1):
-                    a[${i}].${comp} = smem[smem_load_index + ${i * (radix + 1) * (block_size / radix)}];
+                    a[${i}].${comp} = lmem[lmem_load_index + ${i * (radix + 1) * (block_size / radix)}];
                 %endfor
             %else:
                 <%
@@ -907,7 +907,7 @@ ${kernel_definition}
                 %>
                 %for i in range(outer_iter):
                     %for j in range(inner_iter):
-                        a[${i * inner_iter + j}].${comp} = smem[smem_load_index + ${j * block_size + i * (radix + 1)}];
+                        a[${i * inner_iter + j}].${comp} = lmem[lmem_load_index + ${j * block_size + i * (radix + 1)}];
                     %endfor
                 %endfor
             %endif
