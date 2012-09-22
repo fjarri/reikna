@@ -417,8 +417,6 @@ class FFT(Computation):
         else:
             axes = tuple(axes)
 
-        assert axes == tuple(range(len(output.shape) - len(axes), len(output.shape)))
-
         bs.axes = axes
         bs.shape = output.shape
         bs.dtype = output.dtype
