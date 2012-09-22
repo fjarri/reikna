@@ -643,9 +643,6 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 
     complex_t a[${temp_array_size}];
 
-    int input_shift = 0;
-    int output_shift = 0;
-
     int thread_id = get_local_id(0);
     int block_id = get_group_id(0);
 
@@ -669,6 +666,8 @@ ${kernel_definition}
     VIRTUAL_SKIP_THREADS;
 
     ${insertVariableDefinitions(direction, lmem_size, max_radix)}
+    int input_shift = 0;
+    int output_shift = 0;
     int ii;
     %if num_radix > 1:
         int i, j;
@@ -817,9 +816,8 @@ ${kernel_definition}
     j = tid >> ${log2_local_batch};
     index_in += mad24(j, ${stride_in}, i);
 
-    input_shift += index_in;
     %for j in range(radix1):
-        a[${j}] = ${input.load}(${j * input_multiplier * stride_in} + input_shift);
+        a[${j}] = ${input.load}(${j * input_multiplier * stride_in} + index_in);
     %endfor
 
     fftKernel${radix1}(a, direction);
@@ -914,17 +912,15 @@ ${kernel_definition}
 
         index_out += tid;
 
-        output_shift += index_out;
         %for k in range(radix1):
-            ${output.store}(${k * block_size} + output_shift,
+            ${output.store}(${k * block_size} + index_out,
                 complex_div_scalar(a[${k}], norm_coeff));
         %endfor
     %else:
         index_out += mad24(j, ${num_iter * stride_out}, i);
 
-        output_shift += index_out;
         %for k in range(radix1):
-            ${output.store}(${((k % radix2) * radix1 + (k / radix2)) * stride_out} + output_shift,
+            ${output.store}(${((k % radix2) * radix1 + (k / radix2)) * stride_out} + index_out,
                 complex_div_scalar(a[${k}], norm_coeff));
         %endfor
     %endif
