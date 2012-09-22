@@ -203,8 +203,7 @@ class _FFTKernel:
         return product(self._basis.shape[:self._axis])
 
     def prepare_for(self, max_local_size):
-        local_size, workgroups_num, xforms_per_workgroup, kwds = self._generate(max_local_size)
-        batch = self.get_batch()
+        local_size, workgroups_num, kwds = self._generate(max_local_size)
 
         kwds.update(dict(
             min_mem_coalesce_width=self._device_params.min_mem_coalesce_width[self._basis.dtype.itemsize],
@@ -213,13 +212,7 @@ class _FFTKernel:
             normalize=self._normalize,
             norm_coeff=self.get_normalization_coeff(),
             wrap_const=lambda x: dtypes.c_constant(x, dtypes.real_for(self._basis.dtype)),
-            global_batch=batch,
             get_global_radix_info=get_global_radix_info))
-
-        if self._axis == len(self._basis.shape) - 1:
-            workgroups_num *= min_blocks(batch, xforms_per_workgroup)
-        else:
-            workgroups_num *= batch
 
         local_size = local_size
         global_size = local_size * workgroups_num
@@ -245,11 +238,11 @@ class LocalFFTKernel(_FFTKernel):
             radix_array = get_radix_array(n, use_max_radix=True)
 
         threads_per_xform = n / radix_array[0]
-        local_size = 64 if threads_per_xform <= 64 else threads_per_xform
+        local_size = max(64, threads_per_xform)
         if local_size > max_local_size:
             raise OutOfResourcesError
         xforms_per_workgroup = local_size / threads_per_xform
-        workgroups_num = 1
+        workgroups_num = min_blocks(self.get_batch(), xforms_per_workgroup)
 
         lmem_size = get_local_memory_size(
             n, radix_array, threads_per_xform, xforms_per_workgroup,
@@ -262,9 +255,10 @@ class LocalFFTKernel(_FFTKernel):
         kwds = dict(
             n=n, radix_arr=radix_array,
             lmem_size=lmem_size, threads_per_xform=threads_per_xform,
-            xforms_per_workgroup=xforms_per_workgroup)
+            xforms_per_workgroup=xforms_per_workgroup,
+            global_batch=self.get_batch())
 
-        return local_size, workgroups_num, xforms_per_workgroup, kwds
+        return local_size, workgroups_num, kwds
 
 
 class GlobalFFTKernel(_FFTKernel):
@@ -317,7 +311,7 @@ class GlobalFFTKernel(_FFTKernel):
 
         numIter = radix1 / radix2
 
-        workgroups_num = stride_in / local_batch
+        workgroups_num = stride_in / local_batch * self.get_batch()
         if not vertical:
             workgroups_num *= self._horiz_wgs
 
@@ -332,15 +326,13 @@ class GlobalFFTKernel(_FFTKernel):
         if lmem_size * self._basis.dtype.itemsize / 2 > self._device_params.local_mem_size:
             raise OutOfResourcesError
 
-        xforms_per_workgroup = 1
-
         kwds = dict(
             n=self._n, curr_n=self._curr_n, pass_num=self._pass_num,
             lmem_size=lmem_size, local_batch=local_batch,
             horiz_wgs=self._horiz_wgs, vertical=vertical,
             max_local_size=max_local_size)
 
-        return local_size, workgroups_num, xforms_per_workgroup, kwds
+        return local_size, workgroups_num, kwds
 
     @staticmethod
     def createChain(basis, device_params, n, horiz_wgs, axis):
