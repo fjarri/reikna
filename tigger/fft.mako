@@ -235,18 +235,15 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
     <%
         log2_threads_per_xform = log2(threads_per_xform)
         block_size = threads_per_xform * xforms_per_workgroup
+        s = global_batch % xforms_per_workgroup
     %>
-
-    %if xforms_per_workgroup > 1:
-        s = ${global_batch} & ${xforms_per_workgroup - 1};
-    %endif
 
     %if threads_per_xform >= mem_coalesce_width:
         %if xforms_per_workgroup > 1:
             ii = thread_id & ${threads_per_xform - 1};
             jj = thread_id >> ${log2_threads_per_xform};
 
-            if(!s || (block_id < blocks_num - 1) || (jj < s))
+            if(${s} == 0 || (block_id < blocks_num - 1) || (jj < ${s}))
             {
                 {
                     int offset = mad24(mad24(block_id, ${xforms_per_workgroup}, jj), ${n}, ii);
@@ -289,10 +286,10 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             output_shift += offset;
         }
 
-        if((block_id == blocks_num - 1) && s)
+        if((block_id == blocks_num - 1) && ${s} != 0)
         {
         %for i in range(num_outer_iter):
-            if(jj < s)
+            if(jj < ${s})
             {
             %for j in range(num_inner_iter):
                 ${insertGlobalLoad(input, i * num_inner_iter + j, \
@@ -344,10 +341,10 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
         jj = thread_id >> ${log2(n)};
         lmem_store_index = mad24(jj, ${n + threads_per_xform}, ii);
 
-        if((block_id == blocks_num - 1) && s)
+        if((block_id == blocks_num - 1) && ${s} != 0)
         {
         %for i in range(radix):
-            if(jj < s)
+            if(jj < ${s})
             {
                 ${insertGlobalLoad(input, i, i * block_size)}
             }
@@ -392,11 +389,12 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
     <%
         block_size = threads_per_xform * xforms_per_workgroup
         num_iter = max_radix / radix
+        s = global_batch % xforms_per_workgroup
     %>
 
     %if threads_per_xform >= mem_coalesce_width:
         %if xforms_per_workgroup > 1:
-            if(!s || (block_id < blocks_num - 1) || (jj < s))
+            if(${s} == 0 || (block_id < blocks_num - 1) || (jj < ${s}))
             {
         %endif
 
@@ -443,10 +441,10 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             LOCAL_BARRIER;
         %endfor
 
-        if((block_id == blocks_num - 1) && s)
+        if((block_id == blocks_num - 1) && ${s} != 0)
         {
         %for i in range(num_outer_iter):
-            if(jj < s)
+            if(jj < ${s})
             {
             %for j in range(num_inner_iter):
                 ${insertGlobalStore(output, i * num_inner_iter + j, \
@@ -490,10 +488,10 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             LOCAL_BARRIER;
         %endfor
 
-        if((block_id == blocks_num - 1) && s)
+        if((block_id == blocks_num - 1) && ${s} != 0)
         {
         %for i in range(max_radix):
-            if(jj < s)
+            if(jj < ${s})
             {
                 ${insertGlobalStore(output, i, i * block_size)}
             }
@@ -677,7 +675,7 @@ ${kernel_definition}
     %endif
 
     %if not (threads_per_xform >= min_mem_coalesce_width and xforms_per_workgroup == 1):
-        int jj, s;
+        int jj;
         %if cuda:
             int blocks_num = gridDim.x * gridDim.y;
         %else:
