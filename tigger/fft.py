@@ -211,8 +211,7 @@ class _FFTKernel:
             log2=log2, get_padding=get_padding,
             normalize=self._normalize,
             norm_coeff=self.get_normalization_coeff(),
-            wrap_const=lambda x: dtypes.c_constant(x, dtypes.real_for(self._basis.dtype)),
-            get_global_radix_info=get_global_radix_info))
+            wrap_const=lambda x: dtypes.c_constant(x, dtypes.real_for(self._basis.dtype))))
 
         local_size = local_size
         global_size = local_size * workgroups_num
@@ -293,14 +292,10 @@ class GlobalFFTKernel(_FFTKernel):
         radix2 = radix2_arr[self._pass_num]
         num_passes = len(radix_arr)
 
-        stride_in = radix_init
-        for i in range(num_passes):
-            if i != self._pass_num:
-                stride_in *= radix_arr[i]
-
-        stride_out = radix_init
-        for i in range(self._pass_num):
-            stride_out *= radix_arr[i]
+        stride_in = radix_init * product(
+            [x for i, x in enumerate(radix_arr) if i != self._pass_num])
+        stride_out = radix_init * product(radix_arr[:self._pass_num])
+        stride = radix * radix_init * product(radix_arr[:self._pass_num])
 
         threads_per_xform = radix2
 
@@ -328,9 +323,12 @@ class GlobalFFTKernel(_FFTKernel):
 
         kwds = dict(
             n=self._n, curr_n=self._curr_n, pass_num=self._pass_num,
-            lmem_size=lmem_size, local_batch=local_batch,
+            lmem_size=lmem_size, local_batch=local_batch, local_size=local_size,
             horiz_wgs=self._horiz_wgs, vertical=vertical,
-            max_local_size=max_local_size)
+            radix_arr=radix_arr, radix1_arr=radix1_arr, radix2_arr=radix2_arr,
+            radix1=radix1, radix2=radix2, radix=radix,
+            stride_in=stride_in, stride_out=stride_out, stride=stride,
+            last_pass=(self._pass_num == num_passes - 1))
 
         return local_size, workgroups_num, kwds
 

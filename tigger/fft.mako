@@ -234,7 +234,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 
     <%
         log2_threads_per_xform = log2(threads_per_xform)
-        block_size = threads_per_xform * xforms_per_workgroup
+        local_size = threads_per_xform * xforms_per_workgroup
         s = global_batch % xforms_per_workgroup
     %>
 
@@ -272,7 +272,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
     %elif n >= mem_coalesce_width:
         <%
             num_inner_iter = n / mem_coalesce_width
-            num_outer_iter = xforms_per_workgroup / (block_size / mem_coalesce_width)
+            num_outer_iter = xforms_per_workgroup / (local_size / mem_coalesce_width)
         %>
 
         ii = thread_id & ${mem_coalesce_width - 1};
@@ -293,11 +293,11 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             {
             %for j in range(num_inner_iter):
                 ${insertGlobalLoad(input, i * num_inner_iter + j, \
-                    j * mem_coalesce_width + i * (block_size / mem_coalesce_width) * n)}
+                    j * mem_coalesce_width + i * (local_size / mem_coalesce_width) * n)}
             %endfor
             }
             %if i != num_outer_iter - 1:
-                jj += ${block_size / mem_coalesce_width};
+                jj += ${local_size / mem_coalesce_width};
             %endif
         %endfor
         }
@@ -306,7 +306,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
         %for i in range(num_outer_iter):
             %for j in range(num_inner_iter):
                 ${insertGlobalLoad(input, i * num_inner_iter + j, \
-                    j * mem_coalesce_width + i * (block_size / mem_coalesce_width) * n)}
+                    j * mem_coalesce_width + i * (local_size / mem_coalesce_width) * n)}
             %endfor
         %endfor
         }
@@ -319,7 +319,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             %for i in range(num_outer_iter):
                 %for j in range(num_inner_iter):
                     lmem[lmem_store_index + ${j * mem_coalesce_width + \
-                        i * (block_size / mem_coalesce_width) * (n + threads_per_xform)}] =
+                        i * (local_size / mem_coalesce_width) * (n + threads_per_xform)}] =
                         a[${i * num_inner_iter + j}].${comp};
                 %endfor
             %endfor
@@ -346,17 +346,17 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
         %for i in range(radix):
             if(jj < ${s})
             {
-                ${insertGlobalLoad(input, i, i * block_size)}
+                ${insertGlobalLoad(input, i, i * local_size)}
             }
             %if i != radix - 1:
-                jj += ${block_size / n};
+                jj += ${local_size / n};
             %endif
         %endfor
         }
         else
         {
         %for i in range(radix):
-            ${insertGlobalLoad(input, i, i*block_size)}
+            ${insertGlobalLoad(input, i, i*local_size)}
         %endfor
         }
 
@@ -372,7 +372,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 
         %for comp in ('x', 'y'):
             %for i in range(radix):
-                lmem[lmem_store_index + ${i * (block_size / n) * (n + threads_per_xform)}] = a[${i}].${comp};
+                lmem[lmem_store_index + ${i * (local_size / n) * (n + threads_per_xform)}] = a[${i}].${comp};
             %endfor
             LOCAL_BARRIER;
 
@@ -387,7 +387,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 <%def name="insertGlobalStoresAndTranspose(output, n, max_radix, radix, threads_per_xform, xforms_per_workgroup, mem_coalesce_width)">
 
     <%
-        block_size = threads_per_xform * xforms_per_workgroup
+        local_size = threads_per_xform * xforms_per_workgroup
         num_iter = max_radix / radix
         s = global_batch % xforms_per_workgroup
     %>
@@ -414,7 +414,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
     %elif n >= mem_coalesce_width:
         <%
             num_inner_iter = n / mem_coalesce_width
-            num_outer_iter = xforms_per_workgroup / (block_size / mem_coalesce_width)
+            num_outer_iter = xforms_per_workgroup / (local_size / mem_coalesce_width)
         %>
         lmem_load_index  = mad24(jj, ${n + threads_per_xform}, ii);
         ii = thread_id & ${mem_coalesce_width - 1};
@@ -435,7 +435,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             %for i in range(num_outer_iter):
                 %for j in range(num_inner_iter):
                     a[${i*num_inner_iter + j}].${comp} = lmem[lmem_store_index + ${j * mem_coalesce_width + \
-                        i * (block_size / mem_coalesce_width) * (n + threads_per_xform)}];
+                        i * (local_size / mem_coalesce_width) * (n + threads_per_xform)}];
                 %endfor
             %endfor
             LOCAL_BARRIER;
@@ -448,11 +448,11 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             {
             %for j in range(num_inner_iter):
                 ${insertGlobalStore(output, i * num_inner_iter + j, \
-                    j * mem_coalesce_width + i * (block_size / mem_coalesce_width) * n)}
+                    j * mem_coalesce_width + i * (local_size / mem_coalesce_width) * n)}
             %endfor
             }
             %if i != num_outer_iter - 1:
-                jj += ${block_size / mem_coalesce_width};
+                jj += ${local_size / mem_coalesce_width};
             %endif
         %endfor
         }
@@ -461,7 +461,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
         %for i in range(num_outer_iter):
             %for j in range(num_inner_iter):
                 ${insertGlobalStore(output, i * num_inner_iter + j, \
-                    j * mem_coalesce_width + i * (block_size / mem_coalesce_width) * n)}
+                    j * mem_coalesce_width + i * (local_size / mem_coalesce_width) * n)}
             %endfor
         %endfor
         }
@@ -483,7 +483,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             LOCAL_BARRIER;
 
             %for i in range(max_radix):
-                a[${i}].${comp} = lmem[lmem_store_index + ${i * (block_size / n) * (n + threads_per_xform)}];
+                a[${i}].${comp} = lmem[lmem_store_index + ${i * (local_size / n) * (n + threads_per_xform)}];
             %endfor
             LOCAL_BARRIER;
         %endfor
@@ -493,17 +493,17 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
         %for i in range(max_radix):
             if(jj < ${s})
             {
-                ${insertGlobalStore(output, i, i * block_size)}
+                ${insertGlobalStore(output, i, i * local_size)}
             }
             %if i != max_radix - 1:
-                jj += ${block_size / n};
+                jj += ${local_size / n};
             %endif
         %endfor
         }
         else
         {
             %for i in range(max_radix):
-                ${insertGlobalStore(output, i, i * block_size)}
+                ${insertGlobalStore(output, i, i * local_size)}
             %endfor
         }
     %endif
@@ -730,35 +730,14 @@ ${kernel_definition}
 
 ${insertBaseKernels()}
 
-    <%
-        radix_arr, radix1_arr, radix2_arr = get_global_radix_info(n)
-
-        num_passes = len(radix_arr)
-
-        radix_init = horiz_wgs if vertical else 1
-
-        radix = radix_arr[pass_num]
-        radix1 = radix1_arr[pass_num]
-        radix2 = radix2_arr[pass_num]
-
-        stride_in = radix_init
-        for i in range(num_passes):
-            if i != pass_num:
-                stride_in *= radix_arr[i]
-
-        stride_out = radix_init
-        for i in range(pass_num):
-            stride_out *= radix_arr[i]
-
-        block_size = min(local_batch * radix2, max_local_size)
-
-        num_iter = radix1 / radix2
-        input_multiplier = block_size / local_batch
-        log2_stride_out = log2(stride_out)
-        blocks_per_xform = stride_in / local_batch
-
-        m = log2(n)
-    %>
+<%
+    num_iter = radix1 / radix2
+    input_multiplier = local_size / local_batch
+    log2_stride_out = log2(stride_out)
+    blocks_per_xform = stride_in / local_batch
+    log2_blocks_per_xform = log2(blocks_per_xform)
+    m = log2(n)
+%>
 
 ${kernel_definition}
 {
@@ -766,13 +745,9 @@ ${kernel_definition}
 
     ${insertVariableDefinitions(direction, lmem_size, radix1)}
     int index_in, index_out, x_num, tid, i, j;
-    %if not vertical or pass_num < num_passes - 1:
+    %if not vertical or not last_pass:
         int b_num;
     %endif
-
-    <%
-        log2_blocks_per_xform = log2(blocks_per_xform)
-    %>
 
     %if vertical:
         x_num = block_id >> ${log2_blocks_per_xform};
@@ -781,15 +756,11 @@ ${kernel_definition}
         tid = mul24(block_id, ${local_batch});
         i = tid >> ${log2_stride_out};
         j = tid & ${stride_out - 1};
-        <%
-            stride = radix * radix_init
-            for i in range(pass_num):
-                stride *= radix_arr[i]
-        %>
-        index_out = mad24(i, ${stride}, j + (x_num << ${log2(n*horiz_wgs)}));
+
+        index_out = mad24(i, ${stride}, j + (x_num << ${log2(n * horiz_wgs)}));
 
         ## do not set it, if it won't be used
-        %if pass_num < num_passes - 1:
+        %if not last_pass:
             b_num = block_id;
         %endif
     %else:
@@ -799,11 +770,7 @@ ${kernel_definition}
         tid = index_in;
         i = tid >> ${log2_stride_out};
         j = tid & ${stride_out - 1};
-        <%
-            stride = radix*radix_init
-            for i in range(pass_num):
-                stride *= radix_arr[i]
-        %>
+
         index_out = mad24(i, ${stride}, j);
         index_in += (x_num << ${m});
         index_out += (x_num << ${m});
@@ -839,19 +806,19 @@ ${kernel_definition}
         }
 
         ## shuffle
-        index_in = mad24(j, ${block_size * num_iter}, i);
+        index_in = mad24(j, ${local_size * num_iter}, i);
         lmem_store_index = tid;
         lmem_load_index = index_in;
 
         %for comp in ('x', 'y'):
             %for k in range(radix1):
-                lmem[lmem_store_index + ${k * block_size}] = a[${k}].${comp};
+                lmem[lmem_store_index + ${k * local_size}] = a[${k}].${comp};
             %endfor
             LOCAL_BARRIER;
 
             %for k in range(num_iter):
                 %for t in range(radix2):
-                    a[${k * radix2 + t}].${comp} = lmem[lmem_load_index + ${t * local_batch + k * block_size}];
+                    a[${k * radix2 + t}].${comp} = lmem[lmem_load_index + ${t * local_batch + k * local_size}];
                 %endfor
             %endfor
             LOCAL_BARRIER;
@@ -863,7 +830,7 @@ ${kernel_definition}
     %endif
 
     ## twiddle
-    %if pass_num < num_passes - 1:
+    %if not last_pass:
     {
         real_t ang1, ang;
         complex_t w;
@@ -892,18 +859,18 @@ ${kernel_definition}
             %endfor
             LOCAL_BARRIER;
 
-            %if block_size >= radix:
+            %if local_size >= radix:
                 %for i in range(radix1):
-                    a[${i}].${comp} = lmem[lmem_load_index + ${i * (radix + 1) * (block_size / radix)}];
+                    a[${i}].${comp} = lmem[lmem_load_index + ${i * (radix + 1) * (local_size / radix)}];
                 %endfor
             %else:
                 <%
-                    inner_iter = radix / block_size
+                    inner_iter = radix / local_size
                     outer_iter = radix1 / inner_iter
                 %>
                 %for i in range(outer_iter):
                     %for j in range(inner_iter):
-                        a[${i * inner_iter + j}].${comp} = lmem[lmem_load_index + ${j * block_size + i * (radix + 1)}];
+                        a[${i * inner_iter + j}].${comp} = lmem[lmem_load_index + ${j * local_size + i * (radix + 1)}];
                     %endfor
                 %endfor
             %endif
@@ -913,7 +880,7 @@ ${kernel_definition}
         index_out += tid;
 
         %for k in range(radix1):
-            ${output.store}(${k * block_size} + index_out,
+            ${output.store}(${k * local_size} + index_out,
                 complex_div_scalar(a[${k}], norm_coeff));
         %endfor
     %else:
