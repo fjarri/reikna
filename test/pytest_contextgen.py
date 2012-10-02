@@ -39,7 +39,10 @@ def get_contexts(config, vary_fast_math=False):
             self.device_name = device.name
             self.id = self.device_id + fm_suffix
 
-            kwds = {} if fast_math is None else {'fast_math':fast_math}
+            kwds = dict(device=device)
+            if fast_math is not None:
+                kwds['fast_math'] = fast_math
+
             self.create = lambda: api.Context.create(**kwds)
 
         def __call__(self):
