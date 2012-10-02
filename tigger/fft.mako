@@ -233,15 +233,14 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 <%def name="insertGlobalLoadsAndTranspose(input, n, threads_per_xform, xforms_per_workgroup, radix, mem_coalesce_width)">
 
     <%
-        log2_threads_per_xform = log2(threads_per_xform)
         local_size = threads_per_xform * xforms_per_workgroup
         s = global_batch % xforms_per_workgroup
     %>
 
     %if threads_per_xform >= mem_coalesce_width:
         %if xforms_per_workgroup > 1:
-            ii = thread_id & ${threads_per_xform - 1};
-            jj = thread_id >> ${log2_threads_per_xform};
+            ii = thread_id % ${threads_per_xform};
+            jj = thread_id / ${threads_per_xform};
 
             if(${s} == 0 || (block_id < blocks_num - 1) || (jj < ${s}))
             {
@@ -275,8 +274,8 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             num_outer_iter = xforms_per_workgroup / (local_size / mem_coalesce_width)
         %>
 
-        ii = thread_id & ${mem_coalesce_width - 1};
-        jj = thread_id >> ${log2(mem_coalesce_width)};
+        ii = thread_id % ${mem_coalesce_width};
+        jj = thread_id / ${mem_coalesce_width};
         lmem_store_index = mad24(jj, ${n + threads_per_xform}, ii);
 
         {
@@ -311,8 +310,8 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
         %endfor
         }
 
-        ii = thread_id & ${threads_per_xform - 1};
-        jj = thread_id >> ${log2_threads_per_xform};
+        ii = thread_id % ${threads_per_xform};
+        jj = thread_id / ${threads_per_xform};
         lmem_load_index = mad24(jj, ${n + threads_per_xform}, ii);
 
         %for comp in ('x', 'y'):
@@ -337,8 +336,8 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             output_shift += offset;
         }
 
-        ii = thread_id & ${n - 1};
-        jj = thread_id >> ${log2(n)};
+        ii = thread_id % ${n};
+        jj = thread_id / ${n};
         lmem_store_index = mad24(jj, ${n + threads_per_xform}, ii);
 
         if((block_id == blocks_num - 1) && ${s} != 0)
@@ -361,8 +360,8 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
         }
 
         %if threads_per_xform > 1:
-            ii = thread_id & ${threads_per_xform - 1};
-            jj = thread_id >> ${log2_threads_per_xform};
+            ii = thread_id % ${threads_per_xform};
+            jj = thread_id / ${threads_per_xform};
             lmem_load_index = mad24(jj, ${n + threads_per_xform}, ii);
         %else:
             ii = 0;
@@ -417,8 +416,8 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             num_outer_iter = xforms_per_workgroup / (local_size / mem_coalesce_width)
         %>
         lmem_load_index  = mad24(jj, ${n + threads_per_xform}, ii);
-        ii = thread_id & ${mem_coalesce_width - 1};
-        jj = thread_id >> ${log2(mem_coalesce_width)};
+        ii = thread_id % ${mem_coalesce_width};
+        jj = thread_id / ${mem_coalesce_width};
         lmem_store_index = mad24(jj, ${n + threads_per_xform}, ii);
 
         %for comp in ('x', 'y'):
@@ -467,8 +466,8 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
         }
     %else:
         lmem_load_index = mad24(jj, ${n + threads_per_xform}, ii);
-        ii = thread_id & ${n - 1};
-        jj = thread_id >> ${log2(n)};
+        ii = thread_id % ${n};
+        jj = thread_id / ${n};
         lmem_store_index = mad24(jj, ${n + threads_per_xform}, ii);
 
         %for comp in ('x', 'y'):
@@ -511,7 +510,6 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 
 <%def name="insertTwiddleKernel(radix, num_iter, radix_prev, data_len, threads_per_xform)">
 
-    <% log2_radix_prev = log2(radix_prev) %>
     {
         // Twiddle kernel
         real_t angf, ang;
@@ -520,13 +518,13 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
     %for z in range(num_iter):
         %if z == 0:
             %if radix_prev > 1:
-                angf = (real_t)(ii >> ${log2_radix_prev});
+                angf = (real_t)(ii / ${radix_prev});
             %else:
                 angf = (real_t)ii;
             %endif
         %else:
             %if radix_prev > 1:
-                angf = (real_t)((${z * threads_per_xform} + ii) >> ${log2_radix_prev});
+                angf = (real_t)((${z * threads_per_xform} + ii) / ${radix_prev});
             %else:
                 ## TODO: find out which conditions are necessary to execute this code
                 angf = (real_t)(${z * threads_per_xform} + ii);
@@ -588,34 +586,32 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 <%def name="insertLocalLoadIndexArithmetic(radix_prev, radix, threads_req, threads_per_xform, xforms_per_workgroup, offset, mid_pad)">
     <%
         radix_curr = radix_prev * radix
-        log2_radix_curr = log2(radix_curr)
-        log2_radix_prev = log2(radix_prev)
         incr = (threads_req + offset) * radix + mid_pad
     %>
 
     %if radix_curr < threads_per_xform:
         %if radix_prev == 1:
-            j = ii & ${radix_curr - 1};
+            j = ii % ${radix_curr};
         %else:
-            j = (ii & ${radix_curr - 1}) >> ${log2_radix_prev};
+            j = (ii % ${radix_curr}) / ${radix_prev};
         %endif
 
         %if radix_prev == 1:
-            i = ii >> ${log2_radix_curr};
+            i = ii / ${radix_curr};
         %else:
-            i = mad24(ii >> ${log2_radix_curr}, ${radix_prev}, ii & ${radix_prev - 1});
+            i = mad24(ii / ${radix_curr}, ${radix_prev}, ii % ${radix_prev});
         %endif
     %else:
         %if radix_prev == 1:
             j = ii;
         %else:
-            j = ii >> ${log2_radix_prev};
+            j = ii / ${radix_prev};
         %endif
 
         %if radix_prev == 1:
             i = 0;
         %else:
-            i = ii & ${radix_prev - 1};
+            i = ii % ${radix_prev};
         %endif
     %endif
 
@@ -733,10 +729,7 @@ ${insertBaseKernels()}
 <%
     num_iter = radix1 / radix2
     input_multiplier = local_size / local_batch
-    log2_stride_out = log2(stride_out)
     blocks_per_xform = stride_in / local_batch
-    log2_blocks_per_xform = log2(blocks_per_xform)
-    m = log2(n)
 %>
 
 ${kernel_definition}
@@ -750,37 +743,36 @@ ${kernel_definition}
     %endif
 
     %if vertical:
-        x_num = block_id >> ${log2_blocks_per_xform};
-        block_id = block_id & ${blocks_per_xform - 1};
-        index_in = mad24(block_id, ${local_batch}, x_num << ${log2(n * horiz_wgs)});
+        x_num = block_id / ${blocks_per_xform};
+        block_id = block_id % ${blocks_per_xform};
+        index_in = mad24(block_id, ${local_batch}, x_num * ${n * horiz_wgs});
         tid = mul24(block_id, ${local_batch});
-        i = tid >> ${log2_stride_out};
-        j = tid & ${stride_out - 1};
+        i = tid / ${stride_out};
+        j = tid % ${stride_out};
 
-        index_out = mad24(i, ${stride}, j + (x_num << ${log2(n * horiz_wgs)}));
+        index_out = mad24(i, ${stride}, j + (x_num * ${n * horiz_wgs}));
 
         ## do not set it, if it won't be used
         %if not last_pass:
             b_num = block_id;
         %endif
     %else:
-        b_num = block_id & ${blocks_per_xform - 1};
-        x_num = block_id >> ${log2_blocks_per_xform};
+        b_num = block_id % ${blocks_per_xform};
+        x_num = block_id / ${blocks_per_xform};
         index_in = mul24(b_num, ${local_batch});
         tid = index_in;
-        i = tid >> ${log2_stride_out};
-        j = tid & ${stride_out - 1};
+        i = tid / ${stride_out};
+        j = tid % ${stride_out};
 
         index_out = mad24(i, ${stride}, j);
-        index_in += (x_num << ${m});
-        index_out += (x_num << ${m});
+        index_in += (x_num * ${n});
+        index_out += (x_num * ${n});
     %endif
 
     ## Load Data
-    <% log2_local_batch = log2(local_batch) %>
     tid = thread_id;
-    i = tid & ${local_batch - 1};
-    j = tid >> ${log2_local_batch};
+    i = tid % ${local_batch};
+    j = tid / ${local_batch};
     index_in += mad24(j, ${stride_in}, i);
 
     %for j in range(radix1):
@@ -835,8 +827,8 @@ ${kernel_definition}
         real_t ang1, ang;
         complex_t w;
 
-        int l = ((b_num << ${log2_local_batch}) + i) >> ${log2_stride_out};
-        int k = j << ${log2(radix1 / radix2)};
+        int l = ((b_num * ${local_batch}) + i) / ${stride_out};
+        int k = j * ${radix1 / radix2};
         ang1 = ${wrap_const(2 * numpy.pi / curr_n)} * l * direction;
         %for t in range(radix1):
             ang = ang1 * (k + ${(t % radix2) * radix1 + (t / radix2)});
@@ -848,8 +840,8 @@ ${kernel_definition}
 
     ## Store Data
     %if stride_out == 1:
-        lmem_store_index = mad24(i, ${radix + 1}, j << ${log2(radix1 / radix2)});
-        lmem_load_index = mad24(tid >> ${log2(radix)}, ${radix + 1}, tid & ${radix - 1});
+        lmem_store_index = mad24(i, ${radix + 1}, j * ${radix1 / radix2});
+        lmem_load_index = mad24(tid / ${radix}, ${radix + 1}, tid % ${radix});
 
         %for comp in ('x', 'y'):
             %for i in range(radix1 / radix2):

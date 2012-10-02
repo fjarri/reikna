@@ -208,7 +208,7 @@ class _FFTKernel:
         kwds.update(dict(
             min_mem_coalesce_width=self._device_params.min_mem_coalesce_width[self._basis.dtype.itemsize],
             local_mem_banks=self._device_params.local_mem_banks,
-            log2=log2, get_padding=get_padding,
+            get_padding=get_padding,
             normalize=self._normalize,
             norm_coeff=self.get_normalization_coeff(),
             wrap_const=lambda x: dtypes.c_constant(x, dtypes.real_for(self._basis.dtype))))
