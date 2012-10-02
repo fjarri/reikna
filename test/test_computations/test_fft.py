@@ -1,4 +1,5 @@
 import itertools
+import time
 
 import numpy
 import pytest
@@ -39,6 +40,24 @@ def pytest_generate_tests(metafunc):
 
         metafunc.parametrize('shape_and_axes', vals, ids=ids)
 
+    if 'perf_shape_and_axes' in metafunc.funcargnames:
+        log_shapes = [
+            (4,), (10,), (14,), # 1D
+            (4, 4), (7, 7), (10, 10), # 2D
+            (3, 3, 6), (4, 4, 4), (4, 4, 7), (5, 5, 7), (7, 7, 7) # 3D
+        ]
+
+        mem_limit = 4 * 2**20
+        vals = []
+        ids = []
+        for log_shape in log_shapes:
+            shape = tuple(2 ** x for x in log_shape)
+            batch = mem_limit / product(shape)
+            vals.append(((batch,) + shape, tuple(xrange(1, len(shape) + 1))))
+            ids.append(str(batch) + "x" + str(shape))
+
+        metafunc.parametrize('perf_shape_and_axes', vals, ids=ids)
+
 
 def test_errors(ctx, shape_and_axes):
 
@@ -61,3 +80,31 @@ def test_errors(ctx, shape_and_axes):
     fft(res_dev, data_dev, 1)
     inv_ref = numpy.fft.ifftn(data, axes=axes).astype(dtype)
     assert diff_is_negligible(res_dev.get(), inv_ref)
+
+
+@pytest.mark.perf
+@pytest.mark.returns('GFLOPS')
+def test_power_of_2_performance(ctx_and_double, perf_shape_and_axes):
+    ctx, double = ctx_and_double
+
+    shape, axes = perf_shape_and_axes
+    dtype = numpy.complex128 if double else numpy.complex64
+
+    data = get_test_array(shape, dtype)
+    data_dev = ctx.to_device(data)
+    res_dev = ctx.empty_like(data_dev)
+
+    fft = FFT(ctx).prepare_for(res_dev, data_dev, None, axes=axes)
+
+    attempts = 10
+    t1 = time.time()
+    for i in xrange(attempts):
+        fft(res_dev, data_dev, -1)
+    ctx.synchronize()
+    t2 = time.time()
+    dev_time = (t2 - t1) / attempts
+
+    fwd_ref = numpy.fft.fftn(data, axes=axes).astype(dtype)
+    assert diff_is_negligible(res_dev.get(), fwd_ref)
+
+    return dev_time, product(shape) * sum([numpy.log(shape[a]) for a in axes]) * 5
