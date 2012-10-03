@@ -223,18 +223,18 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 </%def>
 
 <%def name="insertGlobalLoad(input, a_index, g_index)">
-    a[${a_index}] = ${input.load}(${g_index} + input_shift);
+    a[${a_index}] = ${input.load}(${g_index} + global_mem_offset);
 </%def>
 
 <%def name="insertGlobalStore(output, a_index, g_index)">
-    ${output.store}(${g_index} + output_shift, complex_div_scalar(a[${a_index}], norm_coeff));
+    ${output.store}(${g_index} + global_mem_offset, complex_div_scalar(a[${a_index}], norm_coeff));
 </%def>
 
 <%def name="insertGlobalLoadsAndTranspose(input, n, threads_per_xform, xforms_per_workgroup, radix, mem_coalesce_width)">
 
     <%
         local_size = threads_per_xform * xforms_per_workgroup
-        s = global_batch % xforms_per_workgroup
+        s = outer_batch % xforms_per_workgroup
     %>
 
     %if threads_per_xform >= mem_coalesce_width:
@@ -242,27 +242,16 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             ii = thread_id % ${threads_per_xform};
             jj = thread_id / ${threads_per_xform};
 
-            if(${s} == 0 || (block_id < blocks_num - 1) || (jj < ${s}))
+            if(${s} == 0 || (group_id < blocks_num - 1) || (jj < ${s}))
             {
-                {
-                    int offset = mad24(mad24(block_id, ${xforms_per_workgroup}, jj), ${n}, ii);
-                    input_shift += offset;
-                    output_shift += offset;
-                }
-
-            %for i in range(radix):
-                ${insertGlobalLoad(input, i, i * threads_per_xform)}
-            %endfor
+                global_mem_offset = mad24(mad24(group_id, ${xforms_per_workgroup}, jj), ${n}, ii);
+                %for i in range(radix):
+                    ${insertGlobalLoad(input, i, i * threads_per_xform)}
+                %endfor
             }
         %else:
             ii = thread_id;
-
-            {
-                int offset = mad24(block_id, ${n}, ii);
-                input_shift += offset;
-                output_shift += offset;
-            }
-
+            global_mem_offset = mad24(group_id, ${n}, ii);
             %for i in range(radix):
                 ${insertGlobalLoad(input, i, i * threads_per_xform)}
             %endfor
@@ -278,14 +267,9 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
         jj = thread_id / ${mem_coalesce_width};
         lmem_store_index = mad24(jj, ${n + threads_per_xform}, ii);
 
-        {
-            int offset = mad24(block_id, ${xforms_per_workgroup}, jj);
-            offset = mad24(offset, ${n}, ii);
-            input_shift += offset;
-            output_shift += offset;
-        }
+        global_mem_offset = mad24(mad24(group_id, ${xforms_per_workgroup}, jj), ${n}, ii);
 
-        if((block_id == blocks_num - 1) && ${s} != 0)
+        if((group_id == blocks_num - 1) && ${s} != 0)
         {
         %for i in range(num_outer_iter):
             if(jj < ${s})
@@ -330,17 +314,12 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             LOCAL_BARRIER;
         %endfor
     %else:
-        {
-            int offset = mad24(block_id, ${n * xforms_per_workgroup}, thread_id);
-            input_shift += offset;
-            output_shift += offset;
-        }
-
+        global_mem_offset = mad24(group_id, ${n * xforms_per_workgroup}, thread_id);
         ii = thread_id % ${n};
         jj = thread_id / ${n};
         lmem_store_index = mad24(jj, ${n + threads_per_xform}, ii);
 
-        if((block_id == blocks_num - 1) && ${s} != 0)
+        if((group_id == blocks_num - 1) && ${s} != 0)
         {
         %for i in range(radix):
             if(jj < ${s})
@@ -388,12 +367,12 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
     <%
         local_size = threads_per_xform * xforms_per_workgroup
         num_iter = max_radix / radix
-        s = global_batch % xforms_per_workgroup
+        s = outer_batch % xforms_per_workgroup
     %>
 
     %if threads_per_xform >= mem_coalesce_width:
         %if xforms_per_workgroup > 1:
-            if(${s} == 0 || (block_id < blocks_num - 1) || (jj < ${s}))
+            if(${s} == 0 || (group_id < blocks_num - 1) || (jj < ${s}))
             {
         %endif
 
@@ -440,7 +419,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             LOCAL_BARRIER;
         %endfor
 
-        if((block_id == blocks_num - 1) && ${s} != 0)
+        if((group_id == blocks_num - 1) && ${s} != 0)
         {
         %for i in range(num_outer_iter):
             if(jj < ${s})
@@ -487,7 +466,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             LOCAL_BARRIER;
         %endfor
 
-        if((block_id == blocks_num - 1) && ${s} != 0)
+        if((group_id == blocks_num - 1) && ${s} != 0)
         {
         %for i in range(max_radix):
             if(jj < ${s})
@@ -640,7 +619,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
     complex_t a[${temp_array_size}];
 
     int thread_id = get_local_id(0);
-    int block_id = get_group_id(0);
+    int group_id = get_group_id(0);
 
     ## makes it easier to use it inside other definitions
     int direction = ${direction};
@@ -662,8 +641,7 @@ ${kernel_definition}
     VIRTUAL_SKIP_THREADS;
 
     ${insertVariableDefinitions(direction, lmem_size, max_radix)}
-    int input_shift = 0;
-    int output_shift = 0;
+    int global_mem_offset = 0;
     int ii;
     %if num_radix > 1:
         int i, j;
@@ -737,37 +715,14 @@ ${kernel_definition}
     VIRTUAL_SKIP_THREADS;
 
     ${insertVariableDefinitions(direction, lmem_size, radix1)}
-    int index_in, index_out, x_num, tid, i, j;
-    %if not vertical or not last_pass:
-        int b_num;
-    %endif
 
-    %if vertical:
-        x_num = block_id / ${blocks_per_xform};
-        block_id = block_id % ${blocks_per_xform};
-        index_in = mad24(block_id, ${local_batch}, x_num * ${n * horiz_wgs});
-        tid = mul24(block_id, ${local_batch});
-        i = tid / ${stride_out};
-        j = tid % ${stride_out};
-
-        index_out = mad24(i, ${stride}, j + (x_num * ${n * horiz_wgs}));
-
-        ## do not set it, if it won't be used
-        %if not last_pass:
-            b_num = block_id;
-        %endif
-    %else:
-        b_num = block_id % ${blocks_per_xform};
-        x_num = block_id / ${blocks_per_xform};
-        index_in = mul24(b_num, ${local_batch});
-        tid = index_in;
-        i = tid / ${stride_out};
-        j = tid % ${stride_out};
-
-        index_out = mad24(i, ${stride}, j);
-        index_in += (x_num * ${n});
-        index_out += (x_num * ${n});
-    %endif
+    int x_num = group_id / ${blocks_per_xform};
+    int b_num = group_id % ${blocks_per_xform};
+    int tid = mul24(b_num, ${local_batch});
+    int i = tid / ${stride_out};
+    int j = tid % ${stride_out};
+    int index_in = tid + x_num * ${n * inner_batch};
+    int index_out = mad24(i, ${stride}, j + x_num * ${n * inner_batch});
 
     ## Load Data
     tid = thread_id;
