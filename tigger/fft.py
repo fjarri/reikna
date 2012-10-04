@@ -303,8 +303,6 @@ class GlobalFFTKernel(_FFTKernel):
         numIter = radix1 / radix2
 
         workgroups_num = stride_in / local_batch * self._outer_batch
-        #if self._inner_batch >= 1:
-        #    workgroups_num *= self._inner_batch
 
         if radix2 == 1:
             lmem_size = 0
