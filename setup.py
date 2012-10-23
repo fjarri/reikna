@@ -130,11 +130,12 @@ if __name__ == '__main__':
 
     setup(
         name='tigger',
-        packages=['tigger'],
+        packages=['tigger', 'tigger/cluda', 'tigger/core', 'tigger/helpers'],
         provides=['tigger'],
         requires=dependencies,
         install_requires=dependencies,
-        package_data={'tigger': ['*.mako']},
+        package_data={'tigger': ['*.mako'],
+                      'tigger/cluda': ['*.mako']},
         version=VERSION_STR,
         author='Bogdan Opanchuk',
         author_email='bogdan@opanchuk.net',
