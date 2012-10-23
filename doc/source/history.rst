@@ -3,6 +3,11 @@ Release history
 ***************
 
 
+0.2.0 (current development version)
+===================================
+
+* Added FFT computation
+
 0.1.0 (12 Sep 2012)
 ===================
 
