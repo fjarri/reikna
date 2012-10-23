@@ -20,17 +20,6 @@
 #endif
 #endif
 
-## %if cuda:
-##     #define complex_exp(res, ang) ${"sincos" + ("f" if scalar == "float" else "")}(ang, &((res).y), &((res).x))
-## %else:
-##     %if fast_math and scalar == "float":
-##     ## seems that there are no native_* functions for doubles in OpenCL at the moment
-##     #define complex_exp(res, ang) (res).x = native_cos(ang); (res).y = native_sin(ang)
-##     %else:
-##     #define complex_exp(res, ang) (res).x = cos(ang); (res).y = sin(ang)
-##     %endif
-## %endif
-
 #ifdef sincosf
 #define complex_exp(res, ang) ${"sincos" + ("" if dtypes.is_double(basis.dtype) else "f")}(ang, &((res).y), &((res).x))
 #endif
