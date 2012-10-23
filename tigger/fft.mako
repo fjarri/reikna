@@ -231,7 +231,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             ii = thread_id % ${threads_per_xform};
             jj = thread_id / ${threads_per_xform};
 
-            if(${s} == 0 || (group_id < blocks_num - 1) || (jj < ${s}))
+            if(${s} == 0 || (group_id < num_groups - 1) || (jj < ${s}))
             {
                 global_mem_offset = mad24(mad24(group_id, ${xforms_per_workgroup}, jj), ${n}, ii);
                 %for i in range(radix):
@@ -258,7 +258,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 
         global_mem_offset = mad24(mad24(group_id, ${xforms_per_workgroup}, jj), ${n}, ii);
 
-        if((group_id == blocks_num - 1) && ${s} != 0)
+        if((group_id == num_groups - 1) && ${s} != 0)
         {
         %for i in range(num_outer_iter):
             if(jj < ${s})
@@ -308,7 +308,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
         jj = thread_id / ${n};
         lmem_store_index = mad24(jj, ${n + threads_per_xform}, ii);
 
-        if((group_id == blocks_num - 1) && ${s} != 0)
+        if((group_id == num_groups - 1) && ${s} != 0)
         {
         %for i in range(radix):
             if(jj < ${s})
@@ -361,7 +361,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 
     %if threads_per_xform >= mem_coalesce_width:
         %if xforms_per_workgroup > 1:
-            if(${s} == 0 || (group_id < blocks_num - 1) || (jj < ${s}))
+            if(${s} == 0 || (group_id < num_groups - 1) || (jj < ${s}))
             {
         %endif
 
@@ -408,7 +408,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             LOCAL_BARRIER;
         %endfor
 
-        if((group_id == blocks_num - 1) && ${s} != 0)
+        if((group_id == num_groups - 1) && ${s} != 0)
         {
         %for i in range(num_outer_iter):
             if(jj < ${s})
@@ -455,7 +455,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             LOCAL_BARRIER;
         %endfor
 
-        if((group_id == blocks_num - 1) && ${s} != 0)
+        if((group_id == num_groups - 1) && ${s} != 0)
         {
         %for i in range(max_radix):
             if(jj < ${s})
@@ -618,10 +618,10 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 
 <%def name="fft_local(output, input, direction)">
 
-    <%
-        max_radix = radix_arr[0]
-        num_radix = len(radix_arr)
-    %>
+<%
+    max_radix = radix_arr[0]
+    num_radix = len(radix_arr)
+%>
 
 ${insertBaseKernels()}
 
@@ -638,11 +638,7 @@ ${kernel_definition}
 
     %if not (threads_per_xform >= min_mem_coalesce_width and xforms_per_workgroup == 1):
         int jj;
-        %if cuda:
-            int blocks_num = gridDim.x * gridDim.y;
-        %else:
-            int blocks_num = get_num_groups(0);
-        %endif
+        int num_groups = get_num_groups(0);
     %endif
 
     ${insertGlobalLoadsAndTranspose(input, n, threads_per_xform, xforms_per_workgroup, max_radix,
