@@ -703,18 +703,24 @@ ${kernel_definition}
 
     int x_num = group_id / ${blocks_per_xform};
     int b_num = group_id % ${blocks_per_xform};
-    int tid = mul24(b_num, ${local_batch});
-    int i = tid / ${stride_out};
-    int j = tid % ${stride_out};
-    int index_in = tid + x_num * ${n * inner_batch};
-    int index_out = mad24(i, ${stride}, j + x_num * ${n * inner_batch});
+    int i = thread_id % ${local_batch};
+    int j = thread_id / ${local_batch};
+
+    int index_in, index_out;
+    {
+        int tid = mul24(b_num, ${local_batch});
+
+        index_in = mad24(j, ${stride_in}, i + tid + x_num * ${n * inner_batch});
+        index_out = mad24(tid / ${stride_out}, ${stride},
+            tid % ${stride_out} + x_num * ${n * inner_batch}
+        %if stride_out == 1:
+            + thread_id);
+        %else:
+            + mad24(j, ${num_iter * stride_out}, i));
+        %endif
+    }
 
     ## Load Data
-    tid = thread_id;
-    i = tid % ${local_batch};
-    j = tid / ${local_batch};
-    index_in += mad24(j, ${stride_in}, i);
-
     %for j in range(radix1):
         a[${j}] = ${input.load}(${j * input_multiplier * stride_in} + index_in);
     %endfor
@@ -739,7 +745,7 @@ ${kernel_definition}
 
         ## shuffle
         index_in = mad24(j, ${local_size * num_iter}, i);
-        lmem_store_index = tid;
+        lmem_store_index = thread_id;
         lmem_load_index = index_in;
 
         %for comp in ('x', 'y'):
@@ -750,7 +756,8 @@ ${kernel_definition}
 
             %for k in range(num_iter):
                 %for t in range(radix2):
-                    a[${k * radix2 + t}].${comp} = lmem[lmem_load_index + ${t * local_batch + k * local_size}];
+                    a[${k * radix2 + t}].${comp} =
+                        lmem[lmem_load_index + ${t * local_batch + k * local_size}];
                 %endfor
             %endfor
             LOCAL_BARRIER;
@@ -781,7 +788,7 @@ ${kernel_definition}
     ## Store Data
     %if stride_out == 1:
         lmem_store_index = mad24(i, ${radix + 1}, j * ${radix1 / radix2});
-        lmem_load_index = mad24(tid / ${radix}, ${radix + 1}, tid % ${radix});
+        lmem_load_index = mad24(thread_id / ${radix}, ${radix + 1}, thread_id % ${radix});
 
         %for comp in ('x', 'y'):
             %for i in range(radix1 / radix2):
@@ -809,15 +816,11 @@ ${kernel_definition}
             LOCAL_BARRIER;
         %endfor
 
-        index_out += tid;
-
         %for k in range(radix1):
             ${output.store}(${k * local_size} + index_out,
                 complex_div_scalar(a[${k}], norm_coeff));
         %endfor
     %else:
-        index_out += mad24(j, ${num_iter * stride_out}, i);
-
         %for k in range(radix1):
             ${output.store}(${((k % radix2) * radix1 + (k / radix2)) * stride_out} + index_out,
                 complex_div_scalar(a[${k}], norm_coeff));
