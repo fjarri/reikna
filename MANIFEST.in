@@ -11,3 +11,4 @@ include Makefile.in
 include README.rst
 include TODO.rst
 include test/pylintrc
+include test/.coveragerc
