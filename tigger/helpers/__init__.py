@@ -4,6 +4,7 @@ This module contains various auxiliary functions which are used throughout the l
 
 from __future__ import division
 
+import functools
 import collections
 import os.path
 from mako.template import Template
@@ -30,7 +31,7 @@ def product(seq):
     """
     Returns the product of elements in the iterable ``seq``.
     """
-    return reduce(lambda x1, x2: x1 * x2, seq, 1)
+    return functools.reduce(lambda x1, x2: x1 * x2, seq, 1)
 
 
 def template_source_for(filename):
