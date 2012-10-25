@@ -7,6 +7,7 @@ Release history
 ===================================
 
 * Added FFT computation
+* Added Python 3 compatibility
 
 0.1.0 (12 Sep 2012)
 ===================

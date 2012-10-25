@@ -1,6 +1,6 @@
 import sys
 major, minor, _, _, _ = sys.version_info
-if not (major == 2 and minor >= 5):
+if not ((major == 2 and minor >= 5) or major >= 3):
     print("Python >=2.5 is required to use this module.")
     sys.exit(1)
 
