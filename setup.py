@@ -102,7 +102,8 @@ if not release:
         elif os.path.exists(version_py_path):
             # must be a source distribution, use existing version file
             globals_dict = {}
-            execfile(version_py_path, globals_dict)
+            with open(version_py_path) as f:
+                exec(compile(f.read(), version_py_path, 'exec'), globals_dict)
             revision = globals_dict['git_revision']
         else:
             revision = None
