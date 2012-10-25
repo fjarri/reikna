@@ -692,7 +692,7 @@ ${insertBaseKernels()}
 <%
     num_iter = radix1 / radix2
     input_multiplier = local_size / local_batch
-    blocks_per_xform = stride_in / local_batch
+    groups_per_xform = stride_in / local_batch
 %>
 
 ${kernel_definition}
@@ -701,22 +701,23 @@ ${kernel_definition}
 
     ${insertVariableDefinitions(direction, lmem_size, radix1)}
 
-    int x_num = group_id / ${blocks_per_xform};
-    int b_num = group_id % ${blocks_per_xform};
-    int i = thread_id % ${local_batch};
-    int j = thread_id / ${local_batch};
+    int xform_global = group_id / ${groups_per_xform};
+    int group_in_xform = group_id % ${groups_per_xform};
+    int thread_in_xform = thread_id % ${local_batch};
+    int xform_local = thread_id / ${local_batch};
 
     int index_in, index_out;
     {
-        int tid = mul24(b_num, ${local_batch});
+        int tid = mul24(group_in_xform, ${local_batch});
 
-        index_in = mad24(j, ${stride_in}, i + tid + x_num * ${n * inner_batch});
+        index_in = mad24(xform_local, ${stride_in},
+            thread_in_xform + tid + xform_global * ${n * inner_batch});
         index_out = mad24(tid / ${stride_out}, ${stride},
-            tid % ${stride_out} + x_num * ${n * inner_batch}
+            tid % ${stride_out} + xform_global * ${n * inner_batch}
         %if stride_out == 1:
             + thread_id);
         %else:
-            + mad24(j, ${num_iter * stride_out}, i));
+            + mad24(xform_local, ${num_iter * stride_out}, thread_in_xform));
         %endif
     }
 
@@ -737,14 +738,14 @@ ${kernel_definition}
             ## TODO: for some reason, writing it in form
             ## (real_t)${2 * numpy.pi / radix} * (real_t)${k} gives slightly better precision
             ## have to try it with double precision
-            ang = ${wrap_const(2 * numpy.pi * k / radix)} * j * direction;
+            ang = ${wrap_const(2 * numpy.pi * k / radix)} * xform_local * direction;
             complex_exp(w, ang);
             a[${k}] = complex_mul(a[${k}], w);
         %endfor
         }
 
         ## shuffle
-        index_in = mad24(j, ${local_size * num_iter}, i);
+        index_in = mad24(xform_local, ${local_size * num_iter}, thread_in_xform);
         lmem_store_index = thread_id;
         lmem_load_index = index_in;
 
@@ -774,8 +775,8 @@ ${kernel_definition}
         real_t ang1, ang;
         complex_t w;
 
-        int l = ((b_num * ${local_batch}) + i) / ${stride_out};
-        int k = j * ${radix1 / radix2};
+        int l = (group_in_xform * ${local_batch} + thread_in_xform) / ${stride_out};
+        int k = xform_local * ${radix1 / radix2};
         ang1 = ${wrap_const(2 * numpy.pi / curr_n)} * l * direction;
         %for t in range(radix1):
             ang = ang1 * (k + ${(t % radix2) * radix1 + (t / radix2)});
@@ -787,7 +788,7 @@ ${kernel_definition}
 
     ## Store Data
     %if stride_out == 1:
-        lmem_store_index = mad24(i, ${radix + 1}, j * ${radix1 / radix2});
+        lmem_store_index = mad24(thread_in_xform, ${radix + 1}, xform_local * ${radix1 / radix2});
         lmem_load_index = mad24(thread_id / ${radix}, ${radix + 1}, thread_id % ${radix});
 
         %for comp in ('x', 'y'):
