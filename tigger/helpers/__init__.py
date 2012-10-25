@@ -2,6 +2,8 @@
 This module contains various auxiliary functions which are used throughout the library.
 """
 
+from __future__ import division
+
 import collections
 import os.path
 from mako.template import Template
@@ -77,7 +79,7 @@ def min_blocks(length, block):
     Returns minimum number of blocks with length ``block``
     necessary to cover the array with length ``length``.
     """
-    return (length - 1) / block + 1
+    return (length - 1) // block + 1
 
 
 def log2(n):
@@ -88,7 +90,7 @@ def log2(n):
     pos = 0
     for pow in [16, 8, 4, 2, 1]:
         if n >= 2 ** pow:
-            n /= (2 ** pow)
+            n //= (2 ** pow)
             pos += pow
     return pos
 
