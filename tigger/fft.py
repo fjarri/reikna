@@ -346,7 +346,6 @@ def get_fft_1d_kernels(basis, device_params, axis, local_kernel_limit):
 
     kernels = []
 
-    # TODO: calculate this properly
     max_lmem_fft_size = 1024 if dtypes.is_double(basis.dtype) else 2048
 
     l = basis.shape[axis]

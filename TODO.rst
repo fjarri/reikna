@@ -2,6 +2,8 @@
 =====
 
 * TODO: add full support of numpy.fft.fftn interface to FFT
+* TODO: FFT: remove hardcode of max_lmem_fft_size
+* TODO: FFT: process cases of problem_size == 1 properly (we still have to run transformations)
 * TODO: move part of core.transformation to a template
 * TODO: add custom render keywords for transformations (will help e.g. in tigger.transformations)
 * TODO: Write some performance tests
