@@ -271,8 +271,7 @@ class GlobalFFTKernel(_FFTKernel):
         self.name = 'fft_global'
 
         coalesce_width = device_params.min_mem_coalesce_width[basis.dtype.itemsize]
-        self._local_batch = min(self._inner_batch, coalesce_width) \
-            if self._inner_batch > 1 else coalesce_width
+        self._local_batch = min(self._inner_batch, coalesce_width)
 
         num_passes = len(get_global_radix_info(self._n)[0])
         if self._pass_num == num_passes - 1 and num_passes % 2 == 1:
@@ -349,7 +348,7 @@ def get_fft_1d_kernels(basis, device_params, axis, local_kernel_limit):
     max_lmem_fft_size = 1024 if dtypes.is_double(basis.dtype) else 2048
 
     l = basis.shape[axis]
-    if axis == len(basis.shape) - 1:
+    if product(basis.shape[axis+1:]) == 1:
         if l > max_lmem_fft_size:
             kernels.extend(GlobalFFTKernel.createChain(basis, device_params, axis))
         elif l > 1:
