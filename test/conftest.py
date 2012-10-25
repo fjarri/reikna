@@ -45,9 +45,9 @@ def pytest_report_header(config):
     if len(devices) == 0:
         raise ValueError("No devices match the criteria")
 
-    print "Running tests on:"
+    print("Running tests on:")
     for device_id in sorted(devices):
-        print "  " + device_id +  ": " + devices[device_id]
+        print("  " + device_id +  ": " + devices[device_id])
 
 
 def pytest_generate_tests(metafunc):

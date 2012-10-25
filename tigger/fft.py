@@ -324,7 +324,6 @@ class GlobalFFTKernel(_FFTKernel):
             stride_in=stride_in, stride_out=stride_out, stride=stride,
             last_pass=(self._pass_num == num_passes - 1))
 
-        print local_size, workgroups_num, kwds
         return local_size, workgroups_num, kwds
 
     @staticmethod
