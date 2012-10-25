@@ -148,7 +148,7 @@ if __name__ == '__main__':
             'Intended Audience :: Science/Research',
             'Intended Audience :: Developers',
             'License :: OSI Approved :: MIT License',
-            'Programming Language :: Python :: 2',
+            'Programming Language :: Python',
             'Topic :: Software Development',
             'Topic :: Scientific/Engineering',
             'Operating System :: OS Independent'
