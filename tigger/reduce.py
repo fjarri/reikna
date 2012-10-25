@@ -79,7 +79,7 @@ class Reduce(Computation):
             # normal reduction
             input_name = 'input'
         else:
-            tr_axes = tuple(xrange(len(basis.shape)))
+            tr_axes = tuple(range(len(basis.shape)))
             tr_axes = tr_axes[:axis] + tr_axes[axis+1:] + (axis,)
             tr_shape = tuple(basis.shape[i] for i in tr_axes)
 

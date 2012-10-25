@@ -12,7 +12,7 @@ WITHIN_KERNEL int virtual_local_size(int dim)
 
 WITHIN_KERNEL int virtual_num_groups(int dim)
 {
-%for dim in xrange(len(vs.naive_bounding_grid)):
+%for dim in range(len(vs.naive_bounding_grid)):
     if (dim == ${dim}) return ${vs.naive_bounding_grid[dim] if dim < len(vs.naive_bounding_grid) else 1};
 %endfor
     return 1;
@@ -20,10 +20,10 @@ WITHIN_KERNEL int virtual_num_groups(int dim)
 
 WITHIN_KERNEL int virtual_group_id(int dim)
 {
-%for dim in xrange(len(vs.naive_bounding_grid)):
+%for dim in range(len(vs.naive_bounding_grid)):
     if (dim == ${dim}) {
         int res = 0;
-    %for rdim in xrange(len(vs.params.max_num_groups)):
+    %for rdim in range(len(vs.params.max_num_groups)):
     <%
         widths = [p[rdim] for p in vs.grid_parts]
         width_greater = product(widths[:dim+1])
@@ -48,7 +48,7 @@ WITHIN_KERNEL int virtual_group_id(int dim)
 
 WITHIN_KERNEL int virtual_global_size(int dim)
 {
-%for dim in xrange(len(vs.naive_bounding_grid)):
+%for dim in range(len(vs.naive_bounding_grid)):
     if(dim == ${dim}) return ${vs.global_size[dim] if dim < len(vs.global_size) else 1};
 %endfor
     return 1;
@@ -81,7 +81,7 @@ WITHIN_KERNEL int virtual_global_flat_id()
 WITHIN_KERNEL bool virtual_skip_threads()
 {
     if(
-    %for i in xrange(len(vs.global_size)):
+    %for i in range(len(vs.global_size)):
         %if vs.global_size[i] % vs.local_size[i] != 0:
         virtual_global_id(${i}) > ${vs.global_size[i]} - 1 ||
         %endif
@@ -95,7 +95,7 @@ WITHIN_KERNEL bool virtual_skip_threads()
 WITHIN_KERNEL bool virtual_skip_workgroups()
 {
     if(
-    %for i in xrange(len(vs.naive_bounding_grid)):
+    %for i in range(len(vs.naive_bounding_grid)):
         %if vs.naive_bounding_grid[i] < product(vs.grid_parts[i]):
         virtual_group_id(${i}) > ${vs.naive_bounding_grid[i]} - 1 ||
         %endif

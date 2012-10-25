@@ -19,7 +19,7 @@
 
     WITHIN_KERNEL int get_local_id(int dim)
     {
-    %for n in xrange(3):
+    %for n in range(3):
         if(dim == ${n}) return threadIdx.${dimnames[n]};
     %endfor
         return 0;
@@ -27,7 +27,7 @@
 
     WITHIN_KERNEL int get_group_id(int dim)
     {
-    %for n in xrange(3):
+    %for n in range(3):
         if(dim == ${n}) return blockIdx.${dimnames[n]};
     %endfor
         return 0;
@@ -35,7 +35,7 @@
 
     WITHIN_KERNEL int get_local_size(int dim)
     {
-    %for n in xrange(3):
+    %for n in range(3):
         if(dim == ${n}) return blockDim.${dimnames[n]};
     %endfor
         return 1;
@@ -43,7 +43,7 @@
 
     WITHIN_KERNEL int get_num_groups(int dim)
     {
-    %for n in xrange(3):
+    %for n in range(3):
         if(dim == ${n}) return gridDim.${dimnames[n]};
     %endfor
         return 1;

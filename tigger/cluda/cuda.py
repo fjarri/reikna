@@ -34,7 +34,7 @@ class Platform:
     version = ".".join(str(x) for x in cuda.get_version())
 
     def get_devices(self):
-        return [Device(num) for num in xrange(cuda.Device.count())]
+        return [Device(num) for num in range(cuda.Device.count())]
 
     def __str__(self):
         return self.name + " " + self.version

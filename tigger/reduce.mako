@@ -39,7 +39,7 @@ ${kernel_definition}
     // 'if(tid)'s will split execution only near the border of warps,
     // so they are not affecting performance (i.e, for each warp there
     // will be only one path of execution anyway)
-    %for reduction_pow in xrange(log2_block_size - 1, log2_warp_size, -1):
+    %for reduction_pow in range(log2_block_size - 1, log2_warp_size, -1):
         if(tid < ${2 ** reduction_pow})
         {
             local_mem[tid] = _reduction_op(local_mem[tid],
@@ -60,7 +60,7 @@ ${kernel_definition}
     #endif
 
     ${ctype} ttt;
-    %for reduction_pow in xrange(min(log2_warp_size, log2_block_size - 1), -1, -1):
+    %for reduction_pow in range(min(log2_warp_size, log2_block_size - 1), -1, -1):
         ttt = _reduction_op(smem[tid], smem[tid + ${2 ** reduction_pow}]);
         smem[tid] = ttt;
     %endfor

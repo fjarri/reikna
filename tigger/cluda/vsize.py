@@ -55,7 +55,7 @@ class VirtualSizes:
         self.grid_parts = self.get_rearranged_grid(self.naive_bounding_grid)
         gdims = len(self.params.max_num_groups)
         self.grid = [product([row[i] for row in self.grid_parts])
-            for i in xrange(gdims)]
+            for i in range(gdims)]
         self.k_local_size = list(self.local_size) + [1] * (gdims - len(self.local_size))
         self.k_global_size = [l * g for l, g in zip(self.k_local_size, self.grid)]
 
@@ -132,7 +132,7 @@ class VirtualSizes:
         # fallback: will have some empty threads
         # picking factor equal to the power of 2 to make id calculations faster
         # Starting from low powers in order to minimize the number of resulting empty threads
-        for p in xrange(1, log2(max_grid[-1]) + 1):
+        for p in range(1, log2(max_grid[-1]) + 1):
             f = 2 ** p
             remainder = min_blocks(g, f)
             if remainder <= product(max_grid[:-1]):

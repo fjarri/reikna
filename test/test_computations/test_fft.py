@@ -53,7 +53,7 @@ def pytest_generate_tests(metafunc):
         for log_shape in log_shapes:
             shape = tuple(2 ** x for x in log_shape)
             batch = mem_limit / product(shape)
-            vals.append(((batch,) + shape, tuple(xrange(1, len(shape) + 1))))
+            vals.append(((batch,) + shape, tuple(range(1, len(shape) + 1))))
             ids.append(str(batch) + "x" + str(shape))
 
         metafunc.parametrize('perf_shape_and_axes', vals, ids=ids)
@@ -98,7 +98,7 @@ def test_power_of_2_performance(ctx_and_double, perf_shape_and_axes):
 
     attempts = 10
     t1 = time.time()
-    for i in xrange(attempts):
+    for i in range(attempts):
         fft(res_dev, data_dev, -1)
     ctx.synchronize()
     t2 = time.time()

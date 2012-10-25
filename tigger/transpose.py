@@ -13,8 +13,8 @@ def transpose(axes, b_start, c_start):
     return axes[:b_start] + axes[c_start:] + axes[b_start:c_start]
 
 def possible_transposes(n):
-    for b in xrange(n - 1):
-        for c in xrange(b + 1, n):
+    for b in range(n - 1):
+        for c in range(b + 1, n):
             yield b, c
 
 def get_operations(source, target):
@@ -50,7 +50,7 @@ def get_transposes(shape, axes=None):
     else:
         assert set(source) == set(axes)
 
-    for i in xrange(len(source) - 1, 0, -1):
+    for i in range(len(source) - 1, 0, -1):
         if source[:i] == axes[:i]:
             result = get_operations(source[i:], axes[i:])
             prefix = source[:i]
@@ -96,9 +96,9 @@ class Transpose(Computation):
         assert product(output.shape) == product(input.shape)
 
         if axes is None:
-            axes = tuple(reversed(xrange(len(input.shape))))
+            axes = tuple(reversed(range(len(input.shape))))
         else:
-            assert set(axes) == set(xrange(len(input.shape)))
+            assert set(axes) == set(range(len(input.shape)))
         bs.axes = tuple(axes)
 
         return bs
@@ -158,7 +158,7 @@ class Transpose(Computation):
             oname = tnames[0]
             args = [(oname, iname)]
             other_tname = lambda name: tnames[0] if name == tnames[1] else tnames[1]
-            for i in xrange(1, len(transposes)):
+            for i in range(1, len(transposes)):
                 iname = oname
                 oname = 'output' if i == len(transposes) - 1 else other_tname(iname)
                 args.append((oname, iname))
