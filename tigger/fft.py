@@ -47,7 +47,7 @@ def get_radix_array(n, use_max_radix=False):
         radix_array = []
         while n > radix:
             radix_array.append(radix)
-            n /= radix
+            n //= radix
         radix_array.append(n)
         return radix_array
     else:
@@ -94,7 +94,7 @@ def get_global_radix_info(n):
     numR = 0
     N = n
     while N > base_radix:
-        N /= base_radix
+        N //= base_radix
         numR += 1
 
     radix = []
@@ -113,10 +113,10 @@ def get_global_radix_info(n):
             R2.append(1)
         else:
             r1 = 2
-            r2 = B / r1
+            r2 = B // r1
             while r2 > r1:
                 r1 *= 2
-                r2 = B / r1
+                r2 = B // r1
 
             R1.append(r1)
             R2.append(r2)
@@ -135,10 +135,10 @@ def get_padding(threads_per_xform, Nprev, threads_req, xforms_per_workgroup, Nr,
     if threads_per_xform <= Nprev or Nprev >= num_banks:
         offset = 0
     else:
-        numRowsReq = (threads_per_xform if threads_per_xform < num_banks else num_banks) / Nprev
+        numRowsReq = (threads_per_xform if threads_per_xform < num_banks else num_banks) // Nprev
         numColsReq = 1
         if numRowsReq > Nr:
-            numColsReq = numRowsReq / Nr
+            numColsReq = numRowsReq // Nr
         numColsReq = Nprev * numColsReq
         offset = numColsReq
 
@@ -170,7 +170,7 @@ def get_local_memory_size(n, radix_array, threads_per_xform, xforms_per_workgrou
     numRadix = len(radix_array)
     for r in range(numRadix):
 
-        threads_req = n / radix_array[r]
+        threads_req = n // radix_array[r]
         Ncurr = Nprev * radix_array[r]
 
         if r < numRadix - 1:
@@ -179,7 +179,7 @@ def get_local_memory_size(n, radix_array, threads_per_xform, xforms_per_workgrou
                 radix_array[r], num_local_mem_banks)
             lmem_size = max(lmem_size, lmem_size_new)
             Nprev = Ncurr
-            len_ = len_ / radix_array[r]
+            len_ = len_ // radix_array[r]
 
     return lmem_size
 
@@ -229,14 +229,14 @@ class LocalFFTKernel(_FFTKernel):
         n = self._n
 
         radix_array = get_radix_array(n)
-        if n / radix_array[0] > max_local_size:
+        if n // radix_array[0] > max_local_size:
             radix_array = get_radix_array(n, use_max_radix=True)
 
-        threads_per_xform = n / radix_array[0]
+        threads_per_xform = n // radix_array[0]
         local_size = max(64, threads_per_xform)
         if local_size > max_local_size:
             raise OutOfResourcesError
-        xforms_per_workgroup = local_size / threads_per_xform
+        xforms_per_workgroup = local_size // threads_per_xform
         workgroups_num = min_blocks(self._outer_batch, xforms_per_workgroup)
 
         lmem_size = get_local_memory_size(
@@ -244,7 +244,7 @@ class LocalFFTKernel(_FFTKernel):
             self._device_params.local_mem_banks,
             self._device_params.min_mem_coalesce_width[self._basis.dtype.itemsize])
 
-        if lmem_size * self._basis.dtype.itemsize / 2 > self._device_params.local_mem_size:
+        if lmem_size * self._basis.dtype.itemsize // 2 > self._device_params.local_mem_size:
             raise OutOfResourcesError
 
         kwds = dict(
@@ -296,7 +296,7 @@ class GlobalFFTKernel(_FFTKernel):
         local_batch = max_local_size if radix2 == 1 else self._local_batch
         local_batch = min(local_batch, stride_in)
         local_size = min(local_batch * threads_per_xform, max_local_size)
-        local_batch = local_size / threads_per_xform
+        local_batch = local_size // threads_per_xform
 
         workgroups_num = stride_in / local_batch * self._outer_batch
 
@@ -308,7 +308,7 @@ class GlobalFFTKernel(_FFTKernel):
             else:
                 lmem_size = local_size * radix1
 
-        if lmem_size * self._basis.dtype.itemsize / 2 > self._device_params.local_mem_size:
+        if lmem_size * self._basis.dtype.itemsize // 2 > self._device_params.local_mem_size:
             raise OutOfResourcesError
 
         kwds = dict(
@@ -332,7 +332,7 @@ class GlobalFFTKernel(_FFTKernel):
         kernels = []
         for pass_num in range(len(radix_arr)):
             kernels.append(GlobalFFTKernel(basis, device_params, axis, pass_num, curr_n))
-            curr_n /= radix_arr[pass_num]
+            curr_n //= radix_arr[pass_num]
 
         return kernels
 
@@ -349,7 +349,7 @@ def get_fft_1d_kernels(basis, device_params, axis, local_kernel_limit):
         if l > max_lmem_fft_size:
             kernels.extend(GlobalFFTKernel.createChain(basis, device_params, axis))
         elif l > 1:
-            if l / MAX_RADIX <= local_kernel_limit:
+            if l // MAX_RADIX <= local_kernel_limit:
                 kernels.append(LocalFFTKernel(basis, device_params))
             else:
                 kernels.extend(GlobalFFTKernel.createChain(basis, device_params, axis))
@@ -438,7 +438,7 @@ class FFT(Computation):
                             global_size=gs, local_size=ls, render_kwds=kwds)
                     except OutOfResourcesError:
                         if isinstance(kernel, GlobalFFTKernel):
-                            local_size /= 2
+                            local_size //= 2
                         else:
                             local_kernel_fail = True
                         continue
@@ -457,7 +457,7 @@ class FFT(Computation):
 
             # The cycle above received 'break', meaning that LocalFFTKernel was out of resources.
             # Reduce the limit and try to create operations from scratch again.
-            local_kernel_limit /= 2
+            local_kernel_limit //= 2
 
         else:
             raise ValueError("Could not find suitable call parameters for one of the local kernels")
