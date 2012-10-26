@@ -281,15 +281,15 @@ class GlobalFFTKernel(_FFTKernel):
     def _generate(self, max_local_size):
 
         radix_arr, radix1_arr, radix2_arr = get_global_radix_info(self._n)
+
         radix = radix_arr[self._pass_num]
         radix1 = radix1_arr[self._pass_num]
         radix2 = radix2_arr[self._pass_num]
         num_passes = len(radix_arr)
 
-        stride_in = self._inner_batch * product(
-            [x for i, x in enumerate(radix_arr) if i != self._pass_num])
         stride_out = self._inner_batch * product(radix_arr[:self._pass_num])
-        stride = radix * self._inner_batch * product(radix_arr[:self._pass_num])
+        stride = stride_out * radix
+        stride_in = stride_out * product(radix_arr[self._pass_num+1:])
 
         threads_per_xform = radix2
 
