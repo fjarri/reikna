@@ -207,7 +207,8 @@ class _FFTKernel:
             get_padding=get_padding,
             normalize=self._normalize,
             norm_coeff=self.get_normalization_coeff(),
-            wrap_const=lambda x: dtypes.c_constant(x, dtypes.real_for(self._basis.dtype))))
+            wrap_const=lambda x: dtypes.c_constant(x, dtypes.real_for(self._basis.dtype))),
+            min_blocks=min_blocks)
 
         local_size = local_size
         global_size = local_size * workgroups_num
@@ -298,7 +299,7 @@ class GlobalFFTKernel(_FFTKernel):
         local_size = min(local_batch * threads_per_xform, max_local_size)
         local_batch = local_size // threads_per_xform
 
-        workgroups_num = stride_in / local_batch * self._outer_batch
+        workgroups_num = min_blocks(stride_in, local_batch) * self._outer_batch
 
         if radix2 == 1:
             lmem_size = 0

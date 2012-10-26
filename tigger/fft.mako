@@ -692,7 +692,7 @@ ${insertBaseKernels()}
 <%
     num_iter = radix1 / radix2
     input_multiplier = local_size / local_batch
-    groups_per_xform = stride_in / local_batch
+    groups_per_xform = min_blocks(stride_in, local_batch)
 %>
 
 ${kernel_definition}
