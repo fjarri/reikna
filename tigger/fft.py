@@ -170,7 +170,6 @@ def get_local_memory_size(n, radix_array, threads_per_xform, xforms_per_workgrou
     numRadix = len(radix_array)
     for r in range(numRadix):
 
-        numIter = radix_array[0] / radix_array[r]
         threads_req = n / radix_array[r]
         Ncurr = Nprev * radix_array[r]
 
@@ -298,8 +297,6 @@ class GlobalFFTKernel(_FFTKernel):
         local_batch = min(local_batch, stride_in)
         local_size = min(local_batch * threads_per_xform, max_local_size)
         local_batch = local_size / threads_per_xform
-
-        numIter = radix1 / radix2
 
         workgroups_num = stride_in / local_batch * self._outer_batch
 
