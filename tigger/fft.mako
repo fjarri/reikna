@@ -745,9 +745,8 @@ ${kernel_definition}
         }
 
         ## shuffle
-        index_in = mad24(xform_local, ${local_size * num_iter}, thread_in_xform);
         lmem_store_index = thread_id;
-        lmem_load_index = index_in;
+        lmem_load_index = mad24(xform_local, ${local_size * num_iter}, thread_in_xform);
 
         %for comp in ('x', 'y'):
             %for k in range(radix1):
