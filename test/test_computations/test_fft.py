@@ -72,7 +72,7 @@ def pytest_generate_tests(metafunc):
 
     elif 'perf_shape_and_axes' in metafunc.funcargnames:
         log_shapes = [
-            (4,), (10,), (14,), # 1D
+            (4,), (10,), (13,), # 1D
             (4, 4), (7, 7), (10, 10), # 2D
             (3, 3, 6), (4, 4, 4), (4, 4, 7), (5, 5, 7), (7, 7, 7) # 3D
         ]
@@ -191,4 +191,4 @@ def test_power_of_2_performance(ctx_and_double, perf_shape_and_axes):
     fwd_ref = numpy.fft.fftn(data, axes=axes).astype(dtype)
     assert diff_is_negligible(res_dev.get(), fwd_ref)
 
-    return dev_time, product(shape) * sum([numpy.log(shape[a]) for a in axes]) * 5
+    return dev_time, product(shape) * sum([numpy.log2(shape[a]) for a in axes]) * 5
