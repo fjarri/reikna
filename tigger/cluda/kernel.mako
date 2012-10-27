@@ -63,7 +63,9 @@
     // taken from pyopencl._cluda
     #define LOCAL_BARRIER barrier(CLK_LOCAL_MEM_FENCE)
 
-    #define WITHIN_KERNEL /* empty */
+    // 'static' helps to avoid the "no previous prototype for function" warning
+    #define WITHIN_KERNEL static
+
     #define KERNEL __kernel
     #define GLOBAL_MEM __global
     #define LOCAL_MEM __local
