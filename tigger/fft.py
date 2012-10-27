@@ -271,7 +271,8 @@ class GlobalFFTKernel(_FFTKernel):
         self.name = 'fft_global'
 
         coalesce_width = device_params.min_mem_coalesce_width[basis.dtype.itemsize]
-        self._local_batch = min(self._inner_batch, coalesce_width)
+        self._local_batch = min(self._inner_batch, coalesce_width) \
+            if axis != len(basis.shape) - 1 else coalesce_width
 
         num_passes = len(get_global_radix_info(self._n)[0])
         if self._pass_num == num_passes - 1 and num_passes % 2 == 1:
