@@ -59,7 +59,7 @@ class FuncCollector:
 
 
 def render_prelude(ctx):
-    return TEMPLATE.get_def('prelude').render(api=ctx.api.API_ID)
+    return TEMPLATE.get_def('prelude').render(api=ctx.api.API_ID, ctx_fast_math=ctx._fast_math)
 
 def render_without_funcs(template, func_c, *args, **kwds):
     # add some "built-ins" to kernel
