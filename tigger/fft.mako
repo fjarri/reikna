@@ -691,7 +691,6 @@ ${insertBaseKernels()}
 
 <%
     num_iter = radix1 / radix2
-    input_multiplier = local_size / local_batch
     groups_per_xform = min_blocks(stride_in, local_batch)
 %>
 
@@ -703,27 +702,27 @@ ${kernel_definition}
 
     int xform_global = group_id / ${groups_per_xform};
     int group_in_xform = group_id % ${groups_per_xform};
-    int thread_in_xform = thread_id % ${local_batch};
     int xform_local = thread_id / ${local_batch};
+    int thread_in_xform = thread_id % ${local_batch};
 
-    int index_in, index_out;
-    {
-        int tid = mul24(group_in_xform, ${local_batch});
-
-        index_in = mad24(xform_local, ${stride_in},
-            thread_in_xform + tid + xform_global * ${n * inner_batch});
-        index_out = mad24(tid / ${stride_out}, ${stride},
-            tid % ${stride_out} + xform_global * ${n * inner_batch}
-        %if stride_out == 1:
-            + thread_id);
-        %else:
-            + mad24(xform_local, ${num_iter * stride_out}, thread_in_xform));
-        %endif
-    }
+    int position_in_stride_in = thread_in_xform + group_in_xform * ${local_batch};
+    int xform_number = xform_global * ${inner_batch};
 
     ## Load Data
+    %if stride_in % local_batch != 0:
+    // If the inner batch is not a power of 2, we need to skip some of the threads
+    if (position_in_stride_in >= ${stride_in})
+        return;
+    %endif
+
     %for j in range(radix1):
-        a[${j}] = ${input.load}(${j * input_multiplier * stride_in} + index_in);
+    {
+        int stride_in_number = xform_local + ${j * radix2};
+        a[${j}] = ${input.load}(
+            position_in_stride_in +
+            ${stride_in} * stride_in_number +
+            ${n} * xform_number);
+    }
     %endfor
 
     fftKernel${radix1}(a, direction);
@@ -816,14 +815,27 @@ ${kernel_definition}
             LOCAL_BARRIER;
         %endfor
 
+        int position_in_stride_out = (group_in_xform * ${local_batch}) % ${stride_out};
+        int stride_out_number = (group_in_xform * ${local_batch}) / ${stride_out};
+        int idx = stride_out_number * ${stride} + position_in_stride_out + thread_id +
+            ${n} * xform_number;
+
         %for k in range(radix1):
-            ${output.store}(${k * local_size} + index_out,
-                complex_div_scalar(a[${k}], norm_coeff));
+        ${output.store}(${k * local_size} + idx,
+            complex_div_scalar(a[${k}], norm_coeff));
         %endfor
     %else:
+        int position_in_stride_out = (group_in_xform * ${local_batch} + thread_in_xform) % ${stride_out};
+        int stride_out_number = (group_in_xform * ${local_batch} + thread_in_xform) / ${stride_out};
+        int idx = ${stride_out} * (
+                stride_out_number * ${radix} +
+                xform_local * ${radix1 // radix2}) +
+            position_in_stride_out +
+            ${n} * xform_number;
+
         %for k in range(radix1):
-            ${output.store}(${((k % radix2) * radix1 + (k / radix2)) * stride_out} + index_out,
-                complex_div_scalar(a[${k}], norm_coeff));
+        ${output.store}(${((k % radix2) * radix1 + (k / radix2)) * stride_out} + idx,
+            complex_div_scalar(a[${k}], norm_coeff));
         %endfor
     %endif
 }
