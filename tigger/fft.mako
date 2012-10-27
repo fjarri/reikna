@@ -1,31 +1,20 @@
 <%def name="insertBaseKernels()">
 
 ## TODO: replace by intrinsincs if necessary
-
-#ifndef mad24
+#ifdef CUDA
 #define mad24(x, y, z) ((x) * (y) + (z))
-#endif
-
-#ifndef mad
 #define mad(x, y, z) ((x) * (y) + (z))
-#endif
-
-// integer multiplication
-#ifndef mul24
-#ifdef __mul24
 #define mul24(x, y) __mul24(x, y)
 #endif
-#ifndef __mul24
-#define mul24(x, y) ((x) * (y))
-#endif
-#endif
 
+
+/*
 #ifdef sincosf
-#define complex_exp(res, ang) ${"sincos" + ("" if dtypes.is_double(basis.dtype) else "f")}(ang, &((res).y), &((res).x))
 #endif
 #ifndef sincosf
-#define complex_exp(res, ang) (res).x = cos(ang); (res).y = sin(ang)
+#define complex_exp(res, ang) (res).x = native_cos(ang); (res).y = native_sin(ang)
 #endif
+*/
 
 #define complex_ctr COMPLEX_CTR(${dtypes.ctype(basis.dtype)})
 #define complex_mul ${func.mul(basis.dtype, basis.dtype)}
@@ -37,6 +26,25 @@
 typedef ${dtypes.ctype(basis.dtype)} complex_t;
 typedef ${dtypes.ctype(dtypes.real_for(basis.dtype))} real_t;
 
+
+WITHIN_KERNEL complex_t complex_exp(float ang)
+{
+    complex_t res;
+
+#ifdef CUDA
+    ${"sincos" + ("" if dtypes.is_double(basis.dtype) else "f")}(ang, &((res).y), &((res).x));
+#else
+#ifdef CTX_FAST_MATH
+    res.x = native_cos(ang);
+    res.y = native_sin(ang);
+#else
+    real_t tmp;
+    res.y = sincos(ang, &tmp);
+    res.x = tmp;
+#endif
+#endif
+    return res;
+}
 
 WITHIN_KERNEL void swap(complex_t *a, complex_t *b)
 {
@@ -502,7 +510,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
         %for k in range(1, radix):
             <% ind = z * radix + k %>
             ang = ${wrap_const(2 * numpy.pi * k / data_len)} * angf * direction;
-            complex_exp(w, ang);
+            w = complex_exp(ang);
             a[${ind}] = complex_mul(a[${ind}], w);
         %endfor
     %endfor
@@ -738,7 +746,7 @@ ${kernel_definition}
             ## (real_t)${2 * numpy.pi / radix} * (real_t)${k} gives slightly better precision
             ## have to try it with double precision
             ang = ${wrap_const(2 * numpy.pi * k / radix)} * xform_local * direction;
-            complex_exp(w, ang);
+            w = complex_exp(ang);
             a[${k}] = complex_mul(a[${k}], w);
         %endfor
         }
@@ -778,7 +786,7 @@ ${kernel_definition}
         ang1 = ${wrap_const(2 * numpy.pi / curr_n)} * l * direction;
         %for t in range(radix1):
             ang = ang1 * (k + ${(t % radix2) * radix1 + (t / radix2)});
-            complex_exp(w, ang);
+            w = complex_exp(ang);
             a[${t}] = complex_mul(a[${t}], w);
         %endfor
     }
