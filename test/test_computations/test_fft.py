@@ -64,10 +64,10 @@ def pytest_generate_tests(metafunc):
             return str(in_s) + "as" + str(p_s) + "to" + str(out_s)
 
         vals = [
-            ((255,), (256,) (255,)),
-            ((257,), (256,) (257,)),
-            ((127, 1024), (128, 1024) (127, 1024,)),
-            ((129, 1024), (128, 1024) (129, 1024,))]
+            ((255,), (256,), (255,)),
+            ((257,), (256,), (257,)),
+            ((127, 1024), (128, 1024), (127, 1024,)),
+            ((129, 1024), (128, 1024), (129, 1024,))]
         metafunc.parametrize('shape_and_axes', vals, ids=map(idgen, vals))
 
     elif 'perf_shape_and_axes' in metafunc.funcargnames:
