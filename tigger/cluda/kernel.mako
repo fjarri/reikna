@@ -1,5 +1,9 @@
 <%def name="prelude()">
 
+%if ctx_fast_math:
+#define CTX_FAST_MATH
+%endif
+
 %if api == 'cuda':
     #define CUDA
     // taken from pycuda._cluda

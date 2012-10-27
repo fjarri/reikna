@@ -269,6 +269,14 @@ Available methods are:
 
 Second, there is a set of macros attached to any kernel depending on the API it is being compiled for:
 
+.. c:macro:: CUDA
+
+    If defined, specifies that the kernel is being compiled for CUDA API.
+
+.. c:macro:: CTX_FAST_MATH
+
+    If defined, specifies that the context for which the kernel is being compiled was created with the key ``fast_math``.
+
 .. c:macro:: LOCAL_BARRIER
 
     Synchronizes threads inside a block.
