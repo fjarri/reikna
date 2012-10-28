@@ -12,3 +12,6 @@ Computations
 
 .. automodule:: tigger.reduce
     :members:
+
+.. currentmodule:: tigger.fft
+.. autoclass :: tigger.fft.FFT

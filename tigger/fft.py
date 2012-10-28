@@ -372,6 +372,25 @@ def get_fft_kernels(basis, device_params, local_kernel_limit):
 
 
 class FFT(Computation):
+    """
+    Performs the Fast Fourier Transform.
+    The interface is similar to :py:class:`numpy.fft.fftn`.
+
+    .. py:method:: prepare_for(output, input, direction, normalize=True, axes=None)
+
+        :param output: output array.
+        :param input: input array (with the same size as ``output``).
+        :param direction: ``-1`` for forward transform, ``1`` for inverse transform.
+        :param normalize: normalize inverse transform so that ``IFFT(FFT(X)) = X``.
+        :param axes: a tuple with axes over which to perform the transform.
+            If not given, the transform is performed over all the axes.
+
+    .. note::
+        Current algorithm works most effectively with array dimensions being power of 2
+        This mostly applies to the axes over which the transform is performed,
+        beacuse otherwise the computation falls back to the Bluestein's algorithm,
+        which effectively halves the performance.
+    """
 
     def _get_argnames(self):
         return ('output',), ('input',), ('direction',)
@@ -382,7 +401,6 @@ class FFT(Computation):
 
         assert output.shape == input.shape
         assert output.dtype == input.dtype
-        #assert len(output.shape) <= 3
 
         if axes is None:
             axes = tuple(range(len(output.shape)))
