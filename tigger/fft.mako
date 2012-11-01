@@ -220,11 +220,55 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 </%def>
 
 <%def name="insertGlobalLoad(input, a_index, g_index)">
-    a[${a_index}] = ${input.load}(${g_index} + global_mem_offset);
+{
+    int idx = ${g_index} + global_mem_offset;
+
+    %if pad_in or takes_kweights:
+    int position_in_fft = idx % ${fft_size};
+    %endif
+
+    %if pad_in:
+    complex_t xweight = complex_exp(
+        ${wrap_const(-numpy.pi / fft_size_real)} * position_in_fft * position_in_fft);
+
+    ## FIXME: the check may only be necessary outside of the cycle
+    if (position_in_fft < ${fft_size_real})
+    {
+    %endif
+        a[${a_index}] = ${input.load}(idx);
+    %if pad_in:
+        a[${a_index}] = complex_mul(a[${a_index}], xweight);
+    }
+    else
+        a[${a_index}] = complex_ctr(0, 0);
+    %endif
+
+    %if takes_kweights:
+    if (position_in_fft < ${fft_size_real})
+        a[${a_index}] = complex_mul(a[${a_index}], ${kweights.load}(position_in_fft));
+    %endif
+}
 </%def>
 
 <%def name="insertGlobalStore(output, a_index, g_index)">
-    ${output.store}(${g_index} + global_mem_offset, complex_div_scalar(a[${a_index}], norm_coeff));
+{
+    int idx = ${g_index} + global_mem_offset;
+
+    %if pad_out:
+    complex_t xweight = complex_exp(
+        ${wrap_const(-numpy.pi / fft_size_real)} * position_in_fft * position_in_fft);
+
+    ## FIXME: the check may only be necessary outside of the cycle
+    if (position_in_fft < ${fft_size_real})
+    {
+        a[${a_index}] = complex_mul(a[${a_index}], xweight);
+    %endif
+        ${output.store}(${g_index} + global_mem_offset,
+            complex_div_scalar(a[${a_index}], norm_coeff));
+    %if pad_out:
+    }
+    %endif
+}
 </%def>
 
 <%def name="insertGlobalLoadsAndTranspose(input, n, threads_per_xform, xforms_per_workgroup, radix, mem_coalesce_width)">
@@ -241,30 +285,30 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 
             if(${s} == 0 || (group_id < num_groups - 1) || (jj < ${s}))
             {
-                global_mem_offset = mad24(mad24(group_id, ${xforms_per_workgroup}, jj), ${n}, ii);
+                global_mem_offset = mad24(mad24(group_id, ${xforms_per_workgroup}, jj), ${fft_size}, ii);
                 %for i in range(radix):
                     ${insertGlobalLoad(input, i, i * threads_per_xform)}
                 %endfor
             }
         %else:
             ii = thread_id;
-            global_mem_offset = mad24(group_id, ${n}, ii);
+            global_mem_offset = mad24(group_id, ${fft_size}, ii);
             %for i in range(radix):
                 ${insertGlobalLoad(input, i, i * threads_per_xform)}
             %endfor
         %endif
 
-    %elif n >= mem_coalesce_width:
+    %elif fft_size >= mem_coalesce_width:
         <%
-            num_inner_iter = n / mem_coalesce_width
+            num_inner_iter = fft_size / mem_coalesce_width
             num_outer_iter = xforms_per_workgroup / (local_size / mem_coalesce_width)
         %>
 
         ii = thread_id % ${mem_coalesce_width};
         jj = thread_id / ${mem_coalesce_width};
-        lmem_store_index = mad24(jj, ${n + threads_per_xform}, ii);
+        lmem_store_index = mad24(jj, ${fft_size + threads_per_xform}, ii);
 
-        global_mem_offset = mad24(mad24(group_id, ${xforms_per_workgroup}, jj), ${n}, ii);
+        global_mem_offset = mad24(mad24(group_id, ${xforms_per_workgroup}, jj), ${fft_size}, ii);
 
         if((group_id == num_groups - 1) && ${s} != 0)
         {
@@ -273,7 +317,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             {
             %for j in range(num_inner_iter):
                 ${insertGlobalLoad(input, i * num_inner_iter + j, \
-                    j * mem_coalesce_width + i * (local_size / mem_coalesce_width) * n)}
+                    j * mem_coalesce_width + i * (local_size / mem_coalesce_width) * fft_size)}
             %endfor
             }
             %if i != num_outer_iter - 1:
@@ -286,20 +330,20 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
         %for i in range(num_outer_iter):
             %for j in range(num_inner_iter):
                 ${insertGlobalLoad(input, i * num_inner_iter + j, \
-                    j * mem_coalesce_width + i * (local_size / mem_coalesce_width) * n)}
+                    j * mem_coalesce_width + i * (local_size / mem_coalesce_width) * fft_size)}
             %endfor
         %endfor
         }
 
         ii = thread_id % ${threads_per_xform};
         jj = thread_id / ${threads_per_xform};
-        lmem_load_index = mad24(jj, ${n + threads_per_xform}, ii);
+        lmem_load_index = mad24(jj, ${fft_size + threads_per_xform}, ii);
 
         %for comp in ('x', 'y'):
             %for i in range(num_outer_iter):
                 %for j in range(num_inner_iter):
                     lmem[lmem_store_index + ${j * mem_coalesce_width + \
-                        i * (local_size / mem_coalesce_width) * (n + threads_per_xform)}] =
+                        i * (local_size / mem_coalesce_width) * (fft_size + threads_per_xform)}] =
                         a[${i * num_inner_iter + j}].${comp};
                 %endfor
             %endfor
@@ -311,10 +355,10 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             LOCAL_BARRIER;
         %endfor
     %else:
-        global_mem_offset = mad24(group_id, ${n * xforms_per_workgroup}, thread_id);
-        ii = thread_id % ${n};
-        jj = thread_id / ${n};
-        lmem_store_index = mad24(jj, ${n + threads_per_xform}, ii);
+        global_mem_offset = mad24(group_id, ${fft_size * xforms_per_workgroup}, thread_id);
+        ii = thread_id % ${fft_size};
+        jj = thread_id / ${fft_size};
+        lmem_store_index = mad24(jj, ${fft_size + threads_per_xform}, ii);
 
         if((group_id == num_groups - 1) && ${s} != 0)
         {
@@ -324,7 +368,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
                 ${insertGlobalLoad(input, i, i * local_size)}
             }
             %if i != radix - 1:
-                jj += ${local_size / n};
+                jj += ${local_size / fft_size};
             %endif
         %endfor
         }
@@ -338,16 +382,16 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
         %if threads_per_xform > 1:
             ii = thread_id % ${threads_per_xform};
             jj = thread_id / ${threads_per_xform};
-            lmem_load_index = mad24(jj, ${n + threads_per_xform}, ii);
+            lmem_load_index = mad24(jj, ${fft_size + threads_per_xform}, ii);
         %else:
             ii = 0;
             jj = thread_id;
-            lmem_load_index = mul24(jj, ${n + threads_per_xform});
+            lmem_load_index = mul24(jj, ${fft_size + threads_per_xform});
         %endif
 
         %for comp in ('x', 'y'):
             %for i in range(radix):
-                lmem[lmem_store_index + ${i * (local_size / n) * (n + threads_per_xform)}] = a[${i}].${comp};
+                lmem[lmem_store_index + ${i * (local_size / fft_size) * (fft_size + threads_per_xform)}] = a[${i}].${comp};
             %endfor
             LOCAL_BARRIER;
 
@@ -386,15 +430,15 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             }
         %endif
 
-    %elif n >= mem_coalesce_width:
+    %elif fft_size >= mem_coalesce_width:
         <%
-            num_inner_iter = n / mem_coalesce_width
+            num_inner_iter = fft_size / mem_coalesce_width
             num_outer_iter = xforms_per_workgroup / (local_size / mem_coalesce_width)
         %>
-        lmem_load_index  = mad24(jj, ${n + threads_per_xform}, ii);
+        lmem_load_index  = mad24(jj, ${fft_size + threads_per_xform}, ii);
         ii = thread_id % ${mem_coalesce_width};
         jj = thread_id / ${mem_coalesce_width};
-        lmem_store_index = mad24(jj, ${n + threads_per_xform}, ii);
+        lmem_store_index = mad24(jj, ${fft_size + threads_per_xform}, ii);
 
         %for comp in ('x', 'y'):
             %for i in range(max_radix):
@@ -410,7 +454,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             %for i in range(num_outer_iter):
                 %for j in range(num_inner_iter):
                     a[${i*num_inner_iter + j}].${comp} = lmem[lmem_store_index + ${j * mem_coalesce_width + \
-                        i * (local_size / mem_coalesce_width) * (n + threads_per_xform)}];
+                        i * (local_size / mem_coalesce_width) * (fft_size + threads_per_xform)}];
                 %endfor
             %endfor
             LOCAL_BARRIER;
@@ -423,7 +467,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             {
             %for j in range(num_inner_iter):
                 ${insertGlobalStore(output, i * num_inner_iter + j, \
-                    j * mem_coalesce_width + i * (local_size / mem_coalesce_width) * n)}
+                    j * mem_coalesce_width + i * (local_size / mem_coalesce_width) * fft_size)}
             %endfor
             }
             %if i != num_outer_iter - 1:
@@ -436,15 +480,15 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
         %for i in range(num_outer_iter):
             %for j in range(num_inner_iter):
                 ${insertGlobalStore(output, i * num_inner_iter + j, \
-                    j * mem_coalesce_width + i * (local_size / mem_coalesce_width) * n)}
+                    j * mem_coalesce_width + i * (local_size / mem_coalesce_width) * fft_size)}
             %endfor
         %endfor
         }
     %else:
-        lmem_load_index = mad24(jj, ${n + threads_per_xform}, ii);
-        ii = thread_id % ${n};
-        jj = thread_id / ${n};
-        lmem_store_index = mad24(jj, ${n + threads_per_xform}, ii);
+        lmem_load_index = mad24(jj, ${fft_size + threads_per_xform}, ii);
+        ii = thread_id % ${fft_size};
+        jj = thread_id / ${fft_size};
+        lmem_store_index = mad24(jj, ${fft_size + threads_per_xform}, ii);
 
         %for comp in ('x', 'y'):
             %for i in range(max_radix):
@@ -458,7 +502,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             LOCAL_BARRIER;
 
             %for i in range(max_radix):
-                a[${i}].${comp} = lmem[lmem_store_index + ${i * (local_size / n) * (n + threads_per_xform)}];
+                a[${i}].${comp} = lmem[lmem_store_index + ${i * (local_size / fft_size) * (fft_size + threads_per_xform)}];
             %endfor
             LOCAL_BARRIER;
         %endfor
@@ -471,7 +515,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
                 ${insertGlobalStore(output, i, i * local_size)}
             }
             %if i != max_radix - 1:
-                jj += ${local_size / n};
+                jj += ${local_size / fft_size};
             %endif
         %endfor
         }
@@ -529,13 +573,13 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 
 <%def name="insertLocalLoads(n, radix, radix_next, radix_prev, radix_curr, threads_per_xform, threads_req, offset, comp)">
     <%
-        threads_req_next = n / radix_next
+        threads_req_next = fft_size / radix_next
         inter_block_hnum = max(radix_prev / threads_per_xform, 1)
         inter_block_hstride = threads_per_xform
         vert_width = max(threads_per_xform / radix_prev, 1)
         vert_width = min(vert_width, radix)
         vert_num = radix / vert_width
-        vert_stride = (n / radix + offset) * vert_width
+        vert_stride = (fft_size / radix + offset) * vert_width
         iter = max(threads_req_next / threads_per_xform, 1)
         intra_block_hstride = max(threads_per_xform / (radix_prev * radix), 1)
         intra_block_hstride *= radix_prev
@@ -619,14 +663,23 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
     int group_id = get_group_id(0);
 
     ## makes it easier to use it inside other definitions
+    %if reverse_direction:
+    int direction = -${direction};
+    %else:
     int direction = ${direction};
+    %endif
 
-    int norm_coeff = direction == 1 ? ${norm_coeff if normalize else 1} : 1;
+    int norm_coeff = direction == 1 ? ${fft_size if normalize else 1} : 1;
 </%def>
 
-<%def name="fft_local(output, input, direction)">
+<%def name="fft_local(*args)">
 
 <%
+    if takes_kweights:
+        output, input, kweights, direction = args
+    else:
+        output, input, direction = args
+
     max_radix = radix_arr[0]
     num_radix = len(radix_arr)
 %>
@@ -654,13 +707,13 @@ ${kernel_definition}
 
     <%
         radix_prev = 1
-        data_len = n
+        data_len = fft_size
     %>
 
     %for r in range(num_radix):
         <%
             num_iter = radix_arr[0] / radix_arr[r]
-            threads_req = n / radix_arr[r]
+            threads_req = fft_size / radix_arr[r]
             radix_curr = radix_prev * radix_arr[r]
         %>
 
@@ -693,7 +746,14 @@ ${kernel_definition}
 
 </%def>
 
-<%def name="fft_global(output, input, direction)">
+<%def name="fft_global(*args)">
+
+<%
+    if takes_kweights:
+        output, input, kweights, direction = args
+    else:
+        output, input, direction = args
+%>
 
 ${insertBaseKernels()}
 
@@ -726,10 +786,32 @@ ${kernel_definition}
     %for j in range(radix1):
     {
         int stride_in_number = xform_local + ${j * radix2};
-        a[${j}] = ${input.load}(
-            position_in_stride_in +
-            ${stride_in} * stride_in_number +
-            ${n} * xform_number);
+        int position = position_in_stride_in + ${stride_in} * stride_in_number;
+
+        %if pad_in or takes_kweights:
+        int position_in_fft = position / ${inner_batch};
+        %endif
+
+        %if pad_in:
+        complex_t xweight = complex_exp(
+            ${wrap_const(-numpy.pi / fft_size_real)} * position_in_fft * position_in_fft);
+
+        ## FIXME: the check may only be necessary outside of the cycle
+        if (position_in_fft < ${fft_size_real})
+        {
+        %endif
+            a[${j}] = ${input.load}(position + ${fft_size} * xform_number);
+        %if pad_in:
+            a[${j}] = complex_mul(a[${j}], xweight);
+        }
+        else
+            a[${j}] = complex_ctr(0, 0);
+        %endif
+
+        %if takes_kweights:
+        if (position_in_fft < ${fft_size_real})
+            a[${j}] = complex_mul(a[${j}], ${kweights.load}(position_in_fft));
+        %endif
     }
     %endfor
 
@@ -783,7 +865,7 @@ ${kernel_definition}
 
         int l = (group_in_xform * ${local_batch} + thread_in_xform) / ${stride_out};
         int k = xform_local * ${radix1 / radix2};
-        ang1 = ${wrap_const(2 * numpy.pi / curr_n)} * l * direction;
+        ang1 = ${wrap_const(2 * numpy.pi / curr_size)} * l * direction;
         %for t in range(radix1):
             ang = ang1 * (k + ${(t % radix2) * radix1 + (t / radix2)});
             w = complex_exp(ang);
@@ -826,11 +908,22 @@ ${kernel_definition}
         int position_in_stride_out = (group_in_xform * ${local_batch}) % ${stride_out};
         int stride_out_number = (group_in_xform * ${local_batch}) / ${stride_out};
         int idx = stride_out_number * ${stride} + position_in_stride_out + thread_id +
-            ${n} * xform_number;
+            ${fft_size} * xform_number;
 
         %for k in range(radix1):
-        ${output.store}(${k * local_size} + idx,
-            complex_div_scalar(a[${k}], norm_coeff));
+        {
+            int position = stride_out_number * ${stride} + ${k * local_size} +
+                position_in_stride_out + thread_id;
+            %if unpad_out:
+            int position_in_fft = position / ${inner_batch};
+            complex_t xweight = complex_exp(
+                ${wrap_const(-numpy.pi / fft_size_real)} * position_in_fft * position_in_fft);
+            a[${k}] = complex_mul(a[${k}], xweight);
+            if (position < ${fft_size_real})
+            %endif
+                ${output.store}(position + ${fft_size} * xform_number,
+                    complex_div_scalar(a[${k}], norm_coeff));
+        }
         %endfor
     %else:
         int position_in_stride_out = (group_in_xform * ${local_batch} + thread_in_xform) % ${stride_out};
@@ -839,11 +932,26 @@ ${kernel_definition}
                 stride_out_number * ${radix} +
                 xform_local * ${radix1 // radix2}) +
             position_in_stride_out +
-            ${n} * xform_number;
+            ${fft_size} * xform_number;
 
         %for k in range(radix1):
-        ${output.store}(${((k % radix2) * radix1 + (k / radix2)) * stride_out} + idx,
-            complex_div_scalar(a[${k}], norm_coeff));
+        {
+            int position = ${((k % radix2) * radix1 + (k / radix2)) * stride_out} +
+                ${stride_out} * (
+                    stride_out_number * ${radix} +
+                    xform_local * ${radix1 // radix2}) +
+                position_in_stride_out;
+
+            %if unpad_out:
+            int position_in_fft = position / ${inner_batch};
+            complex_t xweight = complex_exp(
+                ${wrap_const(-numpy.pi / fft_size_real)} * position_in_fft * position_in_fft);
+            a[${k}] = complex_mul(a[${k}], xweight);
+            if (position < ${fft_size_real})
+            %endif
+                ${output.store}(position + ${fft_size} * xform_number,
+                    complex_div_scalar(a[${k}], norm_coeff));
+        }
         %endfor
     %endif
 }

@@ -26,16 +26,21 @@ class OperationRecorder:
         self.operations = []
         self._allocations = {}
 
-    def add_allocation(self, name, shape, dtype):
+        self._temp_counter = 0
+
+    def add_allocation(self, shape, dtype):
         """
         Adds an allocation to the list of actions.
-        The ``name`` can be used later in the list of argument names for kernels.
+        Returns the string which can be used later in the list of argument names for kernels.
         """
-        assert name not in self.values
+        name = "_temp" + str(self._temp_counter)
+        self._temp_counter += 1
+
         value = ArrayValue(shape, dtype)
         self.values[name] = value
         self._allocations[name] = value
         self._tr_tree.add_temp_node(name, value)
+        return name
 
     def add_kernel(self, template, defname, argnames,
             global_size, local_size=None, render_kwds=None):
