@@ -4,14 +4,8 @@
 * TODO: add full support of numpy.fft.fftn interface to FFT
 * TODO: FFT: remove hardcode of max_lmem_fft_size
 * TODO: FFT: process cases of problem_size == 1 properly (we still have to run transformations)
-* TODO: move part of core.transformation to a template
-* TODO: add custom render keywords for transformations (will help e.g. in tigger.transformations)
-* TODO: Write some performance tests
-* TODO: Flatten kernel list before execution, and assign argument numbers
-* TODO: create some elementwise computations derived from Elementwise
-* TODO: document _debug usage
-* TODO: add "dynamic regime"
-* TODO: add "raises" sections to Computation/OperationRecorder methods
+* TODO: add memory packing functionality to OperationRecorder
+* TODO: cool feature: process the list and remove unnecessary allocations, replacing them by creating views
 * TODO: new operation.add_view() function:
   1) If applied to an already created temporary array, just creates its view.
   2) If applied to an output array, check the transformations attached to it.
@@ -19,6 +13,19 @@
      Otherwise create an allocation.
   3) If applied to an output array, and the allocation was already created, create a view of it.
   For testing purposes, 2) and 3) are not necessary - just create a new allocation.
+* TODO: add Python 3 supports and run full set of tests
+
+
+0.3.0
+=====
+
+* TODO: move part of core.transformation to a template
+* TODO: add custom render keywords for transformations (will help e.g. in tigger.transformations)
+* TODO: Flatten kernel list before execution, and assign argument numbers
+* TODO: create some elementwise computations derived from Elementwise
+* TODO: document _debug usage
+* TODO: add "dynamic regime"
+* TODO: add "raises" sections to Computation/OperationRecorder methods
 * TODO: create "fallback" when if _construct_operations() does not catch OutOfResources,
   it is called again with reduced local size
 * TODO: run coverage tests and see if some functionality has to be tested,
@@ -75,10 +82,6 @@ Computations:
 CLUDA:
 
 * TODO: add support for rational numbers (based on int2)
-
-Core:
-
-* TODO: cool feature: process the list and remove unnecessary allocations, replacing them by creating views
 
 
 2.*
