@@ -542,8 +542,9 @@ class FFT(Computation):
                     kernel_calls.append((kernel.name, argnames, gs, ls, kwds))
                     break
                 else:
-                    raise ValueError(
-                        "Could not find suitable call parameters for one of the global kernels")
+                    if not local_kernel_fail:
+                        raise ValueError(
+                            "Could not find suitable call parameters for one of the global kernels")
 
                 if local_kernel_fail:
                     break
