@@ -192,8 +192,9 @@ def get_kweights(size_real, size_bound):
     n_v = numpy.concatenate([
         numpy.arange(size_bound - size_real +1),
         numpy.arange(size_real - 1, 0, -1)])
-    v = numpy.exp(1j * numpy.pi / size_real * n_v ** 2)
-    return numpy.fft.fft(v)
+    return numpy.concatenate([
+        numpy.fft.fft(numpy.exp(1j * numpy.pi / size_real * n_v ** 2)),
+        numpy.fft.ifft(numpy.exp(-1j * numpy.pi / size_real * n_v ** 2)) * size_bound / size_real])
 
 
 class _FFTKernel:
@@ -222,8 +223,8 @@ class _FFTKernel:
             pad_in=(self._fft_size != self._fft_size_real and self._pass_num == 0
                 and not self._reverse_direction),
             unpad_out=(self._fft_size != self._fft_size_real and self._last_pass
-                and self._reverse_direction)))
-        print kwds
+                and self._reverse_direction),
+            reverse_direction=self._reverse_direction))
         local_size = local_size
         global_size = local_size * workgroups_num
 
@@ -246,8 +247,12 @@ class LocalFFTKernel(_FFTKernel):
         self._pass_num = 0
         self._last_pass = True
 
-        self.output_shape = (outer_batch, fft_size_real if fft_size_real is not None else fft_size)
-        if fft_size_real is not None and reverse_direction:
+        if reverse_direction:
+            self.output_shape = (outer_batch, fft_size_real)
+        else:
+            self.output_shape = (outer_batch, fft_size)
+
+        if fft_size_real != fft_size and reverse_direction:
             self.kweights = get_kweights(fft_size_real, fft_size)
 
         self.enable_normalization()
@@ -318,7 +323,6 @@ class GlobalFFTKernel(_FFTKernel):
             self.output_shape = (outer_batch, fft_size_real, inner_batch)
         else:
             self.output_shape = (outer_batch, fft_size, inner_batch)
-
 
     def _generate(self, max_local_size):
 
@@ -418,15 +422,18 @@ def get_fft_kernels(basis, device_params, local_kernel_limit):
         if fft_size == 1:
             continue
 
-        fft_size_padded = 2 ** (log2(fft_size - 1) + 1)
+        closest_power_of_2 = 2 ** (log2(fft_size - 1) + 1)
 
-        print outer_batch, fft_size, inner_batch, fft_size_padded
-
-        args = (basis, device_params, outer_batch, fft_size_padded, inner_batch, local_kernel_limit)
-
-        if fft_size_padded == fft_size:
-            kernels.extend(get_fft_1d_kernels(*args))
+        if closest_power_of_2 == fft_size:
+            kernels.extend(get_fft_1d_kernels(
+                basis, device_params, outer_batch, fft_size,
+                inner_batch, local_kernel_limit))
         else:
+            # padding FFT for the chirp-z transform
+            fft_size_padded = 2 * closest_power_of_2
+            args = (basis, device_params, outer_batch, fft_size_padded,
+                inner_batch, local_kernel_limit)
+
             kernels.extend(get_fft_1d_kernels(
                 *args, fft_size_real=fft_size))
             kernels.extend(get_fft_1d_kernels(
@@ -508,7 +515,8 @@ class FFT(Computation):
                     mem_out = operations.add_allocation(kernel.output_shape, basis.dtype)
 
                 if kernel.kweights is not None:
-                    kweights = operations.add_const_allocation(kernel.kweights)
+                    kweights = operations.add_const_allocation(
+                        kernel.kweights.astype(basis.dtype))
                     kweights_arg = [kweights]
                 else:
                     kweights_arg = []
