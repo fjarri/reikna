@@ -242,6 +242,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     ## FIXME: the check may only be necessary outside of the cycle
     if (position_in_fft < ${fft_size_real})
     {
+        idx = (idx / ${fft_size}) * ${fft_size_real} + position_in_fft;
     %endif
         a[${a_index}] = ${input.load}(idx);
     %if pad_in:
@@ -273,9 +274,9 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     if (position_in_fft < ${fft_size_real})
     {
         a[${a_index}] = complex_mul(a[${a_index}], xw);
+        idx = (idx / ${fft_size}) * ${fft_size_real} + position_in_fft;
     %endif
-        ${output.store}(${g_index} + global_mem_offset,
-            complex_div_scalar(a[${a_index}], norm_coeff));
+        ${output.store}(idx, complex_div_scalar(a[${a_index}], norm_coeff));
     %if unpad_out:
     }
     %endif
@@ -811,7 +812,7 @@ ${kernel_definition}
         if (position_in_fft < ${fft_size_real})
         {
         %endif
-            a[${j}] = ${input.load}(position + ${fft_size} * xform_number);
+            a[${j}] = ${input.load}(position + ${fft_size_real if pad_in else fft_size} * xform_number);
         %if pad_in:
             a[${j}] = complex_mul(a[${j}], xw);
         }
@@ -931,7 +932,7 @@ ${kernel_definition}
             a[${k}] = complex_mul(a[${k}], xw);
             if (position_in_fft < ${fft_size_real})
             %endif
-                ${output.store}(position + ${fft_size} * xform_number,
+                ${output.store}(position + ${fft_size_real if unpad_out else fft_size} * xform_number,
                     complex_div_scalar(a[${k}], norm_coeff));
         }
         %endfor
@@ -958,7 +959,7 @@ ${kernel_definition}
             a[${k}] = complex_mul(a[${k}], xw);
             if (position_in_fft < ${fft_size_real})
             %endif
-                ${output.store}(position + ${fft_size} * xform_number,
+                ${output.store}(position + ${fft_size_real if unpad_out else fft_size} * xform_number,
                     complex_div_scalar(a[${k}], norm_coeff));
         }
         %endfor
