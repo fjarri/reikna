@@ -25,8 +25,10 @@ class OperationRecorder:
         self.values = AttrDict(base_values)
         self.operations = []
         self._allocations = {}
+        self._const_allocations = {}
 
         self._temp_counter = 0
+        self._const_counter = 0
 
     def add_allocation(self, shape, dtype):
         """
@@ -39,6 +41,16 @@ class OperationRecorder:
         value = ArrayValue(shape, dtype)
         self.values[name] = value
         self._allocations[name] = value
+        self._tr_tree.add_temp_node(name, value)
+        return name
+
+    def add_const_allocation(self, data):
+        name = "_const" + str(self._const_counter)
+        self._const_counter += 1
+
+        value = ArrayValue(data.shape, data.dtype)
+        self.values[name] = value
+        self._const_allocations[name] = data
         self._tr_tree.add_temp_node(name, value)
         return name
 
@@ -97,9 +109,6 @@ class OperationRecorder:
         operation.prepare(self.values)
         self.operations.append(operation)
 
-    def get_allocation_values(self):
-        return self._allocations
-
     def optimize_execution(self):
 
         # In theory, we can optimize the usage of temporary buffers with help of views
@@ -108,6 +117,9 @@ class OperationRecorder:
         for name, value in self._allocations.items():
             self.allocations[name] = self._ctx.allocate(
                 value.shape, value.dtype)
+
+        for name, data in self._const_allocations.items():
+            self.allocations[name] = self._ctx.to_device(data)
 
 
 class Allocate:
