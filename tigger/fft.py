@@ -186,15 +186,19 @@ def get_local_memory_size(n, radix_array, threads_per_xform, xforms_per_workgrou
 
 def get_kweights(size_real, size_bound):
     """
-    Returns weights to be applied as a part of chirp-z transform
+    Returns weights to be applied as a part of Bluestein's algorithm
     between forward and inverse FFTs.
     """
+
+    args = lambda ns: 1j * numpy.pi / size_real * ns ** 2
+
     n_v = numpy.concatenate([
         numpy.arange(size_bound - size_real +1),
         numpy.arange(size_real - 1, 0, -1)])
+
     return numpy.concatenate([
-        numpy.fft.fft(numpy.exp(1j * numpy.pi / size_real * n_v ** 2)),
-        numpy.fft.ifft(numpy.exp(-1j * numpy.pi / size_real * n_v ** 2)) * size_bound / size_real])
+        numpy.fft.fft(numpy.exp(args(n_v))),
+        numpy.fft.ifft(numpy.exp(-args(n_v))) * size_bound / size_real])
 
 
 class _FFTKernel:
@@ -225,6 +229,7 @@ class _FFTKernel:
             unpad_out=(self._fft_size != self._fft_size_real and self._last_pass
                 and self._reverse_direction),
             reverse_direction=self._reverse_direction))
+
         local_size = local_size
         global_size = local_size * workgroups_num
 
