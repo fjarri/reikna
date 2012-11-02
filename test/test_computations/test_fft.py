@@ -12,6 +12,13 @@ import tigger.cluda.dtypes as dtypes
 
 
 def pytest_generate_tests(metafunc):
+
+    perf_log_shapes = [
+        (4,), (10,), (13,), # 1D
+        (4, 4), (7, 7), (10, 10), # 2D
+        (4, 4, 4), (5, 5, 7), (7, 7, 7)] # 3D
+    perf_mem_limit = 4 * 2**20
+
     if 'shape_and_axes' in metafunc.funcargnames:
         shapes = []
 
@@ -81,25 +88,32 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize('non2problem_shape_and_axes', vals, ids=map(idgen, vals))
 
     elif 'perf_shape_and_axes' in metafunc.funcargnames:
-        log_shapes = [
-            (4,), (10,), (13,), # 1D
-            (4, 4), (7, 7), (10, 10), # 2D
-            (3, 3, 6), (4, 4, 4), (4, 4, 7), (5, 5, 7), (7, 7, 7) # 3D
-        ]
 
-        mem_limit = 4 * 2**20
         vals = []
         ids = []
-        for log_shape in log_shapes:
+        for log_shape in perf_log_shapes:
             shape = tuple(2 ** x for x in log_shape)
-            batch = mem_limit / product(shape)
+            batch = perf_mem_limit / (2 ** sum(log_shape))
             vals.append(((batch,) + shape, tuple(range(1, len(shape) + 1))))
             ids.append(str(batch) + "x" + str(shape))
 
         metafunc.parametrize('perf_shape_and_axes', vals, ids=ids)
 
+    elif 'non2problem_perf_shape_and_axes' in metafunc.funcargnames:
 
-def test_errors(ctx, shape_and_axes):
+        vals = []
+        ids = []
+        for log_shape in perf_log_shapes:
+            for modifier in (1, -1):
+                shape = tuple(2 ** (x - 1) + modifier for x in log_shape)
+                batch = perf_mem_limit / (2 ** sum(log_shape))
+                vals.append(((batch,) + shape, tuple(range(1, len(shape) + 1))))
+                ids.append(str(batch) + "x" + str(shape))
+
+        metafunc.parametrize('non2problem_perf_shape_and_axes', vals, ids=ids)
+
+
+def check_errors(ctx, shape_and_axes):
 
     dtype = numpy.complex64
 
@@ -122,27 +136,12 @@ def test_errors(ctx, shape_and_axes):
     assert diff_is_negligible(res_dev.get(), inv_ref)
 
 
-def test_non2problem(ctx, non2problem_shape_and_axes):
+def test_power_of_2_problem(ctx, shape_and_axes):
+    check_errors(ctx, shape_and_axes)
 
-    dtype = numpy.complex64
 
-    shape, axes = non2problem_shape_and_axes
-
-    data = get_test_array(shape, dtype)
-    data_dev = ctx.to_device(data)
-    res_dev = ctx.empty_like(data_dev)
-
-    fft = FFT(ctx).prepare_for(res_dev, data_dev, None, axes=axes)
-
-    # forward transform
-    fft(res_dev, data_dev, -1)
-    fwd_ref = numpy.fft.fftn(data, axes=axes).astype(dtype)
-    assert diff_is_negligible(res_dev.get(), fwd_ref)
-
-    # inverse transform
-    fft(res_dev, data_dev, 1)
-    inv_ref = numpy.fft.ifftn(data, axes=axes).astype(dtype)
-    assert diff_is_negligible(res_dev.get(), inv_ref)
+def test_non_power_of_2_problem(ctx, non2problem_shape_and_axes):
+    check_errors(ctx, non2problem_shape_and_axes)
 
 
 def test_non2batch(ctx, non2batch_shape_and_axes):
@@ -167,12 +166,10 @@ def test_non2batch(ctx, non2batch_shape_and_axes):
     assert diff_is_negligible(res_dev.get(), fwd_ref)
 
 
-@pytest.mark.perf
-@pytest.mark.returns('GFLOPS')
-def test_power_of_2_performance(ctx_and_double, perf_shape_and_axes):
+def check_performance(ctx_and_double, shape_and_axes):
     ctx, double = ctx_and_double
 
-    shape, axes = perf_shape_and_axes
+    shape, axes = shape_and_axes
     dtype = numpy.complex128 if double else numpy.complex64
 
     data = get_test_array(shape, dtype)
@@ -193,3 +190,15 @@ def test_power_of_2_performance(ctx_and_double, perf_shape_and_axes):
     assert diff_is_negligible(res_dev.get(), fwd_ref)
 
     return dev_time, product(shape) * sum([numpy.log2(shape[a]) for a in axes]) * 5
+
+
+@pytest.mark.perf
+@pytest.mark.returns('GFLOPS')
+def test_power_of_2_performance(ctx_and_double, perf_shape_and_axes):
+    return check_performance(ctx_and_double, perf_shape_and_axes)
+
+
+@pytest.mark.perf
+@pytest.mark.returns('GFLOPS')
+def test_non_power_of_2_performance(ctx_and_double, non2problem_perf_shape_and_axes):
+    return check_performance(ctx_and_double, non2problem_perf_shape_and_axes)
