@@ -217,6 +217,15 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
     bitreverse32(a);
 }
 
+// Calculates input and output weights for the Bluestein's algorithm
+WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
+{
+    // The modulo of 2 * fft_size_real does not change the result,
+    // but greatly improves the precision by keeping the argument of sin()/cos() small.
+    return complex_exp(dir_coeff * ${wrap_const(numpy.pi / fft_size_real)} *
+        ((pos * pos) % (2 * ${fft_size_real})) );
+}
+
 </%def>
 
 <%def name="insertGlobalLoad(input, kweights, a_index, g_index)">
@@ -228,8 +237,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
     %endif
 
     %if pad_in:
-    complex_t xweight = complex_exp(
-        direction * ${wrap_const(numpy.pi / fft_size_real)} * position_in_fft * position_in_fft);
+    complex_t xw = xweight(direction, position_in_fft);
 
     ## FIXME: the check may only be necessary outside of the cycle
     if (position_in_fft < ${fft_size_real})
@@ -237,7 +245,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
     %endif
         a[${a_index}] = ${input.load}(idx);
     %if pad_in:
-        a[${a_index}] = complex_mul(a[${a_index}], xweight);
+        a[${a_index}] = complex_mul(a[${a_index}], xw);
     }
     else
         a[${a_index}] = complex_ctr(0, 0);
@@ -259,13 +267,12 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
     %endif
 
     %if unpad_out:
-    complex_t xweight = complex_exp(
-        -direction * ${wrap_const(numpy.pi / fft_size_real)} * position_in_fft * position_in_fft);
+    complex_t xw = xweight(-direction, position_in_fft);
 
     ## FIXME: the check may only be necessary outside of the cycle
     if (position_in_fft < ${fft_size_real})
     {
-        a[${a_index}] = complex_mul(a[${a_index}], xweight);
+        a[${a_index}] = complex_mul(a[${a_index}], xw);
     %endif
         ${output.store}(${g_index} + global_mem_offset,
             complex_div_scalar(a[${a_index}], norm_coeff));
@@ -798,8 +805,7 @@ ${kernel_definition}
         %endif
 
         %if pad_in:
-        complex_t xweight = complex_exp(
-            direction * ${wrap_const(numpy.pi / fft_size_real)} * position_in_fft * position_in_fft);
+        complex_t xw = xweight(direction, position_in_fft);
 
         ## FIXME: the check may only be necessary outside of the cycle
         if (position_in_fft < ${fft_size_real})
@@ -807,7 +813,7 @@ ${kernel_definition}
         %endif
             a[${j}] = ${input.load}(position + ${fft_size} * xform_number);
         %if pad_in:
-            a[${j}] = complex_mul(a[${j}], xweight);
+            a[${j}] = complex_mul(a[${j}], xw);
         }
         else
             a[${j}] = complex_ctr(0, 0);
@@ -921,9 +927,8 @@ ${kernel_definition}
                 position_in_stride_out + thread_id;
             %if unpad_out:
             int position_in_fft = position / ${inner_batch};
-            complex_t xweight = complex_exp(
-                -direction * ${wrap_const(numpy.pi / fft_size_real)} * position_in_fft * position_in_fft);
-            a[${k}] = complex_mul(a[${k}], xweight);
+            complex_t xw = xweight(-direction, position_in_fft);
+            a[${k}] = complex_mul(a[${k}], xw);
             if (position_in_fft < ${fft_size_real})
             %endif
                 ${output.store}(position + ${fft_size} * xform_number,
@@ -949,9 +954,8 @@ ${kernel_definition}
 
             %if unpad_out:
             int position_in_fft = position / ${inner_batch};
-            complex_t xweight = complex_exp(
-                -direction * ${wrap_const(numpy.pi / fft_size_real)} * position_in_fft * position_in_fft);
-            a[${k}] = complex_mul(a[${k}], xweight);
+            complex_t xw = xweight(-direction, position_in_fft);
+            a[${k}] = complex_mul(a[${k}], xw);
             if (position_in_fft < ${fft_size_real})
             %endif
                 ${output.store}(position + ${fft_size} * xform_number,
