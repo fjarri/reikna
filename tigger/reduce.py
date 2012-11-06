@@ -83,12 +83,12 @@ class Reduce(Computation):
             tr_axes = tr_axes[:axis] + tr_axes[axis+1:] + (axis,)
             tr_shape = tuple(basis.shape[i] for i in tr_axes)
 
-            operations.add_allocation('_tr_output', tr_shape, basis.dtype)
+            tr_output = operations.add_allocation(tr_shape, basis.dtype)
 
             transpose = self.get_nested_computation(Transpose)
-            operations.add_computation(transpose, '_tr_output', 'input', axes=tr_axes)
+            operations.add_computation(transpose, tr_output, 'input', axes=tr_axes)
 
-            input_name = '_tr_output'
+            input_name = tr_output
 
         reduction_stage = 0
         while size > final_size:
@@ -112,9 +112,7 @@ class Reduce(Computation):
             global_size = blocks_num * block_size
 
             if new_size != final_size:
-                temp_name = '_temp' + str(reduction_stage)
-                operations.add_allocation(temp_name, (new_size,), basis.dtype)
-                output_name = temp_name
+                output_name = operations.add_allocation((new_size,), basis.dtype)
             else:
                 output_name = 'output'
 
