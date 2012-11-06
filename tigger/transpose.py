@@ -144,15 +144,15 @@ class Transpose(Computation):
         if len(transposes) == 1:
             args = [('output', 'input')]
         elif len(transposes) == 2:
-            operations.add_allocation('_tr_temp', temp_shape, basis.dtype)
+            tr_temp = operations.add_allocation(temp_shape, basis.dtype)
             args = [
-                ('_tr_temp', 'input'),
-                ('output', '_tr_temp')
+                (tr_temp, 'input'),
+                ('output', tr_temp)
             ]
         else:
-            tnames = ['_tr_temp1', '_tr_temp2']
-            operations.add_allocation(tnames[0], temp_shape, basis.dtype)
-            operations.add_allocation(tnames[1], temp_shape, basis.dtype)
+            tnames = [
+                operations.add_allocation(temp_shape, basis.dtype),
+                operations.add_allocation(temp_shape, basis.dtype)]
 
             iname = 'input'
             oname = tnames[0]
