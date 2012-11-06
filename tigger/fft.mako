@@ -671,8 +671,8 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 
     complex_t a[${temp_array_size}];
 
-    int thread_id = get_local_id(0);
-    int group_id = get_group_id(0);
+    int thread_id = virtual_local_id(0);
+    int group_id = virtual_group_id(0);
 
     ## makes it easier to use it inside other definitions
     %if reverse_direction:
@@ -712,7 +712,7 @@ ${kernel_definition}
 
     %if not (threads_per_xform >= min_mem_coalesce_width and xforms_per_workgroup == 1):
         int jj;
-        int num_groups = get_num_groups(0);
+        int num_groups = virtual_num_groups(0);
     %endif
 
     ${insertGlobalLoadsAndTranspose(input, kweights, n, threads_per_xform, xforms_per_workgroup, max_radix,
