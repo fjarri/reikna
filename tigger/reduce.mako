@@ -20,10 +20,12 @@ INLINE WITHIN_KERNEL ${ctype} _reduction_op(${ctype} input1, ${ctype} input2)
 
 ${kernel_definition}
 {
+    VIRTUAL_SKIP_THREADS;
+
     LOCAL_MEM ${ctype} local_mem[${smem_size}];
 
-    int tid = get_local_id(0);
-    int bid = get_group_id(0);
+    int tid = virtual_local_id(0);
+    int bid = virtual_group_id(0);
 
     int part_length = ${(blocks_per_part - 1) * block_size + last_block_size};
     int part_num = bid / ${blocks_per_part};
