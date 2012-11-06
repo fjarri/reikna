@@ -1,7 +1,3 @@
-<%!
-    from __future__ import division
-%>
-
 <%def name="insertBaseKernels()">
 
 ## TODO: replace by intrinsincs if necessary
