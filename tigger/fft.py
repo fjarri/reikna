@@ -427,15 +427,15 @@ def get_fft_kernels(basis, device_params, local_kernel_limit):
         if fft_size == 1:
             continue
 
-        closest_power_of_2 = 2 ** (log2(fft_size - 1) + 1)
+        bounding_size = bounding_power_of_2(fft_size)
 
-        if closest_power_of_2 == fft_size:
+        if bounding_size == fft_size:
             kernels.extend(get_fft_1d_kernels(
                 basis, device_params, outer_batch, fft_size,
                 inner_batch, local_kernel_limit))
         else:
             # padding FFT for the chirp-z transform
-            fft_size_padded = 2 * closest_power_of_2
+            fft_size_padded = 2 * bounding_size
             args = (basis, device_params, outer_batch, fft_size_padded,
                 inner_batch, local_kernel_limit)
 

@@ -103,7 +103,7 @@ class Reduce(Computation):
                 last_block_size = part_size - (blocks_per_part - 1) * block_size
                 new_size = blocks_num
             else:
-                block_size = 2 ** (log2(size / final_size - 1) + 1)
+                block_size = bounding_power_of_2(size // final_size)
                 blocks_per_part = 1
                 blocks_num = final_size
                 last_block_size = size / final_size
