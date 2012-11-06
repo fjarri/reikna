@@ -64,7 +64,7 @@ def pytest_generate_tests(metafunc):
             ((7, 1024, 11), (1,)),
             ((5, 1024, 57), (1,))]
 
-        metafunc.parametrize('non2batch_shape_and_axes', vals, ids=map(idgen, vals))
+        metafunc.parametrize('non2batch_shape_and_axes', vals, ids=list(map(idgen, vals)))
 
     elif 'non2problem_shape_and_axes' in metafunc.funcargnames:
 
@@ -85,7 +85,7 @@ def pytest_generate_tests(metafunc):
             ((7, 1000, 11), (1, 2)),
             ((15, 900, 57), (0, 1, 2))]
 
-        metafunc.parametrize('non2problem_shape_and_axes', vals, ids=map(idgen, vals))
+        metafunc.parametrize('non2problem_shape_and_axes', vals, ids=list(map(idgen, vals)))
 
     elif 'perf_shape_and_axes' in metafunc.funcargnames:
 
