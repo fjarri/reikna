@@ -13,7 +13,7 @@ def find_local_size(device_params, max_workgroup_size, dims):
 
     result = [1] * dims
     pos = 0
-    while product(result) <= max_workgroup_size / unit:
+    while product(result) <= max_workgroup_size // unit:
         if result[pos] * unit > max_dims[pos]:
             pos += 1
             continue
@@ -82,7 +82,7 @@ class VirtualSizes:
 
         # trying to fit in remaining dimensions, to decrease the number of operations
         # in get_group_id()
-        new_max_grid = [mg / g1d for mg, g1d in zip(max_grid, grid1[0])]
+        new_max_grid = [mg // g1d for mg, g1d in zip(max_grid, grid1[0])]
         if product(new_max_grid[1:]) >= grid[1]:
             grid2 = self.get_rearranged_grid_1d([grid[1]], new_max_grid[1:])
             grid2 = [[1] + grid2[0]]
@@ -97,7 +97,7 @@ class VirtualSizes:
 
         # trying to fit in remaining dimensions, to decrease the number of operations
         # in get_group_id()
-        new_max_grid = [mg / g1 / g2 for mg, g1, g2 in zip(max_grid, grid1[0], grid1[1])]
+        new_max_grid = [mg // g1 // g2 for mg, g1, g2 in zip(max_grid, grid1[0], grid1[1])]
         if len(new_max_grid) > 2 and product(new_max_grid[2:]) >= grid[2]:
             grid2 = self.get_rearranged_grid_1d([grid[2]], new_max_grid[2:])
             grid2 = [[1, 1] + grid2[0]]

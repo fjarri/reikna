@@ -252,7 +252,7 @@ class Kernel:
         for gs, ls in zip(self.global_size, self.local_size):
             if gs % ls != 0:
                 raise ValueError("Global sizes must be multiples of corresponding local sizes")
-            grid.append(gs / ls)
+            grid.append(gs // ls)
 
         # append missing dimensions, otherwise PyCUDA will complain
         self.grid = tuple(grid) + (1,) * (3 - len(grid))
@@ -293,7 +293,7 @@ class StaticKernel:
         vs = VirtualSizes(ctx.device_params, max_work_group_size, global_size, local_size)
         static_prelude = vs.render_vsize_funcs()
         self._global_size, self._local_size = vs.get_call_sizes()
-        self._grid = tuple(g / l for g, l in zip(self._global_size, self._local_size))
+        self._grid = tuple(g // l for g, l in zip(self._global_size, self._local_size))
 
         self.source = prelude + static_prelude + src
         self._module = ctx._compile(self.source)

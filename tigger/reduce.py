@@ -94,7 +94,7 @@ class Reduce(Computation):
         while size > final_size:
             reduction_stage += 1
 
-            part_size = size / final_size
+            part_size = size // final_size
 
             if part_size >= max_reduce_power:
                 block_size = max_reduce_power
@@ -106,7 +106,7 @@ class Reduce(Computation):
                 block_size = bounding_power_of_2(size // final_size)
                 blocks_per_part = 1
                 blocks_num = final_size
-                last_block_size = size / final_size
+                last_block_size = size // final_size
                 new_size = final_size
 
             global_size = blocks_num * block_size

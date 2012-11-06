@@ -93,7 +93,7 @@ def pytest_generate_tests(metafunc):
         ids = []
         for log_shape in perf_log_shapes:
             shape = tuple(2 ** x for x in log_shape)
-            batch = perf_mem_limit / (2 ** sum(log_shape))
+            batch = perf_mem_limit // (2 ** sum(log_shape))
             vals.append(((batch,) + shape, tuple(range(1, len(shape) + 1))))
             ids.append(str(batch) + "x" + str(shape))
 
@@ -106,7 +106,7 @@ def pytest_generate_tests(metafunc):
         for log_shape in perf_log_shapes:
             for modifier in (1, -1):
                 shape = tuple(2 ** (x - 1) + modifier for x in log_shape)
-                batch = perf_mem_limit / (2 ** sum(log_shape))
+                batch = perf_mem_limit // (2 ** sum(log_shape))
                 vals.append(((batch,) + shape, tuple(range(1, len(shape) + 1))))
                 ids.append(str(batch) + "x" + str(shape))
 

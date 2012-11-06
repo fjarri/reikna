@@ -8,7 +8,7 @@ ${code_functions(output, input)}
     if block_size > warp_size:
         smem_size = block_size
     else:
-        smem_size = block_size + block_size / 2
+        smem_size = block_size + block_size // 2
 
     ctype = output.ctype
 %>

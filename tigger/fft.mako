@@ -1,3 +1,7 @@
+<%!
+    from __future__ import division
+%>
+
 <%def name="insertBaseKernels()">
 
 ## TODO: replace by intrinsincs if necessary
@@ -725,8 +729,8 @@ ${kernel_definition}
 
     %for r in range(num_radix):
         <%
-            num_iter = radix_arr[0] / radix_arr[r]
-            threads_req = fft_size / radix_arr[r]
+            num_iter = radix_arr[0] // radix_arr[r]
+            threads_req = fft_size // radix_arr[r]
             radix_curr = radix_prev * radix_arr[r]
         %>
 
@@ -748,7 +752,7 @@ ${kernel_definition}
             %endfor
             <%
                 radix_prev = radix_curr
-                data_len = data_len / radix_arr[r]
+                data_len = data_len // radix_arr[r]
             %>
         %endif
     %endfor
@@ -771,7 +775,7 @@ ${kernel_definition}
 ${insertBaseKernels()}
 
 <%
-    num_iter = radix1 / radix2
+    num_iter = radix1 // radix2
     groups_per_xform = min_blocks(stride_in, local_batch)
 %>
 
@@ -876,10 +880,10 @@ ${kernel_definition}
         complex_t w;
 
         int l = (group_in_xform * ${local_batch} + thread_in_xform) / ${stride_out};
-        int k = xform_local * ${radix1 / radix2};
+        int k = xform_local * ${radix1 // radix2};
         ang1 = ${wrap_const(2 * numpy.pi / curr_size)} * l * direction;
         %for t in range(radix1):
-            ang = ang1 * (k + ${(t % radix2) * radix1 + (t / radix2)});
+            ang = ang1 * (k + ${(t % radix2) * radix1 + (t // radix2)});
             w = complex_exp(ang);
             a[${t}] = complex_mul(a[${t}], w);
         %endfor
@@ -888,11 +892,11 @@ ${kernel_definition}
 
     ## Store Data
     %if stride_out == 1:
-        lmem_store_index = mad24(thread_in_xform, ${radix + 1}, xform_local * ${radix1 / radix2});
+        lmem_store_index = mad24(thread_in_xform, ${radix + 1}, xform_local * ${radix1 // radix2});
         lmem_load_index = mad24(thread_id / ${radix}, ${radix + 1}, thread_id % ${radix});
 
         %for comp in ('x', 'y'):
-            %for i in range(radix1 / radix2):
+            %for i in range(radix1 // radix2):
                 %for j in range(radix2):
                     lmem[lmem_store_index + ${i + j * radix1}] = a[${i * radix2 + j}].${comp};
                 %endfor
@@ -901,12 +905,12 @@ ${kernel_definition}
 
             %if local_size >= radix:
                 %for i in range(radix1):
-                    a[${i}].${comp} = lmem[lmem_load_index + ${i * (radix + 1) * (local_size / radix)}];
+                    a[${i}].${comp} = lmem[lmem_load_index + ${i * (radix + 1) * (local_size // radix)}];
                 %endfor
             %else:
                 <%
-                    inner_iter = radix / local_size
-                    outer_iter = radix1 / inner_iter
+                    inner_iter = radix // local_size
+                    outer_iter = radix1 // inner_iter
                 %>
                 %for i in range(outer_iter):
                     %for j in range(inner_iter):
@@ -947,7 +951,7 @@ ${kernel_definition}
 
         %for k in range(radix1):
         {
-            int position = ${((k % radix2) * radix1 + (k / radix2)) * stride_out} +
+            int position = ${((k % radix2) * radix1 + (k // radix2)) * stride_out} +
                 ${stride_out} * (
                     stride_out_number * ${radix} +
                     xform_local * ${radix1 // radix2}) +
