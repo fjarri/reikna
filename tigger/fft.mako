@@ -312,8 +312,8 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 
     %elif fft_size >= mem_coalesce_width:
         <%
-            num_inner_iter = fft_size / mem_coalesce_width
-            num_outer_iter = xforms_per_workgroup / (local_size / mem_coalesce_width)
+            num_inner_iter = fft_size // mem_coalesce_width
+            num_outer_iter = xforms_per_workgroup // (local_size // mem_coalesce_width)
         %>
 
         ii = thread_id % ${mem_coalesce_width};
@@ -329,11 +329,11 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             {
             %for j in range(num_inner_iter):
                 ${insertGlobalLoad(input, kweights, i * num_inner_iter + j, \
-                    j * mem_coalesce_width + i * (local_size / mem_coalesce_width) * fft_size)}
+                    j * mem_coalesce_width + i * (local_size // mem_coalesce_width) * fft_size)}
             %endfor
             }
             %if i != num_outer_iter - 1:
-                jj += ${local_size / mem_coalesce_width};
+                jj += ${local_size // mem_coalesce_width};
             %endif
         %endfor
         }
@@ -342,7 +342,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         %for i in range(num_outer_iter):
             %for j in range(num_inner_iter):
                 ${insertGlobalLoad(input, kweights, i * num_inner_iter + j, \
-                    j * mem_coalesce_width + i * (local_size / mem_coalesce_width) * fft_size)}
+                    j * mem_coalesce_width + i * (local_size // mem_coalesce_width) * fft_size)}
             %endfor
         %endfor
         }
@@ -355,7 +355,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             %for i in range(num_outer_iter):
                 %for j in range(num_inner_iter):
                     lmem[lmem_store_index + ${j * mem_coalesce_width + \
-                        i * (local_size / mem_coalesce_width) * (fft_size + threads_per_xform)}] =
+                        i * (local_size // mem_coalesce_width) * (fft_size + threads_per_xform)}] =
                         a[${i * num_inner_iter + j}].${comp};
                 %endfor
             %endfor
@@ -380,7 +380,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
                 ${insertGlobalLoad(input, kweights, i, i * local_size)}
             }
             %if i != radix - 1:
-                jj += ${local_size / fft_size};
+                jj += ${local_size // fft_size};
             %endif
         %endfor
         }
@@ -403,7 +403,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 
         %for comp in ('x', 'y'):
             %for i in range(radix):
-                lmem[lmem_store_index + ${i * (local_size / fft_size) * (fft_size + threads_per_xform)}] = a[${i}].${comp};
+                lmem[lmem_store_index + ${i * (local_size // fft_size) * (fft_size + threads_per_xform)}] = a[${i}].${comp};
             %endfor
             LOCAL_BARRIER;
 
@@ -419,7 +419,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 
     <%
         local_size = threads_per_xform * xforms_per_workgroup
-        num_iter = max_radix / radix
+        num_iter = max_radix // radix
         s = outer_batch % xforms_per_workgroup
     %>
 
@@ -432,7 +432,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         %for i in range(max_radix):
             <%
                 j = i % num_iter
-                k = i / num_iter
+                k = i // num_iter
                 ind = j * radix + k
             %>
             ${insertGlobalStore(output, kweights, ind, i * threads_per_xform)}
@@ -444,8 +444,8 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 
     %elif fft_size >= mem_coalesce_width:
         <%
-            num_inner_iter = fft_size / mem_coalesce_width
-            num_outer_iter = xforms_per_workgroup / (local_size / mem_coalesce_width)
+            num_inner_iter = fft_size // mem_coalesce_width
+            num_outer_iter = xforms_per_workgroup // (local_size // mem_coalesce_width)
         %>
         lmem_load_index  = mad24(jj, ${fft_size + threads_per_xform}, ii);
         ii = thread_id % ${mem_coalesce_width};
@@ -456,7 +456,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             %for i in range(max_radix):
                 <%
                     j = i % num_iter
-                    k = i / num_iter
+                    k = i // num_iter
                     ind = j * radix + k
                 %>
                 lmem[lmem_load_index + ${i * threads_per_xform}] = a[${ind}].${comp};
@@ -466,7 +466,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             %for i in range(num_outer_iter):
                 %for j in range(num_inner_iter):
                     a[${i*num_inner_iter + j}].${comp} = lmem[lmem_store_index + ${j * mem_coalesce_width + \
-                        i * (local_size / mem_coalesce_width) * (fft_size + threads_per_xform)}];
+                        i * (local_size // mem_coalesce_width) * (fft_size + threads_per_xform)}];
                 %endfor
             %endfor
             LOCAL_BARRIER;
@@ -479,11 +479,11 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             {
             %for j in range(num_inner_iter):
                 ${insertGlobalStore(output, kweights, i * num_inner_iter + j, \
-                    j * mem_coalesce_width + i * (local_size / mem_coalesce_width) * fft_size)}
+                    j * mem_coalesce_width + i * (local_size // mem_coalesce_width) * fft_size)}
             %endfor
             }
             %if i != num_outer_iter - 1:
-                jj += ${local_size / mem_coalesce_width};
+                jj += ${local_size // mem_coalesce_width};
             %endif
         %endfor
         }
@@ -492,7 +492,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         %for i in range(num_outer_iter):
             %for j in range(num_inner_iter):
                 ${insertGlobalStore(output, kweights, i * num_inner_iter + j, \
-                    j * mem_coalesce_width + i * (local_size / mem_coalesce_width) * fft_size)}
+                    j * mem_coalesce_width + i * (local_size // mem_coalesce_width) * fft_size)}
             %endfor
         %endfor
         }
@@ -506,7 +506,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             %for i in range(max_radix):
                 <%
                     j = i % num_iter
-                    k = i / num_iter
+                    k = i // num_iter
                     ind = j * radix + k
                 %>
                 lmem[lmem_load_index + ${i * threads_per_xform}] = a[${ind}].${comp};
@@ -514,7 +514,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             LOCAL_BARRIER;
 
             %for i in range(max_radix):
-                a[${i}].${comp} = lmem[lmem_store_index + ${i * (local_size / fft_size) * (fft_size + threads_per_xform)}];
+                a[${i}].${comp} = lmem[lmem_store_index + ${i * (local_size // fft_size) * (fft_size + threads_per_xform)}];
             %endfor
             LOCAL_BARRIER;
         %endfor
@@ -527,7 +527,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
                 ${insertGlobalStore(output, kweights, i, i * local_size)}
             }
             %if i != max_radix - 1:
-                jj += ${local_size / fft_size};
+                jj += ${local_size // fft_size};
             %endif
         %endfor
         }
@@ -585,26 +585,26 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 
 <%def name="insertLocalLoads(n, radix, radix_next, radix_prev, radix_curr, threads_per_xform, threads_req, offset, comp)">
     <%
-        threads_req_next = fft_size / radix_next
-        inter_block_hnum = max(radix_prev / threads_per_xform, 1)
+        threads_req_next = fft_size // radix_next
+        inter_block_hnum = max(radix_prev // threads_per_xform, 1)
         inter_block_hstride = threads_per_xform
-        vert_width = max(threads_per_xform / radix_prev, 1)
+        vert_width = max(threads_per_xform // radix_prev, 1)
         vert_width = min(vert_width, radix)
-        vert_num = radix / vert_width
-        vert_stride = (fft_size / radix + offset) * vert_width
-        iter = max(threads_req_next / threads_per_xform, 1)
-        intra_block_hstride = max(threads_per_xform / (radix_prev * radix), 1)
+        vert_num = radix // vert_width
+        vert_stride = (fft_size // radix + offset) * vert_width
+        iter = max(threads_req_next // threads_per_xform, 1)
+        intra_block_hstride = max(threads_per_xform // (radix_prev * radix), 1)
         intra_block_hstride *= radix_prev
 
-        stride = threads_req / radix_next
+        stride = threads_req // radix_next
     %>
 
     %for i in range(iter):
         <%
-            ii = i / (inter_block_hnum * vert_num)
+            ii = i // (inter_block_hnum * vert_num)
             zz = i % (inter_block_hnum * vert_num)
             jj = zz % inter_block_hnum
-            kk = zz / inter_block_hnum
+            kk = zz // inter_block_hnum
         %>
 
         %for z in range(radix_next):
