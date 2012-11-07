@@ -80,7 +80,6 @@ class MatrixMul(Computation):
             b=ArrayValue(b_shape, basis.b_dtype))
 
     def _construct_operations(self, basis, device_params):
-        print basis
         bwo = basis.block_width_override
 
         if bwo is not None and bwo ** 2 > device_params.max_work_group_size:
@@ -111,8 +110,6 @@ class MatrixMul(Computation):
                     global_size=(grid_width * block_width, blocks_per_matrix * basis.batch * block_width),
                     local_size=(block_width, block_width),
                     render_kwds=render_kwds)
-                print (grid_width * block_width, blocks_per_matrix * basis.batch * block_width), \
-                    (block_width, block_width), render_kwds
             except OutOfResourcesError:
                 continue
 
