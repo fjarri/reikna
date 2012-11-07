@@ -44,10 +44,11 @@ class Context:
                 raise RuntimeError("Cannot find suitable OpenCL device to create CLUDA context")
 
         ctx = cl.Context(devices=[device])
+        kwds['owns_context'] = True
 
         return cls(ctx, **kwds)
 
-    def __init__(self, context, queue=None, fast_math=True, async=True):
+    def __init__(self, context, queue=None, fast_math=True, async=True, owns_context=False):
         self.api = cluda.api(API_ID)
         self._fast_math = fast_math
         self._context = context
@@ -56,6 +57,7 @@ class Context:
         self._device = self._context.devices[0]
 
         self._queue = self.create_queue() if queue is None else queue
+        self._released = False if owns_context else True
 
     def override_device_params(self, **kwds):
         for kwd in kwds:
@@ -123,7 +125,14 @@ class Context:
             self.synchronize()
 
     def release(self):
-        pass
+        if not self._released:
+            del self._device
+            del self._queue
+            del self._context
+            self._released = True
+
+    def __del__(self):
+        self.release()
 
     def _compile(self, src):
         options = "-cl-mad-enable -cl-fast-relaxed-math" if self._fast_math else ""
