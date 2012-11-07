@@ -2,6 +2,8 @@
 
 ${kernel_definition}
 {
+    VIRTUAL_SKIP_THREADS;
+
     // Storage for sub-matrices of A and B
     // Not using dynamic local memory, because we need (in general) two different types,
     // and creating two views for dynamic char* array does not work.
@@ -22,10 +24,10 @@ ${kernel_definition}
     int B_shift = 0;
     int C_shift = 0;
 
-    %if batched_a:
+    %if basis.batched_a:
         A_shift += matrix_num * ${basis.a_height} * ${basis.a_width};
     %endif
-    %if batched_b:
+    %if basis.batched_b:
         B_shift += matrix_num * ${basis.a_width} * ${basis.b_width};
     %endif
     C_shift += matrix_num * ${basis.a_height} * ${basis.b_width};
