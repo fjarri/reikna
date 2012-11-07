@@ -32,11 +32,19 @@ class ReturnValuesPlugin(object):
     def pytest_pyfunc_call(self, __multicall__, pyfuncitem):
         # collect testcase return result
         testfunction = pyfuncitem.obj
+
+        # Taken from _pytest/python.py/pytest_pyfunc_call()
+        # This bit uses some internal functions which seem to change without notice.
+        # Need to replace it with proper mechanism when such functionality is available in pytest.
         if pyfuncitem._isyieldedfunction():
             res = testfunction(*pyfuncitem._args)
         else:
             funcargs = pyfuncitem.funcargs
-            res = testfunction(**funcargs)
+            testargs = {}
+            for arg in pyfuncitem._fixtureinfo.argnames:
+                testargs[arg] = funcargs[arg]
+            res = testfunction(**testargs)
+
         pyfuncitem.retval = res
 
     def pytest_runtest_makereport(self, __multicall__, item, call):
