@@ -2,6 +2,7 @@ import numpy
 
 from tigger.helpers import *
 from tigger.core import *
+from tigger.cluda import OutOfResourcesError
 
 TEMPLATE = template_for(__file__)
 
@@ -62,8 +63,8 @@ class MatrixMul(Computation):
             a_height=a.shape[-2],
             b_width=b.shape[-1],
             batch=out_batch,
-            batched_a=(a_batch == 1),
-            batched_b=(b_batch == 1),
+            batched_a=(a_batch != 1),
+            batched_b=(b_batch != 1),
             out_shape=out_shape))
 
         return bs
@@ -79,26 +80,42 @@ class MatrixMul(Computation):
             b=ArrayValue(b_shape, basis.b_dtype))
 
     def _construct_operations(self, basis, device_params):
+        print basis
+        bwo = basis.block_width_override
 
-        operations = self._get_operation_recorder()
-        bso = basis.block_width_override
-        block_width = device_params.local_mem_banks if bso is None else bso
+        if bwo is not None and bwo ** 2 > device_params.max_work_group_size:
+            raise OutOfResourcesError("Requested block width is too big for the device")
 
-        if block_width ** 2 > device_params.max_work_group_size:
-            # If it is not CPU, current solution may affect performance
-            block_width = int(numpy.sqrt(device_params.max_work_group_size))
+        block_width = device_params.local_mem_banks if bwo is None else bwo
 
-        blocks_per_matrix = min_blocks(basis.a_height, block_width)
-        grid_width = min_blocks(basis.b_width, block_width)
+        block_width *= 2
+        while block_width >= 1:
+            block_width //= 2
 
-        render_kwds = dict(
-            block_width=block_width,
-            grid_width=grid_width,
-            blocks_per_matrix=blocks_per_matrix)
+            operations = self._get_operation_recorder()
 
-        operations.add_kernel(
-            TEMPLATE, 'matrixmul', ['out', 'a', 'b'],
-            global_size=(grid_width * block_width, blocks_per_matrix * basis.batch * block_width),
-            local_size=(block_width, block_width),
-            render_kwds=render_kwds)
-        return operations
+            if block_width ** 2 > device_params.max_work_group_size:
+                continue
+
+            blocks_per_matrix = min_blocks(basis.a_height, block_width)
+            grid_width = min_blocks(basis.b_width, block_width)
+
+            render_kwds = dict(
+                block_width=block_width,
+                grid_width=grid_width,
+                blocks_per_matrix=blocks_per_matrix)
+
+            try:
+                operations.add_kernel(
+                    TEMPLATE, 'matrixmul', ['out', 'a', 'b'],
+                    global_size=(grid_width * block_width, blocks_per_matrix * basis.batch * block_width),
+                    local_size=(block_width, block_width),
+                    render_kwds=render_kwds)
+                print (grid_width * block_width, blocks_per_matrix * basis.batch * block_width), \
+                    (block_width, block_width), render_kwds
+            except OutOfResourcesError:
+                continue
+
+            return operations
+
+        raise ValueError("Could not find suitable call parameters for the kernel")
