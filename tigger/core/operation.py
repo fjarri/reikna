@@ -89,6 +89,7 @@ class OperationRecorder:
             raise ValueError("Render keywords clash with internal variables: " +
                 ", ".join(intersection))
 
+        render_kwds = dict(render_kwds) # shallow copy
         render_kwds.update(additional_kwds)
         src = render_template(subtemplate, *args, **render_kwds)
 
