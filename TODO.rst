@@ -3,6 +3,8 @@
 
 * TODO: FFT: remove hardcode of max_lmem_fft_size
 * TODO: FFT: process cases of problem_size == 1 properly (we still have to run transformations)
+* TODO: FFT: clean up code, check that there are no warnings during compilation
+* TODO: FFT: check why non-power-of-2 performance is so bad
 * TODO: add memory packing functionality to OperationRecorder
 * TODO: cool feature: process the list and remove unnecessary allocations, replacing them by creating views
 * TODO: new operation.add_view() function:
@@ -14,23 +16,32 @@
   For testing purposes, 2) and 3) are not necessary - just create a new allocation.
 * When doing 'pip uninstall' it shows the full list of files, when other modules just show
   a list of folders. Should be something connected to MANIFEST and package data.
+* TODO: add functionality tests for matrixmul
+* TODO: add better block width finder for small matrices in matrixmul
 
 
-0.3.0
+0.3.0 (suitable for beclab)
+===========================
+
+* TODO: add DHT
+* TODO: add MD5 randoms
+* TODO: Flatten kernel list before execution, and assign argument numbers
+* TODO: add "raises" sections to Computation/OperationRecorder methods
+* DECIDE: move all "raw" computations to their own submodule?
+
+0.4.0
 =====
 
 * TODO: move part of core.transformation to a template
 * TODO: add custom render keywords for transformations (will help e.g. in tigger.transformations)
-* TODO: Flatten kernel list before execution, and assign argument numbers
 * TODO: create some elementwise computations derived from Elementwise
 * TODO: document _debug usage
 * TODO: add "dynamic regime"
-* TODO: add "raises" sections to Computation/OperationRecorder methods
-* TODO: create "fallback" when if _construct_operations() does not catch OutOfResources,
-  it is called again with reduced local size
 * TODO: run coverage tests and see if some functionality has to be tested,
   and check existing testcases for redundancy (fft and vsizes in particular)
 * TODO: run pylint
+* TODO: create "fallback" when if _construct_operations() does not catch OutOfResources,
+  it is called again with reduced local size
 
 
 1.0.0 (production-quality version... hopefully)
@@ -69,9 +80,8 @@ Core:
 Computations:
 
 * CHECK: need to find a balance between creating more workgroups or making loops inside kernels
-  See, for example, matrximul (batch is processed using loop)
-* TODO: add DHT
-* TODO: add random number generation (MD5 and DCMT seem to be the best candidates)
+  (can be applied in elementwise kernels)
+* TODO: add DCMT and 123 randoms
 * TODO: add bitonic sort
 * TODO: add filter
 
