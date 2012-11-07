@@ -12,7 +12,6 @@
      Otherwise create an allocation.
   3) If applied to an output array, and the allocation was already created, create a view of it.
   For testing purposes, 2) and 3) are not necessary - just create a new allocation.
-* TODO: add Python 3 supports and run full set of tests
 * When doing 'pip uninstall' it shows the full list of files, when other modules just show
   a list of folders. Should be something connected to MANIFEST and package data.
 
