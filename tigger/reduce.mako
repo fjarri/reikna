@@ -58,7 +58,7 @@ ${kernel_definition}
     // Fix for Fermi videocards, see Compatibility Guide 1.2.2
     volatile ${ctype} *smem = local_mem;
     #else
-    LOCAL_MEM ${ctype} *smem = local_mem;
+    LOCAL_MEM volatile ${ctype} *smem = local_mem;
     #endif
 
     ${ctype} ttt;
