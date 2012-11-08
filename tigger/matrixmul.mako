@@ -51,6 +51,10 @@ ${kernel_definition}
     // that is computed by the thread
     ${out.ctype} Csub = ${dtypes.zero_ctr(out.dtype)};
 
+    int c_x = ${block_width} * bx + tx;
+    int c_y = ${block_width} * by + ty;
+    bool in_c = (c_y < ${basis.a_height} && c_x < ${basis.b_width});
+
     // Loop over all the sub-matrices of A and B
     // required to compute the block sub-matrix
     for (int a_idx = aBegin, b_idx = bBegin, step = 0; a_idx <= aEnd;
@@ -74,18 +78,19 @@ ${kernel_definition}
         // Multiply the two matrices together;
         // each thread computes one element
         // of the block sub-matrix
-        for (int k = 0; k < ${block_width}; k++)
-            Csub = Csub + ${func.mul(a.dtype, b.dtype, out=out.dtype)}(
-                As[ty * ${block_width} + k], Bs[k * ${block_width} + tx]);
+        if (in_c)
+        {
+            for (int k = 0; k < ${block_width}; k++)
+                Csub = Csub + ${func.mul(a.dtype, b.dtype, out=out.dtype)}(
+                    As[ty * ${block_width} + k], Bs[k * ${block_width} + tx]);
+        }
 
         LOCAL_BARRIER;
     }
 
     // Write the block sub-matrix to device memory;
     // each thread writes one element
-    int c_x = ${block_width} * bx + tx;
-    int c_y = ${block_width} * by + ty;
-    if(c_y < ${basis.a_height} && c_x < ${basis.b_width})
+    if(in_c)
         ${out.store}(C_shift + ${basis.b_width} * c_y + c_x, Csub);
 }
 
