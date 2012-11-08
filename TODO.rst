@@ -120,4 +120,8 @@ Transformation DSL
 Currently transformation code is quite difficult to read and write.
 Perhaps some DSL can be devised to make it easier?
 Even better, if that DSL could be applied to kernels too.
-Take a look at Copperhead (Python-based DSL for GPGPU) and CodePy (Python -> AST transformer)
+Take a look at:
+* Copperhead (Python-based DSL for GPGPU)
+* CodePy (Python -> AST transformer)
+* Clyther (subset of Python -> OpenCL code)
+* https://github.com/mdipierro/mdpcl (same)
