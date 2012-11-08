@@ -16,8 +16,6 @@
   For testing purposes, 2) and 3) are not necessary - just create a new allocation.
 * When doing 'pip uninstall' it shows the full list of files, when other modules just show
   a list of folders. Should be something connected to MANIFEST and package data.
-* TODO: add functionality tests for matrixmul
-* TODO: add better block width finder for small matrices in matrixmul
 
 
 0.3.0 (suitable for beclab)
@@ -28,6 +26,7 @@
 * TODO: Flatten kernel list before execution, and assign argument numbers
 * TODO: add "raises" sections to Computation/OperationRecorder methods
 * DECIDE: move all "raw" computations to their own submodule?
+
 
 0.4.0
 =====
@@ -84,6 +83,7 @@ Computations:
 * TODO: add DCMT and 123 randoms
 * TODO: add bitonic sort
 * TODO: add filter
+* TODO: add better block width finder for small matrices in matrixmul
 
 
 1.*
