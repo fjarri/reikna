@@ -82,14 +82,13 @@ class MatrixMul(Computation):
     def _construct_operations(self, basis, device_params):
         bwo = basis.block_width_override
 
-        if bwo is not None and bwo ** 2 > device_params.max_work_group_size:
-            raise OutOfResourcesError("Requested block width is too big for the device")
+        if bwo is not None:
+            block_widths = [bwo]
+        else:
+            nbanks = device_params.local_mem_banks
+            block_widths = [2 ** n for n in xrange(log2(nbanks), -1, -1)]
 
-        block_width = device_params.local_mem_banks if bwo is None else bwo
-
-        block_width *= 2
-        while block_width >= 1:
-            block_width //= 2
+        for block_width in block_widths:
 
             operations = self._get_operation_recorder()
 
@@ -107,7 +106,8 @@ class MatrixMul(Computation):
             try:
                 operations.add_kernel(
                     TEMPLATE, 'matrixmul', ['out', 'a', 'b'],
-                    global_size=(grid_width * block_width, blocks_per_matrix * basis.batch * block_width),
+                    global_size=(grid_width * block_width,
+                        blocks_per_matrix * basis.batch * block_width),
                     local_size=(block_width, block_width),
                     render_kwds=render_kwds)
             except OutOfResourcesError:
