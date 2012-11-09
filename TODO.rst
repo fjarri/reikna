@@ -7,13 +7,6 @@
 * TODO: FFT: check why non-power-of-2 performance is so bad
 * TODO: add memory packing functionality to OperationRecorder
 * TODO: cool feature: process the list and remove unnecessary allocations, replacing them by creating views
-* TODO: new operation.add_view() function:
-  1) If applied to an already created temporary array, just creates its view.
-  2) If applied to an output array, check the transformations attached to it.
-     If they finish in the single array of the same size or larger, create a view.
-     Otherwise create an allocation.
-  3) If applied to an output array, and the allocation was already created, create a view of it.
-  For testing purposes, 2) and 3) are not necessary - just create a new allocation.
 * When doing 'pip uninstall' it shows the full list of files, when other modules just show
   a list of folders. Should be something connected to MANIFEST and package data.
 
@@ -75,6 +68,12 @@ Core:
 * TODO: take not only CLUDA context as a parameter for computation constructor, but also CommandQueue, opencl context, cuda stream and so on.
 * TODO: optimize allocation calls throughout the context
 * TODO: cache results of _construct_operations based on the basis, device_params, argnames and attached transformations
+* DECIDE: see if it's possible to reuse input/output parameters as bases for temporary allocations.
+  In order to do that the computation (and initially the user) has to provide hints that
+  the input array can be overwritten. Also one has to take into account possible padding
+  and itemsize changes in the transformations. Actually, this looks too convoluted and
+  with the support for shared temporary allocations in the single context it is almost useless
+  (unless you want to FFT half of the video memory).
 
 Computations:
 
