@@ -8,19 +8,36 @@ def find_local_size(device_params, max_workgroup_size, dims):
     """
     Simple algorithm to find local_size with given limitations
     """
+
+    # shortcut for CPU devices
+    if device_params.warp_size == 1:
+        return [max_workgroup_size] + [1] * (dims - 1)
+
+    # trying to find local size with dimensions which are multiples of warp_size
     unit = device_params.warp_size
     max_dims = device_params.max_work_item_sizes
 
-    result = [1] * dims
+    sizes = [1]
+    for i in xrange(1, min_blocks(max_workgroup_size, unit)):
+        if i * unit <= max_workgroup_size:
+            sizes.append(i * unit)
+
+    total_size = lambda indices: product([sizes[i] for i in indices])
+    result_indices = [0] * dims
     pos = 0
-    while product(result) <= max_workgroup_size // unit:
-        if result[pos] * unit > max_dims[pos]:
-            pos += 1
-            continue
 
-        result[pos] *= unit
+    while True:
+        new_index = result_indices[pos] + 1
+        if new_indices[pos] < len(sizes) and total_size(new_indices) <= max_workgroup_size:
+            if size[new_indices[pos]] > max_dims[pos]:
+                pos += 1
+                continue
+            else:
+                result_indices[pos] += 1
+        else:
+            break
 
-    return tuple(result)
+    return tuple([sizes[i] for i in result_indices])
 
 
 def render_stub_vsize_funcs():
