@@ -45,6 +45,8 @@ ${kernel_definition}
 		if(xBlock + lid_y < ${input_width} && yBlock + lid_x < ${input_height})
 			${output.store}(index_out, block[index_transpose]);
 
+		LOCAL_BARRIER;
+
 		index_in += ${input_width * input_height};
 		index_out += ${input_width * input_height};
 	}
