@@ -68,7 +68,11 @@
     #define LOCAL_BARRIER barrier(CLK_LOCAL_MEM_FENCE)
 
     // 'static' helps to avoid the "no previous prototype for function" warning
+    #if PYOPENCL_CL_VERSION >= 0x1020
     #define WITHIN_KERNEL static
+    #else
+    #define WITHIN_KERNEL
+    #endif
 
     #define KERNEL __kernel
     #define GLOBAL_MEM __global
