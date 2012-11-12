@@ -52,6 +52,7 @@ CLUDA:
 * DECIDE: make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
 * DECIDE: change type of id()/size() functions to size_t in case of CUDA?
 * TODO: find a way to get ``min_mem_coalesce_width`` for OpenCL
+* TODO: add a mechanism to select the best local size based on occupancy
 
 Core:
 
@@ -83,6 +84,7 @@ Computations:
 * TODO: add bitonic sort
 * TODO: add filter
 * TODO: add better block width finder for small matrices in matrixmul
+* TODO: add radix-3,5,7 for FFT
 
 
 1.*
