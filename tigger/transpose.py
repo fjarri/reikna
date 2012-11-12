@@ -85,7 +85,7 @@ class Transpose(Computation):
     def _get_argnames(self):
         return ('output',), ('input',), tuple()
 
-    def _get_basis_for(self, output, input, axes=(1, 0), block_width_override=None):
+    def _get_basis_for(self, output, input, axes=None, block_width_override=None):
 
         bs = AttrDict(block_width_override=block_width_override)
 
