@@ -118,7 +118,7 @@ def check_performance(ctx_and_double, shape1, shape2, bwo):
 
     try:
         dot = MatrixMul(ctx).prepare_for(res_dev, a_dev, b_dev, block_width_override=bwo)
-    except OutOfResourcesError:
+    except ValueError:
         pytest.skip()
 
     attempts = 10
