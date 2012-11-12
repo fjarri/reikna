@@ -170,10 +170,9 @@ class DeviceParameters:
         self.max_num_groups = [sys.maxsize, sys.maxsize, sys.maxsize]
 
         if device.type == cl.device_type.CPU:
-            # For CPU both values do not make much sense,
-            # so we are just setting them to maximum
+            # For CPU both values do not make much sense
             self.local_mem_banks = self.max_work_group_size
-            self.warp_size = self.max_work_group_size
+            self.warp_size = 1
         elif "cl_nv_device_attribute_query" in device.extensions:
             # If NV extensions are available, use them to query info
             self.local_mem_banks = 16 if device.compute_capability_major_nv < 2 else 32
