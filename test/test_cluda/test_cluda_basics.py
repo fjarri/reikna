@@ -146,7 +146,7 @@ def test_dtype_support(ctx, dtype):
     N = 256
 
     if not ctx.supports_dtype(dtype):
-        return
+        pytest.skip()
 
     module = ctx.compile(
     """
