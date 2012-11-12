@@ -153,7 +153,7 @@ def test_dtype_support(ctx, dtype):
     KERNEL void test(
         GLOBAL_MEM ${ctype} *dest, GLOBAL_MEM ${ctype} *a, GLOBAL_MEM ${ctype} *b)
     {
-      const int i = get_local_id(0);
+      const int i = get_global_id(0);
       ${ctype} temp = ${func.mul(dtype, dtype)}(a[i], b[i]);
       dest[i] = ${func.div(dtype, dtype)}(temp, b[i]);
     }
