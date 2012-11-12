@@ -26,30 +26,27 @@ ${kernel_definition}
 	unsigned int gid_x = virtual_group_id(0);
 	unsigned int gid_y = virtual_group_id(1);
 
+	unsigned int batch_num = gid_y / ${blocks_per_matrix};
+	gid_y = gid_y % ${blocks_per_matrix};
+
 	unsigned int xBlock = ${block_width} * gid_x;
 	unsigned int yBlock = ${block_width} * gid_y;
 	unsigned int xIndex = xBlock + lid_x;
 	unsigned int yIndex = yBlock + lid_y;
 	unsigned int index_block = lid_y * (${block_width} + 1) + lid_x;
 	unsigned int index_transpose = lid_x * (${block_width} + 1) + lid_y;
-	unsigned int index_in = ${input_width} * yIndex + xIndex;
-	unsigned int index_out = ${input_height} * (xBlock + lid_y) + yBlock + lid_x;
+	unsigned int index_in = ${input_width} * yIndex + xIndex +
+		batch_num * ${input_width * input_height};
+	unsigned int index_out = ${input_height} * (xBlock + lid_y) + yBlock + lid_x +
+		batch_num * ${input_width * input_height};
 
-	for(int n = 0; n < ${batch}; ++n)
-	{
-		if(xIndex < ${input_width} && yIndex < ${input_height})
-			block[index_block] = ${input.load}(index_in);
+	if(xIndex < ${input_width} && yIndex < ${input_height})
+		block[index_block] = ${input.load}(index_in);
 
-		LOCAL_BARRIER;
+	LOCAL_BARRIER;
 
-		if(xBlock + lid_y < ${input_width} && yBlock + lid_x < ${input_height})
-			${output.store}(index_out, block[index_transpose]);
-
-		LOCAL_BARRIER;
-
-		index_in += ${input_width * input_height};
-		index_out += ${input_width * input_height};
-	}
+	if(xBlock + lid_y < ${input_width} && yBlock + lid_x < ${input_height})
+		${output.store}(index_out, block[index_transpose]);
 }
 
 </%def>
