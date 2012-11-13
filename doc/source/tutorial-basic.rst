@@ -60,7 +60,7 @@ As an example, let us consider an elementwise computation object with one output
 
     TestComputation = specialize_elementwise(
         'out', ['in1', 'in2'], 'param',
-        dict(kernel="${out.store}(${in1.load} + ${in2.load} + ${param};"))
+        dict(kernel="${out.store}(idx, ${in1.load}(idx) + ${in2.load}(idx) + ${param});"))
 
     comp = TestComputation(ctx)
 
@@ -124,8 +124,15 @@ The resulting computation returns the value ``in1 + (in2_prime * param2) + param
 In order to run it, we have to prepare it first.
 When ``prepare_for`` is called, the data types and shapes of the given arguments will be propagated to the roots and used to prepare the original computation.
 
-::
+.. testcode:: transformation_example
 
+    N = 128
+    out1 = ctx.allocate(N, numpy.float32)
+    out2 = ctx.allocate(N, numpy.float32)
+    in1 = ctx.to_device(numpy.ones(N, numpy.float32))
+    in2_prime = ctx.to_device(numpy.ones(N, numpy.float32))
+    param = 3
+    param2 = 4
     comp.prepare_for(out1, out2, in1, in2_prime, param, param2)
     comp(out1, out2, in1, in2_prime, param, param2)
 
