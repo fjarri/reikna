@@ -27,14 +27,18 @@ def find_local_size(device_params, max_workgroup_size, dims):
     pos = 0
 
     while True:
-        new_index = result_indices[pos] + 1
-        if new_indices[pos] < len(sizes) and total_size(new_indices) <= max_workgroup_size:
-            if size[new_indices[pos]] > max_dims[pos]:
+        result_indices[pos] += 1
+
+        if result_indices[pos] < len(sizes) and total_size(result_indices) <= max_workgroup_size:
+            if sizes[result_indices[pos]] > max_dims[pos]:
+                result_indices[pos] -= 1
+
+                if pos == len(result_indices):
+                    break
+
                 pos += 1
-                continue
-            else:
-                result_indices[pos] += 1
         else:
+            result_indices[pos] -= 1
             break
 
     return tuple([sizes[i] for i in result_indices])
