@@ -150,8 +150,9 @@ Each computation class has to define the following methods:
                 </%def>
                 """)
 
-            operations.add_kernel(template, 'testcomp', ['output', 'input1', 'input2', 'param'],
-                global_size=basis.shape, render_kwds=dict(size=basis.size))
+            operations.add_kernel(template, 'testcomp',
+                ['output', 'input1', 'input2', 'param'],
+                global_size=basis.shape)
             return operations
 
     Every kernel call is based on the separate ``Mako`` template function.
