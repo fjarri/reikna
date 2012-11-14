@@ -145,13 +145,13 @@ Each computation class has to define the following methods:
                     ${k_output.ctype} result = ${k_input1.load}(idx) +
                         ${func.mul(k_input2.dtype, k_param.dtype)}(
                             ${k_input2.load}(idx), ${k_param});
-                    ${k_output.store}(result, idx);
+                    ${k_output.store}(idx, result);
                 }
                 </%def>
                 """)
 
             operations.add_kernel(template, 'testcomp', ['output', 'input1', 'input2', 'param'],
-                global_size=(basis.size,), render_kwds=dict(size=basis.size))
+                global_size=basis.shape, render_kwds=dict(size=basis.size))
             return operations
 
     Every kernel call is based on the separate ``Mako`` template function.
