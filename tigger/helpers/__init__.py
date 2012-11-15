@@ -59,7 +59,7 @@ def template_defs_for_code(code, argnames):
     """
     return (
         "<%def name='code_functions(" + ", ".join(argnames) + ")'>\n" +
-        code.pop('functions', "") +
+        code.get('functions', "") +
         "\n</%def>" +
         "<%def name='code_kernel(" + ", ".join(argnames) + ")'>\n" +
         code['kernel'] +
