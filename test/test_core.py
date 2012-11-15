@@ -54,6 +54,31 @@ class Dummy(Computation):
         return operations
 
 
+class DummyNested(Computation):
+    """
+    Dummy computation class with a nested computation inside.
+    """
+
+    def _get_argnames(self):
+        return ('C', 'D'), ('A', 'B'), ('coeff',)
+
+    def _get_basis_for(self, C, D, A, B, coeff):
+        assert C.dtype == D.dtype == A.dtype == B.dtype
+        return dict(arr_dtype=C.dtype, coeff_dtype=coeff.dtype, size=C.size)
+
+    def _get_argvalues(self, basis):
+        av = ArrayValue((basis.size,), basis.arr_dtype)
+        sv = ScalarValue(basis.coeff_dtype)
+        return dict(C=av, D=av, A=av, B=av, coeff=sv)
+
+    def _construct_operations(self, basis, device_params):
+        operations = self._get_operation_recorder()
+        nested = self.get_nested_computation(Dummy)
+        # note that the argument order is changed
+        operations.add_computation(nested, 'D', 'C', 'B', 'A', 'coeff')
+        return operations
+
+
 # A function which does the same job as base Dummy kernel
 def mock_dummy(a, b, coeff):
     return a * coeff, b / coeff
@@ -309,3 +334,45 @@ def test_connection_to_base(ctx):
 
     assert diff_is_negligible(ctx.from_device(gpu_C_prime), C_prime)
     assert diff_is_negligible(ctx.from_device(gpu_D), D)
+
+def test_nested(ctx):
+
+    coeff = numpy.float32(2)
+    B_param = numpy.float32(3)
+    D_param = numpy.float32(4)
+    N = 1024
+
+    d = DummyNested(ctx)
+
+    d.connect(tr_trivial, 'A', ['A_prime'])
+    d.connect(tr_2_to_1, 'B', ['A_prime', 'B_prime'], ['B_param'])
+    d.connect(tr_trivial, 'B_prime', ['B_new_prime'])
+    d.connect(tr_1_to_2, 'C', ['C_half1', 'C_half2'])
+    d.connect(tr_trivial, 'C_half1', ['C_new_half1'])
+    d.connect(tr_scale, 'D', ['D_prime'], ['D_param'])
+
+    A_prime = get_test_array(N, numpy.complex64)
+    B_new_prime = get_test_array(N, numpy.complex64)
+    gpu_A_prime = ctx.to_device(A_prime)
+    gpu_B_new_prime = ctx.to_device(B_new_prime)
+    gpu_C_new_half1 = ctx.allocate(N, numpy.complex64)
+    gpu_C_half2 = ctx.allocate(N, numpy.complex64)
+    gpu_D_prime = ctx.allocate(N, numpy.complex64)
+    d.prepare_for(
+        gpu_C_new_half1, gpu_C_half2, gpu_D_prime,
+        gpu_A_prime, gpu_B_new_prime,
+        coeff, D_param, B_param)
+
+    d(gpu_C_new_half1, gpu_C_half2, gpu_D_prime,
+        gpu_A_prime, gpu_B_new_prime, coeff, D_param, B_param)
+
+    A = A_prime
+    B = A_prime * B_param + B_new_prime
+    D, C = mock_dummy(B, A, coeff)
+    C_new_half1 = C / 2
+    C_half2 = C / 2
+    D_prime = D * D_param
+
+    assert diff_is_negligible(ctx.from_device(gpu_C_new_half1), C_new_half1)
+    assert diff_is_negligible(ctx.from_device(gpu_C_half2), C_half2)
+    assert diff_is_negligible(ctx.from_device(gpu_D_prime), D_prime)
