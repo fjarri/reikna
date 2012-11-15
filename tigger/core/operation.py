@@ -170,7 +170,7 @@ class ComputationCall:
                 new_argnames.append(internal_name)
             elif new_scalar_args is not None and internal_name in new_scalar_args:
                 new_argnames.append(internal_name)
-        print "new argnames", new_argnames
+
         self.argnames = new_argnames
 
         self._update_maps()
