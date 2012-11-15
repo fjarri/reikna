@@ -107,7 +107,7 @@ class OperationRecorder:
         connections = self._tr_tree.connections_for(operation.argnames)
         for tr, array_arg, new_array_args, new_scalar_args in connections:
             operation.connect(tr, array_arg, new_array_args, new_scalar_args)
-        operation.prepare(self.values)
+        operation.prepare({name:value for name, value in self._tr_tree.leaf_signature()})
         self.operations.append(operation)
 
     def optimize_execution(self):
@@ -137,7 +137,9 @@ class ComputationCall:
         self.computation = computation
         self.argnames = argnames
         self.kwds = kwds
+        self._update_maps()
 
+    def _update_maps(self):
         argnames = [x for x, _ in self.computation.leaf_signature()]
         self.map_to_internal = {external_name:internal_name
             for external_name, internal_name in zip(self.argnames, argnames)}
@@ -156,12 +158,22 @@ class ComputationCall:
         self.computation(*args)
 
     def connect(self, tr, array_arg, new_array_args, new_scalar_args=None):
-        replace = lambda x: self.map_to_internal.get(x, x)
-        array_arg = replace(array_arg)
-        new_array_args = [replace(name) for name in new_array_args]
-        new_scalar_args = [replace(name) for name in new_scalar_args]
+        internal_array_arg = self.map_to_internal[array_arg]
+        self.computation.connect(tr, internal_array_arg, new_array_args, new_scalar_args)
 
-        self.computation.connect(tr, array_arg, new_array_args, new_scalar_args)
+        new_signature = [x for x, _ in self.computation.leaf_signature()]
+        new_argnames = []
+        for internal_name in new_signature:
+            if internal_name in self.map_to_external:
+                new_argnames.append(self.map_to_external[internal_name])
+            elif internal_name in new_array_args:
+                new_argnames.append(internal_name)
+            elif new_scalar_args is not None and internal_name in new_scalar_args:
+                new_argnames.append(internal_name)
+        print "new argnames", new_argnames
+        self.argnames = new_argnames
+
+        self._update_maps()
 
 
 class KernelCall:
