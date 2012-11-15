@@ -32,6 +32,9 @@
 * TODO: run pylint
 * TODO: create "fallback" when if _construct_operations() does not catch OutOfResources,
   it is called again with reduced local size
+* DECIDE: how to handle cases when the name of a new endpoint requested by connect() is the same
+  as one of the argument names in a nested computation (which the user is not supposed to know
+  or care about)?
 
 
 1.0.0 (production-quality version... hopefully)
