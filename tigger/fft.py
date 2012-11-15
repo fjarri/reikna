@@ -4,6 +4,7 @@ from tigger.helpers import *
 from tigger.core import *
 import tigger.cluda.dtypes as dtypes
 from tigger.cluda import OutOfResourcesError
+from tigger.elementwise import specialize_elementwise
 
 TEMPLATE = template_for(__file__)
 
@@ -501,6 +502,17 @@ class FFT(Computation):
             direction=ScalarValue(numpy.int32))
 
     def _construct_operations(self, basis, device_params):
+
+        if product([basis.shape[i] for i in basis.axes]) == 1:
+            # Trivial problem. Need to add a dummy kernel
+            # because we still have to run transformations.
+            operations = self._get_operation_recorder()
+
+            identity = self.get_nested_computation(
+                specialize_elementwise('output', 'input', 'direction',
+                    dict(kernel="${output.store}(idx, ${input.load}(idx));")))
+            operations.add_computation(identity, 'output', 'input', 'direction')
+            return operations
 
         # While resource consumption of GlobalFFTKernel can be made lower by passing
         # lower value to prepare_for(), LocalFFTKernel may have to be split into several kernels.

@@ -1,7 +1,6 @@
 0.2.0
 =====
 
-* TODO: FFT: process cases of problem_size == 1 properly (we still have to run transformations)
 * TODO: FFT: clean up code, check that there are no warnings during compilation
 * TODO: FFT: check why non-power-of-2 performance is so bad
 * TODO: add memory packing functionality to OperationRecorder

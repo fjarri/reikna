@@ -9,6 +9,7 @@ from helpers import *
 from tigger.helpers import product
 from tigger.fft import FFT
 import tigger.cluda.dtypes as dtypes
+from tigger.transformations import scale_param
 
 
 def pytest_generate_tests(metafunc):
@@ -134,6 +135,28 @@ def check_errors(ctx, shape_and_axes):
     fft(res_dev, data_dev, 1)
     inv_ref = numpy.fft.ifftn(data, axes=axes).astype(dtype)
     assert diff_is_negligible(res_dev.get(), inv_ref)
+
+
+def test_trivial(some_ctx):
+    """
+    Checks that even if the FFT is trivial (problem size == 1),
+    the transformations are still attached and executed.
+    """
+    dtype = numpy.complex64
+    shape = (128, 1, 1, 128)
+    axes = (1, 2)
+    param = 4
+
+    data = get_test_array(shape, dtype)
+    data_dev = some_ctx.to_device(data)
+    res_dev = some_ctx.empty_like(data_dev)
+
+    fft = FFT(some_ctx)
+    fft.connect(scale_param(), 'input', ['input_prime'], ['param'])
+    fft.prepare_for(res_dev, data_dev, None, param, axes=axes)
+
+    fft(res_dev, data_dev, -1, param)
+    assert diff_is_negligible(res_dev.get(), data * param)
 
 
 def test_power_of_2_problem(ctx, shape_and_axes):
