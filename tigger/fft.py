@@ -42,6 +42,9 @@ def get_radix_array(n, use_max_radix=False):
     smaller base radix can avoid spilling ... some has small local memory thus
     using smaller work group size may be required etc
     """
+    if n != 2 ** log2(n):
+        raise ValueError("Wrong problem size: " + str(n))
+
     if use_max_radix:
         radix = min(n, MAX_RADIX)
         radix_array = []
@@ -63,7 +66,10 @@ def get_radix_array(n, use_max_radix=False):
         if n in arrays:
             return arrays[n]
         else:
-            raise ValueError("Wrong problem size: " + str(n))
+            # Naive algorithm, can be imroved.
+            l = log2(n)
+            num_elems = min_blocks(l, 4)
+            return [16] * (num_elems - 1) + [2 ** (l % 4)]
 
 
 def get_global_radix_info(n):
@@ -400,12 +406,10 @@ def get_fft_1d_kernels(basis, device_params, outer_batch, fft_size, inner_batch,
 
     kernels = []
 
-    max_lmem_fft_size = 1024 if dtypes.is_double(basis.dtype) else 2048
     if fft_size_real is None:
         fft_size_real = fft_size
 
-    if (inner_batch == 1 and fft_size <= max_lmem_fft_size and
-            fft_size // MAX_RADIX <= local_kernel_limit):
+    if (inner_batch == 1 and fft_size // MAX_RADIX <= local_kernel_limit):
         kernels.append(LocalFFTKernel(
             basis, device_params, outer_batch, fft_size, fft_size_real,
             reverse_direction))
