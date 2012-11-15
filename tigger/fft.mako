@@ -939,11 +939,6 @@ ${kernel_definition}
     %else:
         int position_in_stride_out = (group_in_xform * ${local_batch} + thread_in_xform) % ${stride_out};
         int stride_out_number = (group_in_xform * ${local_batch} + thread_in_xform) / ${stride_out};
-        int idx = ${stride_out} * (
-                stride_out_number * ${radix} +
-                xform_local * ${radix1 // radix2}) +
-            position_in_stride_out +
-            ${fft_size} * xform_number;
 
         %for k in range(radix1):
         {
