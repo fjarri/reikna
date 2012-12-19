@@ -17,6 +17,10 @@
 * TODO: Flatten kernel list before execution, and assign argument numbers
 * TODO: add "raises" sections to Computation/OperationRecorder methods
 * DECIDE: move all "raw" computations to their own submodule?
+* DECIDE: do we need to specify "supports inplace" option for kernels?
+  It seems that FFT does not really need it, because there is no cases when there's only one
+  kernel in list, and it does dot support inplace, so one can safely pass same buffer as
+  output and input. But it may be critical for other kernels.
 
 
 0.4.0
