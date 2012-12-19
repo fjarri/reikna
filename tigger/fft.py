@@ -252,7 +252,7 @@ class LocalFFTKernel(_FFTKernel):
         self._fft_size = fft_size
         self._outer_batch = outer_batch
         self.name = "fft_local"
-        self.in_place_possible = True
+        self.inplace_possible = True
         self._reverse_direction = reverse_direction
         self._fft_size_real = fft_size_real
 
@@ -323,9 +323,9 @@ class GlobalFFTKernel(_FFTKernel):
 
         num_passes = len(get_global_radix_info(fft_size)[0])
         if self._pass_num == num_passes - 1 and num_passes % 2 == 1:
-            self.in_place_possible = True
+            self.inplace_possible = True
         else:
-            self.in_place_possible = False
+            self.inplace_possible = False
 
         if pass_num == 0 and reverse_direction:
             self.kweights = get_kweights(fft_size_real, fft_size)
@@ -476,8 +476,7 @@ class FFT(Computation):
     def _get_argnames(self):
         return ('output',), ('input',), ('direction',)
 
-    def _get_basis_for(self, output, input, direction,
-            normalize=True, axes=None, support_inplace=False):
+    def _get_basis_for(self, output, input, direction, normalize=True, axes=None):
         bs = AttrDict()
 
         assert output.shape == input.shape
@@ -491,7 +490,6 @@ class FFT(Computation):
         bs.axes = axes
         bs.shape = output.shape
         bs.dtype = output.dtype
-        bs.support_inplace = support_inplace
 
         return bs
 
@@ -552,7 +550,8 @@ class FFT(Computation):
                         gs, ls, kwds = kernel.prepare_for(local_size)
                         operations.add_kernel(
                             TEMPLATE, kernel.name, argnames,
-                            global_size=gs, local_size=ls, render_kwds=kwds)
+                            global_size=gs, local_size=ls, render_kwds=kwds,
+                            inplace=([(mem_out, mem_in)] if kernel.inplace_possible else None))
                     except OutOfResourcesError:
                         if isinstance(kernel, GlobalFFTKernel):
                             local_size //= 2
