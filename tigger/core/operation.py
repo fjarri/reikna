@@ -55,7 +55,7 @@ class OperationRecorder:
         return name
 
     def add_kernel(self, template, defname, argnames,
-            global_size, local_size=None, render_kwds=None):
+            global_size, local_size=None, render_kwds=None, inplace=None):
         """
         Adds kernel execution to the list of actions.
         See :ref:`tutorial-advanced-computation` for details on how to write kernels.
@@ -69,6 +69,8 @@ class OperationRecorder:
         :param local_size: local size to use for the call.
             If ``None``, the local size will be picked automatically.
         :param render_kwds: dictionary with additional values used to render the template.
+        :param inplace: list of pairs (output, input) which can point to the same point in memory
+            (used as a hint for the temporary memory manager).
         """
 
         subtemplate = template.get_def(defname)
