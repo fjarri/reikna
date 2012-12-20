@@ -294,20 +294,23 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         %if xforms_per_workgroup > 1:
             ii = thread_id % ${threads_per_xform};
             jj = thread_id / ${threads_per_xform};
-
-            if(${s} == 0 || (group_id < num_groups - 1) || (jj < ${s}))
-            {
-                global_mem_offset = mad24(mad24(group_id, ${xforms_per_workgroup}, jj), ${fft_size}, ii);
-                %for i in range(radix):
-                    ${insertGlobalLoad(input, kweights, i, i * threads_per_xform)}
-                %endfor
-            }
         %else:
             ii = thread_id;
-            global_mem_offset = mad24(group_id, ${fft_size}, ii);
+            jj = 0;
+        %endif
+        global_mem_offset = (group_id * ${xforms_per_workgroup} + jj) * ${fft_size} + ii;
+
+        %if xforms_per_workgroup > 1:
+        if(${s} == 0 || (group_id < num_groups - 1) || (jj < ${s}))
+        {
+        %endif
+
             %for i in range(radix):
-                ${insertGlobalLoad(input, kweights, i, i * threads_per_xform)}
+            ${insertGlobalLoad(input, kweights, i, i * threads_per_xform)}
             %endfor
+
+        %if xforms_per_workgroup > 1:
+        }
         %endif
 
     %elif fft_size >= mem_coalesce_width:
@@ -705,13 +708,12 @@ ${kernel_definition}
 
     ${insertVariableDefinitions(direction, lmem_size, max_radix)}
     int global_mem_offset = 0;
-    int ii;
+    int ii, jj;
     %if num_radix > 1:
         int i, j;
     %endif
 
     %if not (threads_per_xform >= min_mem_coalesce_width and xforms_per_workgroup == 1):
-        int jj;
         int num_groups = virtual_num_groups(0);
     %endif
 
