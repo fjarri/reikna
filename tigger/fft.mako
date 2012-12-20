@@ -259,6 +259,47 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 }
 </%def>
 
+<%def name="insertGlobalLoadNoIf(input, kweights, a_index, g_index, pad=False)">
+{
+    %if pad:
+        a[${a_index}] = complex_ctr(0, 0);
+    %else:
+    {
+        int idx = ${g_index} + global_mem_offset;
+
+        %if pad_in:
+        idx = fft_index * ${fft_size_real} + position_in_fft;
+        %endif
+
+        a[${a_index}] = ${input.load}(idx);
+
+        %if pad_in:
+        a[${a_index}] = complex_mul(a[${a_index}], xweight(direction, position_in_fft));
+        %endif
+
+        %if takes_kweights:
+        a[${a_index}] = complex_mul(a[${a_index}],
+            ${kweights.load}(position_in_fft + ${fft_size} * (1 - direction) / 2));
+        %endif
+    }
+    %endif
+}
+</%def>
+
+<%def name="insertGlobalLoadsNoIf(input, kweights, radix, step, pad_start)">
+{
+    int position_in_fft;
+    %for i in range(radix):
+
+    %if pad_in or takes_kweights:
+    position_in_fft = ii + ${i * step};
+    %endif
+
+    ${insertGlobalLoadNoIf(input, kweights, i, i * step, pad=(i >= pad_start))}
+    %endfor
+}
+</%def>
+
 <%def name="insertGlobalStore(output, kweights, a_index, g_index)">
 {
     int idx = ${g_index} + global_mem_offset;
@@ -298,16 +339,28 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             ii = thread_id;
             jj = 0;
         %endif
-        global_mem_offset = (group_id * ${xforms_per_workgroup} + jj) * ${fft_size} + ii;
+        int fft_index = group_id * ${xforms_per_workgroup} + jj;
+        global_mem_offset = fft_index * ${fft_size} + ii;
 
         %if xforms_per_workgroup > 1:
         if(${s} == 0 || (group_id < num_groups - 1) || (jj < ${s}))
         {
         %endif
 
-            %for i in range(radix):
-            ${insertGlobalLoad(input, kweights, i, i * threads_per_xform)}
-            %endfor
+        %if pad_in:
+        if (ii < ${fft_size_real % threads_per_xform})
+        {
+            ${insertGlobalLoadsNoIf(input, kweights, radix, threads_per_xform,
+                fft_size_real / threads_per_xform + 1)}
+        }
+        else
+        {
+            ${insertGlobalLoadsNoIf(input, kweights, radix, threads_per_xform,
+                fft_size_real / threads_per_xform)}
+        }
+        %else:
+        ${insertGlobalLoadsNoIf(input, kweights, radix, threads_per_xform, radix)}
+        %endif
 
         %if xforms_per_workgroup > 1:
         }
