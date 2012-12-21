@@ -259,45 +259,57 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 }
 </%def>
 
-<%def name="insertGlobalLoadNoIf(input, kweights, a_index, g_index, pad=False)">
-{
+<%def name="insertGlobalLoadsNoIf(input, kweights, a_indices, g_indices, pad=False, fft_index_shift=0)">
+    %for a_i, g_i in zip(a_indices, g_indices):
+
     %if pad:
-        a[${a_index}] = complex_ctr(0, 0);
+        a[${a_i}] = complex_ctr(0, 0);
     %else:
     {
-        int idx = ${g_index} + global_mem_offset;
+        int position_in_fft = ii + ${g_i};
+        int idx = (fft_index + ${fft_index_shift}) * ${fft_size_real if pad_in else fft_size} + position_in_fft;
+
+        a[${a_i}] = ${input.load}(idx);
 
         %if pad_in:
-        idx = fft_index * ${fft_size_real} + position_in_fft;
-        %endif
-
-        a[${a_index}] = ${input.load}(idx);
-
-        %if pad_in:
-        a[${a_index}] = complex_mul(a[${a_index}], xweight(direction, position_in_fft));
+        a[${a_i}] = complex_mul(a[${a_i}], xweight(direction, position_in_fft));
         %endif
 
         %if takes_kweights:
-        a[${a_index}] = complex_mul(a[${a_index}],
+        a[${a_i}] = complex_mul(a[${a_i}],
             ${kweights.load}(position_in_fft + ${fft_size} * (1 - direction) / 2));
         %endif
     }
     %endif
-}
+
+    %endfor
 </%def>
 
-<%def name="insertGlobalLoadsNoIf(input, kweights, radix, step, pad_start)">
-{
-    int position_in_fft;
-    %for i in range(radix):
+<%def name="insertGlobalLoadsOuter(input, kweights, outer_list, num_inner_iter, outer_step, inner_step)">
+    %for i in outer_list:
+        <%
+            loads = lambda indices, pad: insertGlobalLoadsNoIf(input, kweights,
+                [i * num_inner_iter + j for j in indices],
+                [j * inner_step for j in indices],
+                pad=pad, fft_index_shift=i * outer_step)
+            border = fft_size_real // inner_step
+        %>
+        %if pad_in:
+        ${loads(range(border), False)}
+        if (ii < ${fft_size_real % inner_step})
+        {
+            ${loads([border], False)}
+        }
+        else
+        {
+            ${loads([border], True)}
+        }
+        ${loads(range(border + 1, num_inner_iter), True)}
 
-    %if pad_in or takes_kweights:
-    position_in_fft = ii + ${i * step};
-    %endif
-
-    ${insertGlobalLoadNoIf(input, kweights, i, i * step, pad=(i >= pad_start))}
+        %else:
+        ${loads(range(num_inner_iter), False)}
+        %endif
     %endfor
-}
 </%def>
 
 <%def name="insertGlobalStore(output, kweights, a_index, g_index)">
@@ -347,23 +359,30 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         {
         %endif
 
+        <%
+            loads = lambda indices, pad: insertGlobalLoadsNoIf(input, kweights,
+                indices, [j * threads_per_xform for j in indices], pad=pad)
+            border = fft_size_real // threads_per_xform
+        %>
+
         %if pad_in:
+        ${loads(range(border), False)}
         if (ii < ${fft_size_real % threads_per_xform})
         {
-            ${insertGlobalLoadsNoIf(input, kweights, radix, threads_per_xform,
-                fft_size_real / threads_per_xform + 1)}
+            ${loads([border], False)}
         }
         else
         {
-            ${insertGlobalLoadsNoIf(input, kweights, radix, threads_per_xform,
-                fft_size_real / threads_per_xform)}
+            ${loads([border], True)}
         }
+        ${loads(range(border + 1, radix), True)}
         %else:
-        ${insertGlobalLoadsNoIf(input, kweights, radix, threads_per_xform, radix)}
+        ${loads(range(radix), False)}
         %endif
 
         %if xforms_per_workgroup > 1:
         }
+        ## FIXME: do we need anyhthing here to avoid the warning?
         %endif
 
     %elif fft_size >= mem_coalesce_width:
@@ -376,31 +395,21 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         jj = thread_id / ${mem_coalesce_width};
         lmem_store_index = mad24(jj, ${fft_size + threads_per_xform}, ii);
 
-        global_mem_offset = mad24(mad24(group_id, ${xforms_per_workgroup}, jj), ${fft_size}, ii);
+        int fft_index = group_id * ${xforms_per_workgroup} + jj;
+        global_mem_offset = fft_index * ${fft_size} + ii;
 
         if((group_id == num_groups - 1) && ${s} != 0)
         {
-        %for i in range(num_outer_iter):
-            if(jj < ${s})
+            ${insertGlobalLoadsOuter(input, kweights, range(s // (local_size // mem_coalesce_width)), num_inner_iter, (local_size // mem_coalesce_width), mem_coalesce_width)}
+
+            if (jj < ${s % (local_size // mem_coalesce_width)})
             {
-            %for j in range(num_inner_iter):
-                ${insertGlobalLoad(input, kweights, i * num_inner_iter + j, \
-                    j * mem_coalesce_width + i * (local_size // mem_coalesce_width) * fft_size)}
-            %endfor
+                ${insertGlobalLoadsOuter(input, kweights, [s // (local_size // mem_coalesce_width)], num_inner_iter, (local_size // mem_coalesce_width), mem_coalesce_width)}
             }
-            %if i != num_outer_iter - 1:
-                jj += ${local_size // mem_coalesce_width};
-            %endif
-        %endfor
         }
         else
         {
-        %for i in range(num_outer_iter):
-            %for j in range(num_inner_iter):
-                ${insertGlobalLoad(input, kweights, i * num_inner_iter + j, \
-                    j * mem_coalesce_width + i * (local_size // mem_coalesce_width) * fft_size)}
-            %endfor
-        %endfor
+            ${insertGlobalLoadsOuter(input, kweights, range(num_outer_iter), num_inner_iter, (local_size // mem_coalesce_width), mem_coalesce_width)}
         }
 
         ii = thread_id % ${threads_per_xform};
@@ -420,10 +429,14 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             %for i in range(radix):
                 a[${i}].${comp} = lmem[lmem_load_index + ${i * threads_per_xform}];
             %endfor
+
+            %if comp == 'x':
             LOCAL_BARRIER;
+            %endif
         %endfor
     %else:
-        global_mem_offset = mad24(group_id, ${fft_size * xforms_per_workgroup}, thread_id);
+        int fft_index = group_id * ${xforms_per_workgroup};
+        global_mem_offset = fft_index * ${fft_size} + thread_id;
         ii = thread_id % ${fft_size};
         jj = thread_id / ${fft_size};
         lmem_store_index = mad24(jj, ${fft_size + threads_per_xform}, ii);
@@ -466,7 +479,10 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             %for i in range(radix):
                 a[${i}].${comp} = lmem[lmem_load_index + ${i * threads_per_xform}];
             %endfor
+
+            %if comp == 'x':
             LOCAL_BARRIER;
+            %endif
         %endfor
     %endif
 </%def>
