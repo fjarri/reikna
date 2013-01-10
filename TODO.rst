@@ -16,6 +16,8 @@
 * TODO: add MD5 randoms
 * TODO: Flatten kernel list before execution, and assign argument numbers
 * TODO: add "raises" sections to Computation/OperationRecorder methods
+* TODO: add custom variable names to Transformation constructor
+  (``inputs=['Vect1', 'Vect2'], outputs=1, scalars='term1'``)
 * DECIDE: move all "raw" computations to their own submodule?
 * DECIDE: do we need to specify "supports inplace" option for kernels?
   It seems that FFT does not really need it, because there is no cases when there's only one
@@ -98,6 +100,10 @@ Computations:
 CLUDA:
 
 * TODO: add support for rational numbers (based on int2)
+
+Core:
+
+* DECIDE: Some mechanism to merge together two successive Computation calls. Will require an API to tell tigger that certain computations are executed together, plus some way to determine if the computation is local and elementwise (otherwise the connection will require the change of code).
 
 
 2.*
