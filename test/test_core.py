@@ -5,6 +5,8 @@ from tigger.helpers import *
 from tigger.core import *
 from tigger import Transformation, ArrayValue, ScalarValue
 
+import tigger.transformations as transformations
+
 from helpers import *
 
 
@@ -376,3 +378,30 @@ def test_nested(ctx):
     assert diff_is_negligible(ctx.from_device(gpu_C_new_half1), C_new_half1)
     assert diff_is_negligible(ctx.from_device(gpu_C_half2), C_half2)
     assert diff_is_negligible(ctx.from_device(gpu_D_prime), D_prime)
+
+
+def test_scalar_fixed_type(some_ctx):
+    """
+    Regression test for the bug when explicitly specified type for a scalar argument
+    was ignored, and the result of result numpy.min_scalar_type() was used instead.
+    """
+
+    N = 1024
+    p = numpy.int32(2)
+    coeff = numpy.int32(1)
+
+    test = Dummy(some_ctx)
+    A = some_ctx.allocate(N, numpy.int32)
+    B = some_ctx.allocate(N, numpy.int32)
+    C = some_ctx.allocate(N, numpy.int32)
+    D = some_ctx.allocate(N, numpy.int32)
+
+    test.connect(transformations.scale_param(), 'A', ['A_prime'], ['param'])
+    test.prepare_for(C, D, A, B, coeff, p)
+    assert test.signature_str() == (
+        "(array, int32, (1024,)) C, "
+        "(array, int32, (1024,)) D, "
+        "(array, int32, (1024,)) A_prime, "
+        "(array, int32, (1024,)) B, "
+        "(scalar, int32) coeff, "
+        "(scalar, int32) param")
