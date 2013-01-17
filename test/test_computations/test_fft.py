@@ -23,7 +23,7 @@ def pytest_generate_tests(metafunc):
     if 'shape_and_axes' in metafunc.funcargnames:
         shapes = []
 
-        for x in [3, 8, 9, 10, 11, 13, 20]:
+        for x in [3, 8, 9, 10, 11, 12, 13, 20]:
             shapes.append((2 ** x,))
 
         for x, y in itertools.product([4, 7, 8, 10], [4, 7, 8, 10]):

@@ -70,7 +70,7 @@ def get_radix_array(n, use_max_radix=False):
             # Naive algorithm, can be imroved.
             l = log2(n)
             num_elems = min_blocks(l, 4)
-            return [16] * (num_elems - 1) + [2 ** (l % 4)]
+            return [16] * (num_elems - 1) + [16 if l % 4 == 0 else 2 ** (l % 4)]
 
 
 def get_global_radix_info(n):
