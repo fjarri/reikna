@@ -50,6 +50,15 @@ def min_scalar_type(val):
     """
     return _promote_dtype(numpy.min_scalar_type(val))
 
+def detect_type(val):
+    """
+    Find out the data type of ``val``.
+    """
+    if hasattr(val, 'dtype'):
+        return _promote_dtype(val.dtype)
+    else:
+        return min_scalar_type(val)
+
 def normalize_type(dtype):
     """
     Function for wrapping all dtypes coming from the user.
@@ -110,7 +119,7 @@ def c_constant(val, dtype=None):
     Returns a C-style numerical constant.
     """
     if dtype is None:
-        dtype = min_scalar_type(val)
+        dtype = detect_type(val)
     if is_complex(dtype):
         return "COMPLEX_CTR(" + ctype(dtype) + ")(" + \
             c_constant(val.real) + ", " + c_constant(val.imag) + ")"
