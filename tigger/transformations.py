@@ -31,7 +31,7 @@ def scale_const(multiplier):
     Returns a scaling transformation with fixed parameter (1 output, 1 input):
     ``output1 = input1 * <multiplier>``.
     """
-    dtype = dtypes.min_scalar_type(multiplier)
+    dtype = dtypes.detect_type(multiplier)
     return Transformation(
         inputs=1, outputs=1,
         code="${o1.store}(${func.mul(i1.dtype, numpy." + str(dtype) + ", out=o1.dtype)}(" +
