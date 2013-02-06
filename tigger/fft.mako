@@ -27,7 +27,7 @@ typedef ${dtypes.ctype(basis.dtype)} complex_t;
 typedef ${dtypes.ctype(dtypes.real_for(basis.dtype))} real_t;
 
 
-WITHIN_KERNEL complex_t complex_exp(float ang)
+WITHIN_KERNEL complex_t complex_exp(real_t ang)
 {
     complex_t res;
 
