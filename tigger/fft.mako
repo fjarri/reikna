@@ -643,22 +643,23 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 
     {
         // Twiddle kernel
-        real_t angf, ang;
+        real_t ang;
+        int angf;
         complex_t w;
 
     %for z in range(num_iter):
         %if z == 0:
             %if radix_prev > 1:
-                angf = (real_t)(ii / ${radix_prev});
+                angf = ii / ${radix_prev};
             %else:
-                angf = (real_t)ii;
+                angf = ii;
             %endif
         %else:
             %if radix_prev > 1:
-                angf = (real_t)((${z * threads_per_xform} + ii) / ${radix_prev});
+                angf = (${z * threads_per_xform} + ii) / ${radix_prev};
             %else:
                 ## TODO: find out which conditions are necessary to execute this code
-                angf = (real_t)(${z * threads_per_xform} + ii);
+                angf = ${z * threads_per_xform} + ii;
             %endif
         %endif
 
