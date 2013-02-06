@@ -7,15 +7,6 @@
 #define mul24(x, y) __mul24(x, y)
 #endif
 
-
-/*
-#ifdef sincosf
-#endif
-#ifndef sincosf
-#define complex_exp(res, ang) (res).x = native_cos(ang); (res).y = native_sin(ang)
-#endif
-*/
-
 #define complex_ctr COMPLEX_CTR(${dtypes.ctype(basis.dtype)})
 #define complex_mul ${func.mul(basis.dtype, basis.dtype)}
 #define complex_div_scalar ${func.div(basis.dtype, dtypes.real_for(basis.dtype))}
