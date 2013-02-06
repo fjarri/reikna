@@ -25,14 +25,19 @@ WITHIN_KERNEL complex_t complex_exp(real_t ang)
 #ifdef CUDA
     ${"sincos" + ("" if dtypes.is_double(basis.dtype) else "f")}(ang, &((res).y), &((res).x));
 #else
+## It seems that native_cos/sin option is only available for single precision.
+%if not dtypes.is_double(basis.dtype):
 #ifdef CTX_FAST_MATH
     res.x = native_cos(ang);
     res.y = native_sin(ang);
 #else
+%endif
     real_t tmp;
     res.y = sincos(ang, &tmp);
     res.x = tmp;
+%if not dtypes.is_double(basis.dtype):
 #endif
+%endif
 #endif
     return res;
 }
