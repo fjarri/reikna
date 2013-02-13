@@ -114,7 +114,7 @@ def check_performance(ctx_and_double, shape1, shape2, bwo):
     a_dev = ctx.to_device(a)
     b_dev = ctx.to_device(b)
     res_ref = ref_dot(a, b)
-    res_dev = ctx.allocate(res_ref.shape, dtype=dtype)
+    res_dev = ctx.array(res_ref.shape, dtype=dtype)
 
     try:
         dot = MatrixMul(ctx).prepare_for(res_dev, a_dev, b_dev, block_width_override=bwo)

@@ -16,8 +16,8 @@ The positional arguments should be either the same arrays and scalars you are go
 
 ::
 
-    input = ctx.allocate((100, 200), dtype=numpy.float32)
-    output = ctx.allocate((200, 100), dtype=numpy.float32)
+    input = ctx.array((100, 200), dtype=numpy.float32)
+    output = ctx.array((200, 100), dtype=numpy.float32)
     tr = Transpose(ctx).prepare_for(output, input)
     tr(output, input)
 
@@ -127,8 +127,8 @@ When ``prepare_for`` is called, the data types and shapes of the given arguments
 .. testcode:: transformation_example
 
     N = 128
-    out1 = ctx.allocate(N, numpy.float32)
-    out2 = ctx.allocate(N, numpy.float32)
+    out1 = ctx.array(N, numpy.float32)
+    out2 = ctx.array(N, numpy.float32)
     in1 = ctx.to_device(numpy.ones(N, numpy.float32))
     in2_prime = ctx.to_device(numpy.ones(N, numpy.float32))
     param = 3

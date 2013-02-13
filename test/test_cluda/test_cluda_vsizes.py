@@ -158,16 +158,16 @@ def test_ids(ctx_with_gs_limits, gl_size, gs_is_multiple):
     }
     """, 'get_ids', ref.global_size, local_size=ref.local_size)
 
-    fid = ctx.allocate(product(ref.np_global_size), numpy.int32)
-    lx = ctx.allocate(ref.np_global_size, numpy.int32)
-    ly = ctx.allocate(ref.np_global_size, numpy.int32)
-    lz = ctx.allocate(ref.np_global_size, numpy.int32)
-    gx = ctx.allocate(ref.np_global_size, numpy.int32)
-    gy = ctx.allocate(ref.np_global_size, numpy.int32)
-    gz = ctx.allocate(ref.np_global_size, numpy.int32)
-    glx = ctx.allocate(ref.np_global_size, numpy.int32)
-    gly = ctx.allocate(ref.np_global_size, numpy.int32)
-    glz = ctx.allocate(ref.np_global_size, numpy.int32)
+    fid = ctx.array(product(ref.np_global_size), numpy.int32)
+    lx = ctx.array(ref.np_global_size, numpy.int32)
+    ly = ctx.array(ref.np_global_size, numpy.int32)
+    lz = ctx.array(ref.np_global_size, numpy.int32)
+    gx = ctx.array(ref.np_global_size, numpy.int32)
+    gy = ctx.array(ref.np_global_size, numpy.int32)
+    gz = ctx.array(ref.np_global_size, numpy.int32)
+    glx = ctx.array(ref.np_global_size, numpy.int32)
+    gly = ctx.array(ref.np_global_size, numpy.int32)
+    glz = ctx.array(ref.np_global_size, numpy.int32)
 
     get_ids(fid, lx, ly, lz, gx, gy, gz, glx, gly, glz)
 
@@ -208,7 +208,7 @@ def test_sizes(ctx_with_gs_limits, gl_size, gs_is_multiple):
     }
     """, 'get_sizes', ref.global_size, local_size=ref.local_size)
 
-    sizes = ctx.allocate(10, numpy.int32)
+    sizes = ctx.array(10, numpy.int32)
     get_sizes(sizes)
 
     gls = list(ref.global_size) + [1] * (3 - len(ref.global_size))

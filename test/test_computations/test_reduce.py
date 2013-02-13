@@ -27,7 +27,7 @@ def test_normal(ctx, shape, axis):
     b_ref = a.sum(axis)
     if len(b_ref.shape) == 0:
         b_ref = numpy.array([b_ref], numpy.int64)
-    b_dev = ctx.allocate(b_ref.shape, numpy.int64)
+    b_dev = ctx.array(b_ref.shape, numpy.int64)
 
     rd.prepare_for(b_dev, a_dev, axis=axis,
         code=dict(kernel="return input1 + input2;"))
@@ -41,7 +41,7 @@ def test_nontrivial_function(ctx):
     a = get_test_array(shape, numpy.int64)
     a_dev = ctx.to_device(a)
     b_ref = a.sum(0)
-    b_dev = ctx.allocate((100,), numpy.int64)
+    b_dev = ctx.array((100,), numpy.int64)
 
     rd.prepare_for(b_dev, a_dev, axis=0,
         code=dict(

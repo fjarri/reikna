@@ -141,7 +141,7 @@ As an example, we will consider the matrix multiplication.
     b = numpy.random.randn(*shape2).astype(numpy.float32)
     a_dev = ctx.to_device(a)
     b_dev = ctx.to_device(b)
-    res_dev = ctx.allocate((shape1[0], shape2[1]), dtype=numpy.float32)
+    res_dev = ctx.array((shape1[0], shape2[1]), dtype=numpy.float32)
 
     dot = MatrixMul(ctx).prepare_for(res_dev, a_dev, b_dev)
     dot(res_dev, a_dev, b_dev)
@@ -198,7 +198,7 @@ Let us change the previous example and connect transformations to it.
     b_im = numpy.random.randn(*shape2).astype(numpy.float32)
     a_re_dev, a_im_dev, b_re_dev, b_im_dev = [ctx.to_device(x) for x in [a_re, a_im, b_re, b_im]]
 
-    res_dev = ctx.allocate((shape1[0], shape2[1]), dtype=numpy.complex64)
+    res_dev = ctx.array((shape1[0], shape2[1]), dtype=numpy.complex64)
 
     dot = MatrixMul(ctx)
     dot.connect(combine_complex(), 'a', ['a_re', 'a_im'])

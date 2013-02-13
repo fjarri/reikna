@@ -118,7 +118,7 @@ class OperationRecorder:
         # Now we just allocate them separately
         self.allocations = {}
         for name, value in self._allocations.items():
-            self.allocations[name] = self._ctx.allocate(
+            self.allocations[name] = self._ctx.array(
                 value.shape, value.dtype)
 
         for name, data in self._const_allocations.items():

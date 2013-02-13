@@ -33,7 +33,7 @@ def test_errors(ctx, shape_and_axes):
     a = get_test_array(shape, numpy.int32)
     a_dev = ctx.to_device(a)
     res_ref = numpy.transpose(a, axes)
-    res_dev = ctx.allocate(res_ref.shape, dtype=numpy.int32)
+    res_dev = ctx.array(res_ref.shape, dtype=numpy.int32)
     dot = Transpose(ctx).prepare_for(res_dev, a_dev, axes=axes)
     dot(res_dev, a_dev)
 

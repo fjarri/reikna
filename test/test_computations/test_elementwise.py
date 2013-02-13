@@ -22,7 +22,7 @@ def test_errors(ctx):
     N = 1000
     a = get_test_array(N * 2, numpy.float32)
     a_dev = ctx.to_device(a)
-    b_dev = ctx.allocate(N, numpy.float32)
+    b_dev = ctx.array(N, numpy.float32)
     param = 1
 
     elw.prepare_for(b_dev, a_dev, numpy.float32(param), code=code)
@@ -51,7 +51,7 @@ def test_nontrivial_code(ctx):
     N = 1000
     a = get_test_array(N * 2, numpy.float32)
     a_dev = ctx.to_device(a)
-    b_dev = ctx.allocate(N, numpy.float32)
+    b_dev = ctx.array(N, numpy.float32)
     param = 1
 
     elw.prepare_for(b_dev, a_dev, numpy.float32(param), code=code)

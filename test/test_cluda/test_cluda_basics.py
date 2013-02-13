@@ -191,7 +191,7 @@ def test_find_local_size(ctx_and_global_size):
     }
     """)
     test = module.test
-    dest_dev = ctx.allocate(global_size, numpy.int32)
+    dest_dev = ctx.array(global_size, numpy.int32)
     test(dest_dev, global_size=global_size)
 
     assert diff_is_negligible(dest_dev.get().ravel(),

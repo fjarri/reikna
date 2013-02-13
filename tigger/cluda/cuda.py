@@ -47,6 +47,25 @@ class Device(cuda.Device):
         self.name = self.name()
 
 
+class Buffer:
+    """
+    Mimics pyopencl.Buffer
+    """
+
+    def __init__(self, size):
+        self._buffer = cuda.mem_alloc(size)
+        self.size = size
+
+    def __init__(self):
+        return int(self._buffer)
+
+    def __long__(self):
+        return long(self._buffer)
+
+    def __del__(self):
+        self._buffer.free()
+
+
 class Context:
 
     @classmethod
@@ -87,11 +106,14 @@ class Context:
         else:
             return True
 
-    def allocate(self, shape, dtype):
-        return gpuarray.GPUArray(shape, dtype=dtype)
+    def allocate(size):
+        return Buffer(size)
+
+    def array(self, *args, **kwds):
+        return gpuarray.GPUArray(*args, **kwds)
 
     def empty_like(self, arr):
-        return self.allocate(arr.shape, arr.dtype)
+        return self.array(arr.shape, arr.dtype)
 
     def to_device(self, arr, dest=None):
         if dest is None:

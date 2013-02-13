@@ -76,11 +76,14 @@ class Context:
         else:
             return True
 
-    def allocate(self, shape, dtype):
-        return clarray.Array(self._queue, shape, dtype=dtype)
+    def allocate(self, size):
+        return cl.Buffer(self._context, cl.mem_flags.READ_WRITE, size=size)
+
+    def array(self, *args, **kwds):
+        return clarray.Array(self._queue, *args, **kwds)
 
     def empty_like(self, arr):
-        return self.allocate(arr.shape, arr.dtype)
+        return self.array(arr.shape, arr.dtype)
 
     def to_device(self, arr, dest=None):
         if dest is None:

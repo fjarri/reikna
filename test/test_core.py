@@ -286,9 +286,9 @@ def test_transformations_work(ctx):
     B_new_prime = get_test_array(N, numpy.complex64)
     gpu_A_prime = ctx.to_device(A_prime)
     gpu_B_new_prime = ctx.to_device(B_new_prime)
-    gpu_C_new_half1 = ctx.allocate(N, numpy.complex64)
-    gpu_C_half2 = ctx.allocate(N, numpy.complex64)
-    gpu_D_prime = ctx.allocate(N, numpy.complex64)
+    gpu_C_new_half1 = ctx.array(N, numpy.complex64)
+    gpu_C_half2 = ctx.array(N, numpy.complex64)
+    gpu_D_prime = ctx.array(N, numpy.complex64)
     d.prepare_for(
         gpu_C_new_half1, gpu_C_half2, gpu_D_prime,
         gpu_A_prime, gpu_B_new_prime,
@@ -325,8 +325,8 @@ def test_connection_to_base(ctx):
 
     B = get_test_array(N, numpy.complex64)
     gpu_B = ctx.to_device(B)
-    gpu_C_prime = ctx.allocate(N, numpy.complex64)
-    gpu_D = ctx.allocate(N, numpy.complex64)
+    gpu_C_prime = ctx.array(N, numpy.complex64)
+    gpu_D = ctx.array(N, numpy.complex64)
     d.prepare_for(gpu_C_prime, gpu_D, gpu_B, coeff)
     d(gpu_C_prime, gpu_D, gpu_B, coeff)
 
@@ -357,9 +357,9 @@ def test_nested(ctx):
     B_new_prime = get_test_array(N, numpy.complex64)
     gpu_A_prime = ctx.to_device(A_prime)
     gpu_B_new_prime = ctx.to_device(B_new_prime)
-    gpu_C_new_half1 = ctx.allocate(N, numpy.complex64)
-    gpu_C_half2 = ctx.allocate(N, numpy.complex64)
-    gpu_D_prime = ctx.allocate(N, numpy.complex64)
+    gpu_C_new_half1 = ctx.array(N, numpy.complex64)
+    gpu_C_half2 = ctx.array(N, numpy.complex64)
+    gpu_D_prime = ctx.array(N, numpy.complex64)
     d.prepare_for(
         gpu_C_new_half1, gpu_C_half2, gpu_D_prime,
         gpu_A_prime, gpu_B_new_prime,
@@ -391,10 +391,10 @@ def test_scalar_fixed_type(some_ctx):
     coeff = numpy.int32(1)
 
     test = Dummy(some_ctx)
-    A = some_ctx.allocate(N, numpy.int32)
-    B = some_ctx.allocate(N, numpy.int32)
-    C = some_ctx.allocate(N, numpy.int32)
-    D = some_ctx.allocate(N, numpy.int32)
+    A = some_ctx.array(N, numpy.int32)
+    B = some_ctx.array(N, numpy.int32)
+    C = some_ctx.array(N, numpy.int32)
+    D = some_ctx.array(N, numpy.int32)
 
     test.connect(transformations.scale_param(), 'A', ['A_prime'], ['param'])
     test.prepare_for(C, D, A, B, coeff, p)

@@ -83,9 +83,14 @@ It is referred here (and references from other parts of this documentation) as :
 
         Checks if given ``numpy`` dtype can be used in kernels compiled using this context.
 
-    .. py:method:: allocate(shape, dtype)
+    .. py:method:: allocate(size)
+
+        Creates an untyped memory allocation object of type :py:class:`Buffer` with size ``size``.
+
+    .. py:method:: array(shape, dtype, allocator=None)
 
         Creates an :py:class:`Array` on GPU with given ``shape`` and ``dtype``.
+        Optionally, an ``allocator`` is a callable returning any object castable to ``int`` representing the physical address on the device (for instance, :py:class:`Buffer`).
 
     .. py:method:: empty_like(arr)
 
@@ -148,6 +153,13 @@ It is referred here (and references from other parts of this documentation) as :
         This happens automatically on object deletion, so call it only if you want to release resources earlier than object lifecycle takes care of that.
 
         Does not have any effect if the :py:class:`Context` was created as a wrapper for the existing context.
+
+.. py:class:: Buffer
+
+    Low-level untyped memory allocation.
+    Actual class depends on the API: :py:class:`pycuda.driver.DeviceAllocation` for ``API_CUDA`` and :py:class:`pyopencl.Buffer` for ``API_OCL``.
+
+    .. py:attribute:: size
 
 .. py:class:: Array
 
