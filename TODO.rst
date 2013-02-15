@@ -23,6 +23,8 @@
   It seems that FFT does not really need it, because there is no cases when there's only one
   kernel in list, and it does dot support inplace, so one can safely pass same buffer as
   output and input. But it may be critical for other kernels.
+* TODO: add support for arrays with aligned rows (mem_alloc_pitch() in PyCuda).
+  This should make non-power-of-2 FFT much faster.
 
 
 0.4.0
