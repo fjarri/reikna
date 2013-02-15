@@ -24,7 +24,8 @@ class AttrDict(dict):
         self[attr] = value
 
     def __repr__(self):
-        return "AttrDict(" + dict.__repr__(self) + ")"
+        return "AttrDict(" + \
+            ", ".join((key + "=" + repr(value)) for key, value in self.items()) + ")"
 
 
 def product(seq):
