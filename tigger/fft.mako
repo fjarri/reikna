@@ -336,7 +336,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 
     <%
         local_size = threads_per_xform * xforms_per_workgroup
-        s = outer_batch % xforms_per_workgroup
+        xforms_remainder = outer_batch % xforms_per_workgroup
     %>
 
     %if threads_per_xform >= mem_coalesce_width:
@@ -352,7 +352,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         global_mem_offset = fft_index * ${fft_size} + ii;
 
         %if xforms_per_workgroup > 1:
-        if(${s} == 0 || (group_id < num_groups - 1) || (jj < ${s}))
+        if(${xforms_remainder} == 0 || (group_id < num_groups - 1) || (jj < ${xforms_remainder}))
         {
         %endif
 
@@ -396,18 +396,23 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         int fft_position_offset = ii;
         global_mem_offset = fft_index * ${fft_size} + ii;
 
-        if((group_id == num_groups - 1) && ${s} != 0)
+        if((group_id == num_groups - 1) && ${xforms_remainder} != 0)
         {
-            ${insertGlobalLoadsOuter(input, kweights, range(s // (local_size // mem_coalesce_width)), num_inner_iter, (local_size // mem_coalesce_width), mem_coalesce_width)}
+            ${insertGlobalLoadsOuter(input, kweights,
+                range(xforms_remainder // (local_size // mem_coalesce_width)),
+                num_inner_iter, (local_size // mem_coalesce_width), mem_coalesce_width)}
 
-            if (jj < ${s % (local_size // mem_coalesce_width)})
+            if (jj < ${xforms_remainder % (local_size // mem_coalesce_width)})
             {
-                ${insertGlobalLoadsOuter(input, kweights, [s // (local_size // mem_coalesce_width)], num_inner_iter, (local_size // mem_coalesce_width), mem_coalesce_width)}
+                ${insertGlobalLoadsOuter(input, kweights,
+                    [xforms_remainder // (local_size // mem_coalesce_width)],
+                    num_inner_iter, (local_size // mem_coalesce_width), mem_coalesce_width)}
             }
         }
         else
         {
-            ${insertGlobalLoadsOuter(input, kweights, range(num_outer_iter), num_inner_iter, (local_size // mem_coalesce_width), mem_coalesce_width)}
+            ${insertGlobalLoadsOuter(input, kweights, range(num_outer_iter),
+                num_inner_iter, (local_size // mem_coalesce_width), mem_coalesce_width)}
         }
 
         ii = thread_id % ${threads_per_xform};
@@ -443,15 +448,15 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         <%
             loads = lambda indices, pad: insertGlobalLoadsNoIf(input, kweights,
                 indices, [j * local_size for j in indices], pad=pad)
-            border = s // local_size
+            border = xforms_remainder // local_size
         %>
 
         %if pad_in:
 
-        if((group_id == num_groups - 1) && ${s} != 0)
+        if((group_id == num_groups - 1) && ${xforms_remainder} != 0)
         {
         %for i in range(radix):
-            if(ii < ${s})
+            if(ii < ${xforms_remainder})
             {
                 ${insertGlobalLoad(input, kweights, i, i * local_size)}
             }
@@ -468,12 +473,12 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         }
 
         %else:
-        if ((group_id == num_groups - 1) && ${s} != 0)
+        if ((group_id == num_groups - 1) && ${xforms_remainder} != 0)
         {
-            ${loads(range(s / (local_size // fft_size)), False)}
-            if (ii < ${s % (local_size // fft_size)})
+            ${loads(range(xforms_remainder // (local_size // fft_size)), False)}
+            if (ii < ${xforms_remainder % (local_size // fft_size)})
             {
-                ${loads([s / (local_size // fft_size)], False)}
+                ${loads([xforms_remainder // (local_size // fft_size)], False)}
             }
         }
         else
@@ -515,12 +520,13 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     <%
         local_size = threads_per_xform * xforms_per_workgroup
         num_iter = max_radix // radix
-        s = outer_batch % xforms_per_workgroup
+        xforms_remainder = outer_batch % xforms_per_workgroup
     %>
 
     %if threads_per_xform >= mem_coalesce_width:
         %if xforms_per_workgroup > 1:
-            if(${s} == 0 || (group_id < num_groups - 1) || (jj < ${s}))
+            if(${xforms_remainder} == 0 || (group_id < num_groups - 1) ||
+                (jj < ${xforms_remainder}))
             {
         %endif
 
@@ -567,10 +573,10 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             LOCAL_BARRIER;
         %endfor
 
-        if((group_id == num_groups - 1) && ${s} != 0)
+        if((group_id == num_groups - 1) && ${xforms_remainder} != 0)
         {
         %for i in range(num_outer_iter):
-            if(jj < ${s})
+            if(jj < ${xforms_remainder})
             {
             %for j in range(num_inner_iter):
                 ${insertGlobalStore(output, kweights, i * num_inner_iter + j, \
@@ -614,10 +620,10 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             LOCAL_BARRIER;
         %endfor
 
-        if((group_id == num_groups - 1) && ${s} != 0)
+        if((group_id == num_groups - 1) && ${xforms_remainder} != 0)
         {
         %for i in range(max_radix):
-            if(jj < ${s})
+            if(jj < ${xforms_remainder})
             {
                 ${insertGlobalStore(output, kweights, i, i * local_size)}
             }
