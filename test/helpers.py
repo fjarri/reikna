@@ -3,6 +3,7 @@ from tigger.cluda import dtypes
 
 
 SINGLE_EPS = 1e-6
+DOUBLE_EPS = 1e-11
 
 
 def get_test_array(shape, dtype, no_zeros=False, high=None):
@@ -34,5 +35,7 @@ def diff_is_negligible(m, m_ref):
     assert m.dtype == m_ref.dtype
     if dtypes.is_integer(m.dtype):
         return ((m - m_ref) == 0).all()
+    elif dtypes.is_double(m.dtype):
+        return float_diff(m, m_ref) < DOUBLE_EPS
     else:
         return float_diff(m, m_ref) < SINGLE_EPS
