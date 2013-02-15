@@ -340,6 +340,12 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     %>
 
     %if threads_per_xform >= mem_coalesce_width:
+        <%
+            loads = lambda indices, pad: insertGlobalLoadsNoIf(input, kweights,
+                indices, [j * threads_per_xform for j in indices], pad=pad)
+            border = fft_size_real // threads_per_xform
+        %>
+
         %if xforms_per_workgroup > 1:
             ii = thread_id % ${threads_per_xform};
             jj = thread_id / ${threads_per_xform};
@@ -347,21 +353,13 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             ii = thread_id;
             jj = 0;
         %endif
+
         int fft_index = group_id * ${xforms_per_workgroup} + jj;
         int fft_position_offset = ii;
         global_mem_offset = fft_index * ${fft_size} + ii;
 
-        %if xforms_per_workgroup > 1:
         if(${xforms_remainder} == 0 || (group_id < num_groups - 1) || (jj < ${xforms_remainder}))
         {
-        %endif
-
-        <%
-            loads = lambda indices, pad: insertGlobalLoadsNoIf(input, kweights,
-                indices, [j * threads_per_xform for j in indices], pad=pad)
-            border = fft_size_real // threads_per_xform
-        %>
-
         %if pad_in:
         ${loads(range(border), False)}
         if (ii < ${fft_size_real % threads_per_xform})
@@ -376,11 +374,15 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         %else:
         ${loads(range(radix), False)}
         %endif
-
-        %if xforms_per_workgroup > 1:
         }
-        ## FIXME: do we need anyhthing here to avoid the warning?
-        %endif
+        else
+        {
+            // This thread processes the area that is beyond actual data
+            // because of ``outer_batch`` being not a multiple of ``xforms_per_workgroup``.
+            // All the parts of local memory it would write, would be ignore anyway.
+            // So we are returning right away.
+            return;
+        }
 
     %elif fft_size >= mem_coalesce_width:
         <%
@@ -812,9 +814,7 @@ ${kernel_definition}
         int i, j;
     %endif
 
-    %if not (threads_per_xform >= min_mem_coalesce_width and xforms_per_workgroup == 1):
-        int num_groups = virtual_num_groups(0);
-    %endif
+    int num_groups = virtual_num_groups(0);
 
     ${insertGlobalLoadsAndTranspose(input, kweights, n, threads_per_xform, xforms_per_workgroup, max_radix,
         min_mem_coalesce_width)}
