@@ -25,6 +25,12 @@
   output and input. But it may be critical for other kernels.
 * TODO: add support for arrays with aligned rows (mem_alloc_pitch() in PyCuda).
   This should make non-power-of-2 FFT much faster.
+* TODO: create_queue() method in Context is not used anywhere;
+  moreover, the queue created this way cannot be used anywhere in Tigger.
+  Probably it's better to replace it by 'fork()' method, which will create the Context object
+  with the same context and a new queue.
+  Also, maybe rename Context to Thread/GPUThread (avoids confusion with contexts, and works well with the existence of fork()).
+  And while I'm at it, I can create a base class for Thread with the overlapping functionality.
 
 
 0.4.0
