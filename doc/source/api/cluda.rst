@@ -79,6 +79,10 @@ It is referred here (and references from other parts of this documentation) as :
 
         Instance of :py:class:`DeviceParameters` class for this context's device.
 
+    .. py:attribute:: temp_alloc
+
+        Instance of :py:class:`~tigger.cluda.tempalloc.TemporaryManager` which handles allocations of temporary arrays (see :py:meth:`temp_array`).
+
     .. py:method:: supports_dtype(dtype)
 
         Checks if given ``numpy`` dtype can be used in kernels compiled using this context.
@@ -91,6 +95,13 @@ It is referred here (and references from other parts of this documentation) as :
 
         Creates an :py:class:`Array` on GPU with given ``shape`` and ``dtype``.
         Optionally, an ``allocator`` is a callable returning any object castable to ``int`` representing the physical address on the device (for instance, :py:class:`Buffer`).
+
+    .. py:method:: temp_array(shape, dtype, dependencies=None)
+
+        Creates a temporary :py:class:`Array` on GPU with given ``shape`` and ``dtype``.
+        In order to reduce the memory footprint of the program, the temporary array manager will allow these arrays to overlap.
+        Two arrays will not overlap, if one of them was specified in ``dependencies`` for the other one.
+        For a list of values ``dependencies`` takes, see the reference entry for :py:class:`~tigger.cluda.tempalloc.TemporaryAllocator`.
 
     .. py:method:: empty_like(arr)
 
@@ -249,6 +260,28 @@ It is referred here (and references from other parts of this documentation) as :
 
         Execute the kernel.
 
+
+Temporary Arrays
+----------------
+
+Each context contains a special allocator for arrays with data that does not have to be persistent all the time.
+In many cases you only want some array to keep its contents between several kernel calls.
+This can be achieved by manually allocating and deallocating such arrays every time, but it slows the program down, and you have to synchronize the queue because allocation commands are not serialized.
+Therefore it is advantageous to use :py:meth:`~tigger.cluda.api.Context.temp_array` method to get such arrays.
+It takes a list of dependencies as an optional parameter which gives the allocator a hint about which arrays should not use the same physical allocation.
+
+.. py:module:: tigger.cluda.tempalloc
+
+.. autoclass:: DynamicAllocation
+
+.. autoclass:: TemporaryAllocator
+
+.. autoclass:: TemporaryManager
+    :members:
+
+.. autoclass:: TrivialManager
+
+.. autoclass:: ZeroOffsetManager
 
 .. _cluda-kernel-toolbox:
 

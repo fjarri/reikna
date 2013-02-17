@@ -10,6 +10,7 @@ import tigger.cluda.dtypes as dtypes
 from tigger.helpers import wrap_in_tuple, product
 from tigger.cluda.kernel import render_prelude, render_template_source
 from tigger.cluda.vsize import VirtualSizes, render_stub_vsize_funcs
+from tigger.cluda.tempalloc import TemporaryAllocator, ZeroOffsetManager
 
 
 API_ID = cluda.API_OCL
@@ -48,16 +49,26 @@ class Context:
 
         return cls(ctx, **kwds)
 
-    def __init__(self, context, queue=None, fast_math=True, async=True, owns_context=False):
+    def __init__(self, context, queue=None, fast_math=True, async=True, owns_context=False,
+            temp_alloc=None):
+
+        self._released = False if owns_context else True
         self.api = cluda.api(API_ID)
         self._fast_math = fast_math
         self._context = context
         self._async = async
         self.device_params = DeviceParameters(context.get_info(cl.context_info.DEVICES)[0])
         self._device = self._context.devices[0]
-
         self._queue = self.create_queue() if queue is None else queue
-        self._released = False if owns_context else True
+
+        temp_alloc_params = AttrDict(
+            cls=ZeroOffsetManager, pack_on_alloc=False, pack_on_free=False)
+        if temp_alloc is not None:
+            temp_alloc_params.update(temp_alloc)
+
+        self.temp_alloc = temp_alloc_params.cls(self,
+            pack_on_alloc=temp_alloc_params.pack_on_alloc,
+            pack_on_free=temp_alloc_params.pack_on_free)
 
     def override_device_params(self, **kwds):
         for kwd in kwds:
@@ -81,6 +92,16 @@ class Context:
 
     def array(self, *args, **kwds):
         return clarray.Array(self._queue, *args, **kwds)
+
+    def temp_array(self, *args, **kwds):
+        if 'allocator' in kwds:
+            raise ValueError("Temporary arrays cannot have custom allocators")
+        kwds = dict(kwds)
+        dependencies = kwds.pop('dependencies', None)
+        kwds['allocator'] = TemporaryAllocator(
+            self.temp_alloc, dependencies=dependencies)
+
+        return self.array(*args, **kwds)
 
     def empty_like(self, arr):
         return self.array(arr.shape, arr.dtype)
