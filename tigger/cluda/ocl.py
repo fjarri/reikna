@@ -5,6 +5,7 @@ import numpy
 import pyopencl as cl
 import pyopencl.array as clarray
 
+from tigger.helpers import AttrDict
 import tigger.cluda as cluda
 import tigger.cluda.dtypes as dtypes
 from tigger.helpers import wrap_in_tuple, product

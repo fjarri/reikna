@@ -7,6 +7,7 @@ import pycuda.driver as cuda
 from pycuda.compiler import SourceModule
 from pycuda.tools import DeviceData
 
+from tigger.helpers import AttrDict
 import tigger.cluda as cluda
 import tigger.cluda.dtypes as dtypes
 from tigger.helpers import factors, wrap_in_tuple, product
