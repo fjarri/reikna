@@ -775,6 +775,12 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 
     complex_t a[${temp_array_size}];
 
+    // This does not change the performance, but
+    // makes it much easier to catch bugs in addressing.
+    %for i in range(temp_array_size):
+    a[${i}] = complex_ctr(NAN, NAN);
+    %endfor
+
     int thread_id = virtual_local_id(0);
     int group_id = virtual_group_id(0);
 
