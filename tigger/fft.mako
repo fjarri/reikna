@@ -236,8 +236,8 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         a[${a_i}] = complex_ctr(0, 0);
     %else:
     {
-        int position_in_fft = fft_position_offset + ${g_i};
-        int idx = (fft_index + ${fft_index_offset}) * ${fft_size_real if pad_in else fft_size} + position_in_fft;
+        const int position_in_fft = fft_position_offset + ${g_i};
+        const int idx = (fft_index + ${fft_index_offset}) * ${fft_size_real if pad_in else fft_size} + position_in_fft;
 
         a[${a_i}] = ${input.load}(idx);
 
@@ -265,19 +265,18 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             border = fft_size_real // inner_step
         %>
         %if pad_in:
-        ${loads(range(border), False)}
-        if (fft_position_offset < ${fft_size_real % inner_step})
-        {
-            ${loads([border], False)}
-        }
-        else
-        {
-            ${loads([border], True)}
-        }
-        ${loads(range(border + 1, num_inner_iter), True)}
-
+            ${loads(range(border), False)}
+            if (fft_position_offset < ${fft_size_real % inner_step})
+            {
+                ${loads([border], False)}
+            }
+            else
+            {
+                ${loads([border], True)}
+            }
+            ${loads(range(border + 1, num_inner_iter), True)}
         %else:
-        ${loads(range(num_inner_iter), False)}
+            ${loads(range(num_inner_iter), False)}
         %endif
     %endfor
 </%def>
@@ -328,25 +327,25 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             jj = 0;
         %endif
 
-        int fft_index = group_id * ${xforms_per_workgroup} + jj;
-        int fft_position_offset = ii;
+        const int fft_index = group_id * ${xforms_per_workgroup} + jj;
+        const int fft_position_offset = ii;
         global_mem_offset = fft_index * ${fft_size} + ii;
 
         if(${xforms_remainder} == 0 || (group_id < num_groups - 1) || (jj < ${xforms_remainder}))
         {
         %if pad_in:
-        ${loads(range(border), False)}
-        if (ii < ${fft_size_real % threads_per_xform})
-        {
-            ${loads([border], False)}
-        }
-        else
-        {
-            ${loads([border], True)}
-        }
-        ${loads(range(border + 1, radix), True)}
+            ${loads(range(border), False)}
+            if (fft_position_offset < ${fft_size_real % threads_per_xform})
+            {
+                ${loads([border], False)}
+            }
+            else
+            {
+                ${loads([border], True)}
+            }
+            ${loads(range(border + 1, radix), True)}
         %else:
-        ${loads(range(radix), False)}
+            ${loads(range(radix), False)}
         %endif
         }
         else
@@ -755,17 +754,17 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     a[${i}] = complex_ctr(NAN, NAN);
     %endfor
 
-    int thread_id = virtual_local_id(0);
-    int group_id = virtual_group_id(0);
+    const int thread_id = virtual_local_id(0);
+    const int group_id = virtual_group_id(0);
 
     ## makes it easier to use it inside other definitions
     %if reverse_direction:
-    int direction = -${direction};
+    const int direction = -${direction};
     %else:
-    int direction = ${direction};
+    const int direction = ${direction};
     %endif
 
-    int norm_coeff = direction == 1 ? ${fft_size if normalize else 1} : 1;
+    const int norm_coeff = direction == 1 ? ${fft_size if normalize else 1} : 1;
 </%def>
 
 <%def name="fft_local(*args)">
