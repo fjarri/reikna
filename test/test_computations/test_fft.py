@@ -23,7 +23,7 @@ def pytest_generate_tests(metafunc):
     if 'shape_and_axes' in metafunc.funcargnames:
         shapes = []
 
-        for x in [3, 8, 9, 10, 11, 12, 13, 20]:
+        for x in [2, 3, 8, 9, 10, 11, 12, 13, 20]:
             shapes.append((2 ** x,))
 
         for x, y in itertools.product([4, 7, 8, 10], [4, 7, 8, 10]):
@@ -58,6 +58,8 @@ def pytest_generate_tests(metafunc):
                 str(shape[axes[0]]) + "x" + str(inner_batch)
 
         vals = [
+            ((63, 4), (1,)),
+            ((64, 4), (1,)),
             ((17, 16), (1,)),
             ((35, 256), (1,)),
             ((177, 256), (1,)),
@@ -75,6 +77,8 @@ def pytest_generate_tests(metafunc):
             return str(shape) + 'over' + str(axes)
 
         vals = [
+            ((63, 3), (1,)),
+            ((64, 3), (1,)),
             ((17, 15), (1,)),
             ((17, 17), (1,)),
             ((19, 4095), (1,)),

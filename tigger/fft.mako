@@ -224,46 +224,20 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 
 </%def>
 
-<%def name="insertGlobalLoad(input, kweights, a_index, g_index)">
-{
-    int idx = ${g_index} + global_mem_offset;
+<%def name="insertGlobalLoadsNoIf(input, kweights, a_indices, g_indices, pad=False, fft_index_offsets=None)">
+    <%
+        if fft_index_offsets is None:
+            fft_index_offsets = [0] * len(a_indices)
+    %>
 
-    %if pad_in or takes_kweights:
-    int position_in_fft = idx % ${fft_size};
-    %endif
-
-    %if pad_in:
-    complex_t xw = xweight(direction, position_in_fft);
-
-    ## FIXME: the check may only be necessary outside of the cycle
-    if (position_in_fft < ${fft_size_real})
-    {
-        idx = (idx / ${fft_size}) * ${fft_size_real} + position_in_fft;
-    %endif
-        a[${a_index}] = ${input.load}(idx);
-    %if pad_in:
-        a[${a_index}] = complex_mul(a[${a_index}], xw);
-    }
-    else
-        a[${a_index}] = complex_ctr(0, 0);
-    %endif
-
-    %if takes_kweights:
-    a[${a_index}] = complex_mul(a[${a_index}],
-        ${kweights.load}(position_in_fft + ${fft_size} * (1 - direction) / 2));
-    %endif
-}
-</%def>
-
-<%def name="insertGlobalLoadsNoIf(input, kweights, a_indices, g_indices, pad=False, fft_index_shift=0)">
-    %for a_i, g_i in zip(a_indices, g_indices):
+    %for a_i, g_i, fft_index_offset in zip(a_indices, g_indices, fft_index_offsets):
 
     %if pad:
         a[${a_i}] = complex_ctr(0, 0);
     %else:
     {
         int position_in_fft = fft_position_offset + ${g_i};
-        int idx = (fft_index + ${fft_index_shift}) * ${fft_size_real if pad_in else fft_size} + position_in_fft;
+        int idx = (fft_index + ${fft_index_offset}) * ${fft_size_real if pad_in else fft_size} + position_in_fft;
 
         a[${a_i}] = ${input.load}(idx);
 
@@ -287,7 +261,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             loads = lambda indices, pad: insertGlobalLoadsNoIf(input, kweights,
                 [i * num_inner_iter + j for j in indices],
                 [j * inner_step for j in indices],
-                pad=pad, fft_index_shift=i * outer_step)
+                pad=pad, fft_index_offsets=[i * outer_step] * len(indices))
             border = fft_size_real // inner_step
         %>
         %if pad_in:
@@ -440,55 +414,55 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             %endif
         %endfor
     %else:
-        int fft_index = group_id * ${xforms_per_workgroup};
-        int fft_position_offset = thread_id;
-        global_mem_offset = fft_index * ${fft_size} + thread_id;
+        int xform_in_wg = thread_id / ${fft_size};
+        int fft_index = group_id * ${xforms_per_workgroup} + xform_in_wg;
+        int fft_position_offset = thread_id % ${fft_size};
+        global_mem_offset = fft_index * ${fft_size} + fft_position_offset;
         jj = thread_id % ${fft_size};
         ii = thread_id / ${fft_size};
-        lmem_store_index = ii * ${fft_size + threads_per_xform} + jj;
+        lmem_store_index = xform_in_wg * ${fft_size + threads_per_xform} + fft_position_offset;
 
         <%
             loads = lambda indices, pad: insertGlobalLoadsNoIf(input, kweights,
-                indices, [j * local_size for j in indices], pad=pad)
-            border = xforms_remainder // local_size
+                indices, [0] * len(indices), pad=pad,
+                fft_index_offsets = [i * local_size // fft_size for i in indices])
+            border = xforms_remainder // (local_size // fft_size)
         %>
-
-        %if pad_in:
 
         if((group_id == num_groups - 1) && ${xforms_remainder} != 0)
         {
-        %for i in range(radix):
-            if(ii < ${xforms_remainder})
+            %if pad_in:
+            if (fft_position_offset < ${fft_size_real})
             {
-                ${insertGlobalLoad(input, kweights, i, i * local_size)}
-            }
-            %if i != radix - 1:
-                ii += ${local_size // fft_size};
             %endif
-        %endfor
-        }
-        else
-        {
-        %for i in range(radix):
-            ${insertGlobalLoad(input, kweights, i, i*local_size)}
-        %endfor
-        }
-
-        %else:
-        if ((group_id == num_groups - 1) && ${xforms_remainder} != 0)
-        {
-            ${loads(range(xforms_remainder // (local_size // fft_size)), False)}
-            if (ii < ${xforms_remainder % (local_size // fft_size)})
-            {
-                ${loads([xforms_remainder // (local_size // fft_size)], False)}
+                ${loads(range(border), False)}
+                if (xform_in_wg < ${xforms_remainder % (local_size // fft_size)})
+                {
+                    ${loads([border], False)}
+                }
+            %if pad_in:
             }
+            else
+            {
+                ${loads(range(radix), True)}
+            }
+            %endif
         }
         else
         {
-            ${loads(range(radix), False)}
+            %if pad_in:
+            if (fft_position_offset < ${fft_size_real})
+            {
+            %endif
+                ${loads(range(radix), False)}
+            %if pad_in:
+            }
+            else
+            {
+                ${loads(range(radix), True)}
+            }
+            %endif
         }
-
-        %endif
 
         %if threads_per_xform > 1:
             ii = thread_id % ${threads_per_xform};
