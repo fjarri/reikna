@@ -281,29 +281,47 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     %endfor
 </%def>
 
-<%def name="insertGlobalStore(output, kweights, a_index, g_index)">
-{
-    int idx = ${g_index} + global_mem_offset;
+<%def name="insertGlobalStoresNoIf(output, kweights, a_indices, g_indices, fft_index_offsets=None)">
+    <%
+        if fft_index_offsets is None:
+            fft_index_offsets = [0] * len(a_indices)
+    %>
 
-    %if unpad_out:
-    int position_in_fft = idx % ${fft_size};
-    %endif
-
-    %if unpad_out:
-    complex_t xw = xweight(-direction, position_in_fft);
-
-    ## FIXME: the check may only be necessary outside of the cycle
-    if (position_in_fft < ${fft_size_real})
+    %for a_i, g_i, fft_index_offset in zip(a_indices, g_indices, fft_index_offsets):
     {
-        a[${a_index}] = complex_mul(a[${a_index}], xw);
-        idx = (idx / ${fft_size}) * ${fft_size_real} + position_in_fft;
-    %endif
-        ${output.store}(idx, complex_div_scalar(a[${a_index}], norm_coeff));
-    %if unpad_out:
+        const int position_in_fft = fft_position_offset + ${g_i};
+        const int idx = (fft_index + ${fft_index_offset}) * ${fft_size_real if unpad_out else fft_size} + position_in_fft;
+
+        %if unpad_out:
+        a[${a_i}] = complex_mul(a[${a_i}], xweight(-direction, position_in_fft));
+        %endif
+
+        ${output.store}(idx, complex_div_scalar(a[${a_i}], norm_coeff));
     }
-    %endif
-}
+    %endfor
 </%def>
+
+<%def name="insertGlobalStoresOuter(output, kweights, outer_list, num_inner_iter, outer_step, inner_step)">
+    %for i in outer_list:
+        <%
+            stores = lambda indices: insertGlobalStoresNoIf(output, kweights,
+                [i * num_inner_iter + j for j in indices],
+                [j * inner_step for j in indices],
+                fft_index_offsets=[i * outer_step] * len(indices))
+            border = fft_size_real // inner_step
+        %>
+        %if unpad_out:
+            ${stores(range(border))}
+            if (fft_position_offset < ${fft_size_real % inner_step})
+            {
+                ${stores([border])}
+            }
+        %else:
+            ${stores(range(num_inner_iter))}
+        %endif
+    %endfor
+</%def>
+
 
 <%def name="insertGlobalLoadsAndTranspose(input, kweights, n, threads_per_xform, xforms_per_workgroup, radix, mem_coalesce_width)">
 
@@ -499,24 +517,29 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     %>
 
     %if threads_per_xform >= mem_coalesce_width:
-        %if xforms_per_workgroup > 1:
-            if(${xforms_remainder} == 0 || (group_id < num_groups - 1) ||
-                (jj < ${xforms_remainder}))
+        <%
+            stores = lambda indices: insertGlobalStoresNoIf(output, kweights,
+                [((j % num_iter) * radix + (j // num_iter)) for j in indices],
+                [j * threads_per_xform for j in indices])
+            border = fft_size_real // threads_per_xform
+        %>
+
+        if(${xforms_remainder} == 0 || group_id < num_groups - 1 || jj < ${xforms_remainder})
+        {
+        %if unpad_out:
+            ${stores(range(border))}
+            if (fft_position_offset < ${fft_size_real % threads_per_xform})
             {
-        %endif
-
-        %for i in range(max_radix):
-            <%
-                j = i % num_iter
-                k = i // num_iter
-                ind = j * radix + k
-            %>
-            ${insertGlobalStore(output, kweights, ind, i * threads_per_xform)}
-        %endfor
-
-        %if xforms_per_workgroup > 1:
+                ${stores([border])}
             }
+        %else:
+            ${stores(range(max_radix))}
         %endif
+        }
+        else
+        {
+            return;
+        }
 
     %elif fft_size >= mem_coalesce_width:
         <%
@@ -548,29 +571,23 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             LOCAL_BARRIER;
         %endfor
 
+        <%
+            stores = lambda indices: insertGlobalStoresOuter(output, kweights,
+                indices, num_inner_iter, (local_size // mem_coalesce_width), mem_coalesce_width)
+            border = xforms_remainder // (local_size // mem_coalesce_width)
+        %>
+
         if((group_id == num_groups - 1) && ${xforms_remainder} != 0)
         {
-        %for i in range(num_outer_iter):
-            if(jj < ${xforms_remainder})
+            ${stores(range(border))}
+            if (jj < ${xforms_remainder % (local_size // mem_coalesce_width)})
             {
-            %for j in range(num_inner_iter):
-                ${insertGlobalStore(output, kweights, i * num_inner_iter + j, \
-                    j * mem_coalesce_width + i * (local_size // mem_coalesce_width) * fft_size)}
-            %endfor
+                ${stores([border])}
             }
-            %if i != num_outer_iter - 1:
-                jj += ${local_size // mem_coalesce_width};
-            %endif
-        %endfor
         }
         else
         {
-        %for i in range(num_outer_iter):
-            %for j in range(num_inner_iter):
-                ${insertGlobalStore(output, kweights, i * num_inner_iter + j, \
-                    j * mem_coalesce_width + i * (local_size // mem_coalesce_width) * fft_size)}
-            %endfor
-        %endfor
+            ${stores(range(num_outer_iter))}
         }
     %else:
         lmem_load_index = mad24(jj, ${fft_size + threads_per_xform}, ii);
@@ -595,23 +612,38 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             LOCAL_BARRIER;
         %endfor
 
+        <%
+            stores = lambda indices: insertGlobalStoresNoIf(output, kweights,
+                indices, [0] * len(indices),
+                fft_index_offsets = [i * local_size // fft_size for i in indices])
+            border = xforms_remainder // (local_size // fft_size)
+        %>
+
         if((group_id == num_groups - 1) && ${xforms_remainder} != 0)
         {
-        %for i in range(max_radix):
-            if(jj < ${xforms_remainder})
+            %if unpad_out:
+            if (fft_position_offset < ${fft_size_real})
             {
-                ${insertGlobalStore(output, kweights, i, i * local_size)}
-            }
-            %if i != max_radix - 1:
-                jj += ${local_size // fft_size};
             %endif
-        %endfor
+                ${stores(range(border))}
+                if (jj < ${xforms_remainder % (local_size // fft_size)})
+                {
+                    ${stores([border])}
+                }
+            %if unpad_out:
+            }
+            %endif
         }
         else
         {
-            %for i in range(max_radix):
-                ${insertGlobalStore(output, kweights, i, i * local_size)}
-            %endfor
+            %if unpad_out:
+            if (fft_position_offset < ${fft_size_real})
+            {
+            %endif
+                ${stores(range(radix))}
+            %if unpad_out:
+            }
+            %endif
         }
     %endif
 </%def>
