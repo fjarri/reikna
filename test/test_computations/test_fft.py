@@ -20,35 +20,7 @@ def pytest_generate_tests(metafunc):
         (4, 4, 4), (5, 5, 7), (7, 7, 7)] # 3D
     perf_mem_limit = 4 * 2**20
 
-    if 'shape_and_axes' in metafunc.funcargnames:
-        shapes = []
-
-        for x in [2, 3, 8, 9, 10, 11, 12, 13, 20]:
-            shapes.append((2 ** x,))
-
-        for x, y in itertools.product([4, 7, 8, 10], [4, 7, 8, 10]):
-            shapes.append((2 ** x, 2 ** y))
-
-        for x, y, z in itertools.product([4, 7, 10], [4, 7, 10], [4, 7, 10]):
-            shapes.append((2 ** x, 2 ** y, 2 ** z))
-
-        batch_sizes = [1, 16, 128, 1024, 4096]
-
-        mem_limit = 2 ** 20
-
-        vals = []
-        ids = []
-        for shape, batch in itertools.product(shapes, batch_sizes):
-            if product(shape) * batch <= mem_limit:
-                if batch == 1:
-                    vals.append((shape, None))
-                else:
-                    vals.append(((batch,) + shape, tuple(range(1, len(shape) + 1))))
-                ids.append(str(batch) + "x" + str(shape))
-
-        metafunc.parametrize('shape_and_axes', vals, ids=ids)
-
-    elif 'local_shape_and_axes' in metafunc.funcargnames:
+    if 'local_shape_and_axes' in metafunc.funcargnames:
         def idgen(val):
             batch, size = val[0]
             return str(batch) + 'x' + str(size)
@@ -62,15 +34,18 @@ def pytest_generate_tests(metafunc):
         #    (first code path, corresponds to relatively large FFT sizes)
         # 2. ``xforms_per_workgroup`` still > 1
         #    (which will allow us to have ``xforms_remainder != 0``)
-        base_vals = [
-            (256, 8), (256, 64), (256, 128),
-            (256, 256), (128, 512), (64, 1024), (64, 4096)]
+
+        mem_limit = 2 ** 20
+        size_powers = (3, 7, 8, 9, 10, 12)
 
         vals = []
-        for batch, size in base_vals:
+        for p in size_powers:
+            size = 2 ** p
+            batch = mem_limit // size
+
             # "size / 2 - 1" will lead to full FFT of size ``size``
             # in the current version of Bluestein's algorithm
-            pad_test_size = size / 2 - 1
+            pad_test_size = size // 2 - 1
 
             for s in (size, pad_test_size):
                 # testing batch = 1, non-multiple batch and power of 2 batch
@@ -79,50 +54,56 @@ def pytest_generate_tests(metafunc):
 
         metafunc.parametrize('local_shape_and_axes', vals, ids=list(map(idgen, vals)))
 
-    elif 'non2batch_shape_and_axes' in metafunc.funcargnames:
-        def idgen(shape_and_axes):
-            shape, axes = shape_and_axes
-            assert len(axes) == 1
-            outer_batch = shape[:axes[0]]
-            inner_batch = shape[axes[0]+1:]
-            return ((str(outer_batch) + "x") if len(outer_batch) > 0 else "") + \
-                str(shape[axes[0]]) + "x" + str(inner_batch)
+    elif 'global_shape_and_axes' in metafunc.funcargnames:
+        def idgen(val):
+            outer_batch, size, inner_batch = val[0]
+            return str(outer_batch) + 'x' + str(size) + 'x' + str(inner_batch)
 
-        vals = [
-            ((63, 4), (1,)),
-            ((64, 4), (1,)),
-            ((17, 16), (1,)),
-            ((35, 256), (1,)),
-            ((177, 256), (1,)),
-            ((39, 16, 7), (1,)),
-            ((17, 16, 131), (1,)),
-            ((7, 1024, 11), (1,)),
-            ((5, 1024, 57), (1,))]
+        # These values are supposed to check all code paths in
+        # fft.mako::fft_global.
+        mem_limit = 2 ** 22
+        size_powers = (3, 7, 9, 10)
 
-        metafunc.parametrize('non2batch_shape_and_axes', vals, ids=list(map(idgen, vals)))
+        vals = []
+        for p in size_powers:
+            size = 2 ** p
+            batch = mem_limit // size // 64
 
-    elif 'non2problem_shape_and_axes' in metafunc.funcargnames:
+            # "size / 2 - 1" will lead to full FFT of size ``size``
+            # in the current version of Bluestein's algorithm
+            pad_test_size = size // 2 - 1
+
+            for s in (size, pad_test_size):
+                # possible inner batches: small power of 2, small non-power-of-2,
+                # big power of 2 (more than coalesce_width), big non-power-of-2
+                for ib in (2, 3, 63, 64):
+                    for ob in (1, batch - 1, batch):
+                        vals.append(((ob, s, ib), (1,)))
+
+        # big size (supposed to be > local_kernel_limit * MAX_RADIX)
+        big_size = 2 ** 15
+        batch = mem_limit // big_size // 8
+        vals.append(((1, big_size, 1), (1,)))
+        vals.append(((1, big_size, 2), (1,)))
+        vals.append(((1, big_size, 3), (1,)))
+        vals.append(((batch, big_size, 3), (1,)))
+        vals.append(((batch - 1, big_size, 3), (1,)))
+
+        metafunc.parametrize('global_shape_and_axes', vals, ids=list(map(idgen, vals)))
+
+    elif 'sequence_shape_and_axes' in metafunc.funcargnames:
 
         def idgen(non2problem_shape_and_axes):
             shape, axes = non2problem_shape_and_axes
             return str(shape) + 'over' + str(axes)
 
         vals = [
-            ((63, 3), (1,)),
-            ((64, 3), (1,)),
-            ((17, 15), (1,)),
-            ((17, 17), (1,)),
-            ((19, 4095), (1,)),
-            ((19, 4097), (1,)),
-            ((39, 31, 7), (1,)),
-            ((39, 33, 7), (1,)),
-            ((3, 255, 7), (1,)),
-            ((3, 257, 7), (1,)),
-            ((17, 200, 131), (0, 1)),
+            ((3, 255, 7), (2, 0)),
+            ((17, 200, 131), (1, 0)),
             ((7, 1000, 11), (1, 2)),
-            ((15, 900, 57), (0, 1, 2))]
+            ((15, 900, 57), (2, 0, 1))]
 
-        metafunc.parametrize('non2problem_shape_and_axes', vals, ids=list(map(idgen, vals)))
+        metafunc.parametrize('sequence_shape_and_axes', vals, ids=list(map(idgen, vals)))
 
     elif 'perf_shape_and_axes' in metafunc.funcargnames:
 
@@ -195,38 +176,14 @@ def test_trivial(some_ctx):
     assert diff_is_negligible(res_dev.get(), data * param)
 
 
-def test_local_fft(ctx, local_shape_and_axes):
+def test_local(ctx, local_shape_and_axes):
     check_errors(ctx, local_shape_and_axes)
 
+def test_global(ctx, global_shape_and_axes):
+    check_errors(ctx, global_shape_and_axes)
 
-def test_power_of_2_problem(ctx, shape_and_axes):
-    check_errors(ctx, shape_and_axes)
-
-
-def test_non_power_of_2_problem(ctx, non2problem_shape_and_axes):
-    check_errors(ctx, non2problem_shape_and_axes)
-
-
-def test_non2batch(ctx, non2batch_shape_and_axes):
-    """
-    Tests that the normal algoritms supports both inner and outer batches that are not powers of 2.
-    Batches here are those part of ``shape`` that are not referenced in ``axes``.
-    """
-
-    dtype = numpy.complex64
-
-    shape, axes = non2batch_shape_and_axes
-
-    data = get_test_array(shape, dtype)
-    data_dev = ctx.to_device(data)
-    res_dev = ctx.empty_like(data_dev)
-
-    fft = FFT(ctx).prepare_for(res_dev, data_dev, None, axes=axes)
-
-    # forward transform
-    fft(res_dev, data_dev, -1)
-    fwd_ref = numpy.fft.fftn(data, axes=axes).astype(dtype)
-    assert diff_is_negligible(res_dev.get(), fwd_ref)
+def test_sequence(ctx, sequence_shape_and_axes):
+    check_errors(ctx, sequence_shape_and_axes)
 
 
 def check_performance(ctx_and_double, shape_and_axes):
