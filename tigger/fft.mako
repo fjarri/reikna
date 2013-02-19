@@ -541,10 +541,10 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             num_inner_iter = fft_size // mem_coalesce_width
             num_outer_iter = xforms_per_workgroup // (local_size // mem_coalesce_width)
         %>
-        lmem_load_index  = mad24(jj, ${fft_size + threads_per_xform}, ii);
-        ii = thread_id % ${mem_coalesce_width};
-        jj = thread_id / ${mem_coalesce_width};
-        lmem_store_index = mad24(jj, ${fft_size + threads_per_xform}, ii);
+
+        {
+        const int lmem_load_idx = xform_in_wg * ${fft_size + threads_per_xform} + thread_in_xform;
+        const int lmem_store_idx = coalesce_in_wg * ${fft_size + threads_per_xform} + thread_in_coalesce;
 
         %for comp in ('x', 'y'):
             %for i in range(max_radix):
@@ -553,18 +553,20 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
                     k = i // num_iter
                     ind = j * radix + k
                 %>
-                lmem[lmem_load_index + ${i * threads_per_xform}] = a[${ind}].${comp};
+                lmem[lmem_load_idx + ${i * threads_per_xform}] = a[${ind}].${comp};
             %endfor
             LOCAL_BARRIER;
 
             %for i in range(num_outer_iter):
                 %for j in range(num_inner_iter):
-                    a[${i*num_inner_iter + j}].${comp} = lmem[lmem_store_index + ${j * mem_coalesce_width + \
+                    a[${i*num_inner_iter + j}].${comp} = lmem[
+                        lmem_store_idx + ${j * mem_coalesce_width + \
                         i * (local_size // mem_coalesce_width) * (fft_size + threads_per_xform)}];
                 %endfor
             %endfor
             LOCAL_BARRIER;
         %endfor
+        }
 
         <%
             stores = lambda indices: insertGlobalStoresOuter(output, kweights,
@@ -575,7 +577,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         if((group_id == num_groups - 1) && ${xforms_remainder} != 0)
         {
             ${stores(range(border))}
-            if (jj < ${xforms_remainder % (local_size // mem_coalesce_width)})
+            if (coalesce_in_wg < ${xforms_remainder % (local_size // mem_coalesce_width)})
             {
                 ${stores([border])}
             }
@@ -584,11 +586,11 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         {
             ${stores(range(num_outer_iter))}
         }
+
     %else:
-        lmem_load_index = mad24(jj, ${fft_size + threads_per_xform}, ii);
-        ii = thread_id % ${fft_size};
-        jj = thread_id / ${fft_size};
-        lmem_store_index = mad24(jj, ${fft_size + threads_per_xform}, ii);
+        {
+        const int lmem_load_idx = xform_in_wg * ${fft_size + threads_per_xform} + thread_in_xform;
+        const int lmem_store_idx = fft_in_wg * ${fft_size + threads_per_xform} + thread_in_fft;
 
         %for comp in ('x', 'y'):
             %for i in range(max_radix):
@@ -597,15 +599,16 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
                     k = i // num_iter
                     ind = j * radix + k
                 %>
-                lmem[lmem_load_index + ${i * threads_per_xform}] = a[${ind}].${comp};
+                lmem[lmem_load_idx + ${i * threads_per_xform}] = a[${ind}].${comp};
             %endfor
             LOCAL_BARRIER;
 
             %for i in range(max_radix):
-                a[${i}].${comp} = lmem[lmem_store_index + ${i * (local_size // fft_size) * (fft_size + threads_per_xform)}];
+                a[${i}].${comp} = lmem[lmem_store_idx + ${i * (local_size // fft_size) * (fft_size + threads_per_xform)}];
             %endfor
             LOCAL_BARRIER;
         %endfor
+        }
 
         <%
             stores = lambda indices: insertGlobalStoresNoIf(output, kweights,
@@ -621,7 +624,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             {
             %endif
                 ${stores(range(border))}
-                if (jj < ${xforms_remainder % (local_size // fft_size)})
+                if (fft_in_wg < ${xforms_remainder % (local_size // fft_size)})
                 {
                     ${stores([border])}
                 }
