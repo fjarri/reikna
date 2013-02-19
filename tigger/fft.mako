@@ -965,8 +965,6 @@ ${kernel_definition}
 
         const int position_in_stride_out = (group_in_xform * ${local_batch}) % ${stride_out};
         const int stride_out_number = (group_in_xform * ${local_batch}) / ${stride_out};
-        const int idx = stride_out_number * ${stride} + position_in_stride_out + thread_id +
-            ${fft_size} * xform_number;
 
         %for k in range(radix1):
         {
