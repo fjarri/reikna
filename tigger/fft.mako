@@ -337,13 +337,13 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             border = fft_size_real // threads_per_xform
         %>
 
-        ii = thread_id % ${threads_per_xform};
-        jj = thread_id / ${threads_per_xform};
+        const int thread_in_xform = thread_id % ${threads_per_xform};
+        const int xform_in_wg = thread_id / ${threads_per_xform};
+        const int fft_index = group_id * ${xforms_per_workgroup} + xform_in_wg;
+        const int fft_position_offset = thread_in_xform;
 
-        const int fft_index = group_id * ${xforms_per_workgroup} + jj;
-        const int fft_position_offset = ii;
-
-        if(${xforms_remainder} == 0 || (group_id < num_groups - 1) || (jj < ${xforms_remainder}))
+        if(${xforms_remainder} == 0 || (group_id < num_groups - 1) ||
+            (xform_in_wg < ${xforms_remainder}))
         {
         %if pad_in:
             ${loads(range(border), False)}
@@ -375,12 +375,13 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             num_outer_iter = xforms_per_workgroup // (local_size // mem_coalesce_width)
         %>
 
-        ii = thread_id % ${mem_coalesce_width};
-        jj = thread_id / ${mem_coalesce_width};
-        lmem_store_index = mad24(jj, ${fft_size + threads_per_xform}, ii);
+        const int thread_in_coalesce = thread_id % ${mem_coalesce_width};
+        const int coalesce_in_wg = thread_id / ${mem_coalesce_width};
+        const int fft_index = group_id * ${xforms_per_workgroup} + coalesce_in_wg;
+        const int fft_position_offset = thread_in_coalesce;
 
-        int fft_index = group_id * ${xforms_per_workgroup} + jj;
-        int fft_position_offset = ii;
+        const int thread_in_xform = thread_id % ${threads_per_xform};
+        const int xform_in_wg = thread_id / ${threads_per_xform};
 
         if((group_id == num_groups - 1) && ${xforms_remainder} != 0)
         {
@@ -388,7 +389,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
                 range(xforms_remainder // (local_size // mem_coalesce_width)),
                 num_inner_iter, (local_size // mem_coalesce_width), mem_coalesce_width)}
 
-            if (jj < ${xforms_remainder % (local_size // mem_coalesce_width)})
+            if (coalesce_in_wg < ${xforms_remainder % (local_size // mem_coalesce_width)})
             {
                 ${insertGlobalLoadsOuter(input, kweights,
                     [xforms_remainder // (local_size // mem_coalesce_width)],
@@ -401,14 +402,14 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
                 num_inner_iter, (local_size // mem_coalesce_width), mem_coalesce_width)}
         }
 
-        ii = thread_id % ${threads_per_xform};
-        jj = thread_id / ${threads_per_xform};
-        lmem_load_index = mad24(jj, ${fft_size + threads_per_xform}, ii);
+        {
+        const int lmem_store_idx = coalesce_in_wg * ${fft_size + threads_per_xform} + thread_in_coalesce;
+        const int lmem_load_idx = xform_in_wg * ${fft_size + threads_per_xform} + thread_in_xform;
 
         %for comp in ('x', 'y'):
             %for i in range(num_outer_iter):
                 %for j in range(num_inner_iter):
-                    lmem[lmem_store_index + ${j * mem_coalesce_width + \
+                    lmem[lmem_store_idx + ${j * mem_coalesce_width + \
                         i * (local_size // mem_coalesce_width) * (fft_size + threads_per_xform)}] =
                         a[${i * num_inner_iter + j}].${comp};
                 %endfor
@@ -416,20 +417,23 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             LOCAL_BARRIER;
 
             %for i in range(radix):
-                a[${i}].${comp} = lmem[lmem_load_index + ${i * threads_per_xform}];
+                a[${i}].${comp} = lmem[lmem_load_idx + ${i * threads_per_xform}];
             %endfor
 
             %if comp == 'x':
             LOCAL_BARRIER;
             %endif
         %endfor
+        }
+
     %else:
-        int xform_in_wg = thread_id / ${fft_size};
-        int fft_index = group_id * ${xforms_per_workgroup} + xform_in_wg;
-        int fft_position_offset = thread_id % ${fft_size};
-        jj = thread_id % ${fft_size};
-        ii = thread_id / ${fft_size};
-        lmem_store_index = xform_in_wg * ${fft_size + threads_per_xform} + fft_position_offset;
+        const int thread_in_fft = thread_id % ${fft_size};
+        const int fft_in_wg = thread_id / ${fft_size};
+        const int fft_index = group_id * ${xforms_per_workgroup} + fft_in_wg;
+        const int fft_position_offset = thread_in_fft;
+
+        const int thread_in_xform = thread_id % ${threads_per_xform};
+        const int xform_in_wg = thread_id / ${threads_per_xform};
 
         <%
             loads = lambda indices, pad: insertGlobalLoadsNoIf(input, kweights,
@@ -445,7 +449,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             {
             %endif
                 ${loads(range(border), False)}
-                if (xform_in_wg < ${xforms_remainder % (local_size // fft_size)})
+                if (fft_in_wg < ${xforms_remainder % (local_size // fft_size)})
                 {
                     ${loads([border], False)}
                 }
@@ -473,31 +477,30 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             %endif
         }
 
-        %if threads_per_xform > 1:
-            ii = thread_id % ${threads_per_xform};
-            jj = thread_id / ${threads_per_xform};
-            lmem_load_index = mad24(jj, ${fft_size + threads_per_xform}, ii);
-        %else:
-            ii = 0;
-            jj = thread_id;
-            lmem_load_index = mul24(jj, ${fft_size + threads_per_xform});
-        %endif
+        {
+        const int lmem_store_idx = fft_in_wg * ${fft_size + threads_per_xform} + thread_in_fft;
+        const int lmem_load_idx = xform_in_wg * ${fft_size + threads_per_xform} + thread_in_xform;
 
         %for comp in ('x', 'y'):
             %for i in range(radix):
-                lmem[lmem_store_index + ${i * (local_size // fft_size) * (fft_size + threads_per_xform)}] = a[${i}].${comp};
+                lmem[lmem_store_idx + ${i * (local_size // fft_size) * (fft_size + threads_per_xform)}] = a[${i}].${comp};
             %endfor
             LOCAL_BARRIER;
 
             %for i in range(radix):
-                a[${i}].${comp} = lmem[lmem_load_index + ${i * threads_per_xform}];
+                a[${i}].${comp} = lmem[lmem_load_idx + ${i * threads_per_xform}];
             %endfor
 
             %if comp == 'x':
             LOCAL_BARRIER;
             %endif
         %endfor
+        }
     %endif
+
+    ii = thread_in_xform;
+    jj = xform_in_wg;
+
 </%def>
 
 <%def name="insertGlobalStoresAndTranspose(output, kweights, n, max_radix, radix, threads_per_xform, xforms_per_workgroup, mem_coalesce_width)">
