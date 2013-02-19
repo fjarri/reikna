@@ -837,17 +837,15 @@ ${kernel_definition}
 
     ${insertVariableDefinitions(direction, lmem_size, radix1)}
 
-    size_t lmem_load_index, lmem_store_index;
+    const int xform_global = group_id / ${groups_per_xform};
+    const int group_in_xform = group_id % ${groups_per_xform};
+    const int xform_local = thread_id / ${local_batch};
+    const int thread_in_xform = thread_id % ${local_batch};
 
-    int xform_global = group_id / ${groups_per_xform};
-    int group_in_xform = group_id % ${groups_per_xform};
-    int xform_local = thread_id / ${local_batch};
-    int thread_in_xform = thread_id % ${local_batch};
+    const int position_in_stride_in = thread_in_xform + group_in_xform * ${local_batch};
+    const int xform_number = xform_global * ${inner_batch};
 
-    int position_in_stride_in = thread_in_xform + group_in_xform * ${local_batch};
-    int xform_number = xform_global * ${inner_batch};
-
-    ## Load Data
+    // Load data
     %if stride_in % local_batch != 0:
     // If the inner batch is not a power of 2, we need to skip some of the threads
     if (position_in_stride_in >= ${stride_in})
@@ -856,15 +854,15 @@ ${kernel_definition}
 
     %for j in range(radix1):
     {
-        int stride_in_number = xform_local + ${j * radix2};
-        int position = position_in_stride_in + ${stride_in} * stride_in_number;
+        const int stride_in_number = xform_local + ${j * radix2};
+        const int position = position_in_stride_in + ${stride_in} * stride_in_number;
 
         %if pad_in or takes_kweights:
-        int position_in_fft = position / ${inner_batch};
+        const int position_in_fft = position / ${inner_batch};
         %endif
 
         %if pad_in:
-        complex_t xw = xweight(direction, position_in_fft);
+        const complex_t xw = xweight(direction, position_in_fft);
 
         ## FIXME: the check may only be necessary outside of the cycle
         if (position_in_fft < ${fft_size_real})
@@ -888,78 +886,74 @@ ${kernel_definition}
     fftKernel${radix1}(a, direction);
 
     %if radix2 > 1:
-        ## twiddle
-        {
-            real_t ang;
-            complex_t w;
-
+        // Twiddle
         %for k in range(1, radix1):
-            ## TODO: for some reason, writing it in form
-            ## (real_t)${2 * numpy.pi / radix} * (real_t)${k} gives slightly better precision
-            ## have to try it with double precision
-            ang = ${wrap_const(2 * numpy.pi * k / radix)} * xform_local * direction;
-            w = complex_exp(ang);
+        {
+            const real_t ang = ${wrap_const(2 * numpy.pi * k / radix)} * xform_local * direction;
+            const complex_t w = complex_exp(ang);
             a[${k}] = complex_mul(a[${k}], w);
-        %endfor
         }
+        %endfor
 
-        ## shuffle
-        lmem_store_index = thread_id;
-        lmem_load_index = mad24(xform_local, ${local_size * num_iter}, thread_in_xform);
+        // Shuffle
+        {
+        const int lmem_store_idx = thread_id;
+        const int lmem_load_idx = xform_local * ${local_size * num_iter} + thread_in_xform;
 
         %for comp in ('x', 'y'):
             %for k in range(radix1):
-                lmem[lmem_store_index + ${k * local_size}] = a[${k}].${comp};
+                lmem[lmem_store_idx + ${k * local_size}] = a[${k}].${comp};
             %endfor
             LOCAL_BARRIER;
 
             %for k in range(num_iter):
                 %for t in range(radix2):
                     a[${k * radix2 + t}].${comp} =
-                        lmem[lmem_load_index + ${t * local_batch + k * local_size}];
+                        lmem[lmem_load_idx + ${t * local_batch + k * local_size}];
                 %endfor
             %endfor
             LOCAL_BARRIER;
         %endfor
+        }
 
         %for j in range(num_iter):
             fftKernel${radix2}(a + ${j * radix2}, direction);
         %endfor
     %endif
 
-    ## twiddle
     %if not last_pass:
+    // Twiddle
     {
-        real_t ang1, ang;
-        complex_t w;
-
-        int l = (group_in_xform * ${local_batch} + thread_in_xform) / ${stride_out};
-        int k = xform_local * ${radix1 // radix2};
-        ang1 = ${wrap_const(2 * numpy.pi / curr_size)} * l * direction;
+        const int l = (group_in_xform * ${local_batch} + thread_in_xform) / ${stride_out};
+        const int k = xform_local * ${radix1 // radix2};
+        const real_t ang1 = ${wrap_const(2 * numpy.pi / curr_size)} * l * direction;
         %for t in range(radix1):
-            ang = ang1 * (k + ${(t % radix2) * radix1 + (t // radix2)});
-            w = complex_exp(ang);
+        {
+            const real_t ang = ang1 * (k + ${(t % radix2) * radix1 + (t // radix2)});
+            const complex_t w = complex_exp(ang);
             a[${t}] = complex_mul(a[${t}], w);
+        }
         %endfor
     }
     %endif
 
-    ## Store Data
+    // Store Data
     %if stride_out == 1:
-        lmem_store_index = mad24(thread_in_xform, ${radix + 1}, xform_local * ${radix1 // radix2});
-        lmem_load_index = mad24(thread_id / ${radix}, ${radix + 1}, thread_id % ${radix});
+    {
+        const int lmem_store_idx = thread_in_xform * ${radix + 1} + xform_local * ${radix1 // radix2};
+        const int lmem_load_idx = (thread_id / ${radix}) * ${radix + 1} + thread_id % ${radix};
 
         %for comp in ('x', 'y'):
             %for i in range(radix1 // radix2):
                 %for j in range(radix2):
-                    lmem[lmem_store_index + ${i + j * radix1}] = a[${i * radix2 + j}].${comp};
+                    lmem[lmem_store_idx + ${i + j * radix1}] = a[${i * radix2 + j}].${comp};
                 %endfor
             %endfor
             LOCAL_BARRIER;
 
             %if local_size >= radix:
                 %for i in range(radix1):
-                    a[${i}].${comp} = lmem[lmem_load_index + ${i * (radix + 1) * (local_size // radix)}];
+                    a[${i}].${comp} = lmem[lmem_load_idx + ${i * (radix + 1) * (local_size // radix)}];
                 %endfor
             %else:
                 <%
@@ -968,25 +962,26 @@ ${kernel_definition}
                 %>
                 %for i in range(outer_iter):
                     %for j in range(inner_iter):
-                        a[${i * inner_iter + j}].${comp} = lmem[lmem_load_index + ${j * local_size + i * (radix + 1)}];
+                        a[${i * inner_iter + j}].${comp} = lmem[lmem_load_idx + ${j * local_size + i * (radix + 1)}];
                     %endfor
                 %endfor
             %endif
             LOCAL_BARRIER;
         %endfor
+    }
 
-        int position_in_stride_out = (group_in_xform * ${local_batch}) % ${stride_out};
-        int stride_out_number = (group_in_xform * ${local_batch}) / ${stride_out};
-        int idx = stride_out_number * ${stride} + position_in_stride_out + thread_id +
+        const int position_in_stride_out = (group_in_xform * ${local_batch}) % ${stride_out};
+        const int stride_out_number = (group_in_xform * ${local_batch}) / ${stride_out};
+        const int idx = stride_out_number * ${stride} + position_in_stride_out + thread_id +
             ${fft_size} * xform_number;
 
         %for k in range(radix1):
         {
-            int position = stride_out_number * ${stride} + ${k * local_size} +
+            const int position = stride_out_number * ${stride} + ${k * local_size} +
                 position_in_stride_out + thread_id;
             %if unpad_out:
-            int position_in_fft = position / ${inner_batch};
-            complex_t xw = xweight(-direction, position_in_fft);
+            const int position_in_fft = position / ${inner_batch};
+            const complex_t xw = xweight(-direction, position_in_fft);
             a[${k}] = complex_mul(a[${k}], xw);
             if (position_in_fft < ${fft_size_real})
             %endif
@@ -995,20 +990,20 @@ ${kernel_definition}
         }
         %endfor
     %else:
-        int position_in_stride_out = (group_in_xform * ${local_batch} + thread_in_xform) % ${stride_out};
-        int stride_out_number = (group_in_xform * ${local_batch} + thread_in_xform) / ${stride_out};
+        const int position_in_stride_out = (group_in_xform * ${local_batch} + thread_in_xform) % ${stride_out};
+        const int stride_out_number = (group_in_xform * ${local_batch} + thread_in_xform) / ${stride_out};
 
         %for k in range(radix1):
         {
-            int position = ${((k % radix2) * radix1 + (k // radix2)) * stride_out} +
+            const int position = ${((k % radix2) * radix1 + (k // radix2)) * stride_out} +
                 ${stride_out} * (
                     stride_out_number * ${radix} +
                     xform_local * ${radix1 // radix2}) +
                 position_in_stride_out;
 
             %if unpad_out:
-            int position_in_fft = position / ${inner_batch};
-            complex_t xw = xweight(-direction, position_in_fft);
+            const int position_in_fft = position / ${inner_batch};
+            const complex_t xw = xweight(-direction, position_in_fft);
             a[${k}] = complex_mul(a[${k}], xw);
             if (position_in_fft < ${fft_size_real})
             %endif
