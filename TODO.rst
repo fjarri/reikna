@@ -1,7 +1,6 @@
 0.2.0
 =====
 
-* TODO: FFT: clean up code, check that there are no warnings during compilation
 * TODO: add memory packing functionality to OperationRecorder
 * When doing 'pip uninstall' it shows the full list of files, when other modules just show
   a list of folders. Should be something connected to MANIFEST and package data.
