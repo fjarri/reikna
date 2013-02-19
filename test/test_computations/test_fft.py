@@ -48,6 +48,35 @@ def pytest_generate_tests(metafunc):
 
         metafunc.parametrize('shape_and_axes', vals, ids=ids)
 
+    elif 'local_shape_and_axes' in metafunc.funcargnames:
+        def idgen(val):
+            batch, size = val[0]
+            return str(batch) + 'x' + str(size)
+
+        # These values are supposed to check all code paths in
+        # fft.mako::insertGlobalLoadsAndTranspose.
+        # Some of them will probably become global FFTs on lower-end GPUs, but that's fine.
+        #
+        # We need to try different FFT sizes in order to catch the path where
+        # 1. ``threads_per_xform >= mem_coalesce_width``
+        #    (first code path, corresponds to relatively large FFT sizes)
+        # 2. ``xforms_per_workgroup`` still > 1
+        #    (which will allow us to have ``xforms_remainder != 0``)
+        base_vals = [
+            (256, 8), (256, 64), (256, 128),
+            (256, 256), (128, 512), (64, 1024), (64, 4096)]
+
+        vals = []
+        for batch, size in base_vals:
+            vals.append(((batch, size), (1,)))
+            vals.append(((batch - 1, size), (1,))) # non-multiple batch
+            # "size / 2 - 1" will lead to full FFT of size ``size``
+            # in the current version of Bluestein's algorithm
+            vals.append(((batch, size / 2 - 1), (1,)))
+            vals.append(((batch - 1, size / 2 - 1), (1,)))
+
+        metafunc.parametrize('local_shape_and_axes', vals, ids=list(map(idgen, vals)))
+
     elif 'non2batch_shape_and_axes' in metafunc.funcargnames:
         def idgen(shape_and_axes):
             shape, axes = shape_and_axes
@@ -162,6 +191,10 @@ def test_trivial(some_ctx):
 
     fft(res_dev, data_dev, -1, param)
     assert diff_is_negligible(res_dev.get(), data * param)
+
+
+def test_local_fft(ctx, local_shape_and_axes):
+    check_errors(ctx, local_shape_and_axes)
 
 
 def test_power_of_2_problem(ctx, shape_and_axes):
