@@ -68,12 +68,14 @@ def pytest_generate_tests(metafunc):
 
         vals = []
         for batch, size in base_vals:
-            vals.append(((batch, size), (1,)))
-            vals.append(((batch - 1, size), (1,))) # non-multiple batch
             # "size / 2 - 1" will lead to full FFT of size ``size``
             # in the current version of Bluestein's algorithm
-            vals.append(((batch, size / 2 - 1), (1,)))
-            vals.append(((batch - 1, size / 2 - 1), (1,)))
+            pad_test_size = size / 2 - 1
+
+            for s in (size, pad_test_size):
+                # testing batch = 1, non-multiple batch and power of 2 batch
+                for b in (1, batch - 1, batch):
+                    vals.append(((b, s), (1,)))
 
         metafunc.parametrize('local_shape_and_axes', vals, ids=list(map(idgen, vals)))
 
