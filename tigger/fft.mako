@@ -647,37 +647,19 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 </%def>
 
 <%def name="insertTwiddleKernel(radix, num_iter, radix_prev, data_len, threads_per_xform)">
-
-    {
-        // Twiddle kernel
-        real_t ang;
-        int angf;
-        complex_t w;
-
+    // Twiddle kernel
     %for z in range(num_iter):
-        %if z == 0:
-            %if radix_prev > 1:
-                angf = ii / ${radix_prev};
-            %else:
-                angf = ii;
-            %endif
-        %else:
-            %if radix_prev > 1:
-                angf = (${z * threads_per_xform} + ii) / ${radix_prev};
-            %else:
-                ## TODO: find out which conditions are necessary to execute this code
-                angf = ${z * threads_per_xform} + ii;
-            %endif
-        %endif
-
+    {
+        const int angf = (${z * threads_per_xform} + ii) / ${radix_prev};
         %for k in range(1, radix):
             <% ind = z * radix + k %>
-            ang = ${wrap_const(2 * numpy.pi * k / data_len)} * angf * direction;
-            w = complex_exp(ang);
-            a[${ind}] = complex_mul(a[${ind}], w);
+            a[${ind}] = complex_mul(
+                a[${ind}],
+                complex_exp(
+                    ${wrap_const(2 * numpy.pi * k / data_len)} * angf * direction));
         %endfor
-    %endfor
     }
+    %endfor
 </%def>
 
 <%def name="insertLocalStores(num_iter, radix, threads_per_xform, threads_req, offset, comp)">
@@ -729,43 +711,25 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     %>
 
     %if radix_curr < threads_per_xform:
-        %if radix_prev == 1:
-            j = ii % ${radix_curr};
-        %else:
-            j = (ii % ${radix_curr}) / ${radix_prev};
-        %endif
-
-        %if radix_prev == 1:
-            i = ii / ${radix_curr};
-        %else:
-            i = mad24(ii / ${radix_curr}, ${radix_prev}, ii % ${radix_prev});
-        %endif
+        j = (ii % ${radix_curr}) / ${radix_prev};
+        i = (ii / ${radix_curr}) * ${radix_prev} + ii % ${radix_prev};
     %else:
-        %if radix_prev == 1:
-            j = ii;
-        %else:
-            j = ii / ${radix_prev};
-        %endif
-
-        %if radix_prev == 1:
-            i = 0;
-        %else:
-            i = ii % ${radix_prev};
-        %endif
+        j = ii / ${radix_prev};
+        i = ii % ${radix_prev};
     %endif
 
     %if xforms_per_workgroup > 1:
-        i = mad24(jj, ${incr}, i);
+        i = jj * ${incr} + i;
     %endif
 
-    lmem_load_index = mad24(j, ${threads_req + offset}, i);
+    lmem_load_index = j * ${threads_req + offset} + i;
 </%def>
 
 <%def name="insertLocalStoreIndexArithmetic(threads_req, xforms_per_workgroup, radix, offset, mid_pad)">
     %if xforms_per_workgroup == 1:
         lmem_store_index = ii;
     %else:
-        lmem_store_index = mad24(jj, ${(threads_req + offset) * radix + mid_pad}, ii);
+        lmem_store_index = jj * ${(threads_req + offset) * radix + mid_pad} + ii;
     %endif
 </%def>
 
