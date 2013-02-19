@@ -497,10 +497,6 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         %endfor
         }
     %endif
-
-    ii = thread_in_xform;
-    jj = xform_in_wg;
-
 </%def>
 
 <%def name="insertGlobalStoresAndTranspose(output, kweights, n, max_radix, radix, threads_per_xform, xforms_per_workgroup, mem_coalesce_width)">
@@ -519,7 +515,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             border = fft_size_real // threads_per_xform
         %>
 
-        if(${xforms_remainder} == 0 || group_id < num_groups - 1 || jj < ${xforms_remainder})
+        if(${xforms_remainder} == 0 || group_id < num_groups - 1 || xform_in_wg < ${xforms_remainder})
         {
         %if unpad_out:
             ${stores(range(border))}
@@ -650,7 +646,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     // Twiddle kernel
     %for z in range(num_iter):
     {
-        const int angf = (${z * threads_per_xform} + ii) / ${radix_prev};
+        const int angf = (${z * threads_per_xform} + thread_in_xform) / ${radix_prev};
         %for k in range(1, radix):
             <% ind = z * radix + k %>
             a[${ind}] = complex_mul(
@@ -709,27 +705,29 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         radix_curr = radix_prev * radix
         incr = (threads_req + offset) * radix + mid_pad
     %>
-
+    {
+        int i, j;
     %if radix_curr < threads_per_xform:
-        j = (ii % ${radix_curr}) / ${radix_prev};
-        i = (ii / ${radix_curr}) * ${radix_prev} + ii % ${radix_prev};
+        j = (thread_in_xform % ${radix_curr}) / ${radix_prev};
+        i = (thread_in_xform / ${radix_curr}) * ${radix_prev} + thread_in_xform % ${radix_prev};
     %else:
-        j = ii / ${radix_prev};
-        i = ii % ${radix_prev};
+        j = thread_in_xform / ${radix_prev};
+        i = thread_in_xform % ${radix_prev};
     %endif
 
     %if xforms_per_workgroup > 1:
-        i = jj * ${incr} + i;
+        i = xform_in_wg * ${incr} + i;
     %endif
 
     lmem_load_index = j * ${threads_req + offset} + i;
+    }
 </%def>
 
 <%def name="insertLocalStoreIndexArithmetic(threads_req, xforms_per_workgroup, radix, offset, mid_pad)">
     %if xforms_per_workgroup == 1:
-        lmem_store_index = ii;
+        lmem_store_index = thread_in_xform;
     %else:
-        lmem_store_index = jj * ${(threads_req + offset) * radix + mid_pad} + ii;
+        lmem_store_index = xform_in_wg * ${(threads_req + offset) * radix + mid_pad} + thread_in_xform;
     %endif
 </%def>
 
@@ -781,10 +779,6 @@ ${kernel_definition}
     VIRTUAL_SKIP_THREADS;
 
     ${insertVariableDefinitions(direction, lmem_size, max_radix)}
-    int ii, jj;
-    %if num_radix > 1:
-        int i, j;
-    %endif
 
     int num_groups = virtual_num_groups(0);
 
