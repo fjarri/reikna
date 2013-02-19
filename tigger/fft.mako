@@ -1,12 +1,5 @@
 <%def name="insertBaseKernels()">
 
-## TODO: replace by intrinsincs if necessary
-#ifdef CUDA
-#define mad24(x, y, z) ((x) * (y) + (z))
-#define mad(x, y, z) ((x) * (y) + (z))
-#define mul24(x, y) __mul24(x, y)
-#endif
-
 #define complex_ctr COMPLEX_CTR(${dtypes.ctype(basis.dtype)})
 #define complex_mul ${func.mul(basis.dtype, basis.dtype)}
 #define complex_div_scalar ${func.div(basis.dtype, dtypes.real_for(basis.dtype))}
