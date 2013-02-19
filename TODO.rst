@@ -2,11 +2,10 @@
 =====
 
 * TODO: FFT: clean up code, check that there are no warnings during compilation
-* TODO: FFT: check why non-power-of-2 performance is so bad
 * TODO: add memory packing functionality to OperationRecorder
-* TODO: cool feature: process the list and remove unnecessary allocations, replacing them by creating views
 * When doing 'pip uninstall' it shows the full list of files, when other modules just show
   a list of folders. Should be something connected to MANIFEST and package data.
+* Fix circular dependency between Context and temp_alloc, which causes errors in case of CUDA.
 
 
 0.3.0 (suitable for beclab)
@@ -20,8 +19,8 @@
   (``inputs=['Vect1', 'Vect2'], outputs=1, scalars='term1'``)
 * DECIDE: move all "raw" computations to their own submodule?
 * DECIDE: do we need to specify "supports inplace" option for kernels?
-  It seems that FFT does not really need it, because there is no cases when there's only one
-  kernel in list, and it does dot support inplace, so one can safely pass same buffer as
+  It seems that FFT does not really need it, because there are no cases when there's only one
+  kernel in list, and it does not support inplace, so one can safely pass the same buffer as
   output and input. But it may be critical for other kernels.
 * TODO: add support for arrays with aligned rows (mem_alloc_pitch() in PyCuda).
   This should make non-power-of-2 FFT much faster.
