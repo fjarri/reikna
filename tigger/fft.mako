@@ -658,17 +658,8 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     %endfor
 </%def>
 
-<%def name="insertLocalStores(num_iter, radix, threads_per_xform, threads_req, offset, comp)">
-    %for z in range(num_iter):
-        %for k in range(radix):
-            <% index = k * (threads_req + offset) + z * threads_per_xform %>
-            lmem[lmem_store_index + ${index}] = a[${z * radix + k}].${comp};
-        %endfor
-    %endfor
-    LOCAL_BARRIER;
-</%def>
+<%def name="insertLocalTranspose(num_iter, n, radix, radix_next, radix_prev, radix_curr, threads_per_xform, threads_req, offset, mid_pad, xforms_per_workgroup)">
 
-<%def name="insertLocalLoads(n, radix, radix_next, radix_prev, radix_curr, threads_per_xform, threads_req, offset, comp)">
     <%
         threads_req_next = fft_size // radix_next
         inter_block_hnum = max(radix_prev // threads_per_xform, 1)
@@ -682,30 +673,17 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         intra_block_hstride *= radix_prev
 
         stride = threads_req // radix_next
-    %>
 
-    %for i in range(iter):
-        <%
-            ii = i // (inter_block_hnum * vert_num)
-            zz = i % (inter_block_hnum * vert_num)
-            jj = zz % inter_block_hnum
-            kk = zz // inter_block_hnum
-        %>
-
-        %for z in range(radix_next):
-            <% st = kk * vert_stride + jj * inter_block_hstride + ii * intra_block_hstride + z * stride %>
-            a[${i * radix_next + z}].${comp} = lmem[lmem_load_index + ${st}];
-        %endfor
-    %endfor
-    LOCAL_BARRIER;
-</%def>
-
-<%def name="insertLocalLoadIndexArithmetic(radix_prev, radix, threads_req, threads_per_xform, xforms_per_workgroup, offset, mid_pad)">
-    <%
         radix_curr = radix_prev * radix
         incr = (threads_req + offset) * radix + mid_pad
     %>
     {
+    %if xforms_per_workgroup == 1:
+        const int lmem_store_idx = thread_in_xform;
+    %else:
+        const int lmem_store_idx = xform_in_wg * ${(threads_req + offset) * radix + mid_pad} + thread_in_xform;
+    %endif
+
         int i, j;
     %if radix_curr < threads_per_xform:
         j = (thread_in_xform % ${radix_curr}) / ${radix_prev};
@@ -719,23 +697,43 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         i = xform_in_wg * ${incr} + i;
     %endif
 
-    lmem_load_index = j * ${threads_req + offset} + i;
-    }
-</%def>
+        const int lmem_load_idx = j * ${threads_req + offset} + i;
 
-<%def name="insertLocalStoreIndexArithmetic(threads_req, xforms_per_workgroup, radix, offset, mid_pad)">
-    %if xforms_per_workgroup == 1:
-        lmem_store_index = thread_in_xform;
-    %else:
-        lmem_store_index = xform_in_wg * ${(threads_req + offset) * radix + mid_pad} + thread_in_xform;
-    %endif
+    %for comp in ('x', 'y'):
+        %for z in range(num_iter):
+            %for k in range(radix):
+                <% index = k * (threads_req + offset) + z * threads_per_xform %>
+                lmem[lmem_store_idx + ${index}] = a[${z * radix + k}].${comp};
+            %endfor
+        %endfor
+
+        LOCAL_BARRIER;
+
+        %for i in range(iter):
+            <%
+                ii = i // (inter_block_hnum * vert_num)
+                zz = i % (inter_block_hnum * vert_num)
+                jj = zz % inter_block_hnum
+                kk = zz // inter_block_hnum
+            %>
+
+            %for z in range(radix_next):
+                <% st = kk * vert_stride + jj * inter_block_hstride + ii * intra_block_hstride + z * stride %>
+                a[${i * radix_next + z}].${comp} = lmem[lmem_load_idx + ${st}];
+            %endfor
+        %endfor
+
+        LOCAL_BARRIER;
+    %endfor
+
+    }
+
 </%def>
 
 <%def name="insertVariableDefinitions(direction, lmem_size, temp_array_size)">
 
     %if lmem_size > 0:
         LOCAL_MEM real_t lmem[${lmem_size}];
-        size_t lmem_store_index, lmem_load_index;
     %endif
 
     complex_t a[${temp_array_size}];
@@ -807,12 +805,7 @@ ${kernel_definition}
                 lMemSize, offset, mid_pad = get_padding(threads_per_xform, radix_prev, threads_req,
                     xforms_per_workgroup, radix_arr[r], local_mem_banks)
             %>
-            ${insertLocalStoreIndexArithmetic(threads_req, xforms_per_workgroup, radix_arr[r], offset, mid_pad)}
-            ${insertLocalLoadIndexArithmetic(radix_prev, radix_arr[r], threads_req, threads_per_xform, xforms_per_workgroup, offset, mid_pad)}
-            %for comp in ('x', 'y'):
-                ${insertLocalStores(num_iter, radix_arr[r], threads_per_xform, threads_req, offset, comp)}
-                ${insertLocalLoads(n, radix_arr[r], radix_arr[r+1], radix_prev, radix_curr, threads_per_xform, threads_req, offset, comp)}
-            %endfor
+            ${insertLocalTranspose(num_iter, n, radix_arr[r], radix_arr[r+1], radix_prev, radix_curr, threads_per_xform, threads_req, offset, mid_pad, xforms_per_workgroup)}
             <%
                 radix_prev = radix_curr
                 data_len = data_len // radix_arr[r]
@@ -847,6 +840,8 @@ ${kernel_definition}
     VIRTUAL_SKIP_THREADS;
 
     ${insertVariableDefinitions(direction, lmem_size, radix1)}
+
+    size_t lmem_load_index, lmem_store_index;
 
     int xform_global = group_id / ${groups_per_xform};
     int group_in_xform = group_id % ${groups_per_xform};
