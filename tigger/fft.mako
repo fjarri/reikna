@@ -420,9 +420,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
                 a[${i}].${comp} = lmem[lmem_load_idx + ${i * threads_per_xform}];
             %endfor
 
-            %if comp == 'x':
             LOCAL_BARRIER;
-            %endif
         %endfor
         }
 
@@ -491,9 +489,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
                 a[${i}].${comp} = lmem[lmem_load_idx + ${i * threads_per_xform}];
             %endfor
 
-            %if comp == 'x':
             LOCAL_BARRIER;
-            %endif
         %endfor
         }
     %endif
