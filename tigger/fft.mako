@@ -337,17 +337,11 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             border = fft_size_real // threads_per_xform
         %>
 
-        %if xforms_per_workgroup > 1:
-            ii = thread_id % ${threads_per_xform};
-            jj = thread_id / ${threads_per_xform};
-        %else:
-            ii = thread_id;
-            jj = 0;
-        %endif
+        ii = thread_id % ${threads_per_xform};
+        jj = thread_id / ${threads_per_xform};
 
         const int fft_index = group_id * ${xforms_per_workgroup} + jj;
         const int fft_position_offset = ii;
-        global_mem_offset = fft_index * ${fft_size} + ii;
 
         if(${xforms_remainder} == 0 || (group_id < num_groups - 1) || (jj < ${xforms_remainder}))
         {
