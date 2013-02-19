@@ -317,10 +317,6 @@ class GlobalFFTKernel(_FFTKernel):
         self._reverse_direction = reverse_direction
         self._fft_size_real = fft_size_real
 
-        coalesce_width = device_params.min_mem_coalesce_width[basis.dtype.itemsize]
-        self._local_batch = min(self._inner_batch, coalesce_width) \
-            if inner_batch != 1 else coalesce_width
-
         num_passes = len(get_global_radix_info(fft_size)[0])
         if self._pass_num == num_passes - 1 and num_passes % 2 == 1:
             self.inplace_possible = True
@@ -351,7 +347,8 @@ class GlobalFFTKernel(_FFTKernel):
 
         threads_per_xform = radix2
 
-        local_batch = max_local_size if radix2 == 1 else self._local_batch
+        coalesce_width = self._device_params.min_mem_coalesce_width[self._basis.dtype.itemsize]
+        local_batch = max_local_size if radix2 == 1 else coalesce_width
         local_batch = min(local_batch, stride_in)
         local_size = min(local_batch * threads_per_xform, max_local_size)
         local_batch = local_size // threads_per_xform
