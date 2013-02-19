@@ -381,7 +381,6 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 
         int fft_index = group_id * ${xforms_per_workgroup} + jj;
         int fft_position_offset = ii;
-        global_mem_offset = fft_index * ${fft_size} + ii;
 
         if((group_id == num_groups - 1) && ${xforms_remainder} != 0)
         {
@@ -428,7 +427,6 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         int xform_in_wg = thread_id / ${fft_size};
         int fft_index = group_id * ${xforms_per_workgroup} + xform_in_wg;
         int fft_position_offset = thread_id % ${fft_size};
-        global_mem_offset = fft_index * ${fft_size} + fft_position_offset;
         jj = thread_id % ${fft_size};
         ii = thread_id / ${fft_size};
         lmem_store_index = xform_in_wg * ${fft_size + threads_per_xform} + fft_position_offset;
@@ -813,7 +811,6 @@ ${kernel_definition}
     VIRTUAL_SKIP_THREADS;
 
     ${insertVariableDefinitions(direction, lmem_size, max_radix)}
-    int global_mem_offset = 0;
     int ii, jj;
     %if num_radix > 1:
         int i, j;
