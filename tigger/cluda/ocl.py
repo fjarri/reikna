@@ -1,5 +1,6 @@
 from logging import error
 import sys
+import weakref
 
 import numpy
 import pyopencl as cl
@@ -67,7 +68,7 @@ class Context:
         if temp_alloc is not None:
             temp_alloc_params.update(temp_alloc)
 
-        self.temp_alloc = temp_alloc_params.cls(self,
+        self.temp_alloc = temp_alloc_params.cls(weakref.proxy(self),
             pack_on_alloc=temp_alloc_params.pack_on_alloc,
             pack_on_free=temp_alloc_params.pack_on_free)
 
