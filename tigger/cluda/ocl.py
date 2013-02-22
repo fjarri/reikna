@@ -47,14 +47,12 @@ class Context:
                 raise RuntimeError("Cannot find suitable OpenCL device to create CLUDA context")
 
         ctx = cl.Context(devices=[device])
-        kwds['owns_context'] = True
 
         return cls(ctx, **kwds)
 
-    def __init__(self, context, queue=None, fast_math=True, async=True, owns_context=False,
-            temp_alloc=None):
+    def __init__(self, context, queue=None, fast_math=True, async=True, temp_alloc=None,
+            owns_context=False):
 
-        self._released = False if owns_context else True
         self.api = cluda.api(API_ID)
         self._fast_math = fast_math
         self._context = context
@@ -150,16 +148,6 @@ class Context:
         if not self._async:
             self.synchronize()
 
-    def release(self):
-        if not self._released:
-            del self._device
-            del self._queue
-            del self._context
-            self._released = True
-
-    def __del__(self):
-        self.release()
-
     def _compile(self, src):
         options = "-cl-mad-enable -cl-fast-relaxed-math" if self._fast_math else ""
         try:
@@ -177,6 +165,17 @@ class Context:
             local_size=None, render_kwds=None):
         return StaticKernel(self, template_src, name, global_size,
             local_size=local_size, render_kwds=render_kwds)
+
+    def _pytest_finalize(self):
+        """
+        Py.Test holds the reference to the created funcarg/fixture,
+        which interferes with ``__del__`` functionality.
+        This method forcefully frees critical resources
+        (rendering the object unusable).
+        """
+        del self._device
+        del self._queue
+        del self._context
 
 
 class DeviceParameters:

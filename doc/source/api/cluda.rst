@@ -52,9 +52,16 @@ It is referred here (and references from other parts of this documentation) as :
 
         Returns a list of device objects from the platform.
 
-.. py:class:: Context(context, queue=None, fast_math=True, async=True)
+.. py:class:: Context(context, queue=None, fast_math=True, async=True, owns_context=False)
 
-    Wraps existing context in the CLUDA context object.
+    Wraps an existing context in the CLUDA context object.
+
+    .. note::
+        If you are using ``API_CUDA``, you must keep in mind the stateful nature of CUDA calls.
+        Briefly, this means that there is the context stack, and the current context on top of it.
+        When the :py:meth:`create` is called, the ``PyCUDA`` context gets pushed to the stack and made current.
+        When the :py:class:`Context` object goes out of scope (and ``own_context`` option was set to ``True`` in the constructor), the context is popped, and it is the user's responsibility to make sure the popped context is the correct one.
+        In simple single-context programs this only means that one should avoid reference cycles involving the :py:class:`Context` object.
 
     :param context: a context to wrap
     :type context: :py:class:`pycuda.driver.Context` object for ``API_CUDA``, or :py:class:`pyopencl.Context` object for ``API_OCL``.
@@ -63,6 +70,8 @@ It is referred here (and references from other parts of this documentation) as :
     :type queue: :py:class:`pycuda.driver.Stream` object for ``API_CUDA``, or :py:class:`pyopencl.CommandQueue` object for ``API_OCL``.
     :param fast_math: whether to enable fast mathematical operations during compilation.
     :param async: whether to execute all operations with this context asynchronously (you would generally want to set it to ``False`` only for profiling purposes).
+    :param owns_context: for ``API_CUDA``, tells whether the created object is responsible for popping the context from the CUDA context stack.
+        Does not have any effect for ``API_OCL``.
 
     .. py:classmethod:: create(device=None, fast_math=True, async=True)
 
@@ -157,13 +166,6 @@ It is referred here (and references from other parts of this documentation) as :
         :param render_kwds: a dictionary with additional parameters
             to be used while rendering the template.
         :returns: a :py:class:`StaticKernel` object.
-
-    .. py:method:: release()
-
-        Release and invalidate the context.
-        This happens automatically on object deletion, so call it only if you want to release resources earlier than object lifecycle takes care of that.
-
-        Does not have any effect if the :py:class:`Context` was created as a wrapper for the existing context.
 
 .. py:class:: Buffer
 

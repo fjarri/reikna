@@ -24,7 +24,7 @@ def set_context_gs_limits(metafunc, cc):
         # If the context will not support these limits, skip
         ctx = cc()
         mgs = ctx.device_params.max_num_groups
-        ctx.release()
+        del ctx
         if len(gl) > len(mgs) or (len(mgs) > 2 and len(gl) > 2 and mgs[2] < gl[2]):
             continue
 

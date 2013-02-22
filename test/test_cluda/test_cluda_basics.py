@@ -34,7 +34,7 @@ def pair_context_with_gs(metafunc, cc):
         # If the context will not support these limits, skip
         ctx = cc()
         mgs = ctx.device_params.max_num_groups
-        ctx.release()
+        del ctx
         if len(gs) > len(mgs) or (len(mgs) > 2 and len(gs) > 2 and mgs[2] < gs[2]):
             continue
 
@@ -63,7 +63,6 @@ def simple_context_test(ctx):
 def test_create_new_context(cluda_api):
     ctx = cluda_api.Context.create()
     simple_context_test(ctx)
-    ctx.release()
 
 
 def test_connect_to_context(cluda_api):
@@ -76,11 +75,6 @@ def test_connect_to_context(cluda_api):
     simple_context_test(ctx2)
     simple_context_test(ctx3)
 
-    ctx3.release()
-    ctx2.release()
-
-    ctx.release()
-
 
 def test_connect_to_context_and_queue(cluda_api):
     ctx = cluda_api.Context.create()
@@ -92,11 +86,6 @@ def test_connect_to_context_and_queue(cluda_api):
     simple_context_test(ctx)
     simple_context_test(ctx2)
     simple_context_test(ctx3)
-
-    ctx3.release()
-    ctx2.release()
-
-    ctx.release()
 
 
 def test_transfers(ctx):
