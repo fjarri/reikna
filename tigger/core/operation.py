@@ -30,7 +30,7 @@ class OperationRecorder:
         self._temp_counter = 0
         self._const_counter = 0
 
-    def add_allocation(self, shape, dtype):
+    def add_allocation(self, shape, dtype, dependencies=None):
         """
         Adds an allocation to the list of actions.
         Returns the string which can be used later in the list of argument names for kernels.
@@ -44,6 +44,9 @@ class OperationRecorder:
         self._tr_tree.add_temp_node(name, value)
         return name
 
+    def add_dependency(self, mem1, mem2):
+        pass
+
     def add_const_allocation(self, data):
         name = "_const" + str(self._const_counter)
         self._const_counter += 1
@@ -55,7 +58,7 @@ class OperationRecorder:
         return name
 
     def add_kernel(self, template, defname, argnames,
-            global_size, local_size=None, render_kwds=None, inplace=None):
+            global_size, local_size=None, render_kwds=None):
         """
         Adds kernel execution to the list of actions.
         See :ref:`tutorial-advanced-computation` for details on how to write kernels.
@@ -69,8 +72,6 @@ class OperationRecorder:
         :param local_size: local size to use for the call.
             If ``None``, the local size will be picked automatically.
         :param render_kwds: dictionary with additional values used to render the template.
-        :param inplace: list of pairs (output, input) which can point to the same point in memory
-            (used as a hint for the temporary memory manager).
         """
 
         subtemplate = template.get_def(defname)
@@ -109,7 +110,7 @@ class OperationRecorder:
         connections = self._tr_tree.connections_for(operation.argnames)
         for tr, array_arg, new_array_args, new_scalar_args in connections:
             operation.connect(tr, array_arg, new_array_args, new_scalar_args)
-        operation.prepare({name:value for name, value in self._tr_tree.leaf_signature()})
+        operation.prepare(self._tr_tree.leaf_values_dict())
         self.operations.append(operation)
 
     def optimize_execution(self):

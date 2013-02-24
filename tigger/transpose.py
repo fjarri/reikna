@@ -141,32 +141,18 @@ class Transpose(Computation):
         transposes = get_transposes(basis.input_shape, basis.axes)
 
         temp_shape = (product(basis.input_shape),)
-        if len(transposes) == 1:
-            args = [('output', 'input')]
-        elif len(transposes) == 2:
-            tr_temp = operations.add_allocation(temp_shape, basis.dtype)
-            args = [
-                (tr_temp, 'input'),
-                ('output', tr_temp)
-            ]
-        else:
-            tnames = [
-                operations.add_allocation(temp_shape, basis.dtype),
-                operations.add_allocation(temp_shape, basis.dtype)]
 
-            iname = 'input'
-            oname = tnames[0]
-            args = [(oname, iname)]
-            other_tname = lambda name: tnames[0] if name == tnames[1] else tnames[1]
-            for i in range(1, len(transposes)):
-                iname = oname
-                oname = 'output' if i == len(transposes) - 1 else other_tname(iname)
-                args.append((oname, iname))
+        for i, tr in enumerate(transposes):
 
-        for tr, arg_pair in zip(transposes, args):
+            mem_in = 'input' if i == 0 else mem_out
+            if i == len(transposes) - 1:
+                mem_out = 'output'
+            else:
+                mem_out = operations.add_allocation(temp_shape, basis.dtype)
+            operations.add_dependency(mem_in, mem_out)
+
             batch, height, width = tr
-            oname, iname = arg_pair
             self._add_transpose(operations, basis, device_params,
-                oname, iname, batch, height, width)
+                mem_out, mem_in, batch, height, width)
 
         return operations

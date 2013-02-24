@@ -363,6 +363,11 @@ class TransformationTree:
     def base_values(self):
         return [self.nodes[name].value for name in self.base_names]
 
+    def leaf_values_dict(self):
+        res = {name:value for name, value in self.leaf_signature()}
+        res.update({name:value.value for name, value in self.temp_nodes.items()})
+        return res
+
     def all_children(self, name):
         return [name for name, _ in self.leaf_signature([name])]
 
