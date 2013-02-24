@@ -4,7 +4,6 @@
 * TODO: add memory packing functionality to OperationRecorder
 * When doing 'pip uninstall' it shows the full list of files, when other modules just show
   a list of folders. Should be something connected to MANIFEST and package data.
-* Fix circular dependency between Context and temp_alloc, which causes errors in case of CUDA.
 
 
 0.3.0 (suitable for beclab)
@@ -29,6 +28,7 @@
   with the same context and a new queue.
   Also, maybe rename Context to Thread/GPUThread (avoids confusion with contexts, and works well with the existence of fork()).
   And while I'm at it, I can create a base class for Thread with the overlapping functionality.
+* TODO: add explicit context release methods for Thread --- not all Python implementations use reference counting, and non-instantaneous __del__ may cause problems with CUDA.
 
 
 0.4.0
