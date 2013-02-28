@@ -1,4 +1,5 @@
 import collections
+import weakref
 
 from tigger.helpers import AttrDict
 from tigger.helpers.sortedcollection import SortedCollection
@@ -106,29 +107,57 @@ class TemporaryManager:
     def __init__(self, ctx, pack_on_alloc=False, pack_on_free=False):
         self._ctx = ctx
         self._id_counter = 0
+        self._arrays = {}
         self._pack_on_alloc = pack_on_alloc
         self._pack_on_free = pack_on_free
 
-    def allocate(self, size, dependencies=None):
-        """
-        Processes an allocation request for ``size`` bytes with an iterable of dependencies' ids.
-        Returns an instance of :py:class:`~tigger.cluda.tempalloc.DynamicAllocation`.
-        """
+    def array(self, shape, dtype, dependencies=None):
+
+        class DummyAllocator:
+            def __call__(self, size):
+                self.size = size
+                return None
 
         new_id = self._id_counter
         self._id_counter += 1
 
-        # dependencies come already processed (a set of ids) to this method
-        vh = self._allocate(new_id, size,
-            dependencies, self._pack_on_alloc)
+        allocator = DummyAllocator()
+        array = self._ctx.array(shape, dtype, allocator=allocator)
+        dependencies = extract_dependencies(dependencies)
+        self._allocate(new_id, allocator.size, dependencies, self._pack_on_alloc)
+        self._arrays[new_id] = weakref.ref(array, lambda _: self.free(new_id))
 
-        return DynamicAllocation(self, new_id, vh)
+        if self._pack_on_alloc:
+            self.update_all()
+        else:
+            self.update_buffer(new_id)
+
+        return array
+
+    def update_buffer(self, id):
+        array = self._arrays[id]()
+        buf = self._get_buffer(id)
+        if hasattr(array, 'data'):
+            array.data = buf
+        else:
+            array.gpudata = buf
+
+    def update_all(self):
+        for id in self._arrays:
+            self.update_buffer(id)
 
     def free(self, id):
         """
         Frees the allocation with given ``id``.
         """
+        array = self._arrays[id]()
+        if array is not None:
+            raise Exception("Attempting to free the buffer of an existing temporary array")
+
+        del self._arrays[id]
         self._free(id, self._pack_on_free)
+        if self._pack_on_free:
+            self.update_all()
 
     def pack(self):
         """
@@ -148,9 +177,11 @@ class TrivialManager(TemporaryManager):
         self._allocations = {}
 
     def _allocate(self, new_id, size, dependencies, pack):
-        vh = ValueHolder(self._ctx.allocate(size))
-        self._allocations[new_id] = vh
-        return vh
+        buf = self._ctx.allocate(size)
+        self._allocations[new_id] = buf
+
+    def _get_buffer(self, id):
+        return self._allocations[id]
 
     def _free(self, id, pack):
         del self._allocations[id]
@@ -171,7 +202,7 @@ class ZeroOffsetManager(TemporaryManager):
 
         self._virtual_allocations = {} # id -> (size, set(dependencies))
         self._real_sizes = SortedCollection(key=lambda x: x.size) # (size, real_id), sorted by size
-        self._virtual_to_real = {} # id -> (real_id, ValueHolder)
+        self._virtual_to_real = {} # id -> (real_id, sub_region)
         self._real_allocations = {} # real_id -> (buffer, set(id))
         self._real_id_counter = 0
 
@@ -189,8 +220,6 @@ class ZeroOffsetManager(TemporaryManager):
 
         # Save virtual allocation parameters
         self._virtual_allocations[new_id] = AttrDict(size=size, dependencies=dep_set)
-        vh = ValueHolder()
-        self._virtual_to_real[new_id] = AttrDict(real_id=None, value_holder=vh)
 
         if pack:
             # If pack is requested, we can just do full re-pack right away.
@@ -198,8 +227,6 @@ class ZeroOffsetManager(TemporaryManager):
         else:
             # If not, find a real allocation using the greedy algorithm.
             self._fast_add(new_id, size, dep_set)
-
-        return vh
 
     def _fast_add(self, new_id, size, dep_set):
         """
@@ -230,8 +257,12 @@ class ZeroOffsetManager(TemporaryManager):
             self._real_allocations[real_id] = AttrDict(buffer=buf, virtual_ids=set([new_id]))
             self._real_sizes.insert(AttrDict(size=size, real_id=real_id))
 
-        self._virtual_to_real[new_id].real_id = real_id
-        self._virtual_to_real[new_id].value_holder.value = buf
+        self._virtual_to_real[new_id] = AttrDict(
+            real_id=real_id,
+            sub_region=self._real_allocations[real_id].buffer.get_sub_region(0, size))
+
+    def _get_buffer(self, id):
+        return self._virtual_to_real[id].sub_region
 
     def _free(self, id, pack=False):
 
@@ -240,9 +271,7 @@ class ZeroOffsetManager(TemporaryManager):
         for dep in dep_set:
             self._virtual_allocations[dep].dependencies.remove(id)
 
-        # Clear value holder (to make possible after-deallocation accesses easier to notice)
         vtr = self._virtual_to_real[id]
-        vtr.value_holder.value = None
 
         # Clear virtual allocation data
         del self._virtual_allocations[id]

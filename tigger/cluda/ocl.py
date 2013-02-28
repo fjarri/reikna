@@ -94,14 +94,9 @@ class Context:
         return clarray.Array(self._queue, *args, **kwds)
 
     def temp_array(self, *args, **kwds):
-        if 'allocator' in kwds:
-            raise ValueError("Temporary arrays cannot have custom allocators")
-        kwds = dict(kwds)
-        dependencies = kwds.pop('dependencies', None)
-        kwds['allocator'] = TemporaryAllocator(
-            self.temp_alloc, dependencies=dependencies)
-
-        return self.array(*args, **kwds)
+        assert 'allocator' not in kwds
+        assert 'data' not in kwds
+        return self.temp_alloc.array(*args, **kwds)
 
     def empty_like(self, arr):
         return self.array(arr.shape, arr.dtype)
