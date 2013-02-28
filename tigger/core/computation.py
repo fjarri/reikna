@@ -84,19 +84,18 @@ class Computation:
 
         # finish initialization only if the computation has fixed argument list
         if hasattr(self, '_get_argnames'):
-            self._argnames = self._get_argnames()
             self._finish_init()
 
     def _finish_init(self):
         prefix = lambda xs: tuple((self._prefix + x) for x in xs)
-        self._argnames = tuple(prefix(t) for t in self._argnames)
-        self._tr_tree = TransformationTree(*self._get_base_names())
+        prefixed_argnames = tuple(prefix(t) for t in self._get_argnames())
+        self._tr_tree = TransformationTree(*prefixed_argnames)
         self._state = STATE_INITIALIZED
 
     def _set_argnames(self, outputs, inputs, scalars):
         if self._state != STATE_NOT_INITIALIZED:
             raise InvalidStateError("Argument names were already set once")
-        self._argnames = (tuple(outputs), tuple(inputs), tuple(scalars))
+        self._get_argnames = lambda: (tuple(outputs), tuple(inputs), tuple(scalars))
         self._finish_init()
         return self
 
@@ -108,12 +107,6 @@ class Computation:
         prefix = self._prefix + cls.__name__[0] + str(self._nested_counter) + '_'
         self._nested_counter += 1
         return cls(self._ctx, debug=self._debug, prefix=prefix)
-
-    def _get_base_names(self):
-        """
-        Returns three lists (outs, ins, scalars) with names of base computation parameters.
-        """
-        return self._argnames
 
     def _get_base_values(self):
         """

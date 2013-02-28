@@ -39,7 +39,7 @@ class Elementwise(Computation):
         return self._set_argnames(outputs, inputs, scalars)
 
     def _get_argvalues(self, basis):
-        outputs, inputs, params = self._get_base_names()
+        outputs, inputs, params = self._get_argnames()
         values = {name:ArrayValue((basis.size,), basis.argtypes[name])
             for name in outputs + inputs}
         values.update({name:ScalarValue(basis.argtypes[name])
@@ -53,7 +53,7 @@ class Elementwise(Computation):
         code = kwds.get('code', EMPTY)
 
         # map argument names to values
-        outputs, inputs, params = self._get_base_names()
+        outputs, inputs, params = self._get_argnames()
         argtypes = {name:arg.dtype for name, arg in zip(outputs + inputs + params, args)}
 
         return dict(size=args[0].size, argtypes=argtypes, code=code)
@@ -61,7 +61,7 @@ class Elementwise(Computation):
     def _construct_operations(self, basis, device_params):
 
         operations = self._get_operation_recorder()
-        names = sum(self._get_base_names(), tuple())
+        names = sum(self._get_argnames(), tuple())
         name_str = ", ".join(names)
 
         template = template_from(
