@@ -134,7 +134,8 @@ class Transpose(Computation):
             TEMPLATE, 'transpose', [output_name, input_name],
             global_size=(grid_width * block_width, blocks_per_matrix * batch * block_width),
             local_size=(block_width, block_width),
-            render_kwds=render_kwds)
+            render_kwds=render_kwds,
+            dependencies=[(output_name, input_name)])
 
     def _construct_operations(self, basis, device_params):
         operations = self._get_operation_recorder()
@@ -149,7 +150,6 @@ class Transpose(Computation):
                 mem_out = 'output'
             else:
                 mem_out = operations.add_allocation(temp_shape, basis.dtype)
-            operations.add_dependency(mem_in, mem_out)
 
             batch, height, width = tr
             self._add_transpose(operations, basis, device_params,

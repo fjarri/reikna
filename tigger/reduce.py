@@ -115,7 +115,6 @@ class Reduce(Computation):
                 output_name = operations.add_allocation((new_size,), basis.dtype)
             else:
                 output_name = 'output'
-            operations.add_dependency(input_name, output_name)
 
             render_kwds = dict(
                 blocks_per_part=blocks_per_part, last_block_size=last_block_size,
@@ -127,7 +126,8 @@ class Reduce(Computation):
 
             operations.add_kernel(
                 template, 'reduce', [output_name, input_name],
-                global_size=(global_size,), local_size=(block_size,), render_kwds=render_kwds)
+                global_size=(global_size,), local_size=(block_size,), render_kwds=render_kwds,
+                dependencies=[(input_name, output_name)])
 
             size = new_size
             input_name = output_name

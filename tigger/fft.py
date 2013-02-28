@@ -530,9 +530,6 @@ class FFT(Computation):
                 else:
                     mem_out = operations.add_allocation(kernel.output_shape, basis.dtype)
 
-                if not kernel.inplace_possible:
-                    operations.add_dependency(mem_in, mem_out)
-
                 if kernel.kweights is not None:
                     kweights = operations.add_const_allocation(
                         kernel.kweights.astype(basis.dtype))
@@ -550,7 +547,8 @@ class FFT(Computation):
                         gs, ls, kwds = kernel.prepare_for(local_size)
                         operations.add_kernel(
                             TEMPLATE, kernel.name, argnames,
-                            global_size=gs, local_size=ls, render_kwds=kwds)
+                            global_size=gs, local_size=ls, render_kwds=kwds,
+                            dependencies=([(mem_in, mem_out)] if kernel.inplace_possible else []))
                     except OutOfResourcesError:
                         if isinstance(kernel, GlobalFFTKernel):
                             local_size //= 2
@@ -558,7 +556,6 @@ class FFT(Computation):
                             local_kernel_fail = True
                         continue
 
-                    kernel_calls.append((kernel.name, argnames, gs, ls, kwds))
                     break
                 else:
                     if not local_kernel_fail:

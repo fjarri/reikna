@@ -34,7 +34,7 @@ class OperationRecorder:
         self._temp_counter = 0
         self._const_counter = 0
 
-    def add_allocation(self, shape, dtype, dependencies=None):
+    def add_allocation(self, shape, dtype):
         """
         Adds an allocation to the list of actions.
         Returns the string which can be used later in the list of argument names for kernels.
@@ -48,10 +48,6 @@ class OperationRecorder:
         self._tr_tree.add_temp_node(self._prefix + name, value)
         return name
 
-    def add_dependency(self, mem1, mem2):
-        self._dependencies[self._prefix + mem1].add(self._prefix + mem2)
-        self._dependencies[self._prefix + mem2].add(self._prefix + mem1)
-
     def add_const_allocation(self, data):
         name = "_const" + str(self._const_counter)
         self._const_counter += 1
@@ -63,7 +59,7 @@ class OperationRecorder:
         return name
 
     def add_kernel(self, template, defname, argnames,
-            global_size, local_size=None, render_kwds=None):
+            global_size, local_size=None, render_kwds=None, dependencies=None):
         """
         Adds kernel execution to the list of actions.
         See :ref:`tutorial-advanced-computation` for details on how to write kernels.
@@ -77,6 +73,8 @@ class OperationRecorder:
         :param local_size: local size to use for the call.
             If ``None``, the local size will be picked automatically.
         :param render_kwds: dictionary with additional values used to render the template.
+        :param dependencies: list of pairs of buffer identifiers which depend on each other
+            (i.e., should not be assigned to the same physical memory allocation).
         """
 
         subtemplate = template.get_def(defname)
@@ -109,6 +107,10 @@ class OperationRecorder:
         leaf_argnames = [name for name, _ in self._tr_tree.leaf_signature(argnames)]
 
         self.kernels.append(KernelCall(kernel, leaf_argnames))
+        if dependencies is not None:
+            for mem1, mem2 in dependencies:
+                self._dependencies[self._prefix + mem1].add(self._prefix + mem2)
+                self._dependencies[self._prefix + mem2].add(self._prefix + mem1)
 
     def add_computation(self, computation, *argnames, **kwds):
         """
