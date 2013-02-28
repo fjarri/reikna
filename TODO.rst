@@ -1,7 +1,6 @@
 0.2.0
 =====
 
-* TODO: add memory packing functionality to OperationRecorder
 * When doing 'pip uninstall' it shows the full list of files, when other modules just show
   a list of folders. Should be something connected to MANIFEST and package data.
 
@@ -15,10 +14,8 @@
 * TODO: add custom variable names to Transformation constructor
   (``inputs=['Vect1', 'Vect2'], outputs=1, scalars='term1'``)
 * DECIDE: move all "raw" computations to their own submodule?
-* DECIDE: do we need to specify "supports inplace" option for kernels?
-  It seems that FFT does not really need it, because there are no cases when there's only one
-  kernel in list, and it does not support inplace, so one can safely pass the same buffer as
-  output and input. But it may be critical for other kernels.
+* DECIDE: we now have information about dependencies between computation's input and output arguments.
+  The question is how can user take advantage of it.
 * TODO: add support for arrays with aligned rows (mem_alloc_pitch() in PyCuda).
   This should make non-power-of-2 FFT much faster.
 * TODO: create_queue() method in Context is not used anywhere;
@@ -28,6 +25,8 @@
   Also, maybe rename Context to Thread/GPUThread (avoids confusion with contexts, and works well with the existence of fork()).
   And while I'm at it, I can create a base class for Thread with the overlapping functionality.
 * TODO: add explicit context release methods for Thread --- not all Python implementations use reference counting, and non-instantaneous __del__ may cause problems with CUDA.
+* TODO: add ability to manually override inferred dependencies?
+* TODO: allow to specify dependencies for Elementwise computation
 
 
 0.4.0
@@ -79,7 +78,6 @@ Core:
 * TODO: add a global DEBUG variable that will create all computations in debug mode by default
 * TODO: add usual transformations and derivation functions for convenience
 * TODO: take not only CLUDA context as a parameter for computation constructor, but also CommandQueue, opencl context, cuda stream and so on.
-* TODO: optimize allocation calls throughout the context
 * TODO: cache results of _construct_operations based on the basis, device_params, argnames and attached transformations
 * DECIDE: see if it's possible to reuse input/output parameters as bases for temporary allocations.
   In order to do that the computation (and initially the user) has to provide hints that
