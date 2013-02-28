@@ -11,7 +11,6 @@
 
 * TODO: add DHT
 * TODO: add MD5 randoms
-* TODO: Flatten kernel list before execution, and assign argument numbers
 * TODO: add "raises" sections to Computation/OperationRecorder methods
 * TODO: add custom variable names to Transformation constructor
   (``inputs=['Vect1', 'Vect2'], outputs=1, scalars='term1'``)

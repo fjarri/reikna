@@ -74,9 +74,11 @@ class Computation:
     The rest is public methods.
     """
 
-    def __init__(self, ctx, debug=False):
+    def __init__(self, ctx, debug=False, prefix=''):
         self._ctx = ctx
         self._debug = debug
+        self._prefix = prefix
+        self._nested_counter = 1
 
         self._state = STATE_NOT_INITIALIZED
 
@@ -86,6 +88,8 @@ class Computation:
             self._finish_init()
 
     def _finish_init(self):
+        prefix = lambda xs: tuple((self._prefix + x) for x in xs)
+        self._argnames = tuple(prefix(t) for t in self._argnames)
         self._tr_tree = TransformationTree(*self._get_base_names())
         self._state = STATE_INITIALIZED
 
@@ -101,7 +105,9 @@ class Computation:
         Calls ``cls`` constructor with the same arguments and keywords
         as were given to its own constructor.
         """
-        return cls(self._ctx, debug=self._debug)
+        prefix = self._prefix + cls.__name__[0] + str(self._nested_counter) + '_'
+        self._nested_counter += 1
+        return cls(self._ctx, debug=self._debug, prefix=prefix)
 
     def _get_base_names(self):
         """
@@ -114,7 +120,8 @@ class Computation:
         Returns a dictionary with names and corresponding value objects for
         base computation parameters.
         """
-        return self._get_argvalues(self._basis)
+        return {(self._prefix + name):value
+            for name, value in self._get_argvalues(self._basis).items()}
 
     def _basis_needs_update(self, new_basis):
         """
@@ -202,10 +209,32 @@ class Computation:
             raise InvalidStateError("Cannot prepare the same computation twice")
 
         self._basis = self._basis_for(args, kwds)
-        self._leaf_signature = self.leaf_signature()
-
         self._operations = self._construct_operations(self._basis, self._ctx.device_params)
-        self._operations.optimize_execution()
+
+        # Using prefix as an indicator of the nested computation
+        # (which means that we do not need to allocate and pack the memory).
+        # Perhaps not a very good idea.
+        if self._prefix == "":
+            self._operations.finalize()
+            self._kernels = self._operations.kernels
+            self._arrays = dict(self._operations.allocations)
+            self._arrays.update(self._operations._const_allocations)
+
+            self._leaf_signature = self.leaf_signature()
+
+            arr_names = sorted(self._arrays.keys())
+
+            self._arrays_list = [self._arrays[name] for name in arr_names]
+
+            array_to_int = {name:(i + len(self._leaf_signature))
+                for i, name in enumerate(arr_names)}
+            array_to_int.update({pair[0]:i for i, pair in enumerate(self._leaf_signature)})
+
+            self._casts = [(lambda x: x) if value.is_array else cast(value.dtype)
+                for name, value in self._leaf_signature]
+
+            for kernel in self._kernels:
+                kernel.argnames_indices = [array_to_int[name] for name in kernel.argnames]
 
         self._state = STATE_PREPARED
 
@@ -213,7 +242,7 @@ class Computation:
 
     def _get_operation_recorder(self):
         return OperationRecorder(
-            self._ctx, self._tr_tree.copy(), self._basis, self._get_base_values())
+            self._prefix, self._ctx, self._tr_tree.copy(), self._basis, self._get_base_values())
 
     def signature_str(self):
         """
@@ -250,17 +279,8 @@ class Computation:
             raise TypeError("Computation takes " + str(len(self._leaf_signature)) +
                 " arguments (" + str(len(args)) + " given)")
 
-        # Assign arguments to names and cast scalar values
-        arg_dict = dict(self._operations.allocations)
-        for pair, arg in zip(self._leaf_signature, args):
-            name, value = pair
-            if not value.is_array:
-                arg = cast(value.dtype)(arg)
-
-            assert name not in arg_dict
-            arg_dict[name] = arg
-
         # Call kernels with argument list based on their base arguments
-        for operation in self._operations.operations:
-            op_args = [arg_dict[name] for name in operation.leaf_argnames]
-            operation(*op_args)
+        pos_args = [cast(arg) for cast, arg in zip(self._casts, args)] + self._arrays_list
+        for kernel in self._kernels:
+            op_args = [pos_args[i] for i in kernel.argnames_indices]
+            kernel(*op_args)

@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 import tigger.cluda.dtypes as dtypes
 from tigger.core.transformation import *
 from tigger.cluda.kernel import render_prelude, render_template
@@ -18,14 +20,16 @@ class Argument:
 
 class OperationRecorder:
 
-    def __init__(self, ctx, tr_tree, basis, base_values):
+    def __init__(self, prefix, ctx, tr_tree, basis, base_values):
         self._ctx = ctx
+        self._prefix = prefix
         self._tr_tree = tr_tree
         self.basis = basis
         self.values = AttrDict(base_values)
-        self.operations = []
+        self.kernels = []
         self._allocations = {}
         self._const_allocations = {}
+        self._dependencies = defaultdict(set)
 
         self._temp_counter = 0
         self._const_counter = 0
@@ -39,22 +43,23 @@ class OperationRecorder:
         self._temp_counter += 1
 
         value = ArrayValue(shape, dtype)
-        self.values[name] = value
-        self._allocations[name] = value
-        self._tr_tree.add_temp_node(name, value)
+        self.values[self._prefix + name] = value
+        self._allocations[self._prefix + name] = value
+        self._tr_tree.add_temp_node(self._prefix + name, value)
         return name
 
     def add_dependency(self, mem1, mem2):
-        pass
+        self._dependencies[self._prefix + mem1].add(self._prefix + mem2)
+        self._dependencies[self._prefix + mem2].add(self._prefix + mem1)
 
     def add_const_allocation(self, data):
         name = "_const" + str(self._const_counter)
         self._const_counter += 1
 
         value = ArrayValue(data.shape, data.dtype)
-        self.values[name] = value
-        self._const_allocations[name] = data
-        self._tr_tree.add_temp_node(name, value)
+        self.values[self._prefix + name] = value
+        self._const_allocations[self._prefix + name] = self._ctx.to_device(data)
+        self._tr_tree.add_temp_node(self._prefix + name, value)
         return name
 
     def add_kernel(self, template, defname, argnames,
@@ -75,6 +80,7 @@ class OperationRecorder:
         """
 
         subtemplate = template.get_def(defname)
+        argnames = [self._prefix + name for name in argnames]
 
         assert set(argnames).issubset(set(self.values))
         args = [Argument(name, self.values[name].dtype) for name in argnames]
@@ -96,105 +102,75 @@ class OperationRecorder:
         render_kwds.update(additional_kwds)
         src = render_template(subtemplate, *args, **render_kwds)
 
-        op = KernelCall(defname, argnames, src, global_size, local_size=local_size)
-        op.prepare(self._ctx, self._tr_tree)
-        self.operations.append(op)
+        transformation_code = self._tr_tree.transformations_for(argnames)
+        full_src = transformation_code + src
+        kernel = self._ctx.compile_static(full_src, defname,
+            global_size, local_size=local_size)
+        leaf_argnames = [name for name, _ in self._tr_tree.leaf_signature(argnames)]
 
-    def add_computation(self, cls, *argnames, **kwds):
+        self.kernels.append(KernelCall(kernel, leaf_argnames))
+
+    def add_computation(self, computation, *argnames, **kwds):
         """
         Adds a nested computation call. The ``computation`` value must be a computation
         with necessary basis set and transformations connected.
         ``argnames`` list specifies which positional arguments will be passed to this kernel.
         """
-        operation = ComputationCall(cls, *argnames, **kwds)
-        connections = self._tr_tree.connections_for(operation.argnames)
+        argnames = [self._prefix + name for name in argnames]
+        connections = self._tr_tree.connections_for(argnames)
+        int_argnames = computation.leaf_signature()
+
+        ext_to_int = {e:i[0] for e, i in zip(argnames, int_argnames)}
+        int_to_ext = {i[0]:e for e, i in zip(argnames, int_argnames)}
+
+        map_to_int = lambda x: ext_to_int[x] if x in ext_to_int else x
+        map_to_ext = lambda x: int_to_ext[x] if x in int_to_ext else x
+
         for tr, array_arg, new_array_args, new_scalar_args in connections:
-            operation.connect(tr, array_arg, new_array_args, new_scalar_args)
-        operation.prepare(self._tr_tree.leaf_values_dict())
-        self.operations.append(operation)
+            array_arg = map_to_int(array_arg)
+            new_array_args = map(map_to_int, new_array_args)
+            new_scalar_args = map(map_to_int, new_scalar_args)
+            computation.connect(tr, array_arg, new_array_args, new_scalar_args)
 
-    def optimize_execution(self):
+        values = self._tr_tree.leaf_values_dict()
+        ext_names = [map_to_ext(name) for name, _ in computation.leaf_signature()]
 
-        # In theory, we can optimize the usage of temporary buffers with help of views
-        # Now we just allocate them separately
+        args = [values[name] for name in ext_names]
+        computation.prepare_for(*args, **kwds)
+
+        nested_ops = computation._operations
+
+        for kernel in nested_ops.kernels:
+            kernel.argnames = ext_names
+            self.kernels.append(kernel)
+
+        for name, value in nested_ops._allocations.items():
+            self._allocations[name] = value
+            self._tr_tree.add_temp_node(name, value)
+
+        for name, data in nested_ops._const_allocations.items():
+            value = ArrayValue(data.shape, data.dtype)
+            self._const_allocations[name] = data
+            self._tr_tree.add_temp_node(name, value)
+
+        for name, deps in nested_ops._dependencies.items():
+            name = map_to_ext(name)
+            deps = set(map(map_to_ext, deps))
+            self._dependencies[name].update(deps)
+
+    def finalize(self):
+
         self.allocations = {}
         for name, value in self._allocations.items():
             self.allocations[name] = self._ctx.array(
                 value.shape, value.dtype)
 
-        for name, data in self._const_allocations.items():
-            self.allocations[name] = self._ctx.to_device(data)
-
-
-class Allocate:
-
-    def __init__(self, name, shape, dtype):
-        self.name = name
-        self.shape = shape
-        self.dtype = dtype
-
-
-class ComputationCall:
-
-    def __init__(self, computation, *argnames, **kwds):
-        self.computation = computation
-        self.argnames = argnames
-        self.kwds = kwds
-        self._update_maps()
-
-    def _update_maps(self):
-        argnames = [x for x, _ in self.computation.leaf_signature()]
-        self.map_to_internal = {external_name:internal_name
-            for external_name, internal_name in zip(self.argnames, argnames)}
-        self.map_to_external = {internal_name:external_name
-            for external_name, internal_name in zip(self.argnames, argnames)}
-
-    def prepare(self, values):
-        args = [values[name] for name in self.argnames]
-        self.computation.prepare_for(*args, **self.kwds)
-
-        replace = lambda x: self.map_to_external.get(x, x)
-        argnames = [x for x, _ in self.computation.leaf_signature()]
-        self.leaf_argnames = [replace(name) for name in argnames]
-
-    def __call__(self, *args):
-        self.computation(*args)
-
-    def connect(self, tr, array_arg, new_array_args, new_scalar_args=None):
-        internal_array_arg = self.map_to_internal[array_arg]
-        self.computation.connect(tr, internal_array_arg, new_array_args, new_scalar_args)
-
-        new_signature = [x for x, _ in self.computation.leaf_signature()]
-        new_argnames = []
-        for internal_name in new_signature:
-            if internal_name in self.map_to_external:
-                new_argnames.append(self.map_to_external[internal_name])
-            elif internal_name in new_array_args:
-                new_argnames.append(internal_name)
-            elif new_scalar_args is not None and internal_name in new_scalar_args:
-                new_argnames.append(internal_name)
-
-        self.argnames = new_argnames
-
-        self._update_maps()
-
 
 class KernelCall:
 
-    def __init__(self, name, base_argnames, base_src, global_size,
-            local_size=None):
-        self.name = name
-        self.base_argnames = list(base_argnames)
-        self.local_size = local_size
-        self.global_size = global_size
-        self.src = base_src
-
-    def prepare(self, ctx, tr_tree):
-        transformation_code = tr_tree.transformations_for(self.base_argnames)
-        self.full_src = transformation_code + self.src
-        self.kernel = ctx.compile_static(self.full_src, self.name,
-            self.global_size, local_size=self.local_size)
-        self.leaf_argnames = [name for name, _ in tr_tree.leaf_signature(self.base_argnames)]
+    def __init__(self, kernel, argnames):
+        self.kernel = kernel
+        self.argnames = argnames
 
     def __call__(self, *args):
         self.kernel(*args)
