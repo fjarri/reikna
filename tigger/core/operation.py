@@ -162,10 +162,37 @@ class OperationRecorder:
 
     def finalize(self):
 
+        # The user specified dependencies between external arguments,
+        # and dependencies for the arguments of each kernels.
+        # Now we need to add inferred dependencies.
+        # Basically, we assume that if some buffer X was used first in kernel M
+        # and last in kernel N, all buffers in kernels from M+1 till N-1 depend on it
+        # (in other words, data in X has to persist from call M till call N)
+        usage = {}
+        for i, kernel in enumerate(self.kernels):
+            for argname in kernel.argnames:
+                if argname in usage:
+                    usage[argname][1] = i
+                else:
+                    usage[argname] = [i, i]
+        for name, pair in usage.items():
+            start, end = pair
+            if end - start < 2:
+                continue
+            for i in range(start + 1, end):
+                for other_name in self.kernels[i].argnames:
+                    self._dependencies[name].add(other_name)
+                    self._dependencies[other_name].add(name)
+
+        # Allocate buffers specifying the dependencies
         self.allocations = {}
         for name, value in self._allocations.items():
-            self.allocations[name] = self._ctx.array(
-                value.shape, value.dtype)
+            dependencies = []
+            for dep in self._dependencies[name]:
+                if dep in self._allocations:
+                    dependencies.append(self._allocations[dep])
+            self.allocations[name] = self._ctx.temp_array(
+                value.shape, value.dtype, dependencies=dependencies)
 
 
 class KernelCall:
