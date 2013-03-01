@@ -5,45 +5,6 @@ from tigger.helpers import AttrDict
 from tigger.helpers.sortedcollection import SortedCollection
 
 
-class ValueHolder:
-    """
-    This class serves as a connection between the memory manager and the allocation.
-    We need both the manager to keep the reference to the allocation
-    (to change it after memory pack), and the allocation to keep the reference to the manager
-    (to notify it when the allocation is freed).
-    The resulting reference loop is avoided by using this "third-party" object.
-    """
-
-    def __init__(self):
-        self.value = None
-
-    def __repr__(self):
-        return "ValueHolder(" + repr(self.value) + ")"
-
-
-class DynamicAllocation:
-    """
-    This class is a wrapper for the allocation.
-    As far as :py:class:`~tigger.cluda.api.Array` class is concerned,
-    it behaves the same as :py:class:`pycuda.driver.DeviceAllocation` or :py:class:`pyopencl.Buffer`.
-    """
-
-    def __init__(self, manager, id, value_holder):
-        self._id = id
-        self._value_holder = value_holder
-        self._manager = manager
-
-    def __int__(self):
-        return int(self._value_holder.value)
-
-    def __long__(self):
-        return long(self._value_holder.value)
-
-    def __del__(self):
-        # notify the memory manager that the allocation is no longer needed.
-        self._manager.free(self._id)
-
-
 def extract_dependencies(dependencies):
     """
     Recursively extracts allocation identifiers from an iterable or Array class.
@@ -56,14 +17,8 @@ def extract_dependencies(dependencies):
     elif hasattr(dependencies, '__tempalloc__'):
         # hook for exposing temporary allocations in arbitrary classes
         results.update(extract_dependencies(dependencies.__tempalloc__))
-    elif isinstance(dependencies, DynamicAllocation):
-        return set([dependencies._id])
-    elif hasattr(dependencies, 'data'):
-        # checking for PyOpenCL Array
-        results.update(extract_dependencies(dependencies.data))
-    elif hasattr(dependencies, 'gpudata'):
-        # checking for PyCUDA GPUArray
-        results.update(extract_dependencies(dependencies.gpudata))
+    elif hasattr(dependencies, '__tempalloc_id__'):
+        return set([dependencies.__tempalloc_id__])
 
     return results
 
@@ -77,7 +32,6 @@ class TemporaryAllocator:
         :py:class:`~tigger.cluda.tempalloc.TemporaryManager`.
     :param dependencies: can be a :py:class:`~tigger.cluda.api.Array` instance
         (the ones containing persistent allocations will be ignored),
-        a :py:class:`~tigger.cluda.tempalloc.DynamicAllocation` instance,
         an iterable with valid values,
         or an object with the attribute `__tempalloc__` which is a valid value
         (the last two will be processed recursively).
@@ -123,6 +77,8 @@ class TemporaryManager:
 
         allocator = DummyAllocator()
         array = self._ctx.array(shape, dtype, allocator=allocator)
+        array.__tempalloc_id__ = new_id
+
         dependencies = extract_dependencies(dependencies)
         self._allocate(new_id, allocator.size, dependencies, self._pack_on_alloc)
         self._arrays[new_id] = weakref.ref(array, lambda _: self.free(new_id))
@@ -340,24 +296,3 @@ class ZeroOffsetManager(TemporaryManager):
         stats.real_sizes = sorted(stats.real_sizes)
 
         return stats
-
-
-if __name__ == '__main__':
-
-    import numpy
-    import tigger.cluda as cluda
-    api = cluda.ocl_api()
-    ctx = api.Context.create()
-
-    manager = ZeroOffsetManager(ctx)
-
-    arr = ctx.temp_array(1000, numpy.int32)
-    print ctx.temp_alloc._statistics()
-    arr2 = ctx.temp_array(1000, numpy.int32, dependencies=arr)
-    arr3 = ctx.temp_array(1000, numpy.int32)
-    print ctx.temp_alloc._statistics()
-
-    del arr
-    del arr2
-
-    print ctx.temp_alloc._statistics()
