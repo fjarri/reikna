@@ -121,6 +121,7 @@ class TemporaryManager:
         This process can be slow.
         """
         self._pack()
+        self.update_all()
 
 
 class TrivialManager(TemporaryManager):
