@@ -55,14 +55,9 @@ class Buffer:
     Mimics pyopencl.Buffer
     """
 
-    def __init__(self, size, base=None, origin=0):
-        if base is None:
-            self._buffer = cuda.mem_alloc(size)
-        else:
-            self._buffer = long(base) + origin
-
+    def __init__(self, size):
+        self._buffer = cuda.mem_alloc(size)
         self.size = size
-        self._base = base
 
     def __int__(self):
         return int(self._buffer)
@@ -70,12 +65,8 @@ class Buffer:
     def __long__(self):
         return long(self._buffer)
 
-    def get_sub_region(self, origin, size):
-        return Buffer(size, base=self, origin=origin)
-
     def __del__(self):
-        if self._base is None:
-            self._buffer.free()
+        self._buffer.free()
 
 
 class Context:

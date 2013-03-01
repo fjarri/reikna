@@ -214,9 +214,13 @@ class ZeroOffsetManager(TemporaryManager):
             self._real_allocations[real_id] = AttrDict(buffer=buf, virtual_ids=set([new_id]))
             self._real_sizes.insert(AttrDict(size=size, real_id=real_id))
 
+        # Here it would be more appropriate to use buffer.get_sub_region(0, size),
+        # but OpenCL does not allow several overlapping subregions to be used in a single kernel
+        # for both read and write, which ruins the whole idea.
+        # So we are passing full buffers and hope that overlapping Array class takes care of sizes.
         self._virtual_to_real[new_id] = AttrDict(
             real_id=real_id,
-            sub_region=self._real_allocations[real_id].buffer.get_sub_region(0, size))
+            sub_region=self._real_allocations[real_id].buffer)
 
     def _get_buffer(self, id):
         return self._virtual_to_real[id].sub_region
