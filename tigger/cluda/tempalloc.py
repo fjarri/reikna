@@ -270,7 +270,7 @@ class ZeroOffsetManager(TemporaryManager):
         # Application of greedy algorithm for virtual allocations starting from the largest one
         # should give the optimal distribution.
         for vs in reversed(virtual_sizes):
-            self._fast_add(vs.id, vs.size, self._virtual_allocations[id].dependencies)
+            self._fast_add(vs.id, vs.size, self._virtual_allocations[vs.id].dependencies)
 
     def _statistics(self):
 
