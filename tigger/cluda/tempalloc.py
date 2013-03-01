@@ -193,7 +193,7 @@ class ZeroOffsetManager(TemporaryManager):
         try:
             idx_start = self._real_sizes.argfind_ge(size)
         except ValueError:
-            idx_start = 0
+            idx_start = len(self._real_sizes)
 
         # Check all real allocations with suitable sizes, starting from the smallest one.
         # Use the first real allocation which does not contain ``new_id``'s dependencies.
