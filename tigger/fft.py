@@ -548,7 +548,7 @@ class FFT(Computation):
                         operations.add_kernel(
                             TEMPLATE, kernel.name, argnames,
                             global_size=gs, local_size=ls, render_kwds=kwds,
-                            dependencies=([(mem_in, mem_out)] if kernel.inplace_possible else []))
+                            dependencies=([] if kernel.inplace_possible else [(mem_in, mem_out)]))
                     except OutOfResourcesError:
                         if isinstance(kernel, GlobalFFTKernel):
                             local_size //= 2
