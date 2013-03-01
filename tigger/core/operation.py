@@ -109,8 +109,13 @@ class OperationRecorder:
         self.kernels.append(KernelCall(kernel, leaf_argnames))
         if dependencies is not None:
             for mem1, mem2 in dependencies:
-                self._dependencies[self._prefix + mem1].add(self._prefix + mem2)
-                self._dependencies[self._prefix + mem2].add(self._prefix + mem1)
+                mem1 = self._prefix + mem1
+                mem2 = self._prefix + mem2
+                if mem1 not in self._allocations or mem2 not in self._allocations:
+                    continue
+
+                self._dependencies[mem1].add(mem2)
+                self._dependencies[mem2].add(mem1)
 
     def add_computation(self, computation, *argnames, **kwds):
         """
@@ -169,8 +174,13 @@ class OperationRecorder:
         # and last in kernel N, all buffers in kernels from M+1 till N-1 depend on it
         # (in other words, data in X has to persist from call M till call N)
         usage = {}
+        watchlist = set(name for name, value in self.values.items()
+            if name not in self._const_allocations and value.is_array)
+
         for i, kernel in enumerate(self.kernels):
             for argname in kernel.argnames:
+                if argname not in watchlist:
+                    continue
                 if argname in usage:
                     usage[argname][1] = i
                 else:
@@ -181,6 +191,8 @@ class OperationRecorder:
                 continue
             for i in range(start + 1, end):
                 for other_name in self.kernels[i].argnames:
+                    if other_name not in watchlist:
+                        continue
                     self._dependencies[name].add(other_name)
                     self._dependencies[other_name].add(name)
 
@@ -189,8 +201,8 @@ class OperationRecorder:
         for name, value in self._allocations.items():
             dependencies = []
             for dep in self._dependencies[name]:
-                if dep in self._allocations:
-                    dependencies.append(self._allocations[dep])
+                if dep in self.allocations:
+                    dependencies.append(self.allocations[dep])
             self.allocations[name] = self._ctx.temp_array(
                 value.shape, value.dtype, dependencies=dependencies)
 
