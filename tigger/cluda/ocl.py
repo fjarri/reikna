@@ -88,7 +88,16 @@ class Context:
             return True
 
     def allocate(self, size):
-        return cl.Buffer(self._context, cl.mem_flags.READ_WRITE, size=size)
+        buf = cl.Buffer(self._context, cl.mem_flags.READ_WRITE, size=size)
+
+        # FIXME: a hack to make OpenCL migrate buffers;
+        # without this subregions of this allocation are not writable,
+        # which makes a lot of tests fail (especially FFTs with non-power-of-2 sizes;
+        # i.e. shape=(2,9), axes=(0,1)).
+        # Also, this does not seem to be necessary on OpenCL 1.2.
+        # Need to figure out what is happening.
+        cl.enqueue_copy(self._queue, buf, numpy.ones(1, numpy.int8), is_blocking=False)
+        return buf
 
     def array(self, *args, **kwds):
         return clarray.Array(self._queue, *args, **kwds)
