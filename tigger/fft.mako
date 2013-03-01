@@ -767,7 +767,7 @@ ${kernel_definition}
 
     ${insertVariableDefinitions(direction, lmem_size, max_radix)}
 
-    int num_groups = virtual_num_groups(0);
+    const int num_groups = virtual_num_groups(0);
 
     ${insertGlobalLoadsAndTranspose(input, kweights, n, threads_per_xform, xforms_per_workgroup, max_radix,
         min_mem_coalesce_width)}
