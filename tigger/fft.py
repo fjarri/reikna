@@ -446,6 +446,11 @@ def get_fft_kernels(basis, device_params, local_kernel_limit):
             kernels.extend(get_fft_1d_kernels(
                 *args, reverse_direction=True, fft_size_real=fft_size))
 
+            # Since during pad-in or pad-out input and output blocks are no longer aligned,
+            # these kernels lose their inplace_possible property
+            kernels[0].inplace_possible = False
+            kernels[-1].inplace_possible = False
+
     return kernels
 
 
