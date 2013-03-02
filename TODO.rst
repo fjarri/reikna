@@ -27,6 +27,7 @@
 * TODO: add explicit context release methods for Thread --- not all Python implementations use reference counting, and non-instantaneous __del__ may cause problems with CUDA.
 * TODO: add ability to manually override inferred dependencies?
 * TODO: allow to specify dependencies for Elementwise computation
+* TODO: remove boilerplate code in cluda.kernel, perhaps remove out_dtype from mul() and div() --- we already have cast().
 
 
 0.4.0
