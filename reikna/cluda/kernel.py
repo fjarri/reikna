@@ -5,8 +5,8 @@ import numpy
 from mako.template import Template
 from mako import exceptions
 
-from tigger.cluda import dtypes
-from tigger.helpers import template_for
+from reikna.cluda import dtypes
+from reikna.helpers import template_for
 
 TEMPLATE = template_for(__file__)
 

@@ -1,4 +1,4 @@
 Version queries
 ===============
 
-.. automodule:: tigger.version
+.. automodule:: reikna.version

@@ -94,7 +94,7 @@ if not release:
 
     version_str = '%d.%d.%d' % VERSION
     full_version_str = version_str
-    version_py_path = os.path.join('tigger', 'version.py')
+    version_py_path = os.path.join('reikna', 'version.py')
 
     with cd_to_project_root():
         if os.path.exists('.git'):
@@ -130,17 +130,17 @@ if __name__ == '__main__':
     dependencies = ['mako', 'numpy']
 
     setup(
-        name='tigger',
-        packages=['tigger', 'tigger/cluda', 'tigger/core', 'tigger/helpers'],
-        provides=['tigger'],
+        name='reikna',
+        packages=['reikna', 'reikna/cluda', 'reikna/core', 'reikna/helpers'],
+        provides=['reikna'],
         requires=dependencies,
         install_requires=dependencies,
-        package_data={'tigger': ['*.mako'],
-                      'tigger/cluda': ['*.mako']},
+        package_data={'reikna': ['*.mako'],
+                      'reikna/cluda': ['*.mako']},
         version=VERSION_STR,
         author='Bogdan Opanchuk',
         author_email='bogdan@opanchuk.net',
-        url='http://github.com/Manticore/tigger',
+        url='http://github.com/Manticore/reikna',
         description='GPGPU algorithms for PyCuda and PyOpenCL',
         long_description=DOCUMENTATION,
         classifiers=[

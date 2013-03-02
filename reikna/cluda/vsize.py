@@ -1,5 +1,5 @@
 import numpy
-from tigger.helpers import *
+from reikna.helpers import *
 
 TEMPLATE = template_for(__file__)
 

@@ -6,10 +6,10 @@ import pytest
 
 from helpers import *
 
-from tigger.helpers import product
-from tigger.fft import FFT
-import tigger.cluda.dtypes as dtypes
-from tigger.transformations import scale_param
+from reikna.helpers import product
+from reikna.fft import FFT
+import reikna.cluda.dtypes as dtypes
+from reikna.transformations import scale_param
 
 
 def pytest_generate_tests(metafunc):

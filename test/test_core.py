@@ -1,11 +1,11 @@
 import numpy
 import pytest
 
-from tigger.helpers import *
-from tigger.core import *
-from tigger import Transformation, ArrayValue, ScalarValue
+from reikna.helpers import *
+from reikna.core import *
+from reikna import Transformation, ArrayValue, ScalarValue
 
-import tigger.transformations as transformations
+import reikna.transformations as transformations
 
 from helpers import *
 

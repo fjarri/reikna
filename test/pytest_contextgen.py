@@ -9,7 +9,7 @@ def get_apis(config):
     Get list of APIs to test, based on command line options and their availability.
     """
     # if we import it in the header, it messes up with coverage results
-    import tigger.cluda as cluda
+    import reikna.cluda as cluda
 
     conf_api_id = config.option.api
 

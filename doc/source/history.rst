@@ -6,8 +6,12 @@ Release history
 0.2.0 (current development version)
 ===================================
 
-* Added FFT computation
+* Added FFT computation (slightly optimized PyFFT version + Bluestein's algorithm for non-power-of-2 FFT sizes)
 * Added Python 3 compatibility
+* Added Context-global automatic memory packing
+* Added polar(), conj() and exp() functions to kernel toolbox
+* Changed name because of the clash with `another Tigger <http://www.astron.nl/meqwiki/Tigger>`_.
+
 
 0.1.0 (12 Sep 2012)
 ===================

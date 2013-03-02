@@ -3,9 +3,9 @@ import re
 import numpy
 from mako.template import Template
 
-import tigger.cluda.dtypes as dtypes
-from tigger.cluda.kernel import render_without_funcs, FuncCollector
-from tigger.helpers import AttrDict, product, wrap_in_tuple
+import reikna.cluda.dtypes as dtypes
+from reikna.cluda.kernel import render_without_funcs, FuncCollector
+from reikna.helpers import AttrDict, product, wrap_in_tuple
 
 
 INDEX_NAME = "idx"
@@ -204,11 +204,11 @@ class Transformation:
     :param parameters: number of scalar parameters for the transformation.
     :param derive_o_from_is: a function taking ``inputs`` + ``scalars`` dtype parameters
         and returning the output dtype.
-        If ``None``, :py:func:`~tigger.cluda.dtypes.result_type` is used.
+        If ``None``, :py:func:`~reikna.cluda.dtypes.result_type` is used.
         Called when the transformation is connected to the input argument.
     :param derive_i_from_os: a function taking ``outputs`` + ``scalars`` dtype parameters
         and returning the input dtype.
-        If ``None``, :py:func:`~tigger.cluda.dtypes.result_type` is used.
+        If ``None``, :py:func:`~reikna.cluda.dtypes.result_type` is used.
         Called when the transformation is connected to the output argument.
     :param code: template source with the transformation code.
         See :ref:`tutorial-advanced-transformation` section for details.

@@ -1,17 +1,17 @@
 Computations
 ============
 
-.. automodule:: tigger.matrixmul
+.. automodule:: reikna.matrixmul
     :members:
 
-.. automodule:: tigger.elementwise
+.. automodule:: reikna.elementwise
     :members:
 
-.. automodule:: tigger.transpose
+.. automodule:: reikna.transpose
     :members:
 
-.. automodule:: tigger.reduce
+.. automodule:: reikna.reduce
     :members:
 
-.. currentmodule:: tigger.fft
-.. autoclass :: tigger.fft.FFT
+.. currentmodule:: reikna.fft
+.. autoclass :: reikna.fft.FFT

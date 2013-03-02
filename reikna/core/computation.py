@@ -1,11 +1,11 @@
 import numpy
 import os, os.path
 
-from tigger.cluda.kernel import render_prelude, render_template
-from tigger.cluda.dtypes import ctype, cast
-import tigger.cluda.dtypes as dtypes
-from tigger.core.transformation import *
-from tigger.core.operation import OperationRecorder
+from reikna.cluda.kernel import render_prelude, render_template
+from reikna.cluda.dtypes import ctype, cast
+import reikna.cluda.dtypes as dtypes
+from reikna.core.transformation import *
+from reikna.core.operation import OperationRecorder
 
 
 class InvalidStateError(Exception):
@@ -24,7 +24,7 @@ STATE_PREPARED = 2
 class Computation:
     """
     Creates a computation class and performs basic initialization for the
-    :py:class:`~tigger.cluda.api.Context` object ``ctx``.
+    :py:class:`~reikna.cluda.api.Context` object ``ctx``.
     Note that the computation is unusable until :py:func:`prepare`
     or :py:func:`prepare_for` is called.
     If ``debug`` is ``True``, a couple of additional checks will be performed in runtime
@@ -33,7 +33,7 @@ class Computation:
     The following methods are for overriding by computations
     inheriting :py:class:`Computation` class.
 
-    .. py:module:: tigger.core
+    .. py:module:: reikna.core
 
     .. py:method:: _set_argnames(outputs, inputs, scalars)
 
@@ -42,7 +42,7 @@ class Computation:
 
     .. py:method:: _get_operation_recorder()
 
-        Returns an instance of :py:class:`~tigger.core.operation.OperationRecorder` class
+        Returns an instance of :py:class:`~reikna.core.operation.OperationRecorder` class
         which is used in :py:meth:`_construct_operations`.
 
     .. py:method:: _get_argnames()
@@ -54,8 +54,8 @@ class Computation:
 
     .. py:method:: _get_argvalues(argnames, basis)
 
-        Must return a dictionary with :py:class:`~tigger.core.ArrayValue` and
-        :py:class:`~tigger.core.ScalarValue` objects assigned to the argument names.
+        Must return a dictionary with :py:class:`~reikna.core.ArrayValue` and
+        :py:class:`~reikna.core.ScalarValue` objects assigned to the argument names.
 
     .. py:method:: _get_basis_for(*args, **kwds)
 
@@ -66,9 +66,9 @@ class Computation:
 
     .. py:method:: _construct_operations(basis, device_params)
 
-        Must fill and return the :py:class:`~tigger.core.operation.OperationRecorder`
+        Must fill and return the :py:class:`~reikna.core.operation.OperationRecorder`
         object with actions required to execute the computation.
-        See the :py:class:`~tigger.core.operation.OperationRecorder` class reference
+        See the :py:class:`~reikna.core.operation.OperationRecorder` class reference
         for the list of available actions.
 
     The rest is public methods.
@@ -177,7 +177,7 @@ class Computation:
 
     def connect(self, tr, array_arg, new_array_args, new_scalar_args=None):
         """
-        Connects a :py:class:`~tigger.core.Transformation` instance to the computation.
+        Connects a :py:class:`~reikna.core.Transformation` instance to the computation.
         After the successful connection the computation resets to teh unprepared state.
 
         :param array_arg: name of the leaf computation parameter to connect to.

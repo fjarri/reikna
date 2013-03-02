@@ -3,8 +3,8 @@ Test standard transformations
 """
 import pytest
 
-from tigger.elementwise import Elementwise, specialize_elementwise
-import tigger.transformations as tr
+from reikna.elementwise import Elementwise, specialize_elementwise
+import reikna.transformations as tr
 
 from helpers import *
 

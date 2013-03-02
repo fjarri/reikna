@@ -3,7 +3,7 @@
 CLUDA layer
 ===========
 
-CLUDA is the foundation of the tigger.
+CLUDA is the foundation of the reikna.
 It provides unified access to basic features of CUDA and OpenCL, such as memory operations, compilation and so on.
 It can also be used by itself, if you want to write GPU API-independent programs and happen to need the small subset of GPU API.
 The terminology is borrowed from OpenCL, since it is a more general API.
@@ -13,16 +13,16 @@ Root level interface
 
 This module contains functions for API discovery.
 
-.. automodule:: tigger.cluda
+.. automodule:: reikna.cluda
    :members:
 
 API module
 ----------
 
 Modules for all APIs have the same generalized interface.
-It is referred here (and references from other parts of this documentation) as :py:mod:`tigger.cluda.api`.
+It is referred here (and references from other parts of this documentation) as :py:mod:`reikna.cluda.api`.
 
-.. py:module:: tigger.cluda.api
+.. py:module:: reikna.cluda.api
 
 .. py:data:: API_ID
 
@@ -75,7 +75,7 @@ It is referred here (and references from other parts of this documentation) as :
 
     .. py:classmethod:: create(device=None, fast_math=True, async=True)
 
-        Creates the new :py:class:`tigger.cluda.api.Context` object with its own context and queues inside.
+        Creates the new :py:class:`reikna.cluda.api.Context` object with its own context and queues inside.
         Intended for cases when you want to base your whole program on CLUDA.
 
         :param device: device to create context for, element of the list returned by :py:meth:`Platform.get_devices`.
@@ -90,7 +90,7 @@ It is referred here (and references from other parts of this documentation) as :
 
     .. py:attribute:: temp_alloc
 
-        Instance of :py:class:`~tigger.cluda.tempalloc.TemporaryManager` which handles allocations of temporary arrays (see :py:meth:`temp_array`).
+        Instance of :py:class:`~reikna.cluda.tempalloc.TemporaryManager` which handles allocations of temporary arrays (see :py:meth:`temp_array`).
 
     .. py:method:: supports_dtype(dtype)
 
@@ -110,7 +110,7 @@ It is referred here (and references from other parts of this documentation) as :
         Creates a temporary :py:class:`Array` on GPU with given ``shape`` and ``dtype``.
         In order to reduce the memory footprint of the program, the temporary array manager will allow these arrays to overlap.
         Two arrays will not overlap, if one of them was specified in ``dependencies`` for the other one.
-        For a list of values ``dependencies`` takes, see the reference entry for :py:class:`~tigger.cluda.tempalloc.TemporaryManager`.
+        For a list of values ``dependencies`` takes, see the reference entry for :py:class:`~reikna.cluda.tempalloc.TemporaryManager`.
 
     .. py:method:: empty_like(arr)
 
@@ -269,10 +269,10 @@ Temporary Arrays
 Each context contains a special allocator for arrays with data that does not have to be persistent all the time.
 In many cases you only want some array to keep its contents between several kernel calls.
 This can be achieved by manually allocating and deallocating such arrays every time, but it slows the program down, and you have to synchronize the queue because allocation commands are not serialized.
-Therefore it is advantageous to use :py:meth:`~tigger.cluda.api.Context.temp_array` method to get such arrays.
+Therefore it is advantageous to use :py:meth:`~reikna.cluda.api.Context.temp_array` method to get such arrays.
 It takes a list of dependencies as an optional parameter which gives the allocator a hint about which arrays should not use the same physical allocation.
 
-.. py:module:: tigger.cluda.tempalloc
+.. py:module:: reikna.cluda.tempalloc
 
 .. autoclass:: TemporaryManager
     :members:
@@ -288,11 +288,11 @@ Kernel toolbox
 
 The stuff available for the kernel passed for compilation consists of two parts.
 
-First, there are several objects available at the template rendering stage, namely ``numpy``, :py:mod:`tigger.cluda.dtypes` (as ``dtypes``) and a :py:class:`FuncCollector` instance named ``func``, which is used to compensate for the lack of complex number operations in OpenCL, and the lack of C++ synthax which would allow one to write them.
+First, there are several objects available at the template rendering stage, namely ``numpy``, :py:mod:`reikna.cluda.dtypes` (as ``dtypes``) and a :py:class:`FuncCollector` instance named ``func``, which is used to compensate for the lack of complex number operations in OpenCL, and the lack of C++ synthax which would allow one to write them.
 Its methods can be treated as if they return the name of the function necessary to operate on given dtypes.
 Available methods are:
 
-.. py:module:: tigger.cluda.kernel
+.. py:module:: reikna.cluda.kernel
 
 .. py:class:: FuncCollector
 
@@ -376,7 +376,7 @@ Second, there is a set of macros attached to any kernel depending on the API it 
 
 .. c:macro:: VIRTUAL_SKIP_THREADS
 
-    This macro should start any kernel compiled with :py:meth:`~tigger.cluda.api.Context.compile_static`.
+    This macro should start any kernel compiled with :py:meth:`~reikna.cluda.api.Context.compile_static`.
     It skips all the empty threads resulting from fitting call parameters into backend limitations.
 
 .. c:function:: int virtual_local_id(int dim)
@@ -386,13 +386,13 @@ Second, there is a set of macros attached to any kernel depending on the API it 
 .. c:function:: int virtual_num_groups(int dim)
 .. c:function:: int virtual_global_size(int dim)
 
-    Only available in :py:class:`~tigger.cluda.api.StaticKernel` objects obtained from :py:meth:`~tigger.cluda.api.Context.compile_static`.
+    Only available in :py:class:`~reikna.cluda.api.StaticKernel` objects obtained from :py:meth:`~reikna.cluda.api.Context.compile_static`.
     Since its dimensions can differ from actual call dimensions, these functions have to be used.
 
 .. c:function:: int virtual_global_flat_id(int dim)
 .. c:function:: int virtual_global_flat_size(int dim)
 
-    Only available in :py:class:`~tigger.cluda.api.StaticKernel` objects obtained from :py:meth:`~tigger.cluda.api.Context.compile_static`.
+    Only available in :py:class:`~reikna.cluda.api.StaticKernel` objects obtained from :py:meth:`~reikna.cluda.api.Context.compile_static`.
     useful for addressing input and output arrays.
 
 Datatype tools
@@ -400,5 +400,5 @@ Datatype tools
 
 This module contains various convenience functions which operate with :py:class:`numpy.dtype` objects.
 
-.. automodule:: tigger.cluda.dtypes
+.. automodule:: reikna.cluda.dtypes
     :members:

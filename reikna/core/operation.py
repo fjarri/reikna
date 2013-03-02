@@ -1,8 +1,8 @@
 from collections import defaultdict
 
-import tigger.cluda.dtypes as dtypes
-from tigger.core.transformation import *
-from tigger.cluda.kernel import render_prelude, render_template
+import reikna.cluda.dtypes as dtypes
+from reikna.core.transformation import *
+from reikna.cluda.kernel import render_prelude, render_template
 
 
 class Argument:

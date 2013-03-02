@@ -6,13 +6,13 @@ import numpy
 import pyopencl as cl
 import pyopencl.array as clarray
 
-from tigger.helpers import AttrDict
-import tigger.cluda as cluda
-import tigger.cluda.dtypes as dtypes
-from tigger.helpers import wrap_in_tuple, product
-from tigger.cluda.kernel import render_prelude, render_template_source
-from tigger.cluda.vsize import VirtualSizes, render_stub_vsize_funcs
-from tigger.cluda.tempalloc import ZeroOffsetManager
+from reikna.helpers import AttrDict
+import reikna.cluda as cluda
+import reikna.cluda.dtypes as dtypes
+from reikna.helpers import wrap_in_tuple, product
+from reikna.cluda.kernel import render_prelude, render_template_source
+from reikna.cluda.vsize import VirtualSizes, render_stub_vsize_funcs
+from reikna.cluda.tempalloc import ZeroOffsetManager
 
 
 API_ID = cluda.API_OCL

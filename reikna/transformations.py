@@ -2,9 +2,9 @@
 This module contains a number of pre-created transformations.
 """
 
-import tigger.cluda.dtypes as dtypes
-from tigger.core import *
-from tigger import Transformation
+import reikna.cluda.dtypes as dtypes
+from reikna.core import *
+from reikna import Transformation
 
 
 def identity():

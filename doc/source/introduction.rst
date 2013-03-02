@@ -2,7 +2,7 @@
 Introduction
 ************
 
-This section contains a brief illustration of what ``Tigger`` does.
+This section contains a brief illustration of what ``reikna`` does.
 For more details see :ref:`basic <tutorial-basic>` and :ref:`advanced <tutorial-advanced>` tutorials.
 
 
@@ -10,14 +10,14 @@ CLUDA
 =====
 
 CLUDA is an abstraction layer on top of PyCuda/PyOpenCL.
-Its main purpose is to separate the rest of ``Tigger`` from the difference in their APIs, but it can be used by itself too for some simple tasks.
+Its main purpose is to separate the rest of ``reikna`` from the difference in their APIs, but it can be used by itself too for some simple tasks.
 
 Consider the following example, which is very similar to the one from the index page on PyCuda documentation:
 
 .. testcode:: cluda_simple_example
 
     import numpy
-    import tigger.cluda as cluda
+    import reikna.cluda as cluda
 
     N = 256
 
@@ -55,16 +55,16 @@ If you are familiar with PyCuda or PyOpenCL, you will easily understand all the 
 The ``cluda.ocl_api()`` call is the only place where OpenCL is mentioned, and if you replace it with ``cluda.cuda_api()`` it will be enough to make the code use CUDA.
 The abstraction is achieved by using generic API module on the Python side, and special macros (:c:macro:`KERNEL`, :c:macro:`GLOBAL_MEM`, and others) on the kernel side.
 
-The argument of :py:meth:`~tigger.cluda.api.Context.compile` method can also be a template, which is quite useful for metaprogramming, and also used to compensate for the lack of complex number operations in CUDA and OpenCL.
+The argument of :py:meth:`~reikna.cluda.api.Context.compile` method can also be a template, which is quite useful for metaprogramming, and also used to compensate for the lack of complex number operations in CUDA and OpenCL.
 Let us illustrate both scenarios by making the initial example multiply complex arrays.
-The template engine of choice in ``Tigger`` is `Mako <http://www.makotemplates.org>`_, and you are encouraged to read about it as it is quite useful. For the purpose of this example all we need to know is that ``${python_expression()}`` is a synthax construction which renders the expression result.
+The template engine of choice in ``reikna`` is `Mako <http://www.makotemplates.org>`_, and you are encouraged to read about it as it is quite useful. For the purpose of this example all we need to know is that ``${python_expression()}`` is a synthax construction which renders the expression result.
 
 .. testcode:: cluda_template_example
 
     import numpy
     from numpy.linalg import norm
-    import tigger.cluda as cluda
-    import tigger.cluda.dtypes as dtypes
+    import reikna.cluda as cluda
+    import reikna.cluda.dtypes as dtypes
 
     N = 256
     dtype = numpy.complex64
@@ -102,12 +102,12 @@ The template engine of choice in ``Tigger`` is `Mako <http://www.makotemplates.o
     True
 
 Here we passed ``dtype`` and ``ctype`` values to the template, and used ``dtype`` to get the complex number multiplication function (``func`` is one of the "built-in" values that are available in CLUDA templates).
-Alternatively, we could call :py:func:`dtypes.ctype() <tigger.cluda.dtypes.ctype>` inside the template, as :py:mod:`~tigger.cluda.dtypes` module is available there too.
+Alternatively, we could call :py:func:`dtypes.ctype() <reikna.cluda.dtypes.ctype>` inside the template, as :py:mod:`~reikna.cluda.dtypes` module is available there too.
 
 Note that CLUDA context is created by means of a static method and not using the constructor.
-The constructor is reserved for more probable scenario, where we want to include some ``Tigger`` functionality in a larger program, and we want it to use the existing context and stream/queue.
-The :py:class:`~tigger.cluda.api.Context` constructor takes the PyCuda/PyOpenCL context and, optionally, the ``Stream``/``CommandQueue`` object as a ``queue`` parameter.
-All further operations with the ``Tigger`` context will be performed using the objects provided.
+The constructor is reserved for more probable scenario, where we want to include some ``reikna`` functionality in a larger program, and we want it to use the existing context and stream/queue.
+The :py:class:`~reikna.cluda.api.Context` constructor takes the PyCuda/PyOpenCL context and, optionally, the ``Stream``/``CommandQueue`` object as a ``queue`` parameter.
+All further operations with the ``reikna`` context will be performed using the objects provided.
 If ``queue`` is not given, an internal one will be created.
 
 For the complete list of things available in CLUDA, please consult the :ref:`CLUDA reference <api-cluda>`.
@@ -117,7 +117,7 @@ Computations
 ============
 
 Now it's time for the main part of the functionality.
-``Tigger`` provides GPGPU algorithms in the form of :py:class:`~tigger.core.Computation`-based cores and :py:class:`~tigger.core.Transformation`-based plug-ins.
+``reikna`` provides GPGPU algorithms in the form of :py:class:`~reikna.core.Computation`-based cores and :py:class:`~reikna.core.Transformation`-based plug-ins.
 Computations contain the algorithm itself; examples are matrix multiplication, reduction, sorting and so on.
 Transformations are elementwise operations on inputs or outputs of computations, used for scaling, typecast and other auxiliary purposes.
 Transformations are compiled into the main computation kernel and are therefore quite cheap in terms of performance.
@@ -128,8 +128,8 @@ As an example, we will consider the matrix multiplication.
 
     import numpy
     from numpy.linalg import norm
-    import tigger.cluda as cluda
-    from tigger.matrixmul import MatrixMul
+    import reikna.cluda as cluda
+    from reikna.matrixmul import MatrixMul
 
     api = cluda.ocl_api()
     ctx = api.Context.create()
@@ -155,16 +155,16 @@ As an example, we will consider the matrix multiplication.
 
     True
 
-Most of the code above should be already familiar, with the exception of the creation of :py:class:`~tigger.matrixmul.MatrixMul` object.
-As any other class derived from :py:class:`~tigger.core.Computation`, it requires ``Tigger`` context as a constructor argument.
+Most of the code above should be already familiar, with the exception of the creation of :py:class:`~reikna.matrixmul.MatrixMul` object.
+As any other class derived from :py:class:`~reikna.core.Computation`, it requires ``reikna`` context as a constructor argument.
 The context serves as a source of data about the target API and device, and provides an execution queue.
 
 Before usage the object has to be prepared.
 It does not happen in the constructor, since the transformations may be connected after that, and they would invalidate previous preparation.
-The preparation consists of passing to the :py:meth:`~tigger.core.Computation.prepare_for` array and scalar arguments we will use to call the computation (or stub :py:class:`~tigger.core.ArrayValue` and :py:class:`~tigger.core.ScalarValue` objects, if real arrays are not available at preparation time), along with some optional keyword arguments.
-The list of required positional and keyword arguments for any computation is specified in its documentation; for :py:class:`~tigger.matrixmul.MatrixMul` it is :py:class:`MatrixMul.prepare_for() <tigger.matrixmul.MatrixMul.prepare_for>`.
+The preparation consists of passing to the :py:meth:`~reikna.core.Computation.prepare_for` array and scalar arguments we will use to call the computation (or stub :py:class:`~reikna.core.ArrayValue` and :py:class:`~reikna.core.ScalarValue` objects, if real arrays are not available at preparation time), along with some optional keyword arguments.
+The list of required positional and keyword arguments for any computation is specified in its documentation; for :py:class:`~reikna.matrixmul.MatrixMul` it is :py:class:`MatrixMul.prepare_for() <reikna.matrixmul.MatrixMul.prepare_for>`.
 
-From the documentation we know that we need three array parameters, and we ask :py:class:`~tigger.matrixmul.MatrixMul` to prepare itself to handle arrays ``res_dev``, ``a_dev`` and ``b_dev`` when they are passed to it.
+From the documentation we know that we need three array parameters, and we ask :py:class:`~reikna.matrixmul.MatrixMul` to prepare itself to handle arrays ``res_dev``, ``a_dev`` and ``b_dev`` when they are passed to it.
 
 After the preparation we can use the object as a callable, passing it arrays and scalars with the same data types and shapes we used to prepare the computation.
 
@@ -182,9 +182,9 @@ Let us change the previous example and connect transformations to it.
 
     import numpy
     from numpy.linalg import norm
-    import tigger.cluda as cluda
-    from tigger.matrixmul import MatrixMul
-    from tigger.transformations import combine_complex
+    import reikna.cluda as cluda
+    from reikna.matrixmul import MatrixMul
+    from reikna.transformations import combine_complex
 
     api = cluda.ocl_api()
     ctx = api.Context.create()
@@ -216,10 +216,10 @@ Let us change the previous example and connect transformations to it.
 
     True
 
-We have used a pre-created transformation :py:func:`~tigger.transformations.combine_complex` from :py:mod:`tigger.transformations` for simplicity; developing a custom transformation is also possible and described in :ref:`tutorial-advanced-transformation`.
+We have used a pre-created transformation :py:func:`~reikna.transformations.combine_complex` from :py:mod:`reikna.transformations` for simplicity; developing a custom transformation is also possible and described in :ref:`tutorial-advanced-transformation`.
 From the documentation we know that it transforms two inputs into one output; therefore we need to attach it to one of the inputs of ``dot`` (identified by its name), and provide names for two new inputs.
 
-Names to attach to are obtained from the documentation for the particular computation. By convention they are the same as the names of positional arguments to :py:meth:`~tigger.core.Computation.prepare_for`; for :py:class:`~tigger.matrixmul.MatrixMul` these are ``out``, ``a`` and ``b``.
+Names to attach to are obtained from the documentation for the particular computation. By convention they are the same as the names of positional arguments to :py:meth:`~reikna.core.Computation.prepare_for`; for :py:class:`~reikna.matrixmul.MatrixMul` these are ``out``, ``a`` and ``b``.
 
 In the current example we have attached the transformations to both inputs.
 Note that ``prepare_for`` has a new signature now, and the resulting ``dot`` object now works with split complex numbers.

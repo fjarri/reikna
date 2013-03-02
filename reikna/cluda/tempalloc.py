@@ -1,8 +1,8 @@
 import collections
 import weakref
 
-from tigger.helpers import AttrDict
-from tigger.helpers.sortedcollection import SortedCollection
+from reikna.helpers import AttrDict
+from reikna.helpers.sortedcollection import SortedCollection
 
 
 def extract_dependencies(dependencies):
@@ -27,7 +27,7 @@ class TemporaryManager:
     """
     Base class for a manager of temporary allocations.
 
-    :param ctx: an instance of :py:class:`~tigger.cluda.api.Context`.
+    :param ctx: an instance of :py:class:`~reikna.cluda.api.Context`.
     :param pack_on_alloc: whether to repack allocations when a new allocation is requested.
     :param pack_on_free: whether to repack allocations when an allocation is freed.
     """
@@ -45,7 +45,7 @@ class TemporaryManager:
 
         :param shape: shape of the array.
         :param dtype: data type of the array.
-        :param dependencies: can be a :py:class:`~tigger.cluda.api.Array` instance
+        :param dependencies: can be a :py:class:`~reikna.cluda.api.Array` instance
             (the ones containing persistent allocations will be ignored),
             an iterable with valid values,
             or an object with the attribute `__tempalloc__` which is a valid value

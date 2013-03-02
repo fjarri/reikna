@@ -1,7 +1,7 @@
 import numpy
 
-from tigger.helpers import *
-from tigger.core import *
+from reikna.helpers import *
+from reikna.core import *
 
 TEMPLATE = template_for(__file__)
 

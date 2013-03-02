@@ -4,10 +4,10 @@ import pytest
 
 from helpers import *
 
-from tigger.matrixmul import MatrixMul
-import tigger.cluda.dtypes as dtypes
-from tigger.cluda import OutOfResourcesError
-from tigger.helpers import product
+from reikna.matrixmul import MatrixMul
+import reikna.cluda.dtypes as dtypes
+from reikna.cluda import OutOfResourcesError
+from reikna.helpers import product
 
 
 def pytest_generate_tests(metafunc):

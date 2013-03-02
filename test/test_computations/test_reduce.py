@@ -4,8 +4,8 @@ import numpy
 import pytest
 
 from helpers import *
-from tigger.reduce import Reduce
-import tigger.cluda.dtypes as dtypes
+from reikna.reduce import Reduce
+import reikna.cluda.dtypes as dtypes
 
 
 shapes = [

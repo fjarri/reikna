@@ -5,7 +5,7 @@ import pytest
 
 from helpers import *
 
-from tigger.transpose import Transpose
+from reikna.transpose import Transpose
 
 
 def pytest_generate_tests(metafunc):

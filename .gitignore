@@ -1,8 +1,8 @@
 *.pyc
 temp/*
 *.tmproj
-tigger.egg-info/*
-tigger/version.py
+reikna.egg-info/*
+reikna/version.py
 test/htmlcov/*
 test/.coverage
 doc/build

@@ -1,5 +1,5 @@
 Helpers
 =======
 
-.. automodule:: tigger.helpers
+.. automodule:: reikna.helpers
    :members:

@@ -1,8 +1,8 @@
 =====================================
-Tigger, the pure Python GPGPU library
+Reikna, the pure Python GPGPU library
 =====================================
 
-``Tigger`` is a library containing various GPU algorithms built on top of `PyCuda <http://documen.tician.de/pycuda>`_ and `PyOpenCL <http://documen.tician.de/pyopencl>`_.
+``Reikna`` is a library containing various GPU algorithms built on top of `PyCuda <http://documen.tician.de/pycuda>`_ and `PyOpenCL <http://documen.tician.de/pyopencl>`_.
 The main design goals are:
 
 * separation of computation cores (matrix multiplication, random numbers generation etc) from simple transformations on their input and output values (scaling, typecast etc);
@@ -11,5 +11,5 @@ The main design goals are:
 
 Tests can be run by installing `Py.Test <http://pytest.org>`_ and running ``py.test`` from the ``test`` folder (run ``py.test --help`` to get the list of options).
 
-For more information proceed to the `project documentation page <http://tigger.publicfields.net>`_.
+For more information proceed to the `project documentation page <http://reikna.publicfields.net>`_.
 

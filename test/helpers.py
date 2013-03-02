@@ -1,5 +1,5 @@
 import numpy
-from tigger.cluda import dtypes
+from reikna.cluda import dtypes
 
 
 SINGLE_EPS = 1e-6

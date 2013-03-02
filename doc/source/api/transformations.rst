@@ -1,5 +1,5 @@
 Transformations
 ===============
 
-.. automodule:: tigger.transformations
+.. automodule:: reikna.transformations
     :members:

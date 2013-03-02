@@ -2,8 +2,8 @@ import numpy
 import pytest
 
 from helpers import *
-from tigger.elementwise import Elementwise
-import tigger.cluda.dtypes as dtypes
+from reikna.elementwise import Elementwise
+import reikna.cluda.dtypes as dtypes
 
 
 def test_errors(ctx):

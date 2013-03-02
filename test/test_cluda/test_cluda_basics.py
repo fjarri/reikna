@@ -2,9 +2,9 @@ import itertools
 
 import pytest
 
-import tigger.cluda as cluda
-import tigger.cluda.dtypes as dtypes
-from tigger.helpers import product
+import reikna.cluda as cluda
+import reikna.cluda.dtypes as dtypes
+from reikna.helpers import product
 
 from helpers import *
 from pytest_contextgen import parametrize_context_tuple, create_context_in_tuple

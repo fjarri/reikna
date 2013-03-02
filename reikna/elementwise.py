@@ -1,7 +1,7 @@
 import numpy
 
-from tigger.helpers import *
-from tigger.core import *
+from reikna.helpers import *
+from reikna.core import *
 
 
 EMPTY = dict(functions="", kernel="")
@@ -15,7 +15,7 @@ class Elementwise(Computation):
 
         Set argument names for the computation.
         This method should be called first after the creation of the
-        :py:class:`~tigger.elementwise.Elementwise` object.
+        :py:class:`~reikna.elementwise.Elementwise` object.
         Returns ``self``.
 
     .. py:method:: prepare_for(*args, code=EMPTY)

@@ -1,10 +1,10 @@
 import numpy
 
-from tigger.helpers import *
-from tigger.core import *
-import tigger.cluda.dtypes as dtypes
-from tigger.cluda import OutOfResourcesError
-from tigger.elementwise import specialize_elementwise
+from reikna.helpers import *
+from reikna.core import *
+import reikna.cluda.dtypes as dtypes
+from reikna.cluda import OutOfResourcesError
+from reikna.elementwise import specialize_elementwise
 
 TEMPLATE = template_for(__file__)
 

@@ -1,9 +1,9 @@
 import numpy
 
-from tigger.helpers import *
-from tigger.cluda import dtypes
-from tigger.core import *
-from tigger.transpose import Transpose
+from reikna.helpers import *
+from reikna.cluda import dtypes
+from reikna.core import *
+from reikna.transpose import Transpose
 
 TEMPLATE_SRC = template_source_for(__file__)
 

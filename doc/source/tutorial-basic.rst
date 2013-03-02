@@ -7,12 +7,12 @@ Tutorial: basics
 Usage of computations
 =====================
 
-All ``Tigger`` computation classes are derived from the :py:class:`~tigger.core.Computation` class and therefore share the same API and behavior.
-Each computation is parametrized by a dictionary called **basis** (which is hidden from the user), and, sometimes, by the names and positions of its arguments (when they can vary, for example, in :py:class:`~tigger.elementwise.Elementwise`).
+All ``reikna`` computation classes are derived from the :py:class:`~reikna.core.Computation` class and therefore share the same API and behavior.
+Each computation is parametrized by a dictionary called **basis** (which is hidden from the user), and, sometimes, by the names and positions of its arguments (when they can vary, for example, in :py:class:`~reikna.elementwise.Elementwise`).
 
-Before use a computation has to be fully prepared by means of calling :py:meth:`~tigger.core.Computation.prepare_for`.
+Before use a computation has to be fully prepared by means of calling :py:meth:`~reikna.core.Computation.prepare_for`.
 This method derives the basis from a set of positional arguments and optional keyword arguments.
-The positional arguments should be either the same arrays and scalars you are going to pass to the computation call (which means the same shapes and data types), or their replacements in the form of :py:class:`~tigger.core.ArrayValue` and :py:class:`~tigger.core.ScalarValue` objects:
+The positional arguments should be either the same arrays and scalars you are going to pass to the computation call (which means the same shapes and data types), or their replacements in the form of :py:class:`~reikna.core.ArrayValue` and :py:class:`~reikna.core.ScalarValue` objects:
 
 ::
 
@@ -31,13 +31,13 @@ Computations and transformations
 One often needs to perform some simple processing of the input or output values of a computation.
 This can be scaling, splitting complex values into components, and so on.
 Some of these operations require additional memory to store intermediate results, and all of them involve additional overhead of calling the kernel, and passing values to and from the device memory.
-``Tigger`` porvides an API to define such transformations and attach them to "core" computations, effectively compiling the transformation code into the main kernel, thus avoiding all these drawbacks.
+``Reikna`` porvides an API to define such transformations and attach them to "core" computations, effectively compiling the transformation code into the main kernel, thus avoiding all these drawbacks.
 
 Transformation tree
 ===================
 
 Before talking about transformations themselves, we need to take a closer look at the computation signatures.
-Positional arguments of any ``__call__`` method of a class derived from :py:meth:`~tigger.core.Computation` are output arrays, input arrays, and scalar arguments, in this order.
+Positional arguments of any ``__call__`` method of a class derived from :py:meth:`~reikna.core.Computation` are output arrays, input arrays, and scalar arguments, in this order.
 All these values are eventually passed to the computation kernel.
 
 All the positional arguments have an identifier which is unique for the given computation object.
@@ -50,10 +50,10 @@ As an example, let us consider an elementwise computation object with one output
 .. testcode:: transformation_example
 
     import numpy
-    import tigger.cluda as cluda
-    from tigger.core import Transformation
-    from tigger.elementwise import specialize_elementwise
-    import tigger.transformations as transformations
+    import reikna.cluda as cluda
+    from reikna.core import Transformation
+    from reikna.elementwise import specialize_elementwise
+    import reikna.transformations as transformations
 
     api = cluda.ocl_api()
     ctx = api.Context.create()
@@ -109,7 +109,7 @@ The transformation tree now looks like:
     >> param2 ----/
 
 As can be seen, nothing has changed from the base computation's point of view: it still gets the same inputs and outputs to the same array.
-But user-supplied parameters (``>>``) have changed, which can be also seen in the result of the :py:meth:`~tigger.core.Computation.signature_str`:
+But user-supplied parameters (``>>``) have changed, which can be also seen in the result of the :py:meth:`~reikna.core.Computation.signature_str`:
 
 .. doctest:: transformation_example
 
@@ -145,7 +145,7 @@ There are some limitations of the transformation mechanics:
 #. Transformations are strictly elementwise.
    It means that you cannot specify the index to read from or to write to in the transformation code --- it stays the same as the one used to read the value in the main kernel.
 #. Transformations connected to the input nodes must have only one output, and transformations connected to the output nodes must have only one input.
-   This restriction is, in fact, enforced by the signature of :py:meth:`~tigger.core.Computation.connect`.
+   This restriction is, in fact, enforced by the signature of :py:meth:`~reikna.core.Computation.connect`.
 #. External endpoints of the output transformations cannot point to existing nodes in the transformation tree.
    This is the direct consequence of the strict elementwiseness --- it would unavoidably create races between memory writes from different branches.
    On the other hand, input transformations can be safely connected to existing nodes, including base nodes.

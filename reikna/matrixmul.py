@@ -1,8 +1,8 @@
 import numpy
 
-from tigger.helpers import *
-from tigger.core import *
-from tigger.cluda import OutOfResourcesError
+from reikna.helpers import *
+from reikna.core import *
+from reikna.cluda import OutOfResourcesError
 
 TEMPLATE = template_for(__file__)
 

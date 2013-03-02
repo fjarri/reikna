@@ -19,7 +19,7 @@
 * TODO: add support for arrays with aligned rows (mem_alloc_pitch() in PyCuda).
   This should make non-power-of-2 FFT much faster.
 * TODO: create_queue() method in Context is not used anywhere;
-  moreover, the queue created this way cannot be used anywhere in Tigger.
+  moreover, the queue created this way cannot be used anywhere in ``reikna``.
   Probably it's better to replace it by 'fork()' method, which will create the Context object
   with the same context and a new queue.
   Also, maybe rename Context to Thread/GPUThread (avoids confusion with contexts, and works well with the existence of fork()).
@@ -34,7 +34,7 @@
 =====
 
 * TODO: move part of core.transformation to a template
-* TODO: add custom render keywords for transformations (will help e.g. in tigger.transformations)
+* TODO: add custom render keywords for transformations (will help e.g. in reikna.transformations)
 * TODO: create some elementwise computations derived from Elementwise
 * TODO: document _debug usage
 * TODO: add "dynamic regime"
@@ -107,7 +107,7 @@ CLUDA:
 
 Core:
 
-* DECIDE: Some mechanism to merge together two successive Computation calls. Will require an API to tell tigger that certain computations are executed together, plus some way to determine if the computation is local and elementwise (otherwise the connection will require the change of code).
+* DECIDE: Some mechanism to merge together two successive Computation calls. Will require an API to tell reikna that certain computations are executed together, plus some way to determine if the computation is local and elementwise (otherwise the connection will require the change of code).
 
 
 2.*

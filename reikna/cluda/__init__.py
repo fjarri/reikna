@@ -30,15 +30,15 @@ def supported_apis():
 
 def api(api_id):
     """
-    Returns API module with the generalized interface :py:mod:`tigger.cluda.api`
+    Returns API module with the generalized interface :py:mod:`reikna.cluda.api`
     for the given identifier.
     """
     if api_id == API_CUDA:
-        import tigger.cluda.cuda
-        return tigger.cluda.cuda
+        import reikna.cluda.cuda
+        return reikna.cluda.cuda
     elif api_id == API_OCL:
-        import tigger.cluda.ocl
-        return tigger.cluda.ocl
+        import reikna.cluda.ocl
+        return reikna.cluda.ocl
     else:
         raise ValueError("Unrecognized API: " + str(api_id))
 

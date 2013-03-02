@@ -3,17 +3,17 @@ Core classes
 
 Computations and transformations are based on two classes, which provide the user-side interface of computation objects.
 
-.. autoclass:: tigger.core.Computation
+.. autoclass:: reikna.core.Computation
     :members:
 
-.. autoclass:: tigger.core.Transformation
+.. autoclass:: reikna.core.Transformation
     :members:
 
-.. autoclass:: tigger.core.operation.OperationRecorder
+.. autoclass:: reikna.core.operation.OperationRecorder
     :members:
 
-.. autoclass:: tigger.core.ArrayValue
+.. autoclass:: reikna.core.ArrayValue
     :members:
 
-.. autoclass:: tigger.core.ScalarValue
+.. autoclass:: reikna.core.ScalarValue
     :members:
