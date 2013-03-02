@@ -50,6 +50,33 @@ class FuncCollector:
         self.functions[name] = ('div', (out, dtype1, dtype2))
         return name
 
+    def conj(self, dtype):
+        ctype = dtypes.ctype(dtype).replace(' ', '_')
+
+        name = "_{prefix}_div__{ctype}".format(
+            prefix=self.prefix, ctype=ctype)
+
+        self.functions[name] = ('conj', (dtype,))
+        return name
+
+    def exp(self, dtype):
+        ctype = dtypes.ctype(dtype).replace(' ', '_')
+
+        name = "_{prefix}_div__{ctype}".format(
+            prefix=self.prefix, ctype=ctype)
+
+        self.functions[name] = ('exp', (dtype,))
+        return name
+
+    def polar(self, dtype):
+        ctype = dtypes.ctype(dtype).replace(' ', '_')
+
+        name = "_{prefix}_div__{ctype}".format(
+            prefix=self.prefix, ctype=ctype)
+
+        self.functions[name] = ('polar', (dtype,))
+        return name
+
     def render(self):
         src = []
         for func_name, params in self.functions.items():

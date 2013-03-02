@@ -310,6 +310,18 @@ Available methods are:
 
         Returns the name of the function that casts values of ``in_dtype`` to ``out_dtype``.
 
+    .. py:method:: conj(dtype)
+
+        Returns the name of the function that conjugates the values of type ``dtype`` (must be a complex data type).
+
+    .. py:method:: exp(dtype)
+
+        Returns the name of the function that exponentiates the value of type ``dtype`` (must be a real or complex data type).
+
+    .. py:method:: polar(dtype)
+
+        Returns the name of the function that calculates ``rho * exp(i * theta)`` for values ``rho, theta`` of type ``dtype`` (must be a real data type).
+
 Second, there is a set of macros attached to any kernel depending on the API it is being compiled for:
 
 .. c:macro:: CUDA

@@ -179,3 +179,88 @@ WITHIN_KERNEL ${dtypes.ctype(out_dtype)} ${name}(${dtypes.ctype(in_dtype)} x)
     return ${result};
 }
 </%def>
+
+<%def name="norm(name, dtype)">
+<%
+    if dtypes.is_complex(dtype):
+        out_dtype = dtypes.real_for(dtype)
+        result = "a.x * a.x + a.y * a.y"
+    else:
+        out_dtype = dtype
+        result = "abs(a)"
+%>
+WITHIN_KERNEL ${dtypes.ctype(out_dtype)} ${name}(${dtypes.ctype(dtype)} a)
+{
+    return ${result};
+}
+</%def>
+
+<%def name="conj(name, dtype)">
+WITHIN_KERNEL ${dtypes.ctype(dtype)} ${name}(${dtypes.ctype(dtype)} a)
+{
+<%
+    if dtypes.is_complex(dtype):
+        result = dtypes.complex_ctr(dtype) + "(a.x, -a.y)"
+    else:
+        raise NotImplementedError("conj() of " + str(dtype) + " is not supported")
+%>
+    return ${result};
+}
+</%def>
+
+<%def name="sincos(dtype)">
+    ${dtypes.ctype(dtypes.complex_for(dtype))} res;
+
+    #ifdef CUDA
+        ${"sincos" + ("" if dtypes.is_double(dtype) else "f")}(theta, &(res.y), &(res.x));
+    #else
+    ## It seems that native_cos/sin option is only available for single precision.
+    %if not dtypes.is_double(dtype):
+    #ifdef CTX_FAST_MATH
+        res.x = native_cos(theta);
+        res.y = native_sin(theta);
+    #else
+    %endif
+        real_t tmp;
+        res.y = sincos(theta, &tmp);
+        res.x = tmp;
+    %if not dtypes.is_double(dtype):
+    #endif
+    %endif
+    #endif
+</%def>
+
+<%def name="exp(name, dtype)">
+<%
+    if dtypes.is_integer(dtype):
+        raise NotImplementedError("exp() of " + str(dtype) + " is not supported")
+%>
+WITHIN_KERNEL ${dtypes.ctype(dtype)} ${name}(${dtypes.ctype(dtype)} a)
+{
+    %if dtypes.is_real(dtype):
+    return exp(a);
+    %else:
+    ${sincos(dtypes.real_for(dtype))}
+    ${dtypes.ctype(dtypes.real_for(dtype))} rho = exp(a.x);
+    res.x *= rho;
+    res.y *= rho;
+    return res;
+    %endif
+}
+</%def>
+
+<%def name="polar(name, dtype)">
+<%
+    if not dtypes.is_real(dtype):
+        raise NotImplementedError("polar() of " + str(dtype) + " is not supported")
+    out_dtype = dtypes.complex_for(dtype)
+%>
+WITHIN_KERNEL ${dtypes.ctype(out_dtype)} ${name}(
+    ${dtypes.ctype(dtype)} rho, ${dtypes.ctype(dtype)} theta)
+{
+    ${sincos(dtype)}
+    res.x *= rho;
+    res.y *= rho;
+    return res;
+}
+</%def>
