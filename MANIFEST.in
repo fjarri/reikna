@@ -1,13 +1,9 @@
-recursive-include . *.py
-recursive-include test *.py
-recursive-include . *.mako
-
 recursive-include doc/source *.rst
 include doc/Makefile
 include doc/source/conf.py
 
 include LICENSE.txt
-include Makefile.in
+include MANIFEST.in
 include README.rst
 include TODO.rst
 include test/pylintrc
