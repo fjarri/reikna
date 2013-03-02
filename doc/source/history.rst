@@ -2,9 +2,14 @@
 Release history
 ***************
 
-
-0.2.0 (current development version)
+0.3.0 (current development version)
 ===================================
+
+Under construction.
+
+
+0.2.0 (3 Mar 2013)
+==================
 
 * Added FFT computation (slightly optimized PyFFT version + Bluestein's algorithm for non-power-of-2 FFT sizes)
 * Added Python 3 compatibility
