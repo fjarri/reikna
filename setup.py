@@ -112,7 +112,7 @@ if not release:
         revision = "unknown"
 
     if not RELEASED:
-        full_version_str += 'dev-' + revision[:7]
+        full_version_str += '+dev.' + revision[:7]
 
     contents = template.format(version=repr(VERSION),
         full_version=full_version_str, git_revision=revision, released=repr(RELEASED))
