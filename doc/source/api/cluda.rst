@@ -274,8 +274,6 @@ It takes a list of dependencies as an optional parameter which gives the allocat
 
 .. py:module:: tigger.cluda.tempalloc
 
-.. autoclass:: DynamicAllocation
-
 .. autoclass:: TemporaryManager
     :members:
 
