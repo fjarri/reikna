@@ -25,6 +25,13 @@ def is_integer(dtype):
     dtype = normalize_type(dtype)
     return dtype.kind in ('i', 'u')
 
+def is_real(dtype):
+    """
+    Returns ``True`` if ``dtype`` is a real.
+    """
+    dtype = normalize_type(dtype)
+    return dtype.kind == 'f'
+
 def _promote_dtype(dtype):
     # not all numpy datatypes are supported by GPU, so we may need to promote
     dtype = normalize_type(dtype)
