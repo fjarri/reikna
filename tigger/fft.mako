@@ -3,37 +3,14 @@
 #define complex_ctr COMPLEX_CTR(${dtypes.ctype(basis.dtype)})
 #define complex_mul ${func.mul(basis.dtype, basis.dtype)}
 #define complex_div_scalar ${func.div(basis.dtype, dtypes.real_for(basis.dtype))}
-#define conj(a) complex_ctr((a).x, -(a).y)
+#define polar ${func.polar(dtypes.real_for(basis.dtype))}
+#define conj(a) ${func.conj(basis.dtype)}
 #define conj_transp(a) complex_ctr(-(a).y, (a).x)
 #define conj_transp_and_mul(a, b) complex_ctr(-(a).y * (b), (a).x * (b))
 
 typedef ${dtypes.ctype(basis.dtype)} complex_t;
 typedef ${dtypes.ctype(dtypes.real_for(basis.dtype))} real_t;
 
-
-WITHIN_KERNEL complex_t complex_exp(real_t ang)
-{
-    complex_t res;
-
-#ifdef CUDA
-    ${"sincos" + ("" if dtypes.is_double(basis.dtype) else "f")}(ang, &((res).y), &((res).x));
-#else
-## It seems that native_cos/sin option is only available for single precision.
-%if not dtypes.is_double(basis.dtype):
-#ifdef CTX_FAST_MATH
-    res.x = native_cos(ang);
-    res.y = native_sin(ang);
-#else
-%endif
-    real_t tmp;
-    res.y = sincos(ang, &tmp);
-    res.x = tmp;
-%if not dtypes.is_double(basis.dtype):
-#endif
-%endif
-#endif
-    return res;
-}
 
 WITHIN_KERNEL void swap(complex_t *a, complex_t *b)
 {
@@ -211,7 +188,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 {
     // The modulo of 2 * fft_size_real does not change the result,
     // but greatly improves the precision by keeping the argument of sin()/cos() small.
-    return complex_exp(dir_coeff * ${wrap_const(numpy.pi / fft_size_real)} *
+    return polar(1, dir_coeff * ${wrap_const(numpy.pi / fft_size_real)} *
         ((pos * pos) % (2 * ${fft_size_real})) );
 }
 
@@ -640,8 +617,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             <% ind = z * radix + k %>
             a[${ind}] = complex_mul(
                 a[${ind}],
-                complex_exp(
-                    ${wrap_const(2 * numpy.pi * k / data_len)} * angf * direction));
+                polar(1, ${wrap_const(2 * numpy.pi * k / data_len)} * angf * direction));
         %endfor
     }
     %endfor
@@ -883,7 +859,7 @@ ${kernel_definition}
         %for k in range(1, radix1):
         {
             const real_t ang = ${wrap_const(2 * numpy.pi * k / radix)} * xform_local * direction;
-            const complex_t w = complex_exp(ang);
+            const complex_t w = polar(1, ang);
             a[${k}] = complex_mul(a[${k}], w);
         }
         %endfor
@@ -923,7 +899,7 @@ ${kernel_definition}
         %for t in range(radix1):
         {
             const real_t ang = ang1 * (k + ${(t % radix2) * radix1 + (t // radix2)});
-            const complex_t w = complex_exp(ang);
+            const complex_t w = polar(1, ang);
             a[${t}] = complex_mul(a[${t}], w);
         }
         %endfor
