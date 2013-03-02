@@ -110,7 +110,7 @@ It is referred here (and references from other parts of this documentation) as :
         Creates a temporary :py:class:`Array` on GPU with given ``shape`` and ``dtype``.
         In order to reduce the memory footprint of the program, the temporary array manager will allow these arrays to overlap.
         Two arrays will not overlap, if one of them was specified in ``dependencies`` for the other one.
-        For a list of values ``dependencies`` takes, see the reference entry for :py:class:`~tigger.cluda.tempalloc.TemporaryAllocator`.
+        For a list of values ``dependencies`` takes, see the reference entry for :py:class:`~tigger.cluda.tempalloc.TemporaryManager`.
 
     .. py:method:: empty_like(arr)
 
@@ -275,8 +275,6 @@ It takes a list of dependencies as an optional parameter which gives the allocat
 .. py:module:: tigger.cluda.tempalloc
 
 .. autoclass:: DynamicAllocation
-
-.. autoclass:: TemporaryAllocator
 
 .. autoclass:: TemporaryManager
     :members:

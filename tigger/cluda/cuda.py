@@ -14,7 +14,7 @@ import tigger.cluda.dtypes as dtypes
 from tigger.helpers import factors, wrap_in_tuple, product
 from tigger.cluda.kernel import render_prelude, render_template_source
 from tigger.cluda.vsize import VirtualSizes, render_stub_vsize_funcs
-from tigger.cluda.tempalloc import TemporaryAllocator, ZeroOffsetManager
+from tigger.cluda.tempalloc import ZeroOffsetManager
 
 
 cuda.init()

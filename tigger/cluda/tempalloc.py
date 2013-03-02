@@ -23,32 +23,6 @@ def extract_dependencies(dependencies):
     return results
 
 
-class TemporaryAllocator:
-    """
-    This class has the standard ``allocator`` interface for the
-    :py:class:`~tigger.cluda.api.Array` constructor.
-
-    :param manager: instance of a class derived from
-        :py:class:`~tigger.cluda.tempalloc.TemporaryManager`.
-    :param dependencies: can be a :py:class:`~tigger.cluda.api.Array` instance
-        (the ones containing persistent allocations will be ignored),
-        an iterable with valid values,
-        or an object with the attribute `__tempalloc__` which is a valid value
-        (the last two will be processed recursively).
-    """
-
-    def __init__(self, manager, dependencies=None):
-        assert isinstance(manager, TemporaryManager)
-        self._manager = manager
-
-        # extracting dependencies right away in case given list
-        # is changed between __init__ and __call__
-        self._dependencies = extract_dependencies(dependencies)
-
-    def __call__(self, size):
-        return self._manager.allocate(size, self._dependencies)
-
-
 class TemporaryManager:
     """
     Base class for a manager of temporary allocations.
@@ -66,6 +40,17 @@ class TemporaryManager:
         self._pack_on_free = pack_on_free
 
     def array(self, shape, dtype, dependencies=None):
+        """
+        Returns a temporary array.
+
+        :param shape: shape of the array.
+        :param dtype: data type of the array.
+        :param dependencies: can be a :py:class:`~tigger.cluda.api.Array` instance
+            (the ones containing persistent allocations will be ignored),
+            an iterable with valid values,
+            or an object with the attribute `__tempalloc__` which is a valid value
+            (the last two will be processed recursively).
+        """
 
         class DummyAllocator:
             def __call__(self, size):
@@ -103,9 +88,6 @@ class TemporaryManager:
             self.update_buffer(id)
 
     def free(self, id):
-        """
-        Frees the allocation with given ``id``.
-        """
         array = self._arrays[id]()
         if array is not None:
             raise Exception("Attempting to free the buffer of an existing temporary array")
