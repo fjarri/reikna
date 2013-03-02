@@ -122,6 +122,8 @@ WITHIN_KERNEL ${dtypes.ctype(out_dtype)} ${name}(
     c2 = dtypes.is_complex(dtype2)
     if dtypes.is_complex(out_dtype):
         out_ctr = dtypes.complex_ctr(out_dtype)
+    else:
+        out_ctr = ""
 
     if not c1 and not c2:
         result = "a * b"
@@ -145,6 +147,8 @@ WITHIN_KERNEL ${dtypes.ctype(out_dtype)} ${name}(
     c2 = dtypes.is_complex(dtype2)
     if dtypes.is_complex(out_dtype):
         out_ctr = dtypes.complex_ctr(out_dtype)
+    else:
+        out_ctr = ""
 
     if not c1 and not c2:
         result = "a / b"
