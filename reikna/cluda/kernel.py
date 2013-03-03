@@ -59,6 +59,15 @@ class FuncCollector:
         self.functions[name] = ('conj', (dtype,))
         return name
 
+    def norm(self, dtype):
+        ctype = dtypes.ctype(dtype).replace(' ', '_')
+
+        name = "_{prefix}_norm__{ctype}".format(
+            prefix=self.prefix, ctype=ctype)
+
+        self.functions[name] = ('norm', (dtype,))
+        return name
+
     def exp(self, dtype):
         ctype = dtypes.ctype(dtype).replace(' ', '_')
 
