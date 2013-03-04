@@ -1,10 +1,3 @@
-0.2.0
-=====
-
-* When doing 'pip uninstall' it shows the full list of files, when other modules just show
-  a list of folders. Should be something connected to MANIFEST and package data.
-
-
 0.3.0 (suitable for beclab)
 ===========================
 
