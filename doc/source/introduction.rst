@@ -44,7 +44,7 @@ Consider the following example, which is very similar to the one from the index 
     dest_dev = ctx.empty_like(a_dev)
 
     multiply_them(dest_dev, a_dev, b_dev, local_size=N, global_size=N)
-    print (dest_dev.get() - a * b == 0).all()
+    print((dest_dev.get() - a * b == 0).all())
 
 .. testoutput:: cluda_simple_example
     :hide:
@@ -94,7 +94,7 @@ The template engine of choice in ``reikna`` is `Mako <http://www.makotemplates.o
     dest_dev = ctx.empty_like(a_dev)
 
     multiply_them(dest_dev, a_dev, b_dev, local_size=N, global_size=N)
-    print norm(dest_dev.get() - a * b) / norm(a * b) <= 1e-6
+    print(norm(dest_dev.get() - a * b) / norm(a * b) <= 1e-6)
 
 .. testoutput:: cluda_template_example
     :hide:
@@ -148,7 +148,7 @@ As an example, we will consider the matrix multiplication.
 
     res_reference = numpy.dot(a, b)
 
-    print norm(res_dev.get() - res_reference) / norm(res_reference) < 1e-6
+    print(norm(res_dev.get() - res_reference) / norm(res_reference) < 1e-6)
 
 .. testoutput:: matrixmul_example
     :hide:
@@ -209,7 +209,7 @@ Let us change the previous example and connect transformations to it.
 
     res_reference = numpy.dot(a_re + 1j * a_im, b_re + 1j * b_im)
 
-    print norm(res_dev.get() - res_reference) / norm(res_reference) < 1e-6
+    print(norm(res_dev.get() - res_reference) / norm(res_reference) < 1e-6)
 
 .. testoutput:: transformation_example
     :hide:
