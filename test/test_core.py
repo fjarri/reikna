@@ -44,15 +44,36 @@ class Dummy(Computation):
             ${D.store}(idx, d);
         }
         </%def>
+
+        <%def name="dummy2(CC, DD, C, D)">
+        ${kernel_definition}
+        {
+            VIRTUAL_SKIP_THREADS;
+            int idx = virtual_global_id(0);
+            ${CC.store}(idx, ${C.load}(idx));
+            ${DD.store}(idx, ${D.load}(idx));
+        }
+        </%def>
         """)
 
         block_size = 128
 
+        C_temp = operations.add_allocation(basis.size, basis.arr_dtype)
+        D_temp = operations.add_allocation(basis.size, basis.arr_dtype)
+
         operations.add_kernel(
             template, 'dummy',
-            ['C', 'D', 'A', 'B', 'coeff'],
+            [C_temp, D_temp, 'A', 'B', 'coeff'],
             global_size=min_blocks(basis.size, block_size) * block_size,
-            local_size=block_size)
+            local_size=block_size,
+            dependencies=[(C_temp, D_temp)])
+        operations.add_kernel(
+            template, 'dummy2',
+            ['C', 'D', C_temp, D_temp],
+            global_size=min_blocks(basis.size, block_size) * block_size,
+            local_size=block_size,
+            dependencies=[('C', 'D')])
+
         return operations
 
 

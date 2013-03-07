@@ -148,7 +148,7 @@ class OperationRecorder:
         nested_ops = computation._operations
 
         for kernel in nested_ops.kernels:
-            kernel.argnames = ext_names
+            kernel.argnames = [map_to_ext(name) for name in kernel.argnames]
             self.kernels.append(kernel)
 
         for name, value in nested_ops._allocations.items():

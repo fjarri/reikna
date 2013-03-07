@@ -36,6 +36,9 @@
 * TODO: run pylint
 * TODO: create "fallback" when if _construct_operations() does not catch OutOfResources,
   it is called again with reduced local size
+* TODO: allow avoiding unnecessary array arguments in prepare_for() (pass None), so that
+  the computation could derive shape and dtype by itself.
+  Resulting values can be available as attributes of the computation object.
 * DECIDE: how to handle cases when the name of a new endpoint requested by connect() is the same
   as one of the argument names in a nested computation (which the user is not supposed to know
   or care about)?
