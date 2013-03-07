@@ -222,6 +222,8 @@ class DHT(Computation):
             # Transpose the current array so that the ``axis`` is in the end of axes list
             cur_pos = current_axes.index(axis)
             if cur_pos != len(current_axes) - 1:
+                tr_axes = range(len(basis.output_shape))
+                tr_axes[cur_pos], tr_axes[-1] = tr_axes[-1], tr_axes[cur_pos]
                 new_axes = list(current_axes)
                 new_axes[cur_pos], new_axes[-1] = new_axes[-1], new_axes[cur_pos]
                 new_shape = list(current_shape)
