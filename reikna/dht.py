@@ -174,6 +174,7 @@ class DHT(Computation):
             coord_arr = output
             mode_arr = input
 
+        assert len(output.shape) == len(input.shape)
         if axes is None:
             axes = tuple(range(len(output.shape)))
         else:
