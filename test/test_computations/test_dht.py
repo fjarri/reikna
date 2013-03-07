@@ -11,17 +11,33 @@ import reikna.cluda.dtypes as dtypes
 
 class TestFunction:
 
-    def __init__(self, mshape, dtype, order=1, batch=1, mdata=None):
+    def __init__(self, mshape, dtype, order=1, batch=1):
         self.order = order
         self.mshape = tuple(mshape)
         self.full_mshape = (batch,) + self.mshape
         self.batch = batch
         self.dtype = dtype
 
-        if mdata is None:
-            self.mdata = get_test_array(self.full_mshape, self.dtype)
+        max_modes_per_batch = 20
+        self.modes = []
+        if product(mshape) <= max_modes_per_batch:
+            # If there are not many modes, fill all of them
+            modenums = itertools.product(*[range(modes) for modes in self.mshape])
+            for b in range(batch):
+                self.modes += [((b,) + modenum) for modenum in modenums]
         else:
-            self.mdata = numpy.array(mdata).astype(self.dtype)
+            # If there are many modes, fill some random ones
+            for b in range(batch):
+                for i in range(max_modes_per_batch):
+                    self.modes.append((b,) + tuple(
+                        numpy.random.randint(0, self.mshape[i]-1) for i in range(len(mshape))))
+
+        self.modes = set(self.modes) # remove duplicates
+        self.mdata = numpy.zeros(self.full_mshape, self.dtype)
+        for modenums in self.modes:
+            # scaling coefficients for higher modes because of the lower precision in this case
+            coeff = numpy.random.normal(scale=1./(sum(modenums) + 1))
+            self.mdata[modenums] = coeff
 
         self.harmonics = [harmonic(n) for n in range(max(self.mshape))]
 
@@ -32,12 +48,11 @@ class TestFunction:
             xxs = xs
         res = numpy.zeros((self.batch,) + xxs[0].shape, self.dtype)
 
-        for b in range(self.batch):
-            for modenums in itertools.product(*[range(modes) for modes in self.mshape]):
-                coords = (b,) + modenums
-                coeff = self.mdata[coords]
-                res[b] += coeff * \
-                    product([self.harmonics[modenum](xx) for modenum, xx in zip(modenums, xxs)])
+        for coord in self.modes:
+            coeff = self.mdata[coord]
+            b = coord[0] # batch number
+            ms = coord[1:] # mode numbers
+            res[b] += coeff * product([self.harmonics[m](xx) for m, xx in zip(ms, xxs)])
 
         return res ** self.order
 
