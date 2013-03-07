@@ -189,7 +189,7 @@ class DHT(Computation):
                 " to perform precise transformation"
             bs.add_points[axis] = add_points
 
-        bs.axes = list(reversed(sorted(axes)))
+        bs.axes = list(sorted(axes))
         bs.input_shape = input.shape
         bs.output_shape = output.shape
         bs.dtype = output.dtype
@@ -222,12 +222,13 @@ class DHT(Computation):
             # Transpose the current array so that the ``axis`` is in the end of axes list
             cur_pos = current_axes.index(axis)
             if cur_pos != len(current_axes) - 1:
-                tr_axes = range(len(basis.output_shape))
-                tr_axes[cur_pos], tr_axes[-1] = tr_axes[-1], tr_axes[cur_pos]
-                new_axes = list(current_axes)
-                new_axes[cur_pos], new_axes[-1] = new_axes[-1], new_axes[cur_pos]
-                new_shape = list(current_shape)
-                new_shape[cur_pos], new_shape[-1] = new_shape[-1], new_shape[cur_pos]
+
+                def optimal_transpose(seq):
+                    return seq[:cur_pos] + seq[cur_pos+1:] + [seq[cur_pos]]
+
+                tr_axes = optimal_transpose(range(len(basis.output_shape)))
+                new_axes = optimal_transpose(current_axes)
+                new_shape = optimal_transpose(current_shape)
 
                 tr_output = operations.add_allocation(new_shape, basis.dtype)
                 transpose = self.get_nested_computation(Transpose)
