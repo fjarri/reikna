@@ -258,7 +258,6 @@ class DHT(Computation):
                 dot_output = operations.add_allocation(new_shape, basis.dtype)
 
             dot = self.get_nested_computation(MatrixMul)
-            print "adding dot ", new_shape, current_shape, p.shape
             operations.add_computation(dot, dot_output, current_mem, tr_matrix)
 
             current_shape = new_shape
