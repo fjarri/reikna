@@ -266,7 +266,8 @@ class DHT(Computation):
 
         # Return to original shape if necessary
         if current_axes != range(len(basis.input_shape)):
+            tr_axes = [current_axes.index(i) for i in range(len(current_axes))]
             transpose = self.get_nested_computation(Transpose)
-            operations.add_computation(transpose, 'output', current_mem, axes=current_axes)
+            operations.add_computation(transpose, 'output', current_mem, axes=tr_axes)
 
         return operations
