@@ -46,6 +46,7 @@ class ReturnValuesPlugin(object):
             res = testfunction(**testargs)
 
         pyfuncitem.retval = res
+        return True # finished processing the callback
 
     def pytest_runtest_makereport(self, __multicall__, item, call):
         report = __multicall__.execute()
