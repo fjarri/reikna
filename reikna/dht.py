@@ -248,7 +248,7 @@ class DHT(Computation):
 
             # Add matrix multiplication
             new_shape = list(current_shape)
-            new_shape[-1] = p.shape[0]
+            new_shape[-1] = p.shape[1]
 
             if i == len(basis.axes) - 1 and current_axes == range(len(basis.input_shape)):
                 dot_output = 'output'
