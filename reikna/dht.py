@@ -24,7 +24,7 @@ def factorial(n):
 def hermite(mode):
     """Returns an orthonormal Hermite polynomial"""
     def func(x):
-        norm = 1. / (numpy.pi ** 0.25) / numpy.sqrt(factorial(mode) * 2 ** mode)
+        norm = 1. / (numpy.pi ** 0.25) / numpy.sqrt(float(factorial(mode) * 2 ** mode))
         return H([0] * mode + [1])(x) * norm
 
     return func
