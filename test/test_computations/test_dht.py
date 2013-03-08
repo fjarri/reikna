@@ -97,7 +97,7 @@ class TestFunction:
 def pytest_generate_tests(metafunc):
 
     if 'fo_shape' in metafunc.funcargnames:
-        vals = [(5,), (20,), (3, 7), (10, 11), (5, 6, 7), (10, 11, 12)]
+        vals = [(5,), (20,), (50,), (3, 7), (10, 11), (5, 6, 7), (10, 11, 12)]
         metafunc.parametrize('fo_shape', vals, ids=list(map(str, vals)))
 
     if 'fo_batch' in metafunc.funcargnames:
