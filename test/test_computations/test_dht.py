@@ -112,7 +112,7 @@ def pytest_generate_tests(metafunc):
 
     if 'fo_batch' in metafunc.funcargnames:
         vals = [1, 10]
-        metafunc.parametrize('fo_batch', vals, ids=list(map(str, vals)))
+        metafunc.parametrize('fo_batch', vals)
 
     if 'fo_add_points' in metafunc.funcargnames:
         vals = ['0', '1', '1,2,...']
