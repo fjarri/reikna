@@ -164,6 +164,8 @@ class OperationRecorder:
             name = map_to_ext(name)
             deps = set(map(map_to_ext, deps))
             self._dependencies[name].update(deps)
+            for other_name in deps:
+                self._dependencies[other_name].add(name)
 
     def finalize(self):
 
