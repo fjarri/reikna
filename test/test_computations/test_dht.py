@@ -11,48 +11,85 @@ import reikna.cluda.dtypes as dtypes
 
 class TestFunction:
 
-    def __init__(self, mshape, dtype, order=1, batch=1):
+    def __init__(self, mshape, dtype, order=1, batch=None, modes=None):
         self.order = order
         self.mshape = tuple(mshape)
-        self.full_mshape = (batch,) + self.mshape
+        self.full_mshape = ((batch,) if batch is not None else tuple()) + self.mshape
         self.batch = batch
         self.dtype = dtype
 
-        max_modes_per_batch = 20
-        self.modes = []
-        if product(mshape) <= max_modes_per_batch:
-            # If there are not many modes, fill all of them
-            modenums = itertools.product(*[range(modes) for modes in self.mshape])
-            for b in range(batch):
-                self.modes += [((b,) + modenum) for modenum in modenums]
+        if modes is None:
+            self.modes = TestFunction.generate_modes(mshape, dtype, batch=batch)
         else:
-            # If there are many modes, fill some random ones
-            for b in range(batch):
-                for i in range(max_modes_per_batch):
-                    self.modes.append((b,) + tuple(
-                        numpy.random.randint(0, self.mshape[i]-1) for i in range(len(mshape))))
+            self.modes = list(modes)
 
-        self.modes = set(self.modes) # remove duplicates
         self.mdata = numpy.zeros(self.full_mshape, self.dtype)
-        for modenums in self.modes:
-            # scaling coefficients for higher modes because of the lower precision in this case
-            coeff = numpy.random.normal(scale=1./(sum(modenums) + 1))
-            self.mdata[modenums] = coeff
+        for coeff, coord in self.modes:
+            self.mdata[coord] = coeff
 
         self.harmonics = [harmonic(n) for n in range(max(self.mshape))]
+
+    @staticmethod
+    def generate_modes(mshape, dtype, batch=None):
+        max_modes_per_batch = 20
+        modelist = []
+
+        if product(mshape) <= max_modes_per_batch:
+            # If there are not many modes, fill all of them
+            modenums = itertools.product(*[range(modes) for modes in mshape])
+            if batch is not None:
+                for b in range(batch):
+                    modelist += [((b,) + modenum) for modenum in modenums]
+            else:
+                modelist += list(modenums)
+        else:
+            # If there are many modes, fill some random ones
+            rand_coord = lambda: tuple(
+                numpy.random.randint(0, mshape[i]-1) for i in range(len(mshape)))
+
+            if batch is not None:
+                for b in range(batch):
+                    for i in range(max_modes_per_batch):
+                        modelist.append((b,) + rand_coord())
+            else:
+                for i in range(max_modes_per_batch):
+                    modelist.append(rand_coord())
+
+        modelist = set(modelist) # remove duplicates
+
+        modes = []
+        for coord in modelist:
+            if dtypes.is_complex(dtype):
+                coeff = numpy.random.normal() + 1j * numpy.random.normal()
+            else:
+                coeff = numpy.random.normal()
+            coeff = dtype(coeff)
+
+            # scaling coefficients for higher modes because of the lower precision in this case
+            modenums = coord if batch is None else coord[1:]
+            coeff /= sum(modenums) + 1
+            modes.append((coeff, coord))
+
+        return modes
 
     def __call__(self, *xs):
         if len(xs) > 1:
             xxs = numpy.meshgrid(*xs, indexing="ij")
         else:
             xxs = xs
-        res = numpy.zeros((self.batch,) + xxs[0].shape, self.dtype)
 
-        for coord in self.modes:
-            coeff = self.mdata[coord]
-            b = coord[0] # batch number
-            ms = coord[1:] # mode numbers
-            res[b] += coeff * product([self.harmonics[m](xx) for m, xx in zip(ms, xxs)])
+        res_shape = ((self.batch,) if self.batch is not None else tuple()) + xxs[0].shape
+        res = numpy.zeros(res_shape, self.dtype)
+
+        for coeff, coord in self.modes:
+            if self.batch is not None:
+                b = coord[0]
+                coord = coord[1:]
+                target = res[b]
+            else:
+                target = res
+
+            target += coeff * product([self.harmonics[m](xx) for m, xx in zip(coord, xxs)])
 
         return res ** self.order
 
