@@ -10,6 +10,9 @@ import reikna.cluda.dtypes as dtypes
 
 
 class TestFunction:
+    """
+    Encapsulates creation of functions in mode and coordinate space used for DHT tests.
+    """
 
     def __init__(self, mshape, dtype, order=1, batch=None, modes=None):
         self.order = order
@@ -31,9 +34,13 @@ class TestFunction:
 
     @staticmethod
     def generate_modes(mshape, dtype, batch=None, random=True):
-        max_modes_per_batch = 20
-        modelist = []
+        """
+        Generates list of sparse modes for the problem of given shape.
+        """
 
+        max_modes_per_batch = 20
+
+        modelist = []
         if product(mshape) <= max_modes_per_batch:
             # If there are not many modes, fill all of them
             modenums = itertools.product(*[range(modes) for modes in mshape])
@@ -66,6 +73,7 @@ class TestFunction:
 
         modelist = set(modelist) # remove duplicates
 
+        # Assign coefficients
         modes = []
         for coord in modelist:
             get_coeff = lambda: numpy.random.normal() if random else 1
@@ -83,6 +91,10 @@ class TestFunction:
         return modes
 
     def __call__(self, *xs):
+        """
+        Evaluate function in coordinate space for given grid.
+        """
+
         if len(xs) > 1:
             xxs = numpy.meshgrid(*xs, indexing="ij")
         else:
@@ -102,21 +114,6 @@ class TestFunction:
             target += coeff * product([self.harmonics[m](xx) for m, xx in zip(coord, xxs)])
 
         return res ** self.order
-
-
-def pytest_generate_tests(metafunc):
-
-    if 'fo_shape' in metafunc.funcargnames:
-        vals = [(5,), (20,), (50,), (3, 7), (10, 11), (5, 6, 7), (10, 11, 12)]
-        metafunc.parametrize('fo_shape', vals, ids=list(map(str, vals)))
-
-    if 'fo_batch' in metafunc.funcargnames:
-        vals = [1, 10]
-        metafunc.parametrize('fo_batch', vals)
-
-    if 'fo_add_points' in metafunc.funcargnames:
-        vals = ['0', '1', '1,2,...']
-        metafunc.parametrize('fo_add_points', vals)
 
 
 def check_errors_first_order(ctx, mshape, batch, add_points=None, dtype=numpy.complex64):
@@ -144,7 +141,17 @@ def check_errors_first_order(ctx, mshape, batch, add_points=None, dtype=numpy.co
     assert diff_is_negligible(xdata_dev.get(), xdata)
 
 
+fo_shape_vals = [(5,), (20,), (50,), (3, 7), (10, 11), (5, 6, 7), (10, 11, 12)]
+@pytest.mark.parametrize('fo_shape', fo_shape_vals, ids=list(map(str, fo_shape_vals)))
+@pytest.mark.parametrize('fo_batch', [1, 10])
+@pytest.mark.parametrize('fo_add_points', ['0', '1', '1,2,...'])
 def test_first_order_errors(ctx, fo_shape, fo_batch, fo_add_points):
+    """
+    Checks that after the transformation of the manually constructed function in coordinate space
+    we get exactly mode numbers used for its construction.
+    Also checks that inverse transform returns the initial array.
+    """
+
     if fo_add_points == '0':
         add_points = None
     elif fo_add_points == '1':
@@ -160,7 +167,8 @@ def test_first_order_errors(ctx, fo_shape, fo_batch, fo_add_points):
 @pytest.mark.parametrize('ho_shape', [20, 30, 50])
 def test_high_order_forward(ctx, ho_order, ho_shape):
     """
-    Checking that with increased number of modes previous terms do not change
+    Checks that if we change the mode space while keeping mode population the same,
+    the result of forward transformation for orders higher than 1 do not change.
     """
 
     dtype = numpy.float32
