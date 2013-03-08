@@ -1,7 +1,6 @@
 0.3.0 (suitable for beclab)
 ===========================
 
-* TODO: add DHT
 * TODO: add MD5 randoms
 * TODO: add "raises" sections to Computation/OperationRecorder methods
 * TODO: add custom variable names to Transformation constructor
