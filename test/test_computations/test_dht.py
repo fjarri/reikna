@@ -55,6 +55,15 @@ class TestFunction:
                 for i in range(max_modes_per_batch):
                     modelist.append(rand_coord())
 
+        # add corner modes, to make sure extreme cases are still processed correctly
+        corner_modes = itertools.product(*[(0, mshape[i]-1) for i in range(len(mshape))])
+        for modenum in corner_modes:
+            if batch is not None:
+                for b in range(batch):
+                    modelist.append((b,) + modenum)
+            else:
+                modelist.append(modenum)
+
         modelist = set(modelist) # remove duplicates
 
         modes = []
