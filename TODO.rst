@@ -42,6 +42,8 @@
 * DECIDE: how to handle cases when the name of a new endpoint requested by connect() is the same
   as one of the argument names in a nested computation (which the user is not supposed to know
   or care about)?
+* TODO: add special optimized kernel for matrix-vector multiplication in MatrixMul.
+  Or create specific matrix-vector and vector-vector computations?
 
 
 1.0.0 (production-quality version... hopefully)

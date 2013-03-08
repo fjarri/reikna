@@ -12,6 +12,8 @@ Release history
 * FIXED: added dependencies between MatrixMul kernel arguments.
 * FIXED: taking into account dependencies between input and output arrays as well as the ones
     between internal allocations --- necessary for nested computations.
+* ADDED: discrete harmonic transform :py:class:`reikna.dht.DHT`
+    (calculated using Gauss-Hermite quadrature).
 
 
 0.2.0 (3 Mar 2013)

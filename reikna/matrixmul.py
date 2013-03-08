@@ -17,7 +17,7 @@ class MatrixMul(Computation):
     .. py:method:: prepare_for(out, a, b)
 
         :param out: buffer for the result
-        :param a: first matrix
+        :param a: first matrix (if it is a vector, it will be reshaped to a matrix with one row)
         :param b: second matrix
     """
 
@@ -36,32 +36,34 @@ class MatrixMul(Computation):
         bs.a_dtype = a.dtype
         bs.b_dtype = b.dtype
 
-        if self._debug:
-            assert len(a.shape) >= 2
-            assert len(b.shape) >= 2
-            assert a.shape[-1] == b.shape[-2]
+        a_shape = a.shape if len(a.shape) > 1 else (1, a.shape[0])
+        b_shape = b.shape
 
-        a_batch = product(a.shape[:-2])
-        b_batch = product(b.shape[:-2])
+        if self._debug:
+            assert len(b_shape) >= 2
+            assert a_shape[-1] == b_shape[-2]
+
+        a_batch = product(a_shape[:-2])
+        b_batch = product(b_shape[:-2])
         out_batch = max(a_batch, b_batch)
 
         if out.shape is None:
-            out_shape = (b.shape[:-2] if a_batch == 1 else a.shape[:-2],
-                a.shape[-2], b.shape[-1])
+            out_shape = (b_shape[:-2] if a_batch == 1 else a_shape[:-2],
+                a_shape[-2], b_shape[-1])
         else:
             out_shape = out.shape
 
         if self._debug:
             assert a_batch == 1 or b_batch == 1 or a_batch == b_batch
-            assert a_batch != b_batch or a.shape[:-2] == b.shape[:-2]
+            assert a_batch != b_batch or a_shape[:-2] == b_shape[:-2]
             if out.shape is not None:
                 assert len(out_shape) >= 2
                 assert out_batch == product(out_shape[:-2])
 
         bs.update(dict(
-            a_width=a.shape[-1],
-            a_height=a.shape[-2],
-            b_width=b.shape[-1],
+            a_width=a_shape[-1],
+            a_height=a_shape[-2],
+            b_width=b_shape[-1],
             batch=out_batch,
             batched_a=(a_batch != 1),
             batched_b=(b_batch != 1),
