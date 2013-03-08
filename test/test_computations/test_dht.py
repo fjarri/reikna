@@ -143,6 +143,7 @@ def check_errors_first_order(ctx, mshape, batch, add_points=None, dtype=numpy.co
     dht_inv(xdata_dev, mdata_dev)
     assert diff_is_negligible(xdata_dev.get(), xdata)
 
+
 def test_first_order_errors(ctx, fo_shape, fo_batch, fo_add_points):
     if fo_add_points == '0':
         add_points = None
@@ -153,3 +154,40 @@ def test_first_order_errors(ctx, fo_shape, fo_batch, fo_add_points):
 
     check_errors_first_order(ctx, fo_shape, fo_batch,
         add_points=add_points, dtype=numpy.complex64)
+
+
+@pytest.mark.parametrize('ho_order', [2, 3])
+@pytest.mark.parametrize('ho_shape', [20, 30, 50])
+def test_high_order_forward(ctx, ho_order, ho_shape):
+    """
+    Checking that with increased number of modes previous terms do not change
+    """
+
+    dtype = numpy.float32
+
+    modes = TestFunction.generate_modes((ho_shape,), dtype)
+    f1 = TestFunction((ho_shape,), dtype, order=ho_order, modes=modes)
+    f2 = TestFunction((ho_shape + 1,), dtype, order=ho_order, modes=modes)
+
+    xs1 = get_spatial_grid(ho_shape, ho_order)[0]
+    xs2 = get_spatial_grid(ho_shape + 1, ho_order)[0]
+
+    xdata1 = f1(xs1)
+    xdata2 = f2(xs2)
+
+    xdata1_dev = ctx.to_device(xdata1)
+    xdata2_dev = ctx.to_device(xdata2)
+
+    mdata1_dev = ctx.array(ho_shape, dtype)
+    mdata2_dev = ctx.array(ho_shape + 1, dtype)
+
+    dht_fw1 = DHT(ctx).prepare_for(mdata1_dev, xdata1_dev, inverse=False, order=ho_order)
+    dht_fw2 = DHT(ctx).prepare_for(mdata2_dev, xdata2_dev, inverse=False, order=ho_order)
+
+    dht_fw1(mdata1_dev, xdata1_dev)
+    dht_fw2(mdata2_dev, xdata2_dev)
+
+    mdata1 = mdata1_dev.get()
+    mdata2 = mdata2_dev.get()
+
+    assert diff_is_negligible(mdata1, mdata2[:-1])
