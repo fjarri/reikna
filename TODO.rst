@@ -1,15 +1,16 @@
-0.3.0 (suitable for beclab)
-===========================
+0.2.2
+=====
 
-* TODO: add MD5 randoms
 * TODO: add "raises" sections to Computation/OperationRecorder methods
 * TODO: add custom variable names to Transformation constructor
   (``inputs=['Vect1', 'Vect2'], outputs=1, scalars='term1'``)
-* DECIDE: move all "raw" computations to their own submodule?
-* DECIDE: we now have information about dependencies between computation's input and output arguments.
-  The question is how can user take advantage of it.
-* TODO: add support for arrays with aligned rows (mem_alloc_pitch() in PyCuda).
-  This should make non-power-of-2 FFT much faster.
+* TODO: remove boilerplate code in cluda.kernel, perhaps remove out_dtype from mul() and div() --- we already have cast().
+* TODO: add MD5 randoms
+
+
+0.3.0 (suitable for beclab)
+===========================
+
 * TODO: create_queue() method in Context is not used anywhere;
   moreover, the queue created this way cannot be used anywhere in ``reikna``.
   Probably it's better to replace it by 'fork()' method, which will create the Context object
@@ -17,14 +18,19 @@
   Also, maybe rename Context to Thread/GPUThread (avoids confusion with contexts, and works well with the existence of fork()).
   And while I'm at it, I can create a base class for Thread with the overlapping functionality.
 * TODO: add explicit context release methods for Thread --- not all Python implementations use reference counting, and non-instantaneous __del__ may cause problems with CUDA.
-* TODO: add ability to manually override inferred dependencies?
 * TODO: allow to specify dependencies for Elementwise computation
-* TODO: remove boilerplate code in cluda.kernel, perhaps remove out_dtype from mul() and div() --- we already have cast().
 
 
 0.4.0
 =====
 
+* DECIDE: add ability to manually override inferred dependencies?
+* TODO: add support for arrays with aligned rows (mem_alloc_pitch() in PyCuda).
+  This should make non-power-of-2 FFT much faster.
+* DECIDE: we now have information about dependencies between computation's input and output arguments.
+  The question is how can user take advantage of it (except for its use in nested computations,
+  which is happening already).
+* DECIDE: move all "raw" computations to their own submodule?
 * TODO: move part of core.transformation to a template
 * TODO: add custom render keywords for transformations (will help e.g. in reikna.transformations)
 * TODO: create some elementwise computations derived from Elementwise
