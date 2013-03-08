@@ -30,7 +30,7 @@ class TestFunction:
         self.harmonics = [harmonic(n) for n in range(max(self.mshape))]
 
     @staticmethod
-    def generate_modes(mshape, dtype, batch=None):
+    def generate_modes(mshape, dtype, batch=None, random=True):
         max_modes_per_batch = 20
         modelist = []
 
@@ -59,10 +59,11 @@ class TestFunction:
 
         modes = []
         for coord in modelist:
+            get_coeff = lambda: numpy.random.normal() if random else 1
             if dtypes.is_complex(dtype):
-                coeff = numpy.random.normal() + 1j * numpy.random.normal()
+                coeff = get_coeff() + 1j * get_coeff()
             else:
-                coeff = numpy.random.normal()
+                coeff = get_coeff()
             coeff = dtype(coeff)
 
             # scaling coefficients for higher modes because of the lower precision in this case
