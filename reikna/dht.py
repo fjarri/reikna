@@ -163,15 +163,29 @@ def get_transformation_matrix(modes, order, add_points):
 
 
 class DHT(Computation):
-    """
+    r"""
     Discrete transform to and from harmonic oscillator modes.
-    See Dion & Cances, `PRE 67(4) 046706 (2003) <http://dx.doi.org/10.1103/PhysRevE.67.046706>`_
-    for the description of the algorithm.
+    With ``inverse=True`` transforms a function defined by its expansion
+    :math:`C_m,\,m=0 \ldots M-1` in the mode space with mode functions
+    from :py:func:`~reikna.dht.harmonic`,
+    to the coordinate space (:math:`F(x)` on the grid :math:`x`
+    from :py:func:`~reikna.dht.get_spatial_grid`).
+    With ``inverse=False`` guarantees to recover first :math:`M` modes of :math:`F^k(x)`,
+    where :math:`k` is the ``order`` parameter.
 
-    .. py:method:: prepare_for(output, input, direction, axes=None)
+    For multiple dimensions the operation is the same,
+    and the mode functions are products of 1D mode functions, i.e.
+    :math:`\phi_{l,m,n}^{3D}(x,y,z) = \phi_l(x) \phi_m(y) \phi_n(z)`.
+
+    For the detailed description of the algorithm, see Dion & Cances,
+    `PRE 67(4) 046706 (2003) <http://dx.doi.org/10.1103/PhysRevE.67.046706>`_
+
+    .. py:method:: prepare_for(output, input, inverse=False, order=1, axes=None)
 
         :param output: output array.
+            If ``inverse=False``, its shape is used to define the mode space size.
         :param input: input array.
+            If ``inverse=True``, its shape is used to define the mode space size.
         :param inverse: ``False`` for forward (coordinate space -> mode space) transform,
             ``True`` for inverse (mode space -> coordinate space) transform.
         :param axes: a tuple with axes over which to perform the transform.
@@ -206,7 +220,7 @@ class DHT(Computation):
             modes = mode_arr.shape[axis]
             points = coord_arr.shape[axis]
             add_points = points - get_spatial_points(modes, order)
-            assert add_points >= 0, "Not enough spatial points in axis " + str(axis) + \
+            assert add_points >= 0, "Not enough spatial points in the axis " + str(axis) + \
                 " to perform precise transformation"
             bs.add_points[axis] = add_points
 
@@ -241,9 +255,12 @@ class DHT(Computation):
         for i, axis in enumerate(basis.axes):
 
             # Transpose the current array so that the ``axis`` is in the end of axes list
+
             cur_pos = current_axes.index(axis)
             if cur_pos != len(current_axes) - 1:
 
+                # We can move the target axis to the end in different ways,
+                # but this one will require only one transpose kernel.
                 def optimal_transpose(seq):
                     return seq[:cur_pos] + seq[cur_pos+1:] + [seq[cur_pos]]
 
@@ -260,6 +277,7 @@ class DHT(Computation):
                 current_axes = new_axes
 
             # Prepare the transformation matrix
+
             p = get_transformation_matrix(mode_shape[axis], basis.order, basis.add_points[axis])
             p = p.astype(p_dtype)
             if not basis.inverse:
@@ -268,7 +286,8 @@ class DHT(Computation):
                 p = p.transpose() * ww
             tr_matrix = operations.add_const_allocation(p)
 
-            # Add matrix multiplication
+            # Add the matrix multiplication
+
             new_shape = list(current_shape)
             new_shape[-1] = p.shape[1]
 
@@ -285,7 +304,9 @@ class DHT(Computation):
             current_shape = new_shape
             current_mem = dot_output
 
-        # Return to original shape if necessary
+        # If we ended up with the wrong order of axes,
+        # return to the original order.
+
         if current_axes != range(len(basis.input_shape)):
             tr_axes = [current_axes.index(i) for i in range(len(current_axes))]
             transpose = self.get_nested_computation(Transpose)
