@@ -122,7 +122,7 @@ def check_errors_first_order(ctx, mshape, batch, add_points=None, dtype=numpy.co
 
     if add_points is None:
         add_points = [0] * len(mshape)
-    xs = [get_spatial_grid(n, 1, add_points=ap)[0] for n, ap in zip(mshape, add_points)]
+    xs = [get_spatial_grid(n, 1, add_points=ap) for n, ap in zip(mshape, add_points)]
 
     xdata = test_func(*xs)
     xdata_dev = ctx.to_device(xdata)
@@ -177,8 +177,8 @@ def test_high_order_forward(ctx, ho_order, ho_shape):
     f1 = TestFunction((ho_shape,), dtype, order=ho_order, modes=modes)
     f2 = TestFunction((ho_shape + 1,), dtype, order=ho_order, modes=modes)
 
-    xs1 = get_spatial_grid(ho_shape, ho_order)[0]
-    xs2 = get_spatial_grid(ho_shape + 1, ho_order)[0]
+    xs1 = get_spatial_grid(ho_shape, ho_order)
+    xs2 = get_spatial_grid(ho_shape + 1, ho_order)
 
     xdata1 = f1(xs1)
     xdata2 = f2(xs2)

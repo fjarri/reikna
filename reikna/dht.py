@@ -107,7 +107,7 @@ def get_spatial_points(modes, order, add_points=0):
     return points
 
 
-def get_spatial_grid(modes, order, add_points=0):
+def get_spatial_grid_and_weights(modes, order, add_points=0):
     """
     Returns a pair of arrays ``(points, weights)`` for Gauss-Hermite quadrature.
     """
@@ -118,9 +118,30 @@ def get_spatial_grid(modes, order, add_points=0):
         weights * numpy.exp(roots ** 2) * numpy.sqrt(2.0 / (order + 1))
 
 
-def harmonic(mode):
+def get_spatial_grid(modes, order, add_points=0):
     """
-    Returns an eigenfunction of order ``n`` for the harmonic oscillator.
+    Returns the spatial grid required to calculate the ``order`` power of a function
+    defined in the harmonic mode space of the size ``modes``.
+    If ``add_points`` is 0, the grid has the minimum size required for exact
+    transformation back to the mode space.
+    """
+    return get_spatial_grid_and_weights(modes, order, add_points=add_points)[0]
+
+
+def get_spatial_weights(modes, order, add_points=0):
+    return get_spatial_grid_and_weights(modes, order, add_points=add_points)[1]
+
+
+def harmonic(mode):
+    r"""
+    Returns an eigenfunction of order :math:`n = \mathrm{mode}` for the harmonic oscillator:
+
+    .. math::
+        \phi_{n}
+        = \frac{1}{\sqrt[4]{\pi} \sqrt{2^n n!}} H_n(x) \exp(-x^2/2),
+
+    where :math:`H_n` is the :math:`n`-th order "physicists'" Hermite polynomial.
+    The normalization is chosen so that :math:`\int \phi_n^2(x) dx = 1`.
     """
     H = hermite(mode)
     return lambda x: H(x) * numpy.exp(-(x ** 2) / 2)
@@ -131,7 +152,7 @@ def get_transformation_matrix(modes, order, add_points):
     Returns the the matrix of values of mode functions taken at
     points of the spatial grid.
     """
-    x, _ = get_spatial_grid(modes, order, add_points=add_points)
+    x = get_spatial_grid(modes, order, add_points=add_points)
 
     res = numpy.zeros((modes, x.size))
 
@@ -242,7 +263,7 @@ class DHT(Computation):
             p = get_transformation_matrix(mode_shape[axis], basis.order, basis.add_points[axis])
             p = p.astype(p_dtype)
             if not basis.inverse:
-                _, w = get_spatial_grid(mode_shape[axis], basis.order, basis.add_points[axis])
+                w = get_spatial_weights(mode_shape[axis], basis.order, basis.add_points[axis])
                 ww = numpy.tile(w.reshape(w.size, 1).astype(p_dtype), (1, mode_shape[axis]))
                 p = p.transpose() * ww
             tr_matrix = operations.add_const_allocation(p)
