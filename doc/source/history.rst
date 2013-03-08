@@ -2,8 +2,15 @@
 Release history
 ***************
 
+
 0.3.0 (current development version)
 ===================================
+
+Under construction.
+
+
+0.2.1 (8 Mar 2013)
+==================
 
 * FIXED: function names for kernel ``polar()``, ``exp()`` and ``conj()``.
 * FIXED: added forgotten kernel ``norm()`` handler.
