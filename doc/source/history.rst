@@ -9,6 +9,7 @@ Release history
 * FIXED: added forgotten kernel ``norm()`` handler.
 * FIXED: bug in ``Py.Test`` testcase execution hook which caused every test to run twice.
 * FIXED: bug in nested computation processing for computation with more than one kernel.
+* FIXED: added dependencies between MatrixMul kernel arguments
 
 
 0.2.0 (3 Mar 2013)
