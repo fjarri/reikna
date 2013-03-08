@@ -111,7 +111,7 @@ class OperationRecorder:
             for mem1, mem2 in dependencies:
                 mem1 = self._prefix + mem1
                 mem2 = self._prefix + mem2
-                if mem1 not in self._allocations or mem2 not in self._allocations:
+                if mem1 in self._const_allocations or mem2 in self._const_allocations:
                     continue
 
                 self._dependencies[mem1].add(mem2)
