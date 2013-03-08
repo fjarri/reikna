@@ -111,7 +111,7 @@ class OperationRecorder:
             for mem1, mem2 in dependencies:
                 mem1 = self._prefix + mem1
                 mem2 = self._prefix + mem2
-                if mem1 not in self._allocations or mem2 not in self._allocations:
+                if mem1 in self._const_allocations or mem2 in self._const_allocations:
                     continue
 
                 self._dependencies[mem1].add(mem2)
@@ -148,7 +148,7 @@ class OperationRecorder:
         nested_ops = computation._operations
 
         for kernel in nested_ops.kernels:
-            kernel.argnames = ext_names
+            kernel.argnames = [map_to_ext(name) for name in kernel.argnames]
             self.kernels.append(kernel)
 
         for name, value in nested_ops._allocations.items():
@@ -164,6 +164,8 @@ class OperationRecorder:
             name = map_to_ext(name)
             deps = set(map(map_to_ext, deps))
             self._dependencies[name].update(deps)
+            for other_name in deps:
+                self._dependencies[other_name].add(name)
 
     def finalize(self):
 

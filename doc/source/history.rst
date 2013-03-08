@@ -5,7 +5,15 @@ Release history
 0.3.0 (current development version)
 ===================================
 
-Under construction.
+* FIXED: function names for kernel ``polar()``, ``exp()`` and ``conj()``.
+* FIXED: added forgotten kernel ``norm()`` handler.
+* FIXED: bug in ``Py.Test`` testcase execution hook which caused every test to run twice.
+* FIXED: bug in nested computation processing for computation with more than one kernel.
+* FIXED: added dependencies between MatrixMul kernel arguments.
+* FIXED: taking into account dependencies between input and output arrays as well as the ones
+    between internal allocations --- necessary for nested computations.
+* ADDED: discrete harmonic transform :py:class:`reikna.dht.DHT`
+    (calculated using Gauss-Hermite quadrature).
 
 
 0.2.0 (3 Mar 2013)

@@ -53,16 +53,25 @@ class FuncCollector:
     def conj(self, dtype):
         ctype = dtypes.ctype(dtype).replace(' ', '_')
 
-        name = "_{prefix}_div__{ctype}".format(
+        name = "_{prefix}_conj__{ctype}".format(
             prefix=self.prefix, ctype=ctype)
 
         self.functions[name] = ('conj', (dtype,))
         return name
 
+    def norm(self, dtype):
+        ctype = dtypes.ctype(dtype).replace(' ', '_')
+
+        name = "_{prefix}_norm__{ctype}".format(
+            prefix=self.prefix, ctype=ctype)
+
+        self.functions[name] = ('norm', (dtype,))
+        return name
+
     def exp(self, dtype):
         ctype = dtypes.ctype(dtype).replace(' ', '_')
 
-        name = "_{prefix}_div__{ctype}".format(
+        name = "_{prefix}_exp__{ctype}".format(
             prefix=self.prefix, ctype=ctype)
 
         self.functions[name] = ('exp', (dtype,))
@@ -71,7 +80,7 @@ class FuncCollector:
     def polar(self, dtype):
         ctype = dtypes.ctype(dtype).replace(' ', '_')
 
-        name = "_{prefix}_div__{ctype}".format(
+        name = "_{prefix}_polar__{ctype}".format(
             prefix=self.prefix, ctype=ctype)
 
         self.functions[name] = ('polar', (dtype,))

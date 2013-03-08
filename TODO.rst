@@ -1,14 +1,6 @@
-0.2.0
-=====
-
-* When doing 'pip uninstall' it shows the full list of files, when other modules just show
-  a list of folders. Should be something connected to MANIFEST and package data.
-
-
 0.3.0 (suitable for beclab)
 ===========================
 
-* TODO: add DHT
 * TODO: add MD5 randoms
 * TODO: add "raises" sections to Computation/OperationRecorder methods
 * TODO: add custom variable names to Transformation constructor
@@ -43,9 +35,14 @@
 * TODO: run pylint
 * TODO: create "fallback" when if _construct_operations() does not catch OutOfResources,
   it is called again with reduced local size
+* TODO: allow avoiding unnecessary array arguments in prepare_for() (pass None), so that
+  the computation could derive shape and dtype by itself.
+  Resulting values can be available as attributes of the computation object.
 * DECIDE: how to handle cases when the name of a new endpoint requested by connect() is the same
   as one of the argument names in a nested computation (which the user is not supposed to know
   or care about)?
+* TODO: add special optimized kernel for matrix-vector multiplication in MatrixMul.
+  Or create specific matrix-vector and vector-vector computations?
 
 
 1.0.0 (production-quality version... hopefully)

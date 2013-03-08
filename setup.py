@@ -89,7 +89,7 @@ if not release:
     version = full_version
     '''
 
-    VERSION = (0, 2, 0)
+    VERSION = (0, 2, 1)
     RELEASED = True
 
     version_str = '%d.%d.%d' % VERSION

@@ -481,7 +481,7 @@ class FFT(Computation):
     def _get_argnames(self):
         return ('output',), ('input',), ('direction',)
 
-    def _get_basis_for(self, output, input, direction, normalize=True, axes=None):
+    def _get_basis_for(self, output, input, direction, axes=None):
         bs = AttrDict()
 
         assert output.shape == input.shape
