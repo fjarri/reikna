@@ -35,14 +35,14 @@ This happens when ``prepare_for`` is called; first function will be used to prop
 If the transformation has more than one output or more than one input, and, therefore, cannot be connected to the output or input argument, respectively, the corresponding function should not be supplied.
 On the other hand, if the function is not supplied, but is required, the fallback is the :py:func:`~reikna.cluda.dtypes.result_type`.
 
-The format of required functions is the following (here ``iN``, ``oN`` and ``pN`` are :py:class:`numpy.dtype` objects):
+The format of required functions is the following (here ``iN``, ``oN`` and ``sN`` are :py:class:`numpy.dtype` objects):
 
-* ``derive_o_from_is(i1, ..., p1, ...)``, returns the :py:class:`numpy.dtype` for ``o1``.
-* ``derive_i_from_os(o1, ..., p1, ...)``, returns the :py:class:`numpy.dtype` for ``i1``.
+* ``derive_o_from_is(i1, ..., s1, ...)``, returns the :py:class:`numpy.dtype` for ``o1``.
+* ``derive_i_from_os(o1, ..., s1, ...)``, returns the :py:class:`numpy.dtype` for ``i1``.
 
 The last part of the constructor is a ``code`` parameter.
 It is a string with the Mako template which describes the transformation.
-Variables ``i1``, ..., ``o1``, ..., ``p1``, ... are available in the template and help specify load and store actions for inputs, outputs and parameters, and also to obtain their data types.
+Variables ``i1``, ..., ``o1``, ..., ``s1``, ... are available in the template and help specify load and store actions for inputs, outputs and parameters, and also to obtain their data types.
 Each of these variables has attributes ``dtype`` (contains the :py:class:`numpy.dtype`), ``ctype`` (contains a string with corresponding C type) and either one of ``load`` (for inputs), ``store`` (for outputs) and ``__str__`` (for scalar parameters).
 ``${i1.load}`` can be used as a variable, and ``${o1.store}(val)`` as a function that takes one variable.
 Also the ``dtypes`` variable is available in the template, providing access :py:mod:`~reikna.cluda.dtypes` module, and ``func`` is a module-like object containing generalizations of arithmetic functions (see :ref:`cluda-kernel-toolbox` for details).
@@ -51,11 +51,11 @@ For example, for a scaling transformation with one input, one output and one par
 
 ::
 
-    ${o1.store}(${func.mul(i1.dtype, p1.dtype, out=o1.dtype)}(${i1.load}, ${p1}));
+    ${o1.store}(${func.mul(i1.dtype, s1.dtype, out=o1.dtype)}(${i1.load}, ${s1}));
 
 There is a lot of stuff going on in this single line.
-First, notice that the input is loaded as ``${i1.load}``, and the parameter as ``${p1}``.
-Second, since any of the ``i1`` and ``p1`` can be complex, we had to use the generic multiplication template from the ``func`` quasi-module.
+First, notice that the input is loaded as ``${i1.load}``, and the parameter as ``${s1}``.
+Second, since any of the ``i1`` and ``s1`` can be complex, we had to use the generic multiplication template from the ``func`` quasi-module.
 The result is passed to the output by calling ``${o1.store}``.
 If the transformation has several outputs, it will have several ``store`` statements.
 Since the ``code`` parameter will be inserted into a function, you can safely create temporary variables if you need to.
