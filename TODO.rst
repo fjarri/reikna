@@ -1,7 +1,6 @@
 0.2.2
 =====
 
-* TODO: add "raises" sections to Computation/OperationRecorder methods
 * TODO: add custom variable names to Transformation constructor
   (``inputs=['Vect1', 'Vect2'], outputs=1, scalars='term1'``)
 * TODO: remove boilerplate code in cluda.kernel, perhaps remove out_dtype from mul() and div() --- we already have cast().
@@ -24,6 +23,7 @@
 0.4.0
 =====
 
+* TODO: use different classes for different states of Computation
 * DECIDE: add ability to manually override inferred dependencies?
 * TODO: add support for arrays with aligned rows (mem_alloc_pitch() in PyCuda).
   This should make non-power-of-2 FFT much faster.
