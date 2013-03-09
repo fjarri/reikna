@@ -6,7 +6,7 @@ Release history
 0.3.0 (current development version)
 ===================================
 
-Under construction.
+* ADDED: ability to use custom argument names in transformations
 
 
 0.2.1 (8 Mar 2013)

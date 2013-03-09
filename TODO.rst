@@ -1,8 +1,6 @@
 0.2.2
 =====
 
-* TODO: add custom variable names to Transformation constructor
-  (``inputs=['Vect1', 'Vect2'], outputs=1, scalars='term1'``)
 * TODO: remove boilerplate code in cluda.kernel, perhaps remove out_dtype from mul() and div() --- we already have cast().
 * TODO: add MD5 randoms
 

@@ -28,7 +28,8 @@ But you can create a custom one if you need to.
 Transformations are based on the class :py:class:`~reikna.core.Transformation`.
 Its constructor has three major groups of parameters.
 
-First, ``outputs``, ``inputs`` and ``scalars`` specify how many arguments of corresponding type the transformation take.
+First, ``outputs``, ``inputs`` and ``scalars`` contain lists of names for corresponding transformation arguments.
+Alternatively, you may just pass integers; in that case the names will be generated to be ``i1``, ``i2``, ..., ``o1``, ``o2``, ..., ``s1``, ``s2``, ...
 
 Second, ``derive_o_from_is`` and ``derive_i_from_os`` options take functions that perform type derivation.
 This happens when ``prepare_for`` is called; first function will be used to propagate types from leaf inputs to base inputs, and the second one to propagate type from leaf outputs to base outputs.

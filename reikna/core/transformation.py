@@ -199,14 +199,20 @@ class Transformation:
     """
     Defines an elementwise transformation.
 
-    :param inputs: number of input array values.
-    :param outputs: number of output array values.
-    :param parameters: number of scalar parameters for the transformation.
-    :param derive_o_from_is: a function taking ``inputs`` + ``scalars`` dtype parameters
+    :param inputs: list with input value names (these names will be used in the template),
+        or the number of input array values (in which case they will be given names
+        ``i1``, ``i2`` etc).
+    :param outputs: list with output value names (these names will be used in the template),
+        or the number of input array values (in which case they will be given names
+        ``o1``, ``o2`` etc).
+    :param scalars: list with scalar parameter names (these names will be used in the template),
+        or the number of input array values (in which case they will be given names
+        ``p1``, ``p2`` etc).
+    :param derive_o_from_is: a function taking dtypes of ``inputs`` and ``scalars``,
         and returning the output dtype.
         If ``None``, :py:func:`~reikna.cluda.dtypes.result_type` is used.
         Called when the transformation is connected to the input argument.
-    :param derive_i_from_os: a function taking ``outputs`` + ``scalars`` dtype parameters
+    :param derive_i_from_os: a function taking dtypes of ``outputs`` and ``scalars``,
         and returning the input dtype.
         If ``None``, :py:func:`~reikna.cluda.dtypes.result_type` is used.
         Called when the transformation is connected to the output argument.
@@ -216,25 +222,31 @@ class Transformation:
 
     def __init__(self, inputs=1, outputs=1, scalars=0,
             derive_o_from_is=None, derive_i_from_os=None,
-            code="${o1.store}(${i1.load});"):
-        self.inputs = inputs
-        self.outputs = outputs
-        self.scalars = scalars
+            code=None):
+
+        gen_names = lambda names, prefix: [prefix + str(i+1) for i in xrange(names)] \
+            if isinstance(names, int) else list(names)
+        self.inputs = gen_names(inputs, 'i')
+        self.outputs = gen_names(outputs, 'o')
+        self.scalars = gen_names(scalars, 's')
+
+        if code is None:
+            code = "${" + self.outputs[0] + ".store}(${" + self.inputs[0] + ".load});"
 
         if derive_o_from_is is None:
-            if outputs == 1:
+            if len(self.outputs) == 1:
                 derive_o_from_is = dtypes.result_type
         else:
-            if outputs > 1:
+            if len(self.outputs) > 1:
                 raise ValueError(
                     "This transformation cannot be used for an input and therefore cannot have "
                     "a ``derive_o_from_is`` parameter")
 
         if derive_i_from_os is None:
-            if inputs == 1:
+            if len(self.inputs) == 1:
                 derive_i_from_os = dtypes.result_type
         else:
-            if inputs > 1:
+            if len(self.inputs) > 1:
                 raise ValueError(
                     "This transformation cannot be used for an output and therefore cannot have "
                     "a ``derive_i_from_os`` parameter")
@@ -252,8 +264,8 @@ NODE_SCALAR = 2
 
 class TransformationArgument:
 
-    def __init__(self, nodes, kind, number, name, node_type):
-        self.label = kind + str(number + 1)
+    def __init__(self, nodes, kind, label, name, node_type):
+        self.label = label
         self._name = name
         self.dtype = nodes[self._name].value.dtype
         self.ctype = dtypes.ctype(self.dtype)
@@ -475,18 +487,18 @@ class TransformationTree:
                     outtype=dtypes.ctype(node.value.dtype),
                     fname=load_function_name(node.name),
                     arglist=build_arglist(all_children))
-                input_names = node.children[:tr.inputs]
-                scalar_names = node.children[tr.inputs:]
+                input_names = node.children[:len(tr.inputs)]
+                scalar_names = node.children[len(tr.inputs):]
 
                 args = {}
                 for i, name in enumerate(input_names):
-                    arg = TransformationArgument(self.nodes, 'i', i, name, node.type)
+                    arg = TransformationArgument(self.nodes, 'i', tr.inputs[i], name, node.type)
                     args[arg.label] = arg
                 for i, name in enumerate(scalar_names):
-                    arg = TransformationArgument(self.nodes, 's', i, name, node.type)
+                    arg = TransformationArgument(self.nodes, 's', tr.scalars[i], name, node.type)
                     args[arg.label] = arg
 
-                arg = TransformationArgument(self.nodes, 'o', 0, node.name, node.type)
+                arg = TransformationArgument(self.nodes, 'o', tr.outputs[0], node.name, node.type)
                 args[arg.label] = arg
 
             else:
@@ -495,18 +507,18 @@ class TransformationTree:
                     fname=store_function_name(node.name),
                     arglist=build_arglist(all_children))
 
-                output_names = node.children[:tr.outputs]
-                scalar_names = node.children[tr.outputs:]
+                output_names = node.children[:len(tr.outputs)]
+                scalar_names = node.children[len(tr.outputs):]
 
                 args = {}
                 for i, name in enumerate(output_names):
-                    arg = TransformationArgument(self.nodes, 'o', i, name, node.type)
+                    arg = TransformationArgument(self.nodes, 'o', tr.outputs[i], name, node.type)
                     args[arg.label] = arg
                 for i, name in enumerate(scalar_names):
-                    arg = TransformationArgument(self.nodes, 's', i, name, node.type)
+                    arg = TransformationArgument(self.nodes, 's', tr.scalars[i], name, node.type)
                     args[arg.label] = arg
 
-                arg = TransformationArgument(self.nodes, 'i', 0, node.name, node.type)
+                arg = TransformationArgument(self.nodes, 'i', tr.inputs[0], node.name, node.type)
                 args[arg.label] = arg
 
 
@@ -564,18 +576,18 @@ class TransformationTree:
         parent = self.nodes[array_arg]
 
         if parent.type == NODE_OUTPUT:
-            if tr.inputs > 1:
+            if len(tr.inputs) > 1:
                 raise ValueError("Transformation for an output node must have one input")
-            if tr.outputs != len(new_array_args):
+            if len(tr.outputs) != len(new_array_args):
                 raise ValueError("Number of array argument names does not match the transformation")
 
         if parent.type == NODE_INPUT:
-            if tr.outputs > 1:
+            if len(tr.outputs) > 1:
                 raise ValueError("Transformation for an input node must have one output")
-            if tr.inputs != len(new_array_args):
+            if len(tr.inputs) != len(new_array_args):
                 raise ValueError("Number of array argument names does not match the transformation")
 
-        if tr.scalars != len(new_scalar_args):
+        if len(tr.scalars) != len(new_scalar_args):
             raise ValueError("Number of scalar argument names does not match the transformation")
 
         # Delay applying changes until the end of the method,
