@@ -15,76 +15,49 @@ class FuncCollector:
 
     def __init__(self, prefix=""):
         self.prefix = prefix
+
+        self._register_function('cast', 1, out_param='positional')
+        self._register_function('mul', 2, out_param='keyword')
+        self._register_function('div', 2, out_param='keyword')
+        self._register_function('conj', 1)
+        self._register_function('norm', 1)
+        self._register_function('exp', 1)
+        self._register_function('polar', 1)
+
         self.functions = {}
 
-    def cast(self, out_dtype, in_dtype):
-        out_ctype = dtypes.ctype(out_dtype)
-        in_ctype = dtypes.ctype(in_dtype)
-        name = "_{prefix}_cast_{out}_{in_}".format(prefix=self.prefix, out=out_ctype, in_=in_ctype)
-        self.functions[name] = ('cast', (out_dtype, in_dtype))
-        return name
+    def _register_function(self, name, arguments, out_param=None):
 
-    def mul(self, dtype1, dtype2, out=None):
-        if out is None:
-            out = numpy.result_type(dtype1, dtype2)
-        ctypes = [dtypes.ctype(dt) for dt in (dtype1, dtype2)]
-        ctypes = [ctype.replace(' ', '_') for ctype in ctypes]
-        out_ctype = dtypes.ctype(out).replace(' ', '_')
+        def func(*dts, **kwds):
 
-        name = "_{prefix}_mul__{out}__{signature}".format(
-            prefix=self.prefix, out=out_ctype, signature = '_'.join(ctypes))
+            expected_args = arguments + (1 if out_param == 'positional' else 0)
+            if len(dts) != expected_args:
+                raise TypeError(name + "() takes exactly " + str(expected_args) +
+                    " arguments (" + str(len(dts)) + " given)")
 
-        self.functions[name] = ('mul', (out, dtype1, dtype2))
-        return name
+            if out_param == 'keyword':
+                out_dt = kwds.get('out', numpy.result_type(*dts))
+                in_dts = dts
+            elif out_param == 'positional':
+                out_dt = dts[0]
+                in_dts = dts[1:]
+            else:
+                out_dt = None
+                in_dts = dts
 
-    def div(self, dtype1, dtype2, out=None):
-        if out is None:
-            out = numpy.result_type(dtype1, dtype2)
-        ctypes = [dtypes.ctype(dt) for dt in (dtype1, dtype2)]
-        ctypes = [ctype.replace(' ', '_') for ctype in ctypes]
-        out_ctype = dtypes.ctype(out).replace(' ', '_')
+            typeid = lambda dtype: dtypes.ctype(dtype).replace(' ', '_')
 
-        name = "_{prefix}_div__{out}__{signature}".format(
-            prefix=self.prefix, out=out_ctype, signature = '_'.join(ctypes))
+            # Separating output and input names to avoid clashes
+            full_name = "_" + self.prefix + "_" + name + \
+                "__" + (typeid(out_dt) if out_dt is not None else "") + \
+                "__" + "_".join([typeid(dtype) for dtype in in_dts])
 
-        self.functions[name] = ('div', (out, dtype1, dtype2))
-        return name
+            self.functions[full_name] = (name,
+                ((out_dt,) if out_dt is not None else tuple()) + in_dts)
 
-    def conj(self, dtype):
-        ctype = dtypes.ctype(dtype).replace(' ', '_')
+            return full_name
 
-        name = "_{prefix}_conj__{ctype}".format(
-            prefix=self.prefix, ctype=ctype)
-
-        self.functions[name] = ('conj', (dtype,))
-        return name
-
-    def norm(self, dtype):
-        ctype = dtypes.ctype(dtype).replace(' ', '_')
-
-        name = "_{prefix}_norm__{ctype}".format(
-            prefix=self.prefix, ctype=ctype)
-
-        self.functions[name] = ('norm', (dtype,))
-        return name
-
-    def exp(self, dtype):
-        ctype = dtypes.ctype(dtype).replace(' ', '_')
-
-        name = "_{prefix}_exp__{ctype}".format(
-            prefix=self.prefix, ctype=ctype)
-
-        self.functions[name] = ('exp', (dtype,))
-        return name
-
-    def polar(self, dtype):
-        ctype = dtypes.ctype(dtype).replace(' ', '_')
-
-        name = "_{prefix}_polar__{ctype}".format(
-            prefix=self.prefix, ctype=ctype)
-
-        self.functions[name] = ('polar', (dtype,))
-        return name
+        setattr(self, name, func)
 
     def render(self):
         src = []

@@ -1,7 +1,6 @@
 0.2.2
 =====
 
-* TODO: remove boilerplate code in cluda.kernel, perhaps remove out_dtype from mul() and div() --- we already have cast().
 * TODO: add MD5 randoms
 
 
