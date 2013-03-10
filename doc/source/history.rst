@@ -6,7 +6,9 @@ Release history
 0.3.0 (current development version)
 ===================================
 
-* ADDED: ability to use custom argument names in transformations
+* ADDED: ability to use custom argument names in transformations.
+* FIXED: removed boilerplate code from :py:class:`~reikna.cluda.kernel.FuncCollector`,
+    and fixed some inconsistencies in the function signatures.
 
 
 0.2.1 (8 Mar 2013)
