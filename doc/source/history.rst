@@ -7,6 +7,7 @@ Release history
 ===================================
 
 * ADDED: ability to use custom argument names in transformations.
+* ADDED: multi-argument :py:meth:`~reikna.cluda.kernel.FuncCollector.mul`.
 * FIXED: removed boilerplate code from :py:class:`~reikna.cluda.kernel.FuncCollector`,
     and fixed some inconsistencies in the function signatures.
 

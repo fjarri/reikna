@@ -113,28 +113,64 @@
 
 </%def>
 
-<%def name="mul(name, out_dtype, dtype1, dtype2)">
+<%def name="mul(name, out_dtype, *in_dtypes)">
+<%
+    argnames = ["a" + str(i + 1) for i in xrange(len(in_dtypes))]
+%>
 WITHIN_KERNEL ${dtypes.ctype(out_dtype)} ${name}(
-    ${dtypes.ctype(dtype1)} a, ${dtypes.ctype(dtype2)} b)
+    ${", ".join(dtypes.ctype(dt) + " " + name for name, dt in zip(argnames, in_dtypes))})
 {
 <%
-    c1 = dtypes.is_complex(dtype1)
-    c2 = dtypes.is_complex(dtype2)
-    if dtypes.is_complex(out_dtype):
-        out_ctr = dtypes.complex_ctr(out_dtype)
-    else:
-        out_ctr = ""
-
-    if not c1 and not c2:
-        result = "a * b"
-    elif c1 and not c2:
-        result = out_ctr + "(a.x * b, a.y * b)"
-    elif not c1 and c2:
-        result = out_ctr + "(b.x * a, b.y * a)"
-    else:
-        result = out_ctr + "(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x)"
+    last_result = argnames[-1]
+    last_dtype = in_dtypes[-1]
 %>
-    return ${result};
+    %for i in xrange(len(in_dtypes) - 2, -1, -1):
+    <%
+        dt = in_dtypes[i]
+
+        new_dtype = dtypes.result_type(last_dtype, dt)
+        if dtypes.is_double(new_dtype) and not dtypes.is_double(out_dtype):
+            new_dtype = numpy.complex64 if dtypes.is_complex(new_dtype) else numpy.float32
+
+        ca = dtypes.is_complex(dt)
+        cb = dtypes.is_complex(last_dtype)
+        a = argnames[i]
+        b = last_result
+
+        temp_name = "temp" + str(i)
+        result_ctr = dtypes.complex_ctr(new_dtype) if dtypes.is_complex(new_dtype) else ""
+    %>
+        ${dtypes.ctype(new_dtype)} ${temp_name }= ${result_ctr}(
+        %if not ca and not cb:
+            ${a} * ${b}
+        %elif ca and not cb:
+            ${a}.x * ${b}, ${a}.y * ${b}
+        %elif not ca and cb:
+            ${b}.x * ${a}, ${b}.y * ${a}
+        %else:
+            ${a}.x * ${b}.x - ${a}.y * ${b}.y, ${a}.x * ${b}.y + ${a}.y * ${b}.x
+        %endif
+            );
+    <%
+        last_dtype = new_dtype
+        last_result = temp_name
+    %>
+    %endfor
+
+    ## Cast output
+    <%
+        c_res = dtypes.is_complex(last_dtype)
+        c_out = dtypes.is_complex(out_dtype)
+    %>
+    %if not c_res and not c_out:
+    return ${last_result};
+    %elif not c_res and c_out:
+    return ${dtypes.complex_ctr(out_dtype)}(${last_result}, 0);
+    %elif c_res and not c_out:
+    return ${last_result}.x;
+    %else:
+    return ${dtypes.complex_ctr(out_dtype)}(${last_result}.x, ${last_result}.y);
+    %endif
 }
 </%def>
 

@@ -1,5 +1,6 @@
 import os.path
 from logging import error
+from warnings import warn
 
 import numpy
 from mako.template import Template
@@ -13,10 +14,12 @@ TEMPLATE = template_for(__file__)
 
 class FuncCollector:
     """
-    .. py:method:: mul(dtype1, dtype2, out=None)
+    .. py:method:: mul(*dtypes, out=None)
 
-        Returns the name of the function that multiplies values of types ``dtype1`` and ``dtype2``.
+        Returns the name of the function that multiplies values of types ``dtypes``.
         If ``out`` is given, it will be set as a return type for this function.
+        If the truncation of the imaginary part of the result has to be performed,
+        :py:class:`numpy.ComplexWarning` is thrown.
 
     .. py:method:: div(dtype1, dtype2, out=None)
 
@@ -52,7 +55,7 @@ class FuncCollector:
         self.prefix = prefix
 
         self._register_function('cast', 1, out_param='positional')
-        self._register_function('mul', 2, out_param='keyword')
+        self._register_function('mul', None, out_param='keyword')
         self._register_function('div', 2, out_param='keyword')
         self._register_function('conj', 1)
         self._register_function('norm', 1)
@@ -65,13 +68,22 @@ class FuncCollector:
 
         def func(*dts, **kwds):
 
-            expected_args = arguments + (1 if out_param == 'positional' else 0)
-            if len(dts) != expected_args:
-                raise TypeError(name + "() takes exactly " + str(expected_args) +
-                    " arguments (" + str(len(dts)) + " given)")
+            if arguments is not None:
+                expected_args = arguments + (1 if out_param == 'positional' else 0)
+                if len(dts) != expected_args:
+                    raise TypeError(name + "() takes exactly " + str(expected_args) +
+                        " arguments (" + str(len(dts)) + " given)")
 
             if out_param == 'keyword':
-                out_dt = kwds.get('out', numpy.result_type(*dts))
+                result_dt = dtypes.result_type(*dts)
+                out_dt = kwds.get('out', result_dt)
+
+                if dtypes.is_complex(result_dt) and not dtypes.is_complex(out_dt):
+                    warn("Imaginary part ignored during the downcast from " +
+                        " * ".join([str(d) for d in dts]) +
+                        " to " + str(out_dt),
+                        numpy.ComplexWarning)
+
                 in_dts = dts
             elif out_param == 'positional':
                 out_dt = dts[0]
