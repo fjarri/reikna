@@ -98,7 +98,8 @@ class FuncCollector:
         src = []
         for func_name, params in self.functions.items():
             tmpl_name, args = params
-            src.append(TEMPLATE.get_def(tmpl_name).render(func_name, *args, dtypes=dtypes))
+            src.append(TEMPLATE.get_def(tmpl_name).render(
+                func_name, *args, dtypes=dtypes, numpy=numpy))
         return "\n".join(src)
 
 
