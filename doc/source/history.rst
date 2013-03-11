@@ -10,6 +10,7 @@ Release history
 * ADDED: multi-argument :py:meth:`~reikna.cluda.kernel.FuncCollector.mul`.
 * FIXED: removed boilerplate code from :py:class:`~reikna.cluda.kernel.FuncCollector`,
     and fixed some inconsistencies in the function signatures.
+* FIXED: some OpenCL compilation warnings cause by incorrect version querying macro
 
 
 0.2.1 (8 Mar 2013)
