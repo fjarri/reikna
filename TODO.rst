@@ -1,7 +1,7 @@
 0.2.2
 =====
 
-* TODO: add MD5 randoms
+* TODO: add Threefry and Philox randoms (see Salmon et al., 2011)
 
 
 0.3.0 (suitable for beclab)
@@ -88,7 +88,6 @@ Computations:
 
 * CHECK: need to find a balance between creating more workgroups or making loops inside kernels
   (can be applied in elementwise kernels)
-* TODO: add DCMT and 123 randoms
 * TODO: add bitonic sort
 * TODO: add filter
 * TODO: add better block width finder for small matrices in matrixmul
