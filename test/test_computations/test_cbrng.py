@@ -54,7 +54,7 @@ def rng_ref(ctr, size, name, seed, **params):
 
 def test_raw(ctx, name_and_params):
     name, params = name_and_params
-    distribution = 'raw_integer'
+    distribution = 'uniform_integer'
     size = 1000
     seed = 123
 
@@ -63,7 +63,7 @@ def test_raw(ctx, name_and_params):
         numpy.uint32 if params['bitness'] == 32 else numpy.uint64)
 
     rng = CBRNG(ctx).prepare_for(counters, dest, counters,
-        seed=seed, rng=name, rng_params=params, distribution='uniform_integer')
+        seed=seed, rng=name, rng_params=params, distribution=distribution)
 
     rng(counters, dest, counters)
     dest_ref = rng_ref(0, size, name, seed, **params)
