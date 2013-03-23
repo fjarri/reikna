@@ -8,26 +8,9 @@ is not for use in production.
 It only guarantees to produce the same results as the original Random123.
 """
 
-import warnings
 import numpy
 
-
-class ignore_integer_overflow():
-    """
-    Context manager for ignoring integer overflow in numpy operations on scalars
-    (not ignored by default because of a bug in numpy).
-    """
-
-    def __init__(self):
-        self.catch = warnings.catch_warnings()
-
-    def __enter__(self):
-        self.catch.__enter__()
-        warnings.filterwarnings("ignore", "overflow encountered in uint_scalars")
-        warnings.filterwarnings("ignore", "overflow encountered in ulong_scalars")
-
-    def __exit__(self, *args, **kwds):
-        self.catch.__exit__(*args, **kwds)
+from reikna.helpers import ignore_integer_overflow
 
 
 # Rotation constants:

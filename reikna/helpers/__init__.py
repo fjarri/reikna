@@ -7,6 +7,8 @@ from __future__ import division
 import functools
 import collections
 import os.path
+import warnings
+
 from mako.template import Template
 
 
@@ -139,3 +141,21 @@ def wrap_in_tuple(x):
         return tuple(x)
     else:
         return (x,)
+
+
+class ignore_integer_overflow():
+    """
+    Context manager for ignoring integer overflow in numpy operations on scalars
+    (not ignored by default because of a bug in numpy).
+    """
+
+    def __init__(self):
+        self.catch = warnings.catch_warnings()
+
+    def __enter__(self):
+        self.catch.__enter__()
+        warnings.filterwarnings("ignore", "overflow encountered in uint_scalars")
+        warnings.filterwarnings("ignore", "overflow encountered in ulong_scalars")
+
+    def __exit__(self, *args, **kwds):
+        self.catch.__exit__(*args, **kwds)
