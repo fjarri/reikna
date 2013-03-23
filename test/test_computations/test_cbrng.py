@@ -45,7 +45,7 @@ def rng_ref(ctr, size, name, seed, **params):
 
     for i in range(size):
         key = base_key.copy()
-        key[-1] += i
+        key[-1] += numpy.cast[key.dtype](i)
 
         result[i] = func(params['bitness'], params['words'], counter, key, params['rounds'])
 
