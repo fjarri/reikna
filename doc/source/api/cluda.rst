@@ -290,7 +290,7 @@ Kernel toolbox
 
 The stuff available for the kernel passed for compilation consists of two parts.
 
-First, there are several objects available at the template rendering stage, namely ``numpy``, :py:mod:`reikna.cluda.dtypes` (as ``dtypes``) and a :py:class:`FuncCollector` instance named ``func``, which is used to compensate for the lack of complex number operations in OpenCL, and the lack of C++ synthax which would allow one to write them.
+First, there are several objects available at the template rendering stage, namely ``numpy``, :py:mod:`reikna.cluda.dtypes` (as ``dtypes``), :py:mod:`reikna.helpers` (as ``helpers``), and a :py:class:`FuncCollector` instance named ``func``, which is used to compensate for the lack of complex number operations in OpenCL, and the lack of C++ synthax which would allow one to write them.
 Its methods can be treated as if they return the name of the function necessary to operate on given dtypes.
 Available methods are:
 

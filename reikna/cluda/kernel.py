@@ -6,6 +6,7 @@ import numpy
 from mako.template import Template
 from mako import exceptions
 
+import reikna.helpers as helpers
 from reikna.cluda import dtypes
 from reikna.helpers import template_for
 
@@ -120,7 +121,7 @@ def render_prelude(ctx):
 
 def render_without_funcs(template, func_c, *args, **kwds):
     # add some "built-ins" to kernel
-    render_kwds = dict(dtypes=dtypes, numpy=numpy, func=func_c)
+    render_kwds = dict(dtypes=dtypes, numpy=numpy, func=func_c, helpers=helpers)
     assert set(render_kwds).isdisjoint(set(kwds))
     render_kwds.update(kwds)
 
