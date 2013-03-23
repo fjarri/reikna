@@ -191,9 +191,10 @@ WITHIN_KERNEL INLINE ${ctype} mulhilo(${ctype} *hip, ${ctype} a, ${ctype} b)
 <%def name="philox_round(rnd)">
 <%
     # bump key
-    key0 = key[0] + PHILOX_W[W][0] * numpy.cast[dtype](rnd)
-    if N == 4:
-        key1 = key[1] + PHILOX_W[W][1] * numpy.cast[dtype](rnd)
+    with helpers.ignore_integer_overflow():
+        key0 = key[0] + PHILOX_W[W][0] * numpy.cast[dtype](rnd)
+        if N == 4:
+            key1 = key[1] + PHILOX_W[W][1] * numpy.cast[dtype](rnd)
 %>
 {
 %if N == 2:
