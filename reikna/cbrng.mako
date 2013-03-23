@@ -146,7 +146,8 @@ WITHIN_KERNEL CBRNG_ARGUMENT rng_threefry(const int thread_id, const CBRNG_ARGUM
     rounds = rng_params.rounds
     key = rng_params.key
 
-    ctype = dtypes.ctype(numpy.uint32 if W == 32 else numpy.uint64)
+    dtype = numpy.uint32 if W == 32 else numpy.uint64
+    ctype = dtypes.ctype(dtype)
 
     PHILOX_W = {
         64: [
@@ -190,15 +191,15 @@ WITHIN_KERNEL INLINE ${ctype} mulhilo(${ctype} *hip, ${ctype} a, ${ctype} b)
 <%def name="philox_round(rnd)">
 <%
     # bump key
-    key0 = key[0] + PHILOX_W[W][0] * rnd
+    key0 = key[0] + PHILOX_W[W][0] * numpy.cast[dtype](rnd)
     if N == 4:
-        key1 = key[1] + PHILOX_W[W][1] * rnd
+        key1 = key[1] + PHILOX_W[W][1] * numpy.cast[dtype](rnd)
 %>
 {
 %if N == 2:
     ${ctype} hi;
     ${ctype} lo = mulhilo(&hi, ${PHILOX_M[(W,N)][0]}, X.v[0]);
-    X.v[0] = hi ^ (${key0} + thread_id) ^ X.v[1];
+    X.v[0] = hi ^ (${key0} + (${ctype})thread_id) ^ X.v[1];
     X.v[1] = lo;
 %else:
     ${ctype} hi0, hi1;
@@ -206,7 +207,7 @@ WITHIN_KERNEL INLINE ${ctype} mulhilo(${ctype} *hip, ${ctype} a, ${ctype} b)
     ${ctype} lo1 = mulhilo(&hi1, ${PHILOX_M[(W,N)][1]}, X.v[2]);
     X.v[0] = hi1 ^ X.v[1] ^ ${key0};
     X.v[1] = lo1;
-    X.v[2] = hi0 ^ X.v[3] ^ (${key1} + thread_id);
+    X.v[2] = hi0 ^ X.v[3] ^ (${key1} + (${ctype})thread_id);
     X.v[3] = lo0;
 %endif
 }
@@ -216,13 +217,13 @@ WITHIN_KERNEL CBRNG_ARGUMENT rng_philox(const int thread_id, const CBRNG_ARGUMEN
 {
     CBRNG_ARGUMENT X;
     %for i in range(N):
-    ${ctype} X.v[${i}] = counter.v[${i}];
+    X.v[${i}] = counter.v[${i}];
     %endfor
 
     // round
     %for rnd in range(rng_params.rounds):
         // round ${rnd}
-        ${philox_round(0)}
+        ${philox_round(rnd)}
     %endfor
 
     return X;
