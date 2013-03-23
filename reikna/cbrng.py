@@ -41,7 +41,7 @@ def create_key(rng, rng_params, seed=None):
         np_rng = numpy.random.RandomState(seed)
 
         # 32-bit Python can only generate random integer up to 2**31-1
-        key = np_rng.randint(0, 2**16-1, key_words * 2)
+        key = np_rng.randint(0, 2**16, key_words * 2)
 
     subwords = bitness // 16
     for i, x in enumerate(key):
