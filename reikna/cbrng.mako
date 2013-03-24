@@ -409,7 +409,13 @@ WITHIN_KERNEL ${uint64} get_raw_uint64(LOCAL_STATE *state)
 
     int cur = state->buffer_word_cursor;
     state->buffer_word_cursor += 2;
+    %if basis.rng_params.bitness == 64:
     return state->buffer.v[cur / 2];
+    %else:
+    ${uint32} hi = state->buffer_word[cur];
+    ${uint32} lo = state->buffer_word[cur+1];
+    return ((${uint64})hi << 32) + (${uint64})lo;
+    %endif
 }
 
 ${distr_func_body(basis.dtype, basis.distribution_params)}
