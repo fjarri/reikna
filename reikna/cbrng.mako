@@ -64,10 +64,11 @@
 
     R = r123_enum_threefry[(W, N)]
 
-    rotate = lambda r_idx, n_idx, x_idx: "(X.v[{x}] << {lshift} | X.v[{x}] >> {rshift})".format(
-        x=x_idx,
-        lshift=R[r_idx, n_idx] % W,
-        rshift=(W - R[r_idx, n_idx]) % W)
+    rotate = lambda r_idx, n_idx, x_idx: \
+        "((X.v[{x}] << {lshift}) | (X.v[{x}] >> {rshift}))".format(
+            x=x_idx,
+            lshift=R[r_idx, n_idx] % W,
+            rshift=(W - R[r_idx, n_idx]) % W)
 %>
 
 WITHIN_KERNEL CBRNG_ARGUMENT rng_threefry(const int thread_id, const CBRNG_ARGUMENT counter)
