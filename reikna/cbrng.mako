@@ -234,14 +234,39 @@ WITHIN_KERNEL CBRNG_ARGUMENT rng_philox(const int thread_id, const CBRNG_ARGUMEN
 
 
 <%def name="distribution_uniform_integer(dtype, distr_params)">
-<% ctype = dtypes.ctype(dtype) %>
+<%
+    ctype = dtypes.ctype(dtype)
+    num = distr_params.max - distr_params.min
+
+    if num <= 2 ** 32:
+        raw_ctype = dtypes.ctype(numpy.uint32)
+        raw_func = 'get_raw_uint32'
+        max_num = 2 ** 32
+    else:
+        raw_ctype = dtypes.ctype(numpy.uint64)
+        raw_func = 'get_raw_uint64'
+        max_num = 2 ** 64
+%>
 WITHIN_KERNEL ${ctype} distribution_uniform_integer(LOCAL_STATE *state)
 {
-    %if dtype.itemsize > 4:
-    return get_raw_uint64(state);
+    ${raw_ctype} non_offset = 0;
+
+    %if max_num % num == 0:
+    ${raw_ctype} t = ${raw_func}(state);
+    non_offset = t / ${max_num // num};
     %else:
-    return get_raw_uint32(state);
+    while(1)
+    {
+        ${raw_ctype} t = ${raw_func}(state);
+        if (t < ${max_num - max_num % num})
+        {
+            non_offset = t / ${max_num // num};
+            break;
+        }
+    }
     %endif
+
+    return (${ctype})non_offset + (${ctype})${distr_params.min};
 }
 </%def>
 
