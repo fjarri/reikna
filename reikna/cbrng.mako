@@ -271,17 +271,19 @@ WITHIN_KERNEL ${ctype} distribution_uniform_integer(LOCAL_STATE *state)
 </%def>
 
 
-<%def name="distribution_uniform_float(dtype)">
-<% ctype = dtypes.ctype(dtype) %>
+<%def name="distribution_uniform_float(dtype, distr_params)">
+<%
+    ctype = dtypes.ctype(dtype)
+    bitness = 64 if dtypes.is_double(dtype) else 32
+    raw_func = 'get_raw_uint' + str(bitness)
+    raw_max = dtypes.c_constant(2 ** bitness, dtype)
+%>
 WITHIN_KERNEL ${ctype} distribution_uniform_float(LOCAL_STATE *state)
 {
-    %if dtypes.is_double(dtype):
-    ${uint64} raw_uint = get_raw_uint64(state);
-    %else:
-    ${uint32} raw_uint = get_raw_uint32(state);
-    %endif
-
-    return raw_uint / (${ctype})${2**64 if dtypes.is_double(dtype) else 2**32};
+    ${ctype} normalized = (${ctype})${raw_func}(state) / ${raw_max};
+    return normalized *
+        (${dtypes.c_constant(distr_params.max - distr_params.min, dtype)}) +
+        (${dtypes.c_constant(distr_params.min, dtype)});
 }
 </%def>
 
@@ -366,6 +368,7 @@ WITHIN_KERNEL ${ctype} distribution_lambda(LOCAL_STATE *state)
 
     randoms_per_call = dict(
         uniform_integer=1,
+        uniform_float=1,
         gauss_bm=2,
         )[basis.distribution]
 

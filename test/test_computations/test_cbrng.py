@@ -139,6 +139,17 @@ def test_uniform_integer(ctx):
         dict(extent=extent, mean=mean, std=std))
 
 
+def test_uniform_float(ctx_and_double):
+    ctx, double = ctx_and_double
+    dtype = numpy.float64 if double else numpy.float32
+    extent = (-5, 7.7)
+    mean, std = uniform_mean_and_std(*extent)
+    check_distribution(ctx,
+        'philox', dict(bitness=64, words=4),
+        'uniform_float', dict(min=extent[0], max=extent[1]), dtype,
+        dict(extent=extent, mean=mean, std=std))
+
+
 def test_lambda():
     pass
 
