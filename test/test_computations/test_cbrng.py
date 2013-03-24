@@ -74,12 +74,69 @@ def test_raw(ctx, name_and_params):
     assert diff_is_negligible(dest.get(), dest_ref)
 
 
-def test_uniform_float():
-    pass
+
+def check_distribution(ctx, rng_name, rng_params,
+        distribution, distribution_params, dtype, reference):
+
+    size = 10000
+    batch = 100
+    seed = 456
+
+    counters = create_counters(ctx, size, rng_name, distribution, rng_params)
+    dest = ctx.array((batch, size), dtype)
+
+    rng = CBRNG(ctx).prepare_for(counters, dest, counters,
+        seed=seed, rng=rng_name, rng_params=rng_params,
+        distribution=distribution, distribution_params=distribution_params)
+    rng(counters, dest, counters)
+    dest = dest.get()
+
+    extent = reference.get('extent', None)
+    mean = reference.get('mean', None)
+    std = reference.get('std', None)
+
+    if extent is not None:
+        assert dest.min() >= extent[0]
+        assert dest.max() <= extent[1]
+
+    if mean is not None and std is not None:
+        diff = abs(dest.mean() - mean)
+        assert diff < 5 * (std / numpy.sqrt(batch * size)) # about 1e-6 chance of fail
+
+    if std is not None:
+        diff = numpy.sqrt(abs(dest.var() - std ** 2))
+        assert diff < 5 * numpy.sqrt(2. * std ** 4 / (batch * size)) # about 1e-6 chance of fail
 
 
-def test_gauss_bm():
-    pass
+def uniform_mean_and_std(min, max):
+    return (min + max) / 2., (max - min) / numpy.sqrt(12)
+
+
+def test_32_to_64_bit(ctx):
+    extent = (0, 2**63-1)
+    mean, std = uniform_mean_and_std(*extent)
+    check_distribution(ctx,
+        'philox', dict(bitness=32, words=4),
+        'uniform_integer', dict(min=extent[0], max=extent[1] + 1), numpy.uint64,
+        dict(extent=extent, mean=mean, std=std))
+
+
+def test_64_to_32_bit(ctx):
+    extent = (0, 2**31-1)
+    mean, std = uniform_mean_and_std(*extent)
+    check_distribution(ctx,
+        'philox', dict(bitness=64, words=4),
+        'uniform_integer', dict(min=extent[0], max=extent[1] + 1), numpy.uint32,
+        dict(extent=extent, mean=mean, std=std))
+
+
+def test_uniform_integer(ctx):
+    extent = (-10, 98)
+    mean, std = uniform_mean_and_std(*extent)
+    check_distribution(ctx,
+        'philox', dict(bitness=64, words=4),
+        'uniform_integer', dict(min=extent[0], max=extent[1] + 1), numpy.int32,
+        dict(extent=extent, mean=mean, std=std))
 
 
 def test_lambda():
