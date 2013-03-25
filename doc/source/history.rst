@@ -8,9 +8,10 @@ Release history
 
 * ADDED: ability to use custom argument names in transformations.
 * ADDED: multi-argument :py:meth:`~reikna.cluda.kernel.FuncCollector.mul`.
+* ADDED: counter-based random number generator :py:class:`~reikna.cbrng.CBRNG`.
 * FIXED: removed boilerplate code from :py:class:`~reikna.cluda.kernel.FuncCollector`,
     and fixed some inconsistencies in the function signatures.
-* FIXED: some OpenCL compilation warnings cause by incorrect version querying macro
+* FIXED: some OpenCL compilation warnings cause by incorrect version querying macro.
 * FIXED: bug with incorrect processing of scalar global size in static kernels.
 
 
