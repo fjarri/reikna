@@ -1,9 +1,3 @@
-0.2.2
-=====
-
-* TODO: add Threefry and Philox randoms (see Salmon et al., 2011)
-
-
 0.3.0 (suitable for beclab)
 ===========================
 
