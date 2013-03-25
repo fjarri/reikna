@@ -52,7 +52,7 @@ class TestFunction:
         else:
             # If there are many modes, fill some random ones
             rand_coord = lambda: tuple(
-                numpy.random.randint(0, mshape[i]-1) for i in range(len(mshape)))
+                numpy.random.randint(0, mshape[i]) for i in range(len(mshape)))
 
             if batch is not None:
                 for b in range(batch):
