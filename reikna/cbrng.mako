@@ -315,16 +315,24 @@ WITHIN_KERNEL ${ctype2} distribution_normal_bm(LOCAL_STATE *state)
 </%def>
 
 
-<%def name="distribution_lambda(dtype)">
-<% ctype = dtypes.ctype(dtype) %>
-WITHIN_KERNEL ${ctype} distribution_lambda(LOCAL_STATE *state)
+<%def name="distribution_gamma(dtype, distr_params)">
+<%
+    dtype2 = dtypes.complex_for(dtype)
+    ctype = dtypes.ctype(dtype)
+    ctype2 = dtypes.ctype(dtype2)
+%>
+
+${distribution_normal_bm(dtype, helpers.AttrDict(mean=0, std=1))}
+
+WITHIN_KERNEL ${ctype} distribution_gamma(LOCAL_STATE *state)
 {
     <%
-        d = distribution_params.alpha - 1. / 3
+        d = distr_params.shape - 1. / 3
         c = 1 / numpy.sqrt(9 * d)
+        scale = dtypes.c_constant(distr_params.scale, dtype)
     %>
 
-    ${randoms.ctype}2 rand_normal;
+    ${ctype2} rand_normal;
     bool normals_need_regen = true;
 
     const ${ctype} d = ${dtypes.c_constant(d, dtype)};
@@ -338,7 +346,7 @@ WITHIN_KERNEL ${ctype} distribution_lambda(LOCAL_STATE *state)
         {
             if (normals_need_regen)
             {
-                rand_normal = distribution_gauss_bm(state);
+                rand_normal = distribution_normal_bm(state);
                 X = rand_normal.x;
             }
             else
@@ -351,8 +359,8 @@ WITHIN_KERNEL ${ctype} distribution_lambda(LOCAL_STATE *state)
 
         V = V * V * V;
         U = distribution_uniform_float(state);
-        if (U < 1.0 - 0.0331 * (X * X) * (X * X)) return (d * V);
-        if (log(U) < 0.5 * X * X + d * (1. - V + log(V))) return (d * V);
+        if (U < 1.0 - 0.0331 * (X * X) * (X * X)) return (d * V) * (${scale});
+        if (log(U) < 0.5 * X * X + d * (1. - V + log(V))) return (d * V) * (${scale});
     }
 }
 </%def>
@@ -378,6 +386,7 @@ WITHIN_KERNEL ${ctype} distribution_lambda(LOCAL_STATE *state)
         uniform_integer=1,
         uniform_float=1,
         normal_bm=2,
+        gamma=1,
         )[basis.distribution]
 
     size = basis.size
