@@ -7,11 +7,16 @@ Release history
 ===================================
 
 * ADDED: ability to use custom argument names in transformations.
+
 * ADDED: multi-argument :py:meth:`~reikna.cluda.kernel.FuncCollector.mul`.
+
 * ADDED: counter-based random number generator :py:class:`~reikna.cbrng.CBRNG`.
+
 * FIXED: removed boilerplate code from :py:class:`~reikna.cluda.kernel.FuncCollector`,
-    and fixed some inconsistencies in the function signatures.
+  and fixed some inconsistencies in the function signatures.
+
 * FIXED: some OpenCL compilation warnings cause by incorrect version querying macro.
+
 * FIXED: bug with incorrect processing of scalar global size in static kernels.
 
 
@@ -19,23 +24,33 @@ Release history
 ==================
 
 * FIXED: function names for kernel ``polar()``, ``exp()`` and ``conj()``.
+
 * FIXED: added forgotten kernel ``norm()`` handler.
+
 * FIXED: bug in ``Py.Test`` testcase execution hook which caused every test to run twice.
+
 * FIXED: bug in nested computation processing for computation with more than one kernel.
+
 * FIXED: added dependencies between :py:class:`~reikna.matrixmul.MatrixMul` kernel arguments.
+
 * FIXED: taking into account dependencies between input and output arrays as well as the ones
-    between internal allocations --- necessary for nested computations.
+  between internal allocations --- necessary for nested computations.
+
 * ADDED: discrete harmonic transform :py:class:`~reikna.dht.DHT`
-    (calculated using Gauss-Hermite quadrature).
+  (calculated using Gauss-Hermite quadrature).
 
 
 0.2.0 (3 Mar 2013)
 ==================
 
 * Added FFT computation (slightly optimized PyFFT version + Bluestein's algorithm for non-power-of-2 FFT sizes)
+
 * Added Python 3 compatibility
+
 * Added Context-global automatic memory packing
+
 * Added polar(), conj() and exp() functions to kernel toolbox
+
 * Changed name because of the clash with `another Tigger <http://www.astron.nl/meqwiki/Tigger>`_.
 
 
@@ -43,7 +58,9 @@ Release history
 ===================
 
 * Lots of changes in the API
+
 * Added elementwise, reduction and transposition computations
+
 * Extended API reference and added topical guides
 
 
@@ -51,5 +68,7 @@ Release history
 ===================
 
 * Created basic core for computations and transformations
+
 * Added matrix multiplication computation
+
 * Created basic documentation
