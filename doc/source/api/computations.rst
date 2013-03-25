@@ -20,3 +20,7 @@ Computations
 .. autofunction :: reikna.dht.get_spatial_grid
 .. autofunction :: reikna.dht.harmonic
 .. autoclass :: reikna.dht.DHT
+
+.. currentmodule:: reikna.cbrng
+.. autofunction:: reikna.cbrng.create_counters
+.. autoclass:: reikna.cbrng.CBRNG
