@@ -288,21 +288,29 @@ WITHIN_KERNEL ${ctype} distribution_uniform_float(LOCAL_STATE *state)
 </%def>
 
 
-<%def name="distribution_normal_bm(dtype)">
-WITHIN_KERNEL ${randoms.ctype}2 distribution_normal_bm(LOCAL_STATE *state)
+<%def name="distribution_normal_bm(dtype, distr_params)">
+<%
+    dtype2 = dtypes.complex_for(dtype)
+    ctype = dtypes.ctype(dtype)
+    ctype2 = dtypes.ctype(dtype2)
+%>
+
+${distribution_uniform_float(dtype, helpers.AttrDict(min=0, max=1))}
+
+WITHIN_KERNEL ${ctype2} distribution_normal_bm(LOCAL_STATE *state)
 {
-    ${randoms.ctype} u1 = distribution_uniform_float(state);
-    ${randoms.ctype} u2 = distribution_uniform_float(state);
+    ${ctype} u1 = distribution_uniform_float(state);
+    ${ctype} u2 = distribution_uniform_float(state);
 
-    ${randoms.ctype} ang = ${dtypes.c_constant(2.0 * pi, randoms.dtype)} * u2;
-    ${randoms.ctype} c_ang = cos(ang);
-    ${randoms.ctype} s_ang = sin(ang);
-    ${randoms.ctype} coeff = sqrt(${dtypes.c_constant(-2.0, randoms.dtype)} * log(u1)) *
-        ${dtypes.c_constant(distribution_params.scale, randoms.dtype)};
+    ${ctype} ang = ${dtypes.c_constant(2.0 * numpy.pi, dtype)} * u2;
+    ${ctype} c_ang = cos(ang);
+    ${ctype} s_ang = sin(ang);
+    ${ctype} coeff = sqrt(${dtypes.c_constant(-2.0, dtype)} * log(u1)) *
+        (${dtypes.c_constant(distr_params.std, dtype)});
 
-    data[id] = COMPLEX_CTR(${randoms.ctype})(
-        coeff * c_ang + ${dtypes.c_constant(distribution_params.loc, randoms.dtype)},
-        coeff * s_ang + ${dtypes.c_constant(distribution_params.loc, randoms.dtype)});
+    return COMPLEX_CTR(${ctype2})(
+        coeff * c_ang + (${dtypes.c_constant(distr_params.mean, dtype)}),
+        coeff * s_ang + (${dtypes.c_constant(distr_params.mean, dtype)}));
 }
 </%def>
 
@@ -369,7 +377,7 @@ WITHIN_KERNEL ${ctype} distribution_lambda(LOCAL_STATE *state)
     randoms_per_call = dict(
         uniform_integer=1,
         uniform_float=1,
-        gauss_bm=2,
+        normal_bm=2,
         )[basis.distribution]
 
     size = basis.size

@@ -150,8 +150,14 @@ def test_uniform_float(ctx_and_double):
         dict(extent=extent, mean=mean, std=std))
 
 
-def test_lambda():
-    pass
+def test_normal_bm(ctx_and_double):
+    ctx, double = ctx_and_double
+    dtype = numpy.float64 if double else numpy.float32
+    mean, std = -2, 10
+    check_distribution(ctx,
+        'philox', dict(bitness=64, words=4),
+        'normal_bm', dict(mean=mean, std=std), dtype,
+        dict(mean=mean, std=std))
 
 
 @pytest.mark.perf

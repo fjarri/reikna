@@ -94,7 +94,8 @@ class CBRNG(Computation):
 
         distribution_params_default = dict(
             uniform_integer=AttrDict(min=0, max=2**bs.rng_params.bitness-1),
-            uniform_float=AttrDict(min=0, max=1))
+            uniform_float=AttrDict(min=0, max=1),
+            normal_bm=AttrDict(mean=0, std=1),
         distribution_params_default = distribution_params_default[distribution]
         if distribution_params is not None:
             distribution_params_default.update(distribution_params)
