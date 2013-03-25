@@ -160,6 +160,18 @@ def test_normal_bm(ctx_and_double):
         dict(mean=mean, std=std))
 
 
+def test_gamma(ctx_and_double):
+    ctx, double = ctx_and_double
+    dtype = numpy.float64 if double else numpy.float32
+    shape, scale = 3, 10
+    mean = shape * scale
+    std = numpy.sqrt(shape) * scale
+    check_distribution(ctx,
+        'philox', dict(bitness=64, words=4),
+        'gamma', dict(mean=mean, std=std), dtype,
+        dict(shape=shape, scale=scale))
+
+
 @pytest.mark.perf
 def test_raw_perf():
     pass
