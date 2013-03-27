@@ -11,6 +11,8 @@
 0.3.0 (major API change)
 ========================
 
+* TODO: change the misleading name Elementwise to PureParallel (or something)
+
 * TODO: rename Context to Thread/Stream (more appropriate, less confusion)
   * create_queue() method in Context is not used anywhere, we can remove it
   * add fork() instead, which creates another Thread with the same context?
