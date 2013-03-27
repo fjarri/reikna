@@ -1,3 +1,4 @@
+import itertools
 import numpy
 
 from reikna.helpers import *
@@ -22,6 +23,9 @@ class Elementwise(Computation):
 
         :param args: arrays and scalars, according to the lists passed to :py:meth:`set_argnames`.
         :param code: kernel code.
+        :param dependencies: optional, a list of pairs of argument names
+            whose arrays depend on each other.
+            By default, only output arguments are dependent on each other.
     """
 
     # For now I cannot think of any other computation requiring variable number of arguments.
@@ -56,7 +60,13 @@ class Elementwise(Computation):
         outputs, inputs, params = self._get_argnames()
         argtypes = {name:arg.dtype for name, arg in zip(outputs + inputs + params, args)}
 
-        return dict(size=args[0].size, argtypes=argtypes, code=code)
+        dependencies = kwds.get('dependencies', None)
+        if dependencies is None:
+            dependencies = []
+        dependencies.extend([(arg1, arg2) for arg1, arg2
+            in itertools.product(outputs, outputs) if arg1 != arg2])
+
+        return dict(size=args[0].size, argtypes=argtypes, code=code, dependencies=dependencies)
 
     def _construct_operations(self, basis, device_params):
 
@@ -79,18 +89,22 @@ class Elementwise(Computation):
             """)
 
         operations.add_kernel(template, 'elementwise', names,
-            global_size=(basis.size,), render_kwds=dict(size=basis.size))
+            global_size=(basis.size,), render_kwds=dict(size=basis.size),
+            dependencies=basis.dependencies)
         return operations
 
 
-def specialize_elementwise(outputs, inputs, scalars, code):
+def specialize_elementwise(outputs, inputs, scalars, code, dependencies=None):
     """
     Returns an Elementwise class specialized for given argument names and code.
 
     :param outputs: a string or a list of strings with output argument names.
     :param inputs: a string or a list of strings with input argument names.
     :param scalars: ``None``, a string, or a list of strings with scalar argument names.
-    :param code: ``dict(kernel, functions)`` with kernel code.
+    :param code: see the ``code`` argument of Elementwise's
+        :py:meth:`~reikna.elementwise.Elementwise.prepare_for`.
+    :param dependencies: see the ``dependencies`` argument of Elementwise's
+        :py:meth:`~reikna.elementwise.Elementwise.prepare_for`.
     """
 
     outputs = wrap_in_tuple(outputs)
@@ -108,6 +122,6 @@ def specialize_elementwise(outputs, inputs, scalars, code):
             if len(args) != len(argnames):
                 raise TypeError("The computation takes exactly " +
                     str(len(argnames)) + "arguments")
-            return Elementwise._get_basis_for(self, *args, code=code)
+            return Elementwise._get_basis_for(self, *args, code=code, dependencies=dependencies)
 
     return SpecializedElementwise

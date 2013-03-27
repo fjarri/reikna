@@ -1,7 +1,6 @@
 0.2.2
 =====
 
-* TODO: allow to specify dependencies for Elementwise computation.
 * TODO: Add proper CBRNG documentation.
 * TODO: Add module support in CLUDA (will help to resolve the issue with gamma distribution
   using normal and uniform, and normal using uniform).
