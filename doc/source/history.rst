@@ -12,6 +12,8 @@ Release history
 
 * ADDED: counter-based random number generator :py:class:`~reikna.cbrng.CBRNG`.
 
+* ADDED: :py:class:`~reikna.elementwise.Elementwise` now supports argument dependencies.
+
 * FIXED: removed boilerplate code from :py:class:`~reikna.cluda.kernel.FuncCollector`,
   and fixed some inconsistencies in the function signatures.
 
