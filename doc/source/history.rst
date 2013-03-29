@@ -17,7 +17,7 @@ Release history
 * FIXED: removed boilerplate code from :py:class:`~reikna.cluda.kernel.FuncCollector`,
   and fixed some inconsistencies in the function signatures.
 
-* FIXED: some OpenCL compilation warnings cause by incorrect version querying macro.
+* FIXED: some OpenCL compilation warnings caused by an incorrect version querying macro.
 
 * FIXED: bug with incorrect processing of scalar global size in static kernels.
 
