@@ -10,7 +10,8 @@ from reikna.helpers import AttrDict
 import reikna.cluda as cluda
 import reikna.cluda.dtypes as dtypes
 from reikna.helpers import wrap_in_tuple, product
-from reikna.cluda.kernel import render_prelude, render_template_source
+from reikna.cluda.kernel import render_prelude, render_template_source, \
+    render_template_source_with_modules
 from reikna.cluda.vsize import VirtualSizes, render_stub_vsize_funcs
 from reikna.cluda.tempalloc import ZeroOffsetManager
 
@@ -153,8 +154,8 @@ class Context:
             raise
         return module
 
-    def compile(self, template_src, render_kwds=None):
-        return Module(self, template_src, render_kwds=render_kwds)
+    def compile(self, template_src, render_kwds=None, modules=None):
+        return Module(self, template_src, render_kwds=render_kwds, modules=modules)
 
     def compile_static(self, template_src, name, global_size,
             local_size=None, render_kwds=None):
@@ -218,13 +219,15 @@ class DeviceParameters:
 
 class Module:
 
-    def __init__(self, ctx, src, render_kwds=None):
+    def __init__(self, ctx, src, render_kwds=None, modules=None):
         self._ctx = ctx
 
         if render_kwds is None:
             render_kwds = {}
         prelude = render_prelude(self._ctx)
-        src = render_template_source(src, **render_kwds)
+
+        src = render_template_source_with_modules(src, render_kwds=render_kwds, modules=modules)
+        #src = render_template_source(src, **render_kwds)
 
         # Casting source code to ASCII explicitly
         # New versions of Mako produce Unicode output by default,

@@ -7,6 +7,7 @@ from mako.template import Template
 from mako import exceptions
 
 import reikna.helpers as helpers
+from reikna.helpers import AttrDict
 from reikna.cluda import dtypes
 from reikna.helpers import template_for
 
@@ -131,6 +132,66 @@ def render_without_funcs(template, func_c, *args, **kwds):
         error("Failed to render template:\n" + exceptions.text_error_template().render())
         raise Exception("Template rendering failed")
     return src
+
+
+def flatten_modules(modules):
+
+    if modules is None:
+        return {}, []
+
+    flat_modules = []
+
+    def process_module(module):
+
+        src, kwds, deps = module
+
+        if deps is None:
+            deps = {}
+
+        deps = {alias:process_module(dep_module)
+            for alias, dep_module in deps.items()}
+
+        module_id = len(flat_modules)
+        flat_modules.append(AttrDict(
+            template=src, render_kwds=kwds, dependencies=deps))
+        return module_id
+
+    root_modules = {alias:process_module(dep_module)
+        for alias, dep_module in modules.items()}
+
+    return flat_modules, root_modules
+
+def render_template_source_with_modules(src, render_kwds=None, modules=None):
+
+    class Prefix:
+
+        def __init__(self, id, aliases):
+            for alias, module_id in aliases.items():
+                setattr(self, alias, "_module" + str(module_id) + "_")
+            self._prefix = "_module" + str(id) + "_"
+
+        def __str__(self):
+            return self._prefix
+
+
+    flat_modules, root_modules = flatten_modules(modules)
+
+    main_template = src if hasattr(src, 'render') else Template(src)
+    flat_modules.append(AttrDict(template=main_template,
+        render_kwds=render_kwds, dependencies=root_modules))
+
+    func_c = FuncCollector()
+    srcs = []
+
+    for i, fm in enumerate(flat_modules):
+        kwds = dict(fm.render_kwds)
+        prefix = Prefix(i, fm.dependencies)
+        kwds['_prefix'] = prefix
+        src = render_without_funcs(fm.template, func_c, **kwds)
+        srcs.append("// module: " + str(prefix) + "\n\n" + src)
+
+    return func_c.render() + "\n".join(srcs)
+
 
 def render_template_source(template_src, *args, **kwds):
     return render_template(Template(template_src), *args, **kwds)
