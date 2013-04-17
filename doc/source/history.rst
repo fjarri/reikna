@@ -8,7 +8,7 @@ Release history
 
 * ADDED: ability to use custom argument names in transformations.
 
-* ADDED: multi-argument :py:meth:`~reikna.cluda.kernel.FuncCollector.mul`.
+* ADDED: multi-argument :py:func:`~reikna.cluda.functions.mul`.
 
 * ADDED: counter-based random number generator :py:class:`~reikna.cbrng.CBRNG`.
 
@@ -16,10 +16,9 @@ Release history
 
 * ADDED: Module support in CLUDA; see :ref:`tutorial-modules` for details.
 
-* REMOVED: ``cluda.kernel.render_template_source``; :py:func:`~reikna.cluda.kernel.render_template` should be used instead
+* REMOVED: ``render_template_source``; :py:func:`~reikna.cluda.kernel.render_template` should be used instead.
 
-* FIXED: removed boilerplate code from :py:class:`~reikna.cluda.kernel.FuncCollector`,
-  and fixed some inconsistencies in the function signatures.
+* CHANGED: ``FuncCollector`` class was removed; functions are now used as common modules.
 
 * FIXED: some OpenCL compilation warnings caused by an incorrect version querying macro.
 
