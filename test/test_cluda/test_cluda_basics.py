@@ -5,6 +5,7 @@ import pytest
 
 import reikna.cluda as cluda
 import reikna.cluda.dtypes as dtypes
+import reikna.cluda.functions as functions
 from reikna.helpers import product
 
 from helpers import *
@@ -138,16 +139,18 @@ def test_dtype_support(ctx, dtype):
     if not ctx.supports_dtype(dtype):
         pytest.skip()
 
+    mul = functions.mul(dtype, dtype)
+    div = functions.div(dtype, dtype)
     module = ctx.compile(
     """
     KERNEL void test(
         GLOBAL_MEM ${ctype} *dest, GLOBAL_MEM ${ctype} *a, GLOBAL_MEM ${ctype} *b)
     {
       const int i = get_global_id(0);
-      ${ctype} temp = ${func.mul(dtype, dtype)}(a[i], b[i]);
-      dest[i] = ${func.div(dtype, dtype)}(temp, b[i]);
+      ${ctype} temp = ${mul}(a[i], b[i]);
+      dest[i] = ${div}(temp, b[i]);
     }
-    """, render_kwds=dict(ctype=dtypes.ctype(dtype), dtype=dtype))
+    """, render_kwds=dict(ctype=dtypes.ctype(dtype), dtype=dtype, mul=mul, div=div))
 
     test = module.test
 
@@ -197,20 +200,21 @@ def test_mutiarg_mul(ctx, out_dtype, in_dtypes):
         %endfor
         )
     {
-      const int i = get_global_id(0);
-      %for arg, ctype in zip(argnames, in_ctypes):
-      ${ctype} ${arg}_load = ${arg}[i];
-      %endfor
+        const int i = get_global_id(0);
+        %for arg, ctype in zip(argnames, in_ctypes):
+        ${ctype} ${arg}_load = ${arg}[i];
+        %endfor
 
-      dest[i] = ${func.mul(*in_dtypes, out=out_dtype)}(
-        ${", ".join([arg + "_load" for arg in argnames])});
+        dest[i] = ${mul}(${", ".join([arg + "_load" for arg in argnames])});
     }
     """
+    mul = functions.mul(*in_dtypes, out_dtype=out_dtype)
 
     # Temporarily catching imaginary part truncation warnings
     with catch_warnings():
         filterwarnings("ignore", "", numpy.ComplexWarning)
-        module = ctx.compile(src, render_kwds=dict(in_dtypes=in_dtypes, out_dtype=out_dtype))
+        module = ctx.compile(src,
+            render_kwds=dict(in_dtypes=in_dtypes, out_dtype=out_dtype, mul=mul))
 
     test = module.test
 

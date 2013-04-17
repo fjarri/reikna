@@ -3,6 +3,7 @@ import pytest
 from helpers import *
 from reikna.helpers import *
 from reikna.cluda.kernel import Module
+import reikna.cluda.functions as functions
 
 
 TEMPLATE = template_from("""
@@ -12,7 +13,7 @@ TEMPLATE = template_from("""
 %>
 WITHIN_KERNEL ${ctype} ${prefix}multiplier(${ctype} x, ${ctype} y)
 {
-    return ${func.mul(dtype, dtype, out=dtype)}(x, y) + ${num};
+    return ${mul}(x, y) + ${num};
 }
 </%def>
 
@@ -44,38 +45,34 @@ dest[idx] = ${c}combinator(${a}[idx], ${b}[idx]);
 """)
 
 
-class Multiplier(Module):
-    def __init__(self, dtype, num=1):
-        Module.__init__(
-            self,
-            TEMPLATE.get_def('multiplier'),
-            render_kwds=dict(dtype=dtype, num=num))
+def multiplier(dtype, num=1):
+    mul = functions.mul(dtype, dtype, out_dtype=dtype)
+    return Module(
+        TEMPLATE.get_def('multiplier'),
+        render_kwds=dict(dtype=dtype, num=num, mul=mul))
 
-class Subtractor(Module):
-    def __init__(self, dtype, mnum=1, num=1):
-        m = Multiplier(dtype, num=mnum)
-        Module.__init__(
-            self,
-            TEMPLATE.get_def('subtractor'),
-            render_kwds=dict(dtype=dtype, num=num, m=m))
 
-class Combinator(Module):
-    def __init__(self, dtype, m1num=1, m2num=1, snum=1):
-        m = Multiplier(dtype, num=m1num)
-        s = Subtractor(dtype, mnum=m2num, num=snum)
-        Module.__init__(
-            self,
-            TEMPLATE.get_def('combinator'),
-            render_kwds=dict(dtype=dtype, m=m, s=s))
+def subtractor(dtype, mnum=1, num=1):
+    m = multiplier(dtype, num=mnum)
+    return Module(
+        TEMPLATE.get_def('subtractor'),
+        render_kwds=dict(dtype=dtype, num=num, m=m))
 
-class CombinatorCall(Module):
-    def __init__(self, dtype, m1num=1, m2num=1, snum=1):
-        c = Combinator(dtype, m1num=m1num, m2num=m2num, snum=snum)
-        Module.__init__(
-            self,
-            TEMPLATE.get_def('snippet'),
-            render_kwds=dict(c=c),
-            snippet=True)
+
+def combinator(dtype, m1num=1, m2num=1, snum=1):
+    m = multiplier(dtype, num=m1num)
+    s = subtractor(dtype, mnum=m2num, num=snum)
+    return Module(
+        TEMPLATE.get_def('combinator'),
+        render_kwds=dict(dtype=dtype, m=m, s=s))
+
+
+def combinator_call(dtype, m1num=1, m2num=1, snum=1):
+    c = combinator(dtype, m1num=m1num, m2num=m2num, snum=snum)
+    return Module(
+        TEMPLATE.get_def('snippet'),
+        render_kwds=dict(c=c),
+        snippet=True)
 
 
 def test_modules(some_ctx):
@@ -94,7 +91,7 @@ def test_modules(some_ctx):
             dest[idx] = ${c}combinator(a[idx], b[idx]);
         }
         """,
-        render_kwds=dict(c=Combinator(dtype, m1num=m1num, m2num=m2num, snum=snum)))
+        render_kwds=dict(c=combinator(dtype, m1num=m1num, m2num=m2num, snum=snum)))
 
     a = get_test_array(N, dtype)
     b = get_test_array(N, dtype)
@@ -124,7 +121,7 @@ def test_snippet(some_ctx):
             ${s('a', 'b')}
         }
         """,
-        render_kwds=dict(s=CombinatorCall(dtype, m1num=m1num, m2num=m2num, snum=snum)))
+        render_kwds=dict(s=combinator_call(dtype, m1num=m1num, m2num=m2num, snum=snum)))
 
     a = get_test_array(N, dtype)
     b = get_test_array(N, dtype)
