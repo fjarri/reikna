@@ -11,6 +11,8 @@
 ========================
 
 * TODO: change the misleading name Elementwise to PureParallel (or something)
+* TODO: rename Module to Program to make place for actual modules
+* TODO: use classes instead of functions transformations
 
 * TODO: rename Context to Thread/Stream (more appropriate, less confusion)
   * create_queue() method in Context is not used anywhere, we can remove it
