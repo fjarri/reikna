@@ -208,13 +208,14 @@ def test_multiarg_mul(ctx, out_dtype, in_dtypes):
         dest[i] = ${mul}(${", ".join([arg + "_load" for arg in argnames])});
     }
     """
-    mul = functions.mul(*in_dtypes, out_dtype=out_dtype)
 
     # Temporarily catching imaginary part truncation warnings
     with catch_warnings():
         filterwarnings("ignore", "", numpy.ComplexWarning)
-        module = ctx.compile(src,
-            render_kwds=dict(in_dtypes=in_dtypes, out_dtype=out_dtype, mul=mul))
+        mul = functions.mul(*in_dtypes, out_dtype=out_dtype)
+
+    module = ctx.compile(src,
+        render_kwds=dict(in_dtypes=in_dtypes, out_dtype=out_dtype, mul=mul))
 
     test = module.test
 
