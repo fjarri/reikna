@@ -227,7 +227,7 @@ def philox(W, N, ctr, key, Nrounds=None):
         for rnd in range(Nrounds):
             ctr = philox_round(W, N, rnd, ctr, key)
 
-    return ctr;
+    return ctr
 
 
 # Some simple testcases to compare with Random123 results.
