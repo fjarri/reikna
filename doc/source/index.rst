@@ -23,6 +23,7 @@ Contents
    introduction
    tutorial-basic
    tutorial-advanced
+   tutorial-modules
    api/index
    history
 
