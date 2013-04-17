@@ -154,8 +154,8 @@ class Context:
             raise
         return module
 
-    def compile(self, template_src, render_kwds=None, modules=None):
-        return Module(self, template_src, render_kwds=render_kwds, modules=modules)
+    def compile(self, template_src, render_kwds=None):
+        return Module(self, template_src, render_kwds=render_kwds)
 
     def compile_static(self, template_src, name, global_size,
             local_size=None, render_kwds=None):
@@ -219,15 +219,14 @@ class DeviceParameters:
 
 class Module:
 
-    def __init__(self, ctx, src, render_kwds=None, modules=None):
+    def __init__(self, ctx, src, render_kwds=None):
         self._ctx = ctx
 
         if render_kwds is None:
             render_kwds = {}
         prelude = render_prelude(self._ctx)
 
-        src = render_template_source_with_modules(src, render_kwds=render_kwds, modules=modules)
-        #src = render_template_source(src, **render_kwds)
+        src = render_template_source_with_modules(src, **render_kwds)
 
         # Casting source code to ASCII explicitly
         # New versions of Mako produce Unicode output by default,
