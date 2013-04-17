@@ -210,7 +210,7 @@ def philox(W, N, ctr, key, Nrounds=None):
     """
     W: word length (32, 64)
     N: number of generated items, 2 or 4
-    Nrounds: number of rounds (up to 72)
+    Nrounds: number of rounds (up to 16)
     inn: counter, array(N, numpy.uint${W}) --- counter
     k: key, array(N/2, numpy.uint${W}) --- key
     returns: array(N, numpy.uint${W})
