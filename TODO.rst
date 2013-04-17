@@ -3,6 +3,7 @@
 
 * TODO: Add module support in CLUDA (will help to resolve the issue with gamma distribution
   using normal and uniform, and normal using uniform).
+
   * use modules in CBRNG
   * add custom render keywords for transformations (will help e.g. in reikna.transformations)
 
@@ -15,27 +16,31 @@
 * TODO: use classes instead of functions transformations
 
 * TODO: rename Context to Thread/Stream (more appropriate, less confusion)
+
   * create_queue() method in Context is not used anywhere, we can remove it
   * add fork() instead, which creates another Thread with the same context?
   * create base class for Thread which contains the overlapping functionality
   * add add explicit context release methods for Thread --- not all Python implementations use reference counting, and non-instantaneous __del__ may cause problems with CUDA.
 
 * DECIDE: keyword arguments only?
-  + can mark an argument as both input and output
-  + easier to construct and return signature
-  + easier to handle internally
-  + can return dependencies between external arguments with the signature
-  + can allow to omit some of the positional arguments during the preparation
+
+  * can mark an argument as both input and output
+  * easier to construct and return signature
+  * easier to handle internally
+  * can return dependencies between external arguments with the signature
+  * can allow to omit some of the positional arguments during the preparation
     and deduce their shape (i.e., direction in FFT)
-  + arguments (and their types/shapes) can be available as attributes of the computation object
-  - any disadvantages?
+  * arguments (and their types/shapes) can be available as attributes of the computation object
+  * any disadvantages?
 
 * DECIDE: several methods in the same Computations?
-  + FFT, DHT, CBRNG can take advantage of that
-  + connect as ``fft.forward.output.connect(...)``
-  - which method prepare_for() uses? Or just use some general prepare()?
+
+  * FFT, DHT, CBRNG can take advantage of that
+  * connect as ``fft.forward.output.connect(...)``
+  * which method prepare_for() uses? Or just use some general prepare()?
 
 * TODO: use different classes for different states of Computation
+
   * ready for setting arglist: ComputationFactory?
   * ready for connects/prepare: ComputationTemplate?
   * ready for calls: Computation
@@ -140,6 +145,7 @@ Currently transformation code is quite difficult to read and write.
 Perhaps some DSL can be devised to make it easier?
 Even better, if that DSL could be applied to kernels too.
 Take a look at:
+
 * Copperhead (Python-based DSL for GPGPU)
 * CodePy (Python -> AST transformer)
 * Clyther (subset of Python -> OpenCL code)
