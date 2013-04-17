@@ -167,7 +167,7 @@ def test_dtype_support(ctx, dtype):
 
 @pytest.mark.parametrize('in_dtypes', ["ii", "ff", "cc", "cfi", "ifccfi"])
 @pytest.mark.parametrize('out_dtype', ["auto", "i", "f", "c"])
-def test_mutiarg_mul(ctx, out_dtype, in_dtypes):
+def test_multiarg_mul(ctx, out_dtype, in_dtypes):
     """
     Checks multi-argument mul() with a variety of data types.
     """
