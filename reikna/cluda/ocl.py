@@ -279,7 +279,7 @@ class StaticKernel:
 
         prelude = render_prelude(self._ctx)
         stub_vsize_funcs = render_stub_vsize_funcs()
-        src = render_template_source(src, **render_kwds)
+        src = render_template_source_with_modules(src, **render_kwds)
 
         # We need the first approximation of the maximum thread number for a kernel.
         # Stub virtual size functions instead of real ones will not change it (hopefully).

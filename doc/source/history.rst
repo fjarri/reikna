@@ -14,6 +14,8 @@ Release history
 
 * ADDED: :py:class:`~reikna.elementwise.Elementwise` now supports argument dependencies.
 
+* REMOVED: ``cluda.kernel.render_template_source``; :py:func:`~reikna.cluda.kernel.render_template` should be used instead
+
 * FIXED: removed boilerplate code from :py:class:`~reikna.cluda.kernel.FuncCollector`,
   and fixed some inconsistencies in the function signatures.
 

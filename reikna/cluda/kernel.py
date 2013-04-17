@@ -197,10 +197,7 @@ def render_template_source_with_modules(src, *args, **render_kwds):
     return func_c.render() + "\n".join(src_list)
 
 
-def render_template_source(template_src, *args, **kwds):
-    return render_template(Template(template_src), *args, **kwds)
-
 def render_template(template, *args, **kwds):
     func_c = FuncCollector()
-    src = render_without_funcs(template, func_c, *args, **kwds)
+    src = render_without_funcs(template_from(template), func_c, *args, **kwds)
     return func_c.render() + src
