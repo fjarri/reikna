@@ -7,8 +7,8 @@ from mako.template import Template
 from mako import exceptions
 
 import reikna.helpers as helpers
+from reikna.helpers import AttrDict, template_for, template_from
 from reikna.cluda import dtypes
-from reikna.helpers import template_for
 
 TEMPLATE = template_for(__file__)
 
@@ -132,10 +132,72 @@ def render_without_funcs(template, func_c, *args, **kwds):
         raise Exception("Template rendering failed")
     return src
 
-def render_template_source(template_src, *args, **kwds):
-    return render_template(Template(template_src), *args, **kwds)
+
+class Module:
+
+    def __init__(self, template, render_kwds=None, snippet=False):
+        self.template = template_from(template)
+        self.render_kwds = dict(render_kwds)
+        self.snippet = snippet
+
+
+def get_prefix(n):
+    return "_module" + str(n) + "_"
+
+
+class ProcessedModule(AttrDict): pass
+
+
+def flatten_module(module_list, module):
+
+    processed_module = ProcessedModule(
+        template=module.template,
+        render_kwds=dict(module.render_kwds))
+
+    for kwd, val in processed_module.render_kwds.items():
+        if isinstance(val, Module):
+            processed_module.render_kwds[kwd] = flatten_module(module_list, val)
+
+    if not module.snippet:
+        prefix = get_prefix(len(module_list))
+        module_list.append(ProcessedModule(
+            template=template_from("""\n${module(prefix)}\n"""),
+            render_kwds=dict(module=processed_module, prefix=prefix)))
+        return prefix
+    else:
+        return processed_module
+
+
+def flatten_module_tree(src, render_kwds):
+    main_module = Module(src, render_kwds=render_kwds, snippet=True)
+    module_list = []
+    main_module = flatten_module(module_list, main_module)
+    module_list.append(main_module)
+    return module_list
+
+
+def render_snippet_tree(pm, func_c):
+    kwds = pm.render_kwds
+    for kwd, val in kwds.items():
+        if isinstance(val, ProcessedModule):
+            kwds[kwd] = render_snippet_tree(val, func_c)
+
+    return lambda *args: render_without_funcs(
+        pm.template, func_c, *args, **pm.render_kwds)
+
+
+def render_template_source_with_modules(src, *args, **render_kwds):
+
+    module_list = flatten_module_tree(src, render_kwds)
+    func_c = FuncCollector()
+    renderers = [render_snippet_tree(pm, func_c) for pm in module_list]
+    src_list = [render() for render in renderers[:-1]]
+    src_list.append(renderers[-1](*args))
+
+    return func_c.render() + "\n".join(src_list)
+
 
 def render_template(template, *args, **kwds):
     func_c = FuncCollector()
-    src = render_without_funcs(template, func_c, *args, **kwds)
+    src = render_without_funcs(template_from(template), func_c, *args, **kwds)
     return func_c.render() + src

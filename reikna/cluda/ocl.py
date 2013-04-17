@@ -10,7 +10,8 @@ from reikna.helpers import AttrDict
 import reikna.cluda as cluda
 import reikna.cluda.dtypes as dtypes
 from reikna.helpers import wrap_in_tuple, product
-from reikna.cluda.kernel import render_prelude, render_template_source
+from reikna.cluda.kernel import render_prelude, render_template_source, \
+    render_template_source_with_modules
 from reikna.cluda.vsize import VirtualSizes, render_stub_vsize_funcs
 from reikna.cluda.tempalloc import ZeroOffsetManager
 
@@ -224,7 +225,8 @@ class Module:
         if render_kwds is None:
             render_kwds = {}
         prelude = render_prelude(self._ctx)
-        src = render_template_source(src, **render_kwds)
+
+        src = render_template_source_with_modules(src, **render_kwds)
 
         # Casting source code to ASCII explicitly
         # New versions of Mako produce Unicode output by default,
@@ -277,7 +279,7 @@ class StaticKernel:
 
         prelude = render_prelude(self._ctx)
         stub_vsize_funcs = render_stub_vsize_funcs()
-        src = render_template_source(src, **render_kwds)
+        src = render_template_source_with_modules(src, **render_kwds)
 
         # We need the first approximation of the maximum thread number for a kernel.
         # Stub virtual size functions instead of real ones will not change it (hopefully).

@@ -47,11 +47,15 @@ def template_source_for(filename):
     return open(name + ".mako").read()
 
 
-def template_from(template_str):
+def template_from(template):
     """
     Creates a Mako template object from a given string.
+    If ``template`` already has ``render()`` method, does nothing.
     """
-    return Template(template_str)
+    if hasattr(template, 'render'):
+        return template
+    else:
+        return Template(template)
 
 
 def template_defs_for_code(code, argnames):
