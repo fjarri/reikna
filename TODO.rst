@@ -45,6 +45,8 @@
   * ready for connects/prepare: ComputationTemplate?
   * ready for calls: Computation
 
+* DECIDE: think of better way of module discovery in render keywords than looking inside AttrDicts. (see reikna.cluda.kernel.process_render_kwds)
+
 
 0.4.0
 =====
