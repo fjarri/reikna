@@ -4,95 +4,15 @@ import numpy
 from mako.template import Template
 
 import reikna.cluda.dtypes as dtypes
-from reikna.cluda.kernel import render_without_funcs, FuncCollector
-from reikna.helpers import AttrDict, product, wrap_in_tuple
+from reikna.cluda.kernel import render_without_funcs, Module
+from reikna.helpers import AttrDict, product, wrap_in_tuple, template_from, template_for
 
 
-INDEX_NAME = "idx"
-VALUE_NAME = "val"
+TEMPLATE = template_for(__file__)
 
 
 class TypePropagationError(Exception):
     pass
-
-
-def load_macro_name(name):
-    return "_LOAD_" + name
-
-def load_function_name(name):
-    return "_load_" + name
-
-def leaf_load_macro(name):
-    return "#define {macro_name}({idx}) ({name}[{idx}])".format(
-        macro_name=load_macro_name(name), name=leaf_name(name),
-        idx=INDEX_NAME, val=VALUE_NAME)
-
-def node_load_macro(name, argnames):
-    return "#define {macro_name}({idx}) {fname}({arglist}, {idx})".format(
-        macro_name=load_macro_name(name), fname=load_function_name(name),
-        arglist = ", ".join([leaf_name(name) for name in argnames]),
-        idx=INDEX_NAME, val=VALUE_NAME)
-
-def base_leaf_load_macro(name):
-    return "#define {macro_name}({idx}) ({name}[{idx}])".format(
-        macro_name=load_macro_name(name), name=leaf_name(name),
-        idx=INDEX_NAME, val=VALUE_NAME)
-
-def base_node_load_macro(name, argnames):
-    return "#define {macro_name}({idx}) {fname}({arglist}, {idx})".format(
-        macro_name=load_macro_name(name), fname=load_function_name(name),
-        arglist = ", ".join([leaf_name(name) for name in argnames]),
-        idx=INDEX_NAME, val=VALUE_NAME)
-
-def load_macro_call(name):
-    return load_macro_name(name)
-
-def load_macro_call_tr(name):
-    return "{macro_name}({idx})".format(
-        macro_name=load_macro_name(name), idx=INDEX_NAME)
-
-
-
-def store_macro_name(name):
-    return "_STORE_" + name
-
-def store_function_name(name):
-    return "_store_" + name
-
-def leaf_store_macro(name):
-    return "#define {macro_name}({val}) {name}[{idx}] = ({val})".format(
-        macro_name=store_macro_name(name), name=leaf_name(name),
-        idx=INDEX_NAME, val=VALUE_NAME)
-
-def node_store_macro(name, argnames):
-    return "#define {macro_name}({val}) {fname}({arglist}, {idx}, {val})".format(
-        macro_name=store_macro_name(name), fname=store_function_name(name),
-        arglist = ", ".join([leaf_name(name) for name in argnames]),
-        idx=INDEX_NAME, val=VALUE_NAME)
-
-def base_leaf_store_macro(name):
-    return "#define {macro_name}({idx}, {val}) {name}[{idx}] = ({val})".format(
-        macro_name=store_macro_name(name), name=leaf_name(name),
-        idx=INDEX_NAME, val=VALUE_NAME)
-
-def base_node_store_macro(name, argnames):
-    return "#define {macro_name}({idx}, {val}) {fname}({arglist}, {idx}, {val})".format(
-        macro_name=store_macro_name(name), fname=store_function_name(name),
-        arglist = ", ".join([leaf_name(name) for name in argnames]),
-        idx=INDEX_NAME, val=VALUE_NAME)
-
-def store_macro_call(name):
-    return store_macro_name(name)
-
-
-def signature_macro_name():
-    return "SIGNATURE"
-
-def kernel_definition(kernel_name):
-    return "KERNEL void {kernel_name}(SIGNATURE)".format(kernel_name=kernel_name)
-
-def leaf_name(name):
-    return "_leaf_" + name
 
 
 def valid_argument_name(name):
@@ -222,7 +142,8 @@ class Transformation:
 
     def __init__(self, inputs=1, outputs=1, scalars=0,
             derive_o_from_is=None, derive_i_from_os=None,
-            code=None):
+            derive_render_kwds=None,
+            snippet=None):
 
         gen_names = lambda names, prefix: [prefix + str(i+1) for i in xrange(names)] \
             if isinstance(names, int) else list(names)
@@ -230,8 +151,16 @@ class Transformation:
         self.outputs = gen_names(outputs, 'o')
         self.scalars = gen_names(scalars, 's')
 
-        if code is None:
-            code = "${" + self.outputs[0] + ".store}(${" + self.inputs[0] + ".load});"
+        if snippet is None:
+            snippet = "${" + self.outputs[0] + ".store}(${" + self.inputs[0] + ".load});"
+
+        self.snippet_template = template_from("<%def name=\"transformation(" +
+            ", ".join(self.outputs + self.inputs + self.scalars) +
+            ")\">\n" +
+            snippet +
+            "\n</%def>").get_def('transformation')
+
+        self.snippet = snippet
 
         if derive_o_from_is is None:
             if len(self.outputs) == 1:
@@ -251,38 +180,71 @@ class Transformation:
                     "This transformation cannot be used for an output and therefore cannot have "
                     "a ``derive_i_from_os`` parameter")
 
+        if derive_render_kwds is None:
+            derive_render_kwds = lambda *args: {}
+
         self.derive_o_from_is = derive_o_from_is
         self.derive_i_from_os = derive_i_from_os
+        self.derive_render_kwds = derive_render_kwds
 
-        self.code = Template(code)
-
-
-NODE_INPUT = 0
-NODE_OUTPUT = 1
-NODE_SCALAR = 2
+    def construct_snippet(self, *args):
+        render_kwds = self.derive_render_kwds(*args)
+        return Module(self.snippet_template, render_kwds=render_kwds, snippet=True)
 
 
-class TransformationArgument:
+class Node:
 
-    def __init__(self, nodes, kind, label, name, node_type):
-        self.label = label
-        self._name = name
-        self.dtype = nodes[self._name].value.dtype
+    INPUT = "input node"
+    OUTPUT = "output node"
+    SCALAR = "scalar node"
+    TEMP = "temporary node"
+
+    def __init__(self, name, node_type, value=None):
+        self.name = name
+        self.leaf_name = "_leaf_" + name
+        self.type = node_type
+        if value is None:
+            value = ScalarValue(None) if node_type == self.SCALAR else ArrayValue(None, None)
+        self.value = value
+        self.children=None
+        self.tr_to_children=None
+
+
+class TransformationArgument(AttrDict):
+
+    def __init__(self, node, action):
+        AttrDict.__init__(self)
+
+        self.dtype = node.value.dtype
         self.ctype = dtypes.ctype(self.dtype)
 
-        if node_type == NODE_INPUT:
-            if kind == 'i':
-                self.load = load_macro_call_tr(self._name)
-            elif kind == 'o':
-                self.store = "return"
+        if node.type == Node.INPUT:
+            self.load = action
         else:
-            if kind == 'i':
-                self.load = "val"
-            elif kind == 'o':
-                self.store = store_macro_call(self._name)
+            self.store = action
+
+
+class ConnectorArgument:
+
+    def __init__(self, node):
+        self.dtype = node.value.dtype
+        self.ctype = dtypes.ctype(self.dtype)
+
+        if node.type == Node.INPUT:
+            self.store = "return"
+        else:
+            self.load = VALUE_NAME
+
+
+class ScalarArgument:
+
+    def __init__(self, node):
+        self.leaf_name = node.leaf_name
+        self.dtype = node.value.dtype
+        self.ctype = dtypes.ctype(self.dtype)
 
     def __str__(self):
-        return leaf_name(self._name)
+        return self.leaf_name
 
 
 class TransformationTree:
@@ -306,17 +268,11 @@ class TransformationTree:
             raise ValueError("There are repeating argument names")
 
         for name in outputs:
-            self.nodes[name] = AttrDict(name=name, type=NODE_OUTPUT,
-                value=ArrayValue(None, None),
-                children=None, tr_to_children=None)
+            self.nodes[name] = Node(name, Node.OUTPUT)
         for name in inputs:
-            self.nodes[name] = AttrDict(name=name, type=NODE_INPUT,
-                value=ArrayValue(None, None),
-                children=None, tr_to_children=None)
+            self.nodes[name] = Node(name, Node.INPUT)
         for name in scalars:
-            self.nodes[name] = AttrDict(name=name, type=NODE_SCALAR,
-                value=ScalarValue(None),
-                children=None, tr_to_children=None)
+            self.nodes[name] = Node(name, Node.SCALAR)
 
     def copy(self):
         tree = TransformationTree(self._outputs, self._inputs, self._scalars)
@@ -343,7 +299,7 @@ class TransformationTree:
         # So we are pre-filling scalars accumulator with base scalars before
         # stating depth-first walk.
         scalars = [name for name in base_names
-            if name in self.nodes and self.nodes[name].type == NODE_SCALAR]
+            if name in self.nodes and self.nodes[name].type == Node.SCALAR]
         visited = set(scalars)
 
         def visit(names):
@@ -360,7 +316,7 @@ class TransformationTree:
 
                 node = self.nodes[name]
                 if node.children is None:
-                    if node.type == NODE_SCALAR:
+                    if node.type == Node.SCALAR:
                         scalars.append(name)
                     else:
                         arrays.append(name)
@@ -376,15 +332,13 @@ class TransformationTree:
         return [self.nodes[name].value for name in self.base_names]
 
     def leaf_values_dict(self):
-        res = {name:value for name, value in self.leaf_signature()}
-        res.update({name:value.value for name, value in self.temp_nodes.items()})
-        return res
+        return {name:value for name, value in self.leaf_signature()}
 
     def all_children(self, name):
         return [name for name, _ in self.leaf_signature([name])]
 
     def add_temp_node(self, name, value):
-         self.temp_nodes[name] = AttrDict(value=value)
+         self.nodes[name] = Node(name, Node.TEMP, value=value)
 
     def propagate_to_base(self, values_dict):
         # takes {name: mock_val} and propagates it from leaves to roots,
@@ -408,7 +362,7 @@ class TransformationTree:
             # derive type
             child_dtypes = [self.nodes[child].value.dtype for child in node.children]
             tr = node.tr_to_children
-            derive_types = tr.derive_i_from_os if node.type == NODE_OUTPUT else tr.derive_o_from_is
+            derive_types = tr.derive_i_from_os if node.type == Node.OUTPUT else tr.derive_o_from_is
             node.value.dtype = dtypes.normalize_type(derive_types(*child_dtypes))
 
             # derive shape
@@ -420,124 +374,57 @@ class TransformationTree:
         for name in self.base_names:
             deduce(name)
 
-    def transformations_for(self, names):
-        # takes [name] for bases and returns necessary transformation code
-        # if some of the names are not in base, they are treated as leaves
-        # returns string with all the transformation code
-        visited = set()
-        code_list = []
-        func_c = FuncCollector(prefix="tr")
+    def _transformations_for(self, name):
+        # Takes a base argument name and returns the corresponding Argument object
+        # which can be passed to the main kernel.
+        # If the name is not in base, it is treated as a leaf.
 
-        def build_arglist(argnames):
-            res = []
-            for argname in argnames:
-                if argname in self.nodes:
-                    value = self.nodes[argname].value
-                else:
-                    value = self.temp_nodes[argname].value
+        node = self.nodes[name]
 
-                dtype = value.dtype
-                ctype = dtypes.ctype(dtype)
+        if node.type == Node.SCALAR:
+            return ScalarArgument(node)
 
-                res.append(("GLOBAL_MEM " if value.is_array else " ") +
-                    ctype + (" *" if value.is_array else " ") + leaf_name(argname))
+        if node.children is None:
+            module = Module(
+                TEMPLATE.get_def('leaf_macro'),
+                render_kwds=dict(node=node, base=(name in self.base_names)))
+            return TransformationArgument(node, module)
 
-            return ", ".join(res)
+        tr = node.tr_to_children
+        tr_args = [ConnectorArgument(node)] + \
+            [self._transformations_for(name) for name in node.children]
 
-        def signature_macro(argnames):
-            return "#define {macro_name} {arglist}".format(
-                macro_name=signature_macro_name(),
-                arglist=build_arglist(argnames))
+        tr_names = [node.name] + node.children
 
-        def process(name):
-            if name in visited: return
+        all_children = self.all_children(node.name)
 
-            visited.add(name)
-            node = self.nodes[name]
+        tr_dtypes = [self.nodes[name].value.dtype for name in tr_names]
+        tr_snippet = tr.construct_snippet(*tr_dtypes)
 
-            if node.type == NODE_INPUT:
-                if name in self.base_names:
-                    leaf_macro = base_leaf_load_macro
-                    node_macro = base_node_load_macro
-                else:
-                    leaf_macro = leaf_load_macro
-                    node_macro = node_load_macro
-            elif node.type == NODE_OUTPUT:
-                if name in self.base_names:
-                    leaf_macro = base_leaf_store_macro
-                    node_macro = base_node_store_macro
-                else:
-                    leaf_macro = leaf_store_macro
-                    node_macro = node_store_macro
-            else:
-                return
+        render_kwds=dict(
+            tr_snippet=tr_snippet,
+            tr_args=tr_args,
+            node=node,
+            leaf_nodes=[self.nodes[name] for name in all_children])
 
-            if node.children is None:
-                code_list.append("// leaf node " + node.name + "\n" + leaf_macro(node.name))
-                return
+        module = Module(
+            TEMPLATE.get_def('transformation_node'),
+            render_kwds=render_kwds)
 
-            for child in node.children:
-                process(child)
+        return TransformationArgument(node, module)
 
-            all_children = self.all_children(node.name)
-            tr = node.tr_to_children
+    def transformations_for(self, kernel_name, names):
+        # Takes [name] for bases and returns a list with Argument objects
+        # corresponding to the list of names.
+        # If some of the names are not in base, they are treated as leaves.
 
-            if node.type == NODE_INPUT:
-                definition = "INLINE WITHIN_KERNEL {outtype} {fname}({arglist}, int idx)".format(
-                    outtype=dtypes.ctype(node.value.dtype),
-                    fname=load_function_name(node.name),
-                    arglist=build_arglist(all_children))
-                input_names = node.children[:len(tr.inputs)]
-                scalar_names = node.children[len(tr.inputs):]
+        leaf_nodes = [self.nodes[name] for name, _ in self.leaf_signature(names)]
 
-                args = {}
-                for i, name in enumerate(input_names):
-                    arg = TransformationArgument(self.nodes, 'i', tr.inputs[i], name, node.type)
-                    args[arg.label] = arg
-                for i, name in enumerate(scalar_names):
-                    arg = TransformationArgument(self.nodes, 's', tr.scalars[i], name, node.type)
-                    args[arg.label] = arg
+        kernel_def = TEMPLATE.get_def('kernel_definition').render(
+            kernel_name, leaf_nodes, dtypes=dtypes)
+        tr_args = [self._transformations_for(name) for name in names]
 
-                arg = TransformationArgument(self.nodes, 'o', tr.outputs[0], node.name, node.type)
-                args[arg.label] = arg
-
-            else:
-                definition = "INLINE WITHIN_KERNEL void {fname}({arglist}, int idx, {intype} val)".format(
-                    intype=dtypes.ctype(node.value.dtype),
-                    fname=store_function_name(node.name),
-                    arglist=build_arglist(all_children))
-
-                output_names = node.children[:len(tr.outputs)]
-                scalar_names = node.children[len(tr.outputs):]
-
-                args = {}
-                for i, name in enumerate(output_names):
-                    arg = TransformationArgument(self.nodes, 'o', tr.outputs[i], name, node.type)
-                    args[arg.label] = arg
-                for i, name in enumerate(scalar_names):
-                    arg = TransformationArgument(self.nodes, 's', tr.scalars[i], name, node.type)
-                    args[arg.label] = arg
-
-                arg = TransformationArgument(self.nodes, 'i', tr.inputs[0], node.name, node.type)
-                args[arg.label] = arg
-
-
-            code_src = render_without_funcs(tr.code, func_c, **args)
-
-            code_list.append("// node " + node.name + "\n" +
-                definition + "\n{\n" + code_src + "\n}\n" +
-                node_macro(node.name, all_children))
-
-        for name in names:
-            if name in self.base_names:
-                process(name)
-            else:
-                code_list.append(base_leaf_load_macro(name))
-                code_list.append(base_leaf_store_macro(name))
-
-        leaf_names = [name for name, _ in self.leaf_signature(names)]
-        return func_c.render() + "\n\n" + "\n\n".join(code_list) + \
-            "\n\n" + signature_macro(leaf_names)
+        return kernel_def, tr_args
 
     def connections_for(self, names):
         connections = []
@@ -575,13 +462,13 @@ class TransformationTree:
 
         parent = self.nodes[array_arg]
 
-        if parent.type == NODE_OUTPUT:
+        if parent.type == Node.OUTPUT:
             if len(tr.inputs) > 1:
                 raise ValueError("Transformation for an output node must have one input")
             if len(tr.outputs) != len(new_array_args):
                 raise ValueError("Number of array argument names does not match the transformation")
 
-        if parent.type == NODE_INPUT:
+        if parent.type == Node.INPUT:
             if len(tr.outputs) > 1:
                 raise ValueError("Transformation for an input node must have one output")
             if len(tr.inputs) != len(new_array_args):
@@ -596,24 +483,18 @@ class TransformationTree:
 
         for name in new_array_args:
             if name in self.nodes:
-                if self.nodes[name].type == NODE_SCALAR:
+                if self.nodes[name].type == Node.SCALAR:
                     raise ValueError("Argument " + name + " is a scalar, expected an array")
-                if parent.type == NODE_OUTPUT:
+                if parent.type == Node.OUTPUT:
                     raise ValueError("Cannot connect to an existing output node")
             else:
-                new_nodes[name] = AttrDict(
-                    name=name, type=parent.type,
-                    value=ArrayValue(None, None),
-                    children=None, tr_to_children=None)
+                new_nodes[name] = Node(name, parent.type)
         for name in new_scalar_args:
             if name in self.nodes:
-                if self.nodes[name].type != NODE_SCALAR:
+                if self.nodes[name].type != Node.SCALAR:
                     raise ValueError("Argument " + name + " is an array, expected a scalar")
             else:
-                new_nodes[name] = AttrDict(
-                    name=name, type=NODE_SCALAR,
-                    value=ScalarValue(None),
-                    children=None, tr_to_children=None)
+                new_nodes[name] = Node(name, Node.SCALAR)
 
         parent.children = new_array_args + new_scalar_args
         parent.tr_to_children = tr
