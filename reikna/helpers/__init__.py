@@ -79,7 +79,8 @@ def template_for(filename):
     which has the same name as ``filename`` and the extension ``.mako``.
     Typically used in computation modules as ``template_for(__filename__)``.
     """
-    return template_from(template_source_for(filename))
+    name, ext = os.path.splitext(os.path.abspath(filename))
+    return Template(filename=name + '.mako')
 
 
 def min_blocks(length, block):
