@@ -8,6 +8,7 @@
 * add comments to ``core.transformation`` and refactor its templates
 * write a tutorial on modules
 * fix the documentation according to API changes
+* try to avoid imports from ``cluda.*`` in core/computations
 
 
 0.3.0 (major API change)
