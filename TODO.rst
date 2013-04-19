@@ -1,7 +1,14 @@
 0.2.2
 =====
 
-* use modules in CBRNG
+* use modules in ``Reduce``
+* use modules in ``CBRNG``
+* replace unnecessary calls to ``cluda.kernel.render*`` with ``ctx.compile``
+* remove unused rendering functions from ``cluda.kernel`` and ``helpers``, and simplify the rest
+* enforce ``from __future__ import division`` in all templates (change ``helpers``)
+* add comments to ``core.transformation`` and refactor its templates
+* write a tutorial on modules
+* fix the documentation according to API changes
 
 
 0.3.0 (major API change)
@@ -42,6 +49,7 @@
   * ready for calls: Computation
 
 * DECIDE: think of better way of module discovery in render keywords than looking inside AttrDicts. (see reikna.cluda.kernel.process_render_kwds)
+* DECIDE: positional arguments for modules?
 
 
 0.4.0
