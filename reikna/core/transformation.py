@@ -209,19 +209,23 @@ class Node:
         self.children=None
         self.tr_to_children=None
 
+    def __repr__(self):
+        return repr((self.type, self.name))
+
 
 class TransformationArgument(AttrDict):
 
-    def __init__(self, node, action):
+    def __init__(self, node, load=None, store=None):
         AttrDict.__init__(self)
+        self._node = node
 
         self.dtype = node.value.dtype
         self.ctype = dtypes.ctype(self.dtype)
 
-        if node.type == Node.INPUT:
-            self.load = action
-        else:
-            self.store = action
+        if load is not None:
+            self.load = load
+        if store is not None:
+            self.store = store
 
 
 class ConnectorArgument:
@@ -230,10 +234,12 @@ class ConnectorArgument:
         self.dtype = node.value.dtype
         self.ctype = dtypes.ctype(self.dtype)
 
+        connector = TEMPLATE.get_def('connector').render(node)
+
         if node.type == Node.INPUT:
-            self.store = "return"
+            self.store = connector
         else:
-            self.load = VALUE_NAME
+            self.load = connector
 
 
 class ScalarArgument:
@@ -374,7 +380,7 @@ class TransformationTree:
         for name in self.base_names:
             deduce(name)
 
-    def _transformations_for(self, name):
+    def _transformations_for(self, name, base=False):
         # Takes a base argument name and returns the corresponding Argument object
         # which can be passed to the main kernel.
         # If the name is not in base, it is treated as a leaf.
@@ -384,17 +390,38 @@ class TransformationTree:
         if node.type == Node.SCALAR:
             return ScalarArgument(node)
 
+        if node.type == Node.TEMP:
+            module_load = Module(
+                TEMPLATE.get_def('leaf_macro'),
+                render_kwds=dict(node=node, node_type=node.INPUT, base=base))
+            module_store = Module(
+                TEMPLATE.get_def('leaf_macro'),
+                render_kwds=dict(node=node, node_type=node.OUTPUT, base=base))
+            return TransformationArgument(node, load=module_load, store=module_store)
+
         if node.children is None:
             module = Module(
                 TEMPLATE.get_def('leaf_macro'),
-                render_kwds=dict(node=node, base=(name in self.base_names)))
-            return TransformationArgument(node, module)
+                render_kwds=dict(node=node, node_type=node.type, base=base))
+            if node.type == Node.INPUT:
+                return TransformationArgument(node, load=module)
+            else:
+                return TransformationArgument(node, store=module)
 
         tr = node.tr_to_children
-        tr_args = [ConnectorArgument(node)] + \
-            [self._transformations_for(name) for name in node.children]
-
-        tr_names = [node.name] + node.children
+        if node.type == Node.INPUT:
+            tr_args = (
+                [ConnectorArgument(node)] +
+                [self._transformations_for(name) for name in node.children])
+            tr_names = [node.name] + node.children
+        else:
+            outputs = node.children[:len(tr.outputs)]
+            scalars = node.children[len(tr.outputs):]
+            tr_args = (
+                [self._transformations_for(name) for name in outputs] +
+                [ConnectorArgument(node)] +
+                [self._transformations_for(name) for name in scalars])
+            tr_names = outputs + [node.name] + scalars
 
         all_children = self.all_children(node.name)
 
@@ -405,13 +432,17 @@ class TransformationTree:
             tr_snippet=tr_snippet,
             tr_args=tr_args,
             node=node,
+            base=base,
             leaf_nodes=[self.nodes[name] for name in all_children])
 
         module = Module(
             TEMPLATE.get_def('transformation_node'),
             render_kwds=render_kwds)
 
-        return TransformationArgument(node, module)
+        if node.type == Node.INPUT:
+            return TransformationArgument(node, load=module)
+        else:
+            return TransformationArgument(node, store=module)
 
     def transformations_for(self, kernel_name, names):
         # Takes [name] for bases and returns a list with Argument objects
@@ -422,7 +453,7 @@ class TransformationTree:
 
         kernel_def = TEMPLATE.get_def('kernel_definition').render(
             kernel_name, leaf_nodes, dtypes=dtypes)
-        tr_args = [self._transformations_for(name) for name in names]
+        tr_args = [self._transformations_for(name, base=True) for name in names]
 
         return kernel_def, tr_args
 
