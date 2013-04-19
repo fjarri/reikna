@@ -83,12 +83,23 @@ def flatten_module_tree(src, args, render_kwds):
     return args, module_list
 
 
-def render_snippet_tree(pm):
-    kwds = pm.render_kwds
-    for kwd, val in kwds.items():
-        if isinstance(val, ProcessedModule):
-            kwds[kwd] = render_snippet_tree(val)
+def process_pm(val):
+    if isinstance(val, ProcessedModule):
+        return render_snippet_tree(val)
+    elif isinstance(val, AttrDict):
+        return AttrDict({k:process_pm(v) for k, v in val.items()})
+    elif isinstance(val, dict):
+        return {k:process_pm(v) for k, v in val.items()}
+    elif isinstance(val, tuple):
+        return tuple(process_pm(v) for v in val)
+    elif isinstance(val, list):
+        return [process_pm(v) for v in val]
+    else:
+        return val
 
+
+def render_snippet_tree(pm):
+    pm.render_kwds = process_pm(pm.render_kwds)
     return lambda *args: render_without_funcs(
         pm.template, *args, **pm.render_kwds)
 
