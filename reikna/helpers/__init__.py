@@ -80,7 +80,7 @@ def template_for(filename):
     Typically used in computation modules as ``template_for(__filename__)``.
     """
     name, ext = os.path.splitext(os.path.abspath(filename))
-    return Template(filename=name + '.mako')
+    return Template(filename=name + '.mako', future_imports=['division'])
 
 
 def min_blocks(length, block):

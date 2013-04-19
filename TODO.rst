@@ -5,7 +5,6 @@
 * use modules in ``CBRNG``
 * replace unnecessary calls to ``cluda.kernel.render*`` with ``ctx.compile``
 * remove unused rendering functions from ``cluda.kernel`` and ``helpers``, and simplify the rest
-* enforce ``from __future__ import division`` in all templates (change ``helpers``)
 * add comments to ``core.transformation`` and refactor its templates
 * write a tutorial on modules
 * fix the documentation according to API changes
