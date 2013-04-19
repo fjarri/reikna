@@ -1,11 +1,7 @@
 0.2.2
 =====
 
-* TODO: Add module support in CLUDA (will help to resolve the issue with gamma distribution
-  using normal and uniform, and normal using uniform).
-
-  * use modules in CBRNG
-  * add custom render keywords for transformations (will help e.g. in reikna.transformations)
+* use modules in CBRNG
 
 
 0.3.0 (major API change)
@@ -44,6 +40,8 @@
   * ready for setting arglist: ComputationFactory?
   * ready for connects/prepare: ComputationTemplate?
   * ready for calls: Computation
+
+* DECIDE: think of better way of module discovery in render keywords than looking inside AttrDicts. (see reikna.cluda.kernel.process_render_kwds)
 
 
 0.4.0

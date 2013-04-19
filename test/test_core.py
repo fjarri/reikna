@@ -3,6 +3,7 @@ import pytest
 
 from reikna.helpers import *
 from reikna.core import *
+from reikna.cluda import functions
 from reikna import Transformation, ArrayValue, ScalarValue
 
 import reikna.transformations as transformations
@@ -30,6 +31,8 @@ class Dummy(Computation):
 
     def _construct_operations(self, basis, device_params):
         operations = self._get_operation_recorder()
+        mul = functions.mul(basis.arr_dtype, basis.coeff_dtype)
+        div = functions.div(basis.arr_dtype, basis.coeff_dtype)
         template = template_from("""
         <%def name="dummy(C, D, A, B, coeff)">
         ${kernel_definition}
@@ -38,8 +41,8 @@ class Dummy(Computation):
             int idx = virtual_global_id(0);
             ${A.ctype} a = ${A.load}(idx);
             ${B.ctype} b = ${B.load}(idx);
-            ${C.ctype} c = ${func.mul(A.dtype, coeff.dtype)}(a, ${coeff});
-            ${D.ctype} d = ${func.div(B.dtype, coeff.dtype)}(b, ${coeff});
+            ${C.ctype} c = ${mul}(a, ${coeff});
+            ${D.ctype} d = ${div}(b, ${coeff});
             ${C.store}(idx, c);
             ${D.store}(idx, d);
         }
@@ -66,6 +69,7 @@ class Dummy(Computation):
             [C_temp, D_temp, 'A', 'B', 'coeff'],
             global_size=min_blocks(basis.size, block_size) * block_size,
             local_size=block_size,
+            render_kwds=dict(mul=mul, div=div),
             dependencies=[(C_temp, D_temp)])
         operations.add_kernel(
             template, 'dummy2',
@@ -112,23 +116,27 @@ def mock_dummy(a, b, coeff):
 # Identity transformation: Output = Input
 tr_trivial = Transformation(
     inputs=1, outputs=1,
-    code="${o1.store}(${i1.load});")
+    snippet="${o1.store}(${i1.load});")
 
 # Output = Input1 * Parameter1 + Input 2
 tr_2_to_1 = Transformation(
     inputs=2, outputs=1, scalars=1,
     derive_o_from_is=lambda i1, i2, s1: i1,
-    code="""
-        ${o1.ctype} t = ${func.mul(o1.dtype, i1.dtype)}(
-            ${func.cast(o1.dtype, s1.dtype)}(${s1}), ${i1.load});
+    derive_render_kwds=lambda o1, i1, i2, s1: dict(
+        mul=functions.mul(o1, i1),
+        cast=functions.cast(o1, s1)),
+    snippet="""
+        ${o1.ctype} t = ${mul}(${cast}(${s1}), ${i1.load});
         ${o1.store}(t + ${i2.load});
     """)
 
 # Output1 = Input / 2, Output2 = Input / 2
 tr_1_to_2 = Transformation(
     inputs=1, outputs=2,
-    code="""
-        ${o1.ctype} t = ${func.mul(i1.dtype, numpy.float32)}(${i1.load}, 0.5);
+    derive_render_kwds=lambda o1, o2, i1: dict(
+        mul=functions.mul(i1, numpy.float32)),
+    snippet="""
+        ${o1.ctype} t = ${mul}(${i1.load}, 0.5);
         ${o1.store}(t);
         ${o2.store}(t);
     """)
@@ -138,11 +146,9 @@ tr_scale = Transformation(
     inputs=1, outputs=1, scalars=1,
     derive_o_from_is=lambda i1, s1: i1,
     derive_i_from_os=lambda o1, s1: o1,
-    code="""
-        ${o1.store}(
-            ${func.mul(i1.dtype, s1.dtype, out=o1.dtype)}(${i1.load}, ${s1})
-        );
-    """)
+    derive_render_kwds=lambda o1, i1, s1: dict(
+        mul=functions.mul(i1, s1, out_dtype=o1)),
+    snippet="${o1.store}(${mul}(${i1.load}, ${s1}));")
 
 
 def test_non_prepared_call(some_ctx):

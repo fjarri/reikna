@@ -1,7 +1,6 @@
 import numpy
 import os, os.path
 
-from reikna.cluda.kernel import render_prelude, render_template
 from reikna.cluda.dtypes import ctype, cast
 import reikna.cluda.dtypes as dtypes
 from reikna.core.transformation import *

@@ -1,21 +1,9 @@
 from collections import defaultdict
 
+from reikna.helpers import AttrDict
 import reikna.cluda.dtypes as dtypes
-from reikna.core.transformation import *
-from reikna.cluda.kernel import render_prelude, render_template
-
-
-class Argument:
-
-    def __init__(self, name, dtype):
-        self.dtype = dtype
-        self.ctype = dtypes.ctype(dtype)
-        self.load = load_macro_call(name)
-        self.store = store_macro_call(name)
-        self._name = name
-
-    def __str__(self):
-        return leaf_name(self._name)
+from reikna.core.transformation import ArrayValue
+from reikna.cluda.kernel import render_prelude, render_template_source_with_modules
 
 
 class OperationRecorder:
@@ -77,33 +65,30 @@ class OperationRecorder:
             (i.e., should not be assigned to the same physical memory allocation).
         """
 
-        subtemplate = template.get_def(defname)
         argnames = [self._prefix + name for name in argnames]
-
         assert set(argnames).issubset(set(self.values))
-        args = [Argument(name, self.values[name].dtype) for name in argnames]
+
+        kernel_definition, argobjects = self._tr_tree.transformations_for(defname, argnames)
 
         if render_kwds is None:
             render_kwds = {}
 
         additional_kwds = dict(
             basis=self.basis,
-            kernel_definition=kernel_definition(defname))
+            kernel_definition=kernel_definition)
 
         # check that user keywords do not overlap with our keywords
         intersection = set(render_kwds).intersection(additional_kwds)
         if len(intersection) > 0:
             raise ValueError("Render keywords clash with internal variables: " +
                 ", ".join(intersection))
-
         render_kwds = dict(render_kwds) # shallow copy
         render_kwds.update(additional_kwds)
-        src = render_template(subtemplate, *args, **render_kwds)
 
-        transformation_code = self._tr_tree.transformations_for(argnames)
-        full_src = transformation_code + src
-        kernel = self._ctx.compile_static(full_src, defname,
-            global_size, local_size=local_size)
+        src = render_template_source_with_modules(
+            template.get_def(defname), *argobjects, **render_kwds)
+
+        kernel = self._ctx.compile_static(src, defname, global_size, local_size=local_size)
         leaf_argnames = [name for name, _ in self._tr_tree.leaf_signature(argnames)]
 
         self.kernels.append(KernelCall(kernel, leaf_argnames))
