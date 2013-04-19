@@ -5,9 +5,6 @@ from reikna.helpers import *
 from reikna.core import *
 
 
-EMPTY = dict(functions="", kernel="")
-
-
 class Elementwise(Computation):
     """
     A general class for elementwise computations.
@@ -22,7 +19,8 @@ class Elementwise(Computation):
     .. py:method:: prepare_for(*args, code=EMPTY)
 
         :param args: arrays and scalars, according to the lists passed to :py:meth:`set_argnames`.
-        :param code: kernel code.
+        :param code: a function that takes argument mocks as parameters and returns
+            a snippet with the kernel body.
         :param dependencies: optional, a list of pairs of argument names
             whose arrays depend on each other.
             By default, only output arguments are dependent on each other.
@@ -53,12 +51,18 @@ class Elementwise(Computation):
 
     def _get_basis_for(self, *args, **kwds):
 
-        # Python 2 does not support explicit kwds after *args
-        code = kwds.get('code', EMPTY)
-
         # map argument names to values
         outputs, inputs, params = self._get_argnames()
         argtypes = {name:arg.dtype for name, arg in zip(outputs + inputs + params, args)}
+
+        # Python 2 does not support explicit kwds after *args
+        code = kwds.get('code', None)
+        if code is None:
+            code = lambda *code_args: Module(
+                template_func(
+                    outputs + inputs + params,
+                    ""),
+                snippet=True)
 
         dependencies = kwds.get('dependencies', None)
         if dependencies is None:
@@ -66,7 +70,10 @@ class Elementwise(Computation):
         dependencies.extend([(arg1, arg2) for arg1, arg2
             in itertools.product(outputs, outputs) if arg1 != arg2])
 
-        return dict(size=args[0].size, argtypes=argtypes, code=code, dependencies=dependencies)
+        snippet = code(*args)
+
+        return dict(size=args[0].size, argtypes=argtypes,
+            snippet=snippet, dependencies=dependencies)
 
     def _construct_operations(self, basis, device_params):
 
@@ -74,22 +81,19 @@ class Elementwise(Computation):
         names = sum(self._get_argnames(), tuple())
         name_str = ", ".join(names)
 
-        template = template_from(
-            template_defs_for_code(basis.code, names) +
+        template = template_func(
+            names,
             """
-            <%def name='elementwise(""" + name_str  + """)'>
-            ${code_functions(""" + name_str + """)}
             ${kernel_definition}
             {
                 VIRTUAL_SKIP_THREADS;
                 int idx = virtual_global_flat_id();
-                ${code_kernel(""" + name_str + """)}
+                ${basis.snippet(""" + ",".join(names) + """)}
             }
-            </%def>
             """)
 
-        operations.add_kernel(template, 'elementwise', names,
-            global_size=(basis.size,), render_kwds=dict(size=basis.size),
+        operations.add_kernel(template, names,
+            global_size=(basis.size,),
             dependencies=basis.dependencies)
         return operations
 

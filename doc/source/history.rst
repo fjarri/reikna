@@ -28,6 +28,8 @@ Release history
 
 * CHANGED: :py:meth:`~reikna.cluda.api.Context.compile_static` now takes a template instead of a source.
 
+* CHANGED: :py:class:`~reikna.elementwise.Elementwise` now uses modules.
+
 * FIXED: some OpenCL compilation warnings caused by an incorrect version querying macro.
 
 * FIXED: bug with incorrect processing of scalar global size in static kernels.
