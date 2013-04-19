@@ -79,8 +79,8 @@ def template_func(argnames, code):
     from the list ``argnames`` and the body ``code``.
     """
     arglist = ", ".join(argnames)
-    template_src = "<%def name='func(" + arglist + ")'>\n" + code + "\n</%def>"
-    return template_from(template_src).get_def('func')
+    template_src = "<%def name='_func(" + arglist + ")'>\n" + code + "\n</%def>"
+    return template_from(template_src).get_def('_func')
 
 
 def template_for(filename):

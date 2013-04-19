@@ -66,7 +66,7 @@ class OperationRecorder:
         argnames = [self._prefix + name for name in argnames]
         assert set(argnames).issubset(set(self.values))
 
-        kernel_name = 'kernel_func'
+        kernel_name = '_kernel_func'
         kernel_definition, argobjects = self._tr_tree.transformations_for(kernel_name, argnames)
 
         if render_kwds is None:
