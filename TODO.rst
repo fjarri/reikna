@@ -1,11 +1,7 @@
 0.2.2
 =====
 
-* TODO: Add module support in CLUDA (will help to resolve the issue with gamma distribution
-  using normal and uniform, and normal using uniform).
-
-  * use modules in CBRNG
-  * add custom render keywords for transformations (will help e.g. in reikna.transformations)
+* use modules in CBRNG
 
 
 0.3.0 (major API change)
