@@ -24,6 +24,8 @@ Release history
 
 * CHANGED: all templates created with :py:func:`~reikna.helpers.template_for` are now rendered with ``from __future__ import division``.
 
+* CHANGED: signature of :py:meth:`~reikna.core.operation.OperationRecorder.add_kernel` takes a renderable instead of a full template.
+
 * FIXED: some OpenCL compilation warnings caused by an incorrect version querying macro.
 
 * FIXED: bug with incorrect processing of scalar global size in static kernels.

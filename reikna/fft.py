@@ -554,7 +554,7 @@ class FFT(Computation):
                     try:
                         gs, ls, kwds = kernel.prepare_for(local_size)
                         operations.add_kernel(
-                            TEMPLATE, kernel.name, argnames,
+                            TEMPLATE.get_def(kernel.name), argnames,
                             global_size=gs, local_size=ls, render_kwds=kwds,
                             dependencies=([] if kernel.inplace_possible else [(mem_in, mem_out)]))
                     except OutOfResourcesError:

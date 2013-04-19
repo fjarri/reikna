@@ -65,14 +65,14 @@ class Dummy(Computation):
         D_temp = operations.add_allocation(basis.size, basis.arr_dtype)
 
         operations.add_kernel(
-            template, 'dummy',
+            template.get_def('dummy'),
             [C_temp, D_temp, 'A', 'B', 'coeff'],
             global_size=min_blocks(basis.size, block_size) * block_size,
             local_size=block_size,
             render_kwds=dict(mul=mul, div=div),
             dependencies=[(C_temp, D_temp)])
         operations.add_kernel(
-            template, 'dummy2',
+            template.get_def('dummy2'),
             ['C', 'D', C_temp, D_temp],
             global_size=min_blocks(basis.size, block_size) * block_size,
             local_size=block_size,

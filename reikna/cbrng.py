@@ -199,7 +199,7 @@ class CBRNG(Computation):
         operations = self._get_operation_recorder()
 
         operations.add_kernel(
-            TEMPLATE, 'cbrng', ['new_counters', 'randoms', 'old_counters'],
+            TEMPLATE.get_def('cbrng'), ['new_counters', 'randoms', 'old_counters'],
             global_size=product(basis.shape),
             dependencies=[('new_counters', 'old_counters'), ('new_counters', 'randoms')])
 

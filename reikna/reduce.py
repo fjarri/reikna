@@ -125,7 +125,7 @@ class Reduce(Computation):
                 template_defs_for_code(basis.code, ['output', 'input']) + TEMPLATE_SRC)
 
             operations.add_kernel(
-                template, 'reduce', [output_name, input_name],
+                template.get_def('reduce'), [output_name, input_name],
                 global_size=(global_size,), local_size=(block_size,), render_kwds=render_kwds,
                 dependencies=[(input_name, output_name)])
 

@@ -107,7 +107,7 @@ class MatrixMul(Computation):
 
             try:
                 operations.add_kernel(
-                    TEMPLATE, 'matrixmul', ['out', 'a', 'b'],
+                    TEMPLATE.get_def('matrixmul'), ['out', 'a', 'b'],
                     global_size=(grid_width * block_width,
                         blocks_per_matrix * basis.batch * block_width),
                     local_size=(block_width, block_width),

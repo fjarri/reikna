@@ -46,14 +46,13 @@ class OperationRecorder:
         self._tr_tree.add_temp_node(self._prefix + name, value)
         return name
 
-    def add_kernel(self, template, defname, argnames,
+    def add_kernel(self, template, argnames,
             global_size, local_size=None, render_kwds=None, dependencies=None):
         """
         Adds kernel execution to the list of actions.
         See :ref:`tutorial-advanced-computation` for details on how to write kernels.
 
         :param template: Mako template for the kernel.
-        :param defname: name of the definition inside the template.
         :param argnames: names of the arguments the kernel takes.
             These must either belong to the list of external argument names,
             or be allocated by :py:meth:`add_allocation` earlier.
@@ -68,7 +67,8 @@ class OperationRecorder:
         argnames = [self._prefix + name for name in argnames]
         assert set(argnames).issubset(set(self.values))
 
-        kernel_definition, argobjects = self._tr_tree.transformations_for(defname, argnames)
+        kernel_name = 'kernel_func'
+        kernel_definition, argobjects = self._tr_tree.transformations_for(kernel_name, argnames)
 
         if render_kwds is None:
             render_kwds = {}
@@ -85,10 +85,9 @@ class OperationRecorder:
         render_kwds = dict(render_kwds) # shallow copy
         render_kwds.update(additional_kwds)
 
-        src = render_template_source_with_modules(
-            template.get_def(defname), *argobjects, **render_kwds)
+        src = render_template_source_with_modules(template, *argobjects, **render_kwds)
 
-        kernel = self._ctx.compile_static(src, defname, global_size, local_size=local_size)
+        kernel = self._ctx.compile_static(src, kernel_name, global_size, local_size=local_size)
         leaf_argnames = [name for name, _ in self._tr_tree.leaf_signature(argnames)]
 
         self.kernels.append(KernelCall(kernel, leaf_argnames))

@@ -151,13 +151,13 @@ Each computation class has to define the following methods:
                 </%def>
                 """)
 
-            operations.add_kernel(template, 'testcomp',
+            operations.add_kernel(template.get_def('testcomp'),
                 ['output', 'input1', 'input2', 'param'],
                 global_size=basis.shape)
             return operations
 
     Every kernel call is based on the separate ``Mako`` template function.
-    The template can be specified as a string using :py:func:`~reikna.helpers.template_from`, or loaded as a separate file.
+    The template can be specified as a string using :py:func:`~reikna.helpers.template_func`, or loaded as a separate file.
     Usual pattern in this case is to call the template file same as the file where the computation class is defined (for example, ``testcomp.mako`` for ``testcomp.py``), and store it in some variable on module load using :py:func:`~reikna.helpers.template_for` as ``TEMPLATE = template_for(__file__)``.
 
     The template function should take the same number of positional arguments as the kernel; you can view ``<%def ... >`` part as an actual kernel definition, but with the arguments being python objects containing variable metadata.
