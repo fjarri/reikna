@@ -134,7 +134,7 @@ tr_2_to_1 = Transformation(
 tr_1_to_2 = Transformation(
     inputs=1, outputs=2,
     derive_render_kwds=lambda o1, o2, i1: dict(
-        mul=functions.mul(i1.dtype, numpy.float32)),
+        mul=functions.mul(i1, numpy.float32)),
     snippet="""
         ${o1.ctype} t = ${mul}(${i1.load}, 0.5);
         ${o1.store}(t);
@@ -147,7 +147,7 @@ tr_scale = Transformation(
     derive_o_from_is=lambda i1, s1: i1,
     derive_i_from_os=lambda o1, s1: o1,
     derive_render_kwds=lambda o1, i1, s1: dict(
-        functions.mul(i1.dtype, s1.dtype, out_dtype=o1.dtype)),
+        mul=functions.mul(i1, s1, out_dtype=o1)),
     snippet="${o1.store}(${mul}(${i1.load}, ${s1}));")
 
 
