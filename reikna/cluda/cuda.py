@@ -196,9 +196,9 @@ class Context:
         return Module(self, template_src, render_kwds=render_kwds)
 
     def compile_static(self, template_src, name, global_size,
-            local_size=None, local_mem=0, render_kwds=None):
+            local_size=None, local_mem=0, render_args=None, render_kwds=None):
         return StaticKernel(self, template_src, name, global_size,
-            local_size=local_size, render_kwds=render_kwds)
+            local_size=local_size, render_args=render_args, render_kwds=render_kwds)
 
     def _pytest_finalize(self):
         """
@@ -323,7 +323,9 @@ class Kernel:
 
 class StaticKernel:
 
-    def __init__(self, ctx, src, name, global_size, local_size=None, render_kwds=None):
+    def __init__(self, ctx, template_src, name, global_size, local_size=None,
+            render_args=None, render_kwds=None):
+
         self._ctx = ctx
 
         if render_kwds is None:
@@ -331,7 +333,7 @@ class StaticKernel:
 
         prelude = render_prelude(self._ctx)
         stub_vsize_funcs = render_stub_vsize_funcs()
-        src = render_template_source_with_modules(src, **render_kwds)
+        src = render_template_source_with_modules(template_src, *render_args, **render_kwds)
 
         # We need the first approximation of the maximum thread number for a kernel.
         # Stub virtual size functions instead of real ones will not change it (hopefully).

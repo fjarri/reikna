@@ -152,17 +152,19 @@ It is referred here (and references from other parts of this documentation) as :
             to be used while rendering the template.
         :returns: a :py:class:`Module` object.
 
-    .. py:method:: compile_static(template_src, name, global_size, local_size=None, local_mem=0, render_kwds=None)
+    .. py:method:: compile_static(template_src, name, global_size, local_size=None, local_mem=0, render_args=None, render_kwds=None)
 
         Creates a kernel object with fixed call sizes,
         which allows to overcome some backend limitations.
 
-        :param template_src: Mako template source to render
+        :param template_src: Mako template or a template source to render
         :param name: name of the kernel function
         :param global_size: global size to be used
         :param local_size: local size to be used.
             If ``None``, some suitable one will be picked.
         :param local_mem: (**CUDA API only**) amount of dynamically allocated local memory to be used (in bytes).
+        :param render_args: a list of parameters to be passed as positional arguments
+            to the template.
         :param render_kwds: a dictionary with additional parameters
             to be used while rendering the template.
         :returns: a :py:class:`StaticKernel` object.

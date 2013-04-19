@@ -3,7 +3,6 @@ from collections import defaultdict
 from reikna.helpers import AttrDict
 import reikna.cluda.dtypes as dtypes
 from reikna.core.transformation import ArrayValue
-from reikna.cluda.kernel import render_prelude, render_template_source_with_modules
 
 
 class OperationRecorder:
@@ -85,9 +84,9 @@ class OperationRecorder:
         render_kwds = dict(render_kwds) # shallow copy
         render_kwds.update(additional_kwds)
 
-        src = render_template_source_with_modules(template, *argobjects, **render_kwds)
-
-        kernel = self._ctx.compile_static(src, kernel_name, global_size, local_size=local_size)
+        kernel = self._ctx.compile_static(
+            template, kernel_name, global_size, local_size=local_size,
+            render_args=argobjects, render_kwds=render_kwds)
         leaf_argnames = [name for name, _ in self._tr_tree.leaf_signature(argnames)]
 
         self.kernels.append(KernelCall(kernel, leaf_argnames))
