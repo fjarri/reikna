@@ -2,6 +2,7 @@ import numpy
 
 from reikna.helpers import *
 from reikna.core import *
+from reikna.cluda.kernel import Module
 import reikna.cluda.dtypes as dtypes
 from reikna.cluda import OutOfResourcesError
 from reikna.elementwise import specialize_elementwise
@@ -511,10 +512,17 @@ class FFT(Computation):
             # because we still have to run transformations.
             operations = self._get_operation_recorder()
 
+            code = lambda output, input: Module(
+                template_func(
+                    ['output', 'input'],
+                    """
+                    ${output.store}(idx, ${input.load}(idx));
+                    """),
+                snippet=True)
+
             identity = self.get_nested_computation(
-                specialize_elementwise('output', 'input', 'direction',
-                    dict(kernel="${output.store}(idx, ${input.load}(idx));")))
-            operations.add_computation(identity, 'output', 'input', 'direction')
+                specialize_elementwise('output', 'input', None, code))
+            operations.add_computation(identity, 'output', 'input')
             return operations
 
         # While resource consumption of GlobalFFTKernel can be made lower by passing
