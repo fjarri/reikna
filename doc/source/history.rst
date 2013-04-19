@@ -16,6 +16,8 @@ Release history
 
 * ADDED: Module support in CLUDA; see :ref:`tutorial-modules` for details.
 
+* ADDED: :py:func:`~reikna.helpers.template_func`.
+
 * REMOVED: ``render_template_source``; :py:func:`~reikna.cluda.kernel.render_template` should be used instead.
 
 * CHANGED: ``FuncCollector`` class was removed; functions are now used as common modules.

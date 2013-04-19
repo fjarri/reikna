@@ -1,11 +1,10 @@
 import re
 
 import numpy
-from mako.template import Template
 
 import reikna.cluda.dtypes as dtypes
 from reikna.cluda.kernel import render_without_funcs, Module
-from reikna.helpers import AttrDict, product, wrap_in_tuple, template_from, template_for
+from reikna.helpers import AttrDict, product, wrap_in_tuple, template_func, template_for
 
 
 TEMPLATE = template_for(__file__)
@@ -154,13 +153,9 @@ class Transformation:
         if snippet is None:
             snippet = "${" + self.outputs[0] + ".store}(${" + self.inputs[0] + ".load});"
 
-        self.snippet_template = template_from("<%def name=\"transformation(" +
-            ", ".join(self.outputs + self.inputs + self.scalars) +
-            ")\">\n" +
-            snippet +
-            "\n</%def>").get_def('transformation')
-
-        self.snippet = snippet
+        self.snippet_template = template_func(
+            self.outputs + self.inputs + self.scalars,
+            snippet)
 
         if derive_o_from_is is None:
             if len(self.outputs) == 1:

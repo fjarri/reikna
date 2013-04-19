@@ -55,7 +55,7 @@ def template_from(template):
     if hasattr(template, 'render'):
         return template
     else:
-        return Template(template)
+        return Template(template, future_imports=['division'])
 
 
 def template_defs_for_code(code, argnames):
@@ -71,6 +71,16 @@ def template_defs_for_code(code, argnames):
         "<%def name='code_kernel(" + ", ".join(argnames) + ")'>\n" +
         code['kernel'] +
         "\n</%def>")
+
+
+def template_func(argnames, code):
+    """
+    Returns a Mako template with positional arguments
+    from the list ``argnames`` and the body ``code``.
+    """
+    arglist = ", ".join(argnames)
+    template_src = "<%def name='func(" + arglist + ")'>\n" + code + "\n</%def>"
+    return template_from(template_src).get_def('func')
 
 
 def template_for(filename):
