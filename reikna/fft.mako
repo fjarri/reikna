@@ -1,10 +1,6 @@
 <%def name="insertBaseKernels()">
 
 #define complex_ctr COMPLEX_CTR(${dtypes.ctype(basis.dtype)})
-#define complex_mul ${func.mul(basis.dtype, basis.dtype)}
-#define complex_div_scalar ${func.div(basis.dtype, dtypes.real_for(basis.dtype))}
-#define polar ${func.polar(dtypes.real_for(basis.dtype))}
-#define conj(a) ${func.conj(basis.dtype)}
 #define conj_transp(a) complex_ctr(-(a).y, (a).x)
 #define conj_transp_and_mul(a, b) complex_ctr(-(a).y * (b), (a).x * (b))
 
@@ -91,9 +87,9 @@ WITHIN_KERNEL void fftKernel8(complex_t *a, const int direction)
     fftKernel2S(a + 1, a + 5, direction);
     fftKernel2S(a + 2, a + 6, direction);
     fftKernel2S(a + 3, a + 7, direction);
-    a[5] = complex_mul(w1, a[5]);
+    a[5] = ${mul}(w1, a[5]);
     a[6] = conj_transp_and_mul(a[6], direction);
-    a[7] = complex_mul(w3, a[7]);
+    a[7] = ${mul}(w3, a[7]);
     fftKernel2S(a + 0, a + 2, direction);
     fftKernel2S(a + 1, a + 3, direction);
     fftKernel2S(a + 4, a + 6, direction);
@@ -129,22 +125,22 @@ WITHIN_KERNEL void fftKernel16(complex_t *a, const int direction)
     fftKernel4s(a + 3, a + 7, a + 11, a + 15, direction);
 
     temp  = complex_ctr(w0, direction * w1);
-    a[5]  = complex_mul(a[5], temp);
+    a[5]  = ${mul}(a[5], temp);
     temp  = complex_ctr(w1, direction * w0);
-    a[7]  = complex_mul(a[7], temp);
+    a[7]  = ${mul}(a[7], temp);
     temp  = complex_ctr(w2, direction * w2);
-    a[6]  = complex_mul(a[6], temp);
-    a[9]  = complex_mul(a[9], temp);
+    a[6]  = ${mul}(a[6], temp);
+    a[9]  = ${mul}(a[9], temp);
 
     a[10] = conj_transp_and_mul(a[10], direction);
 
     temp  = complex_ctr(-w2, direction * w2);
-    a[11] = complex_mul(a[11], temp);
-    a[14] = complex_mul(a[14], temp);
+    a[11] = ${mul}(a[11], temp);
+    a[14] = ${mul}(a[14], temp);
     temp  = complex_ctr(w1, direction * w0);
-    a[13] = complex_mul(a[13], temp);
+    a[13] = ${mul}(a[13], temp);
     temp  = complex_ctr(-w0, -direction * w1);
-    a[15] = complex_mul(a[15], temp);
+    a[15] = ${mul}(a[15], temp);
 
     fftKernel4(a, direction);
     fftKernel4(a + 4, direction);
@@ -175,7 +171,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
             ${wrap_const(numpy.cos(i * numpy.pi / 16))},
             ${wrap_const(numpy.sin(i * numpy.pi / 16))}
         );
-        a[${i + 16}] = complex_mul(a[${i + 16}], temp);
+        a[${i + 16}] = ${mul}(a[${i + 16}], temp);
     %endfor
 
     fftKernel16(a, direction);
@@ -188,7 +184,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 {
     // The modulo of 2 * fft_size_real does not change the result,
     // but greatly improves the precision by keeping the argument of sin()/cos() small.
-    return polar(1, dir_coeff * ${wrap_const(numpy.pi / fft_size_real)} *
+    return ${polar}(1, dir_coeff * ${wrap_const(numpy.pi / fft_size_real)} *
         ((pos * pos) % (2 * ${fft_size_real})) );
 }
 
@@ -212,11 +208,11 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         a[${a_i}] = ${input.load}(idx);
 
         %if pad_in:
-        a[${a_i}] = complex_mul(a[${a_i}], xweight(direction, position_in_fft));
+        a[${a_i}] = ${mul}(a[${a_i}], xweight(direction, position_in_fft));
         %endif
 
         %if takes_kweights:
-        a[${a_i}] = complex_mul(a[${a_i}],
+        a[${a_i}] = ${mul}(a[${a_i}],
             ${kweights.load}(position_in_fft + ${fft_size} * (1 - direction) / 2));
         %endif
     }
@@ -263,10 +259,10 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         const int idx = (fft_index + ${fft_index_offset}) * ${fft_size_real if unpad_out else fft_size} + position_in_fft;
 
         %if unpad_out:
-        a[${a_i}] = complex_mul(a[${a_i}], xweight(-direction, position_in_fft));
+        a[${a_i}] = ${mul}(a[${a_i}], xweight(-direction, position_in_fft));
         %endif
 
-        ${output.store}(idx, complex_div_scalar(a[${a_i}], norm_coeff));
+        ${output.store}(idx, ${cdivs}(a[${a_i}], norm_coeff));
     }
     %endfor
 </%def>
@@ -615,9 +611,9 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         const int angf = (${z * threads_per_xform} + thread_in_xform) / ${radix_prev};
         %for k in range(1, radix):
             <% ind = z * radix + k %>
-            a[${ind}] = complex_mul(
+            a[${ind}] = ${mul}(
                 a[${ind}],
-                polar(1, ${wrap_const(2 * numpy.pi * k / data_len)} * angf * direction));
+                ${polar}(1, ${wrap_const(2 * numpy.pi * k / data_len)} * angf * direction));
         %endfor
     }
     %endfor
@@ -839,14 +835,14 @@ ${kernel_definition}
         %endif
             a[${j}] = ${input.load}(position + ${fft_size_real if pad_in else fft_size} * xform_number);
         %if pad_in:
-            a[${j}] = complex_mul(a[${j}], xw);
+            a[${j}] = ${mul}(a[${j}], xw);
         }
         else
             a[${j}] = complex_ctr(0, 0);
         %endif
 
         %if takes_kweights:
-        a[${j}] = complex_mul(a[${j}],
+        a[${j}] = ${mul}(a[${j}],
             ${kweights.load}(position_in_fft + ${fft_size} * (1 - direction) / 2));
         %endif
     }
@@ -859,8 +855,8 @@ ${kernel_definition}
         %for k in range(1, radix1):
         {
             const real_t ang = ${wrap_const(2 * numpy.pi * k / radix)} * xform_local * direction;
-            const complex_t w = polar(1, ang);
-            a[${k}] = complex_mul(a[${k}], w);
+            const complex_t w = ${polar}(1, ang);
+            a[${k}] = ${mul}(a[${k}], w);
         }
         %endfor
 
@@ -899,8 +895,8 @@ ${kernel_definition}
         %for t in range(radix1):
         {
             const real_t ang = ang1 * (k + ${(t % radix2) * radix1 + (t // radix2)});
-            const complex_t w = polar(1, ang);
-            a[${t}] = complex_mul(a[${t}], w);
+            const complex_t w = ${polar}(1, ang);
+            a[${t}] = ${mul}(a[${t}], w);
         }
         %endfor
     }
@@ -949,11 +945,11 @@ ${kernel_definition}
             %if unpad_out:
             const int position_in_fft = position / ${inner_batch};
             const complex_t xw = xweight(-direction, position_in_fft);
-            a[${k}] = complex_mul(a[${k}], xw);
+            a[${k}] = ${mul}(a[${k}], xw);
             if (position_in_fft < ${fft_size_real})
             %endif
                 ${output.store}(position + ${fft_size_real if unpad_out else fft_size} * xform_number,
-                    complex_div_scalar(a[${k}], norm_coeff));
+                    ${cdivs}(a[${k}], norm_coeff));
         }
         %endfor
     %else:
@@ -971,11 +967,11 @@ ${kernel_definition}
             %if unpad_out:
             const int position_in_fft = position / ${inner_batch};
             const complex_t xw = xweight(-direction, position_in_fft);
-            a[${k}] = complex_mul(a[${k}], xw);
+            a[${k}] = ${mul}(a[${k}], xw);
             if (position_in_fft < ${fft_size_real})
             %endif
                 ${output.store}(position + ${fft_size_real if unpad_out else fft_size} * xform_number,
-                    complex_div_scalar(a[${k}], norm_coeff));
+                    ${cdivs}(a[${k}], norm_coeff));
         }
         %endfor
     %endif

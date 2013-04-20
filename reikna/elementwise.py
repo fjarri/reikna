@@ -1,10 +1,8 @@
+import itertools
 import numpy
 
 from reikna.helpers import *
 from reikna.core import *
-
-
-EMPTY = dict(functions="", kernel="")
 
 
 class Elementwise(Computation):
@@ -21,7 +19,11 @@ class Elementwise(Computation):
     .. py:method:: prepare_for(*args, code=EMPTY)
 
         :param args: arrays and scalars, according to the lists passed to :py:meth:`set_argnames`.
-        :param code: kernel code.
+        :param code: a function that takes argument mocks as parameters and returns
+            a snippet with the kernel body.
+        :param dependencies: optional, a list of pairs of argument names
+            whose arrays depend on each other.
+            By default, only output arguments are dependent on each other.
     """
 
     # For now I cannot think of any other computation requiring variable number of arguments.
@@ -49,14 +51,29 @@ class Elementwise(Computation):
 
     def _get_basis_for(self, *args, **kwds):
 
-        # Python 2 does not support explicit kwds after *args
-        code = kwds.get('code', EMPTY)
-
         # map argument names to values
         outputs, inputs, params = self._get_argnames()
         argtypes = {name:arg.dtype for name, arg in zip(outputs + inputs + params, args)}
 
-        return dict(size=args[0].size, argtypes=argtypes, code=code)
+        # Python 2 does not support explicit kwds after *args
+        code = kwds.get('code', None)
+        if code is None:
+            code = lambda *code_args: Module(
+                template_func(
+                    outputs + inputs + params,
+                    ""),
+                snippet=True)
+
+        dependencies = kwds.get('dependencies', None)
+        if dependencies is None:
+            dependencies = []
+        dependencies.extend([(arg1, arg2) for arg1, arg2
+            in itertools.product(outputs, outputs) if arg1 != arg2])
+
+        snippet = code(*args)
+
+        return dict(size=args[0].size, argtypes=argtypes,
+            snippet=snippet, dependencies=dependencies)
 
     def _construct_operations(self, basis, device_params):
 
@@ -64,33 +81,34 @@ class Elementwise(Computation):
         names = sum(self._get_argnames(), tuple())
         name_str = ", ".join(names)
 
-        template = template_from(
-            template_defs_for_code(basis.code, names) +
+        template = template_func(
+            names,
             """
-            <%def name='elementwise(""" + name_str  + """)'>
-            ${code_functions(""" + name_str + """)}
             ${kernel_definition}
             {
                 VIRTUAL_SKIP_THREADS;
                 int idx = virtual_global_flat_id();
-                ${code_kernel(""" + name_str + """)}
+                ${basis.snippet(""" + ",".join(names) + """)}
             }
-            </%def>
             """)
 
-        operations.add_kernel(template, 'elementwise', names,
-            global_size=(basis.size,), render_kwds=dict(size=basis.size))
+        operations.add_kernel(template, names,
+            global_size=(basis.size,),
+            dependencies=basis.dependencies)
         return operations
 
 
-def specialize_elementwise(outputs, inputs, scalars, code):
+def specialize_elementwise(outputs, inputs, scalars, code, dependencies=None):
     """
     Returns an Elementwise class specialized for given argument names and code.
 
     :param outputs: a string or a list of strings with output argument names.
     :param inputs: a string or a list of strings with input argument names.
     :param scalars: ``None``, a string, or a list of strings with scalar argument names.
-    :param code: ``dict(kernel, functions)`` with kernel code.
+    :param code: see the ``code`` argument of Elementwise's
+        :py:meth:`~reikna.elementwise.Elementwise.prepare_for`.
+    :param dependencies: see the ``dependencies`` argument of Elementwise's
+        :py:meth:`~reikna.elementwise.Elementwise.prepare_for`.
     """
 
     outputs = wrap_in_tuple(outputs)
@@ -108,6 +126,6 @@ def specialize_elementwise(outputs, inputs, scalars, code):
             if len(args) != len(argnames):
                 raise TypeError("The computation takes exactly " +
                     str(len(argnames)) + "arguments")
-            return Elementwise._get_basis_for(self, *args, code=code)
+            return Elementwise._get_basis_for(self, *args, code=code, dependencies=dependencies)
 
     return SpecializedElementwise

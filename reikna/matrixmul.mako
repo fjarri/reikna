@@ -81,8 +81,7 @@ ${kernel_definition}
         if (in_c)
         {
             for (int k = 0; k < ${block_width}; k++)
-                Csub = Csub + ${func.mul(a.dtype, b.dtype, out=out.dtype)}(
-                    As[ty * ${block_width} + k], Bs[k * ${block_width} + tx]);
+                Csub = Csub + ${mul}(As[ty * ${block_width} + k], Bs[k * ${block_width} + tx]);
         }
 
         LOCAL_BARRIER;

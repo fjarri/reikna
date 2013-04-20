@@ -3,6 +3,7 @@ This module contains a number of pre-created transformations.
 """
 
 import reikna.cluda.dtypes as dtypes
+import reikna.cluda.functions as functions
 from reikna.core import *
 from reikna import Transformation
 
@@ -13,7 +14,7 @@ def identity():
     """
     return Transformation(
         inputs=1, outputs=1,
-        code="${o1.store}(${i1.load});")
+        snippet="${o1.store}(${i1.load});")
 
 
 def scale_param():
@@ -23,7 +24,9 @@ def scale_param():
     """
     return Transformation(
         inputs=1, outputs=1, scalars=1,
-        code="${o1.store}(${func.mul(i1.dtype, s1.dtype, out=o1.dtype)}(${i1.load}, ${s1}));")
+        snippet="${o1.store}(${mul}(${i1.load}, ${s1}));",
+        derive_render_kwds=lambda o1, i1, s1: dict(
+            mul=functions.mul(i1, s1, out_dtype=o1)))
 
 
 def scale_const(multiplier):
@@ -34,30 +37,32 @@ def scale_const(multiplier):
     dtype = dtypes.detect_type(multiplier)
     return Transformation(
         inputs=1, outputs=1,
-        code="${o1.store}(${func.mul(i1.dtype, numpy." + str(dtype) + ", out=o1.dtype)}(" +
-            "${i1.load}, " + dtypes.c_constant(multiplier, dtype=dtype) + "));")
+        snippet="${o1.store}(${mul}(${i1.load}, ${coeff}));",
+        derive_render_kwds=lambda o1, i1: dict(
+            mul=functions.mul(i1, dtype, out_dtype=o1),
+            coeff=dtypes.c_constant(multiplier, dtype=dtype)))
 
 
 def split_complex():
     """
     Returns a transformation which splits complex input into two real outputs
-    (2 outputs, 1 input): ``output1 = Re(input1), output2 = Im(input1)``.
+    (2 outputs, 1 input): ``out_re = Re(in), out_im = Im(in)``.
     """
     return Transformation(
-        inputs=1, outputs=2,
-        derive_i_from_os=lambda o1, o2: dtypes.complex_for(o1),
-        code="""
-            ${o1.store}(${i1.load}.x);
-            ${o2.store}(${i1.load}.y);
+        inputs=['in_c'], outputs=['out_re', 'out_im'],
+        derive_i_from_os=lambda out_re, out_im: dtypes.complex_for(out_re),
+        snippet="""
+            ${out_re.store}(${in_c.load}.x);
+            ${out_im.store}(${in_c.load}.y);
         """)
 
 
 def combine_complex():
     """
     Returns a transformation which joins two real inputs into complex output
-    (1 output, 2 inputs): ``output = input1 + 1j * input2``.
+    (1 output, 2 inputs): ``out = in_re + 1j * in_im``.
     """
     return Transformation(
-        inputs=2, outputs=1,
-        derive_o_from_is=lambda i1, i2: dtypes.complex_for(i1),
-        code="${o1.store}(COMPLEX_CTR(${o1.ctype})(${i1.load}, ${i2.load}));")
+        inputs=['in_re', 'in_im'], outputs=['out_c'],
+        derive_o_from_is=lambda in_re, in_im: dtypes.complex_for(in_re),
+        snippet="${out_c.store}(COMPLEX_CTR(${out_c.ctype})(${in_re.load}, ${in_im.load}));")

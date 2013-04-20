@@ -2,6 +2,8 @@ import numpy
 
 from reikna.helpers import *
 from reikna.core import *
+from reikna.cluda.kernel import Module
+from reikna.cluda import functions
 import reikna.cluda.dtypes as dtypes
 from reikna.cluda import OutOfResourcesError
 from reikna.elementwise import specialize_elementwise
@@ -222,20 +224,24 @@ class _FFTKernel:
 
     def prepare_for(self, max_local_size):
         local_size, workgroups_num, kwds = self._generate(max_local_size)
+        basis = self._basis
 
         kwds.update(dict(
-            min_mem_coalesce_width=self._device_params.min_mem_coalesce_width[self._basis.dtype.itemsize],
+            min_mem_coalesce_width=self._device_params.min_mem_coalesce_width[basis.dtype.itemsize],
             local_mem_banks=self._device_params.local_mem_banks,
             get_padding=get_padding,
             normalize=self._normalize,
-            wrap_const=lambda x: dtypes.c_constant(x, dtypes.real_for(self._basis.dtype)),
+            wrap_const=lambda x: dtypes.c_constant(x, dtypes.real_for(basis.dtype)),
             min_blocks=min_blocks,
             takes_kweights=(self.kweights is not None),
             pad_in=(self._fft_size != self._fft_size_real and self._pass_num == 0
                 and not self._reverse_direction),
             unpad_out=(self._fft_size != self._fft_size_real and self._last_pass
                 and self._reverse_direction),
-            reverse_direction=self._reverse_direction))
+            reverse_direction=self._reverse_direction,
+            mul=functions.mul(basis.dtype, basis.dtype),
+            polar=functions.polar(dtypes.real_for(basis.dtype)),
+            cdivs=functions.div(basis.dtype, dtypes.real_for(basis.dtype))))
 
         local_size = local_size
         global_size = local_size * workgroups_num
@@ -511,10 +517,17 @@ class FFT(Computation):
             # because we still have to run transformations.
             operations = self._get_operation_recorder()
 
+            code = lambda output, input: Module(
+                template_func(
+                    ['output', 'input'],
+                    """
+                    ${output.store}(idx, ${input.load}(idx));
+                    """),
+                snippet=True)
+
             identity = self.get_nested_computation(
-                specialize_elementwise('output', 'input', 'direction',
-                    dict(kernel="${output.store}(idx, ${input.load}(idx));")))
-            operations.add_computation(identity, 'output', 'input', 'direction')
+                specialize_elementwise('output', 'input', None, code))
+            operations.add_computation(identity, 'output', 'input')
             return operations
 
         # While resource consumption of GlobalFFTKernel can be made lower by passing
@@ -554,7 +567,7 @@ class FFT(Computation):
                     try:
                         gs, ls, kwds = kernel.prepare_for(local_size)
                         operations.add_kernel(
-                            TEMPLATE, kernel.name, argnames,
+                            TEMPLATE.get_def(kernel.name), argnames,
                             global_size=gs, local_size=ls, render_kwds=kwds,
                             dependencies=([] if kernel.inplace_possible else [(mem_in, mem_out)]))
                     except OutOfResourcesError:

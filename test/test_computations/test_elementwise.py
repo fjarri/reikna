@@ -2,6 +2,8 @@ import numpy
 import pytest
 
 from helpers import *
+from reikna.helpers import template_func
+from reikna.cluda.kernel import Module
 from reikna.elementwise import Elementwise
 import reikna.cluda.dtypes as dtypes
 
@@ -11,13 +13,16 @@ def test_errors(ctx):
     argnames = (('output',), ('input',), ('param',))
     elw = Elementwise(ctx).set_argnames(*argnames)
 
-    code = dict(kernel="""
-        ${input.ctype} a1 = ${input.load}(idx);
-        ${input.ctype} a2 = ${input.load}(idx + ${size});
-        ${output.store}(idx, a1 + a2 + ${param});
-        """)
-    argtypes = dict(output=numpy.float32, input=numpy.float32,
-        param=numpy.float32)
+    code = lambda output, input, param: Module(
+        template_func(
+            ['output', 'input', 'param'],
+            """
+            ${input.ctype} a1 = ${input.load}(idx);
+            ${input.ctype} a2 = ${input.load}(idx + ${size});
+            ${output.store}(idx, a1 + a2 + ${param});
+            """),
+        render_kwds=dict(size=output.size),
+        snippet=True)
 
     N = 1000
     a = get_test_array(N * 2, numpy.float32)
@@ -35,18 +40,30 @@ def test_nontrivial_code(ctx):
     argnames = (('output',), ('input',), ('param',))
     elw = Elementwise(ctx).set_argnames(*argnames)
 
-    code = dict(
-        kernel="""
-        ${input.ctype} a1 = ${input.load}(idx);
-        ${input.ctype} a2 = ${input.load}(idx + ${size});
-        ${output.store}(idx, a1 + test(a2, ${param}));
-        """,
-        functions="""
-        WITHIN_KERNEL ${output.ctype} test(${input.ctype} val, ${param.ctype} param)
-        {
-            return val + param;
-        }
-        """)
+    function = lambda output, input, param: Module(
+        template_func(
+            ['prefix'],
+            """
+            WITHIN_KERNEL ${otype} ${prefix}(${itype} val, ${ptype} param)
+            {
+                return val + param;
+            }
+            """),
+        render_kwds=dict(
+            otype=dtypes.ctype(output.dtype),
+            itype=dtypes.ctype(input.dtype),
+            ptype=dtypes.ctype(param.dtype)))
+
+    code = lambda output, input, param: Module(
+        template_func(
+            ['output', 'input', 'param'],
+            """
+            ${input.ctype} a1 = ${input.load}(idx);
+            ${input.ctype} a2 = ${input.load}(idx + ${size});
+            ${output.store}(idx, a1 + ${func}(a2, ${param}));
+            """),
+        render_kwds=dict(func=function(output, input, param), size=output.size),
+        snippet=True)
 
     N = 1000
     a = get_test_array(N * 2, numpy.float32)

@@ -7,6 +7,8 @@ from __future__ import division
 import functools
 import collections
 import os.path
+import warnings
+
 from mako.template import Template
 
 
@@ -35,36 +37,25 @@ def product(seq):
     return functools.reduce(lambda x1, x2: x1 * x2, seq, 1)
 
 
-def template_source_for(filename):
-    """
-    Returns the contents of the file which has the same name as ``filename``
-    and the extension ``.mako``.
-    Typically used in computation modules as ``template_source_for(__filename__)``.
-    """
-    name, ext = os.path.splitext(filename)
-    return open(name + ".mako").read()
-
-
-def template_from(template_str):
+def template_from(template):
     """
     Creates a Mako template object from a given string.
+    If ``template`` already has ``render()`` method, does nothing.
     """
-    return Template(template_str)
+    if hasattr(template, 'render'):
+        return template
+    else:
+        return Template(template, future_imports=['division'])
 
 
-def template_defs_for_code(code, argnames):
+def template_func(argnames, code):
     """
-    Returns the template source with two Mako defs ``code_functions`` and ``code_kernel``,
-    taking parameters with names from ``argnames``
-    and containing template snippets from ``code['kernel']`` and ``code['functions']`` (optional).
+    Returns a Mako template with positional arguments
+    from the list ``argnames`` and the body ``code``.
     """
-    return (
-        "<%def name='code_functions(" + ", ".join(argnames) + ")'>\n" +
-        code.get('functions', "") +
-        "\n</%def>" +
-        "<%def name='code_kernel(" + ", ".join(argnames) + ")'>\n" +
-        code['kernel'] +
-        "\n</%def>")
+    arglist = ", ".join(argnames)
+    template_src = "<%def name='_func(" + arglist + ")'>\n" + code + "\n</%def>"
+    return template_from(template_src).get_def('_func')
 
 
 def template_for(filename):
@@ -73,7 +64,8 @@ def template_for(filename):
     which has the same name as ``filename`` and the extension ``.mako``.
     Typically used in computation modules as ``template_for(__filename__)``.
     """
-    return template_from(template_source_for(filename))
+    name, ext = os.path.splitext(os.path.abspath(filename))
+    return Template(filename=name + '.mako', future_imports=['division'])
 
 
 def min_blocks(length, block):
@@ -139,3 +131,21 @@ def wrap_in_tuple(x):
         return tuple(x)
     else:
         return (x,)
+
+
+class ignore_integer_overflow():
+    """
+    Context manager for ignoring integer overflow in numpy operations on scalars
+    (not ignored by default because of a bug in numpy).
+    """
+
+    def __init__(self):
+        self.catch = warnings.catch_warnings()
+
+    def __enter__(self):
+        self.catch.__enter__()
+        warnings.filterwarnings("ignore", "overflow encountered in uint_scalars")
+        warnings.filterwarnings("ignore", "overflow encountered in ulong_scalars")
+
+    def __exit__(self, *args, **kwds):
+        self.catch.__exit__(*args, **kwds)

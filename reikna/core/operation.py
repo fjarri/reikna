@@ -1,21 +1,8 @@
 from collections import defaultdict
 
+from reikna.helpers import AttrDict
 import reikna.cluda.dtypes as dtypes
-from reikna.core.transformation import *
-from reikna.cluda.kernel import render_prelude, render_template
-
-
-class Argument:
-
-    def __init__(self, name, dtype):
-        self.dtype = dtype
-        self.ctype = dtypes.ctype(dtype)
-        self.load = load_macro_call(name)
-        self.store = store_macro_call(name)
-        self._name = name
-
-    def __str__(self):
-        return leaf_name(self._name)
+from reikna.core.transformation import ArrayValue
 
 
 class OperationRecorder:
@@ -58,14 +45,13 @@ class OperationRecorder:
         self._tr_tree.add_temp_node(self._prefix + name, value)
         return name
 
-    def add_kernel(self, template, defname, argnames,
+    def add_kernel(self, template, argnames,
             global_size, local_size=None, render_kwds=None, dependencies=None):
         """
         Adds kernel execution to the list of actions.
         See :ref:`tutorial-advanced-computation` for details on how to write kernels.
 
         :param template: Mako template for the kernel.
-        :param defname: name of the definition inside the template.
         :param argnames: names of the arguments the kernel takes.
             These must either belong to the list of external argument names,
             or be allocated by :py:meth:`add_allocation` earlier.
@@ -77,33 +63,30 @@ class OperationRecorder:
             (i.e., should not be assigned to the same physical memory allocation).
         """
 
-        subtemplate = template.get_def(defname)
         argnames = [self._prefix + name for name in argnames]
-
         assert set(argnames).issubset(set(self.values))
-        args = [Argument(name, self.values[name].dtype) for name in argnames]
+
+        kernel_name = '_kernel_func'
+        kernel_definition, argobjects = self._tr_tree.transformations_for(kernel_name, argnames)
 
         if render_kwds is None:
             render_kwds = {}
 
         additional_kwds = dict(
             basis=self.basis,
-            kernel_definition=kernel_definition(defname))
+            kernel_definition=kernel_definition)
 
         # check that user keywords do not overlap with our keywords
         intersection = set(render_kwds).intersection(additional_kwds)
         if len(intersection) > 0:
             raise ValueError("Render keywords clash with internal variables: " +
                 ", ".join(intersection))
-
         render_kwds = dict(render_kwds) # shallow copy
         render_kwds.update(additional_kwds)
-        src = render_template(subtemplate, *args, **render_kwds)
 
-        transformation_code = self._tr_tree.transformations_for(argnames)
-        full_src = transformation_code + src
-        kernel = self._ctx.compile_static(full_src, defname,
-            global_size, local_size=local_size)
+        kernel = self._ctx.compile_static(
+            template, kernel_name, global_size, local_size=local_size,
+            render_args=argobjects, render_kwds=render_kwds)
         leaf_argnames = [name for name, _ in self._tr_tree.leaf_signature(argnames)]
 
         self.kernels.append(KernelCall(kernel, leaf_argnames))
@@ -139,7 +122,7 @@ class OperationRecorder:
             new_scalar_args = map(map_to_int, new_scalar_args)
             computation.connect(tr, array_arg, new_array_args, new_scalar_args)
 
-        values = self._tr_tree.leaf_values_dict()
+        values = self._tr_tree.leaf_values_dict(argnames)
         ext_names = [map_to_ext(name) for name, _ in computation.leaf_signature()]
 
         args = [values[name] for name in ext_names]

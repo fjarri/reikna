@@ -64,6 +64,7 @@ The template engine of choice in ``reikna`` is `Mako <http://www.makotemplates.o
     import numpy
     from numpy.linalg import norm
     import reikna.cluda as cluda
+    from reikna.cluda import functions
     import reikna.cluda.dtypes as dtypes
 
     N = 256
@@ -79,9 +80,11 @@ The template engine of choice in ``reikna`` is `Mako <http://www.makotemplates.o
         GLOBAL_MEM ${ctype} *b)
     {
       const int i = get_local_id(0);
-      dest[i] = ${func.mul(dtype, dtype)}(a[i], b[i]);
+      dest[i] = ${mul}(a[i], b[i]);
     }
-    """, render_kwds=dict(dtype=dtype, ctype=dtypes.ctype(dtype)))
+    """, render_kwds=dict(
+        dtype=dtype, ctype=dtypes.ctype(dtype),
+        mul=functions.mul(dtype, dtype)))
 
     multiply_them = module.multiply_them
 

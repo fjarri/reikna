@@ -1,46 +1,68 @@
-0.3.0 (suitable for beclab)
-===========================
+0.2.3 (CLUDA API change)
+========================
 
-* TODO: add MD5 randoms
-* TODO: add "raises" sections to Computation/OperationRecorder methods
-* TODO: add custom variable names to Transformation constructor
-  (``inputs=['Vect1', 'Vect2'], outputs=1, scalars='term1'``)
-* DECIDE: move all "raw" computations to their own submodule?
-* DECIDE: we now have information about dependencies between computation's input and output arguments.
-  The question is how can user take advantage of it.
-* TODO: add support for arrays with aligned rows (mem_alloc_pitch() in PyCuda).
-  This should make non-power-of-2 FFT much faster.
-* TODO: create_queue() method in Context is not used anywhere;
-  moreover, the queue created this way cannot be used anywhere in ``reikna``.
-  Probably it's better to replace it by 'fork()' method, which will create the Context object
-  with the same context and a new queue.
-  Also, maybe rename Context to Thread/GPUThread (avoids confusion with contexts, and works well with the existence of fork()).
-  And while I'm at it, I can create a base class for Thread with the overlapping functionality.
-* TODO: add explicit context release methods for Thread --- not all Python implementations use reference counting, and non-instantaneous __del__ may cause problems with CUDA.
-* TODO: add ability to manually override inferred dependencies?
-* TODO: allow to specify dependencies for Elementwise computation
-* TODO: remove boilerplate code in cluda.kernel, perhaps remove out_dtype from mul() and div() --- we already have cast().
+* TODO: rename Module to Program to make place for actual modules
+* write a tutorial on modules
+* try to avoid imports from ``cluda.*`` in core/computations
+
+* TODO: rename Context to Thread/Stream (more appropriate, less confusion)
+
+  * create_queue() method in Context is not used anywhere, we can remove it
+  * add fork() instead, which creates another Thread with the same context?
+  * create base class for Thread which contains the overlapping functionality
+  * add add explicit context release methods for Thread --- not all Python implementations use reference counting, and non-instantaneous __del__ may cause problems with CUDA.
+
+* DECIDE: think of better way of module discovery in render keywords than looking inside AttrDicts. (see reikna.cluda.kernel.process_render_kwds)
+* DECIDE: positional arguments for modules?
 
 
-0.4.0
+0.3.0 (Core API change)
+========================
+
+* TODO: add comments to ``core.transformation`` and refactor its templates
+* TODO: change the misleading name Elementwise to PureParallel (or something)
+* TODO: use classes instead of functions transformations
+
+* DECIDE: keyword arguments only?
+
+  * can mark an argument as both input and output
+  * easier to construct and return signature
+  * easier to handle internally
+  * can return dependencies between external arguments with the signature
+  * can allow to omit some of the positional arguments during the preparation
+    and deduce their shape (i.e., direction in FFT)
+  * arguments (and their types/shapes) can be available as attributes of the computation object
+  * any disadvantages?
+
+* DECIDE: several methods in the same Computations?
+
+  * FFT, DHT, CBRNG can take advantage of that
+  * connect as ``fft.forward.output.connect(...)``
+  * which method prepare_for() uses? Or just use some general prepare()?
+
+* TODO: use different classes for different states of Computation
+
+  * ready for setting arglist: ComputationFactory?
+  * ready for connects/prepare: ComputationTemplate?
+  * ready for calls: Computation
+
+
+0.3.1
 =====
 
-* TODO: move part of core.transformation to a template
-* TODO: add custom render keywords for transformations (will help e.g. in reikna.transformations)
-* TODO: create some elementwise computations derived from Elementwise
+* TODO: use modules in ``CBRNG``
+* DECIDE: add ability to manually override inferred dependencies?
+* TODO: add support for arrays with aligned rows (mem_alloc_pitch() in PyCuda).
+  This should make non-power-of-2 FFT much faster.
+* DECIDE: move all "raw" computations to their own submodule?
 * TODO: document _debug usage
+* TODO: add a global DEBUG variable that will create all computations in debug mode by default
 * TODO: add "dynamic regime"
 * TODO: run coverage tests and see if some functionality has to be tested,
   and check existing testcases for redundancy (fft and vsizes in particular)
 * TODO: run pylint
 * TODO: create "fallback" when if _construct_operations() does not catch OutOfResources,
   it is called again with reduced local size
-* TODO: allow avoiding unnecessary array arguments in prepare_for() (pass None), so that
-  the computation could derive shape and dtype by itself.
-  Resulting values can be available as attributes of the computation object.
-* DECIDE: how to handle cases when the name of a new endpoint requested by connect() is the same
-  as one of the argument names in a nested computation (which the user is not supposed to know
-  or care about)?
 * TODO: add special optimized kernel for matrix-vector multiplication in MatrixMul.
   Or create specific matrix-vector and vector-vector computations?
 
@@ -65,7 +87,6 @@ CLUDA:
 
 Core:
 
-* DECIDE: drop strict positioning of outputs-inputs-params and just set argument types?
 * CHECK: check for errors in load/stores/param usage when connecting transformations?
   Alternatively, return more meaningful errors when accessing load/store/parameter with the wrong number.
 * CHECK: check for errors in load/stores/param usage in kernels?
@@ -73,22 +94,13 @@ Core:
 * CHECK: check correctness of types in Computation.__call__() if _debug is on
 * CHECK: check that types of arrays passed to prepare_for()/received from _get_base_signature() after creating a basis are supported by GPU (eliminates the need to check it in every computation)
 * TODO: remove unnecessary whitespace from the transformation code (generated code will look better)
-* TODO: add a global DEBUG variable that will create all computations in debug mode by default
-* TODO: add usual transformations and derivation functions for convenience
 * TODO: take not only CLUDA context as a parameter for computation constructor, but also CommandQueue, opencl context, cuda stream and so on.
 * TODO: cache results of _construct_operations based on the basis, device_params, argnames and attached transformations
-* DECIDE: see if it's possible to reuse input/output parameters as bases for temporary allocations.
-  In order to do that the computation (and initially the user) has to provide hints that
-  the input array can be overwritten. Also one has to take into account possible padding
-  and itemsize changes in the transformations. Actually, this looks too convoluted and
-  with the support for shared temporary allocations in the single context it is almost useless
-  (unless you want to FFT half of the video memory).
 
 Computations:
 
 * CHECK: need to find a balance between creating more workgroups or making loops inside kernels
   (can be applied in elementwise kernels)
-* TODO: add DCMT and 123 randoms
 * TODO: add bitonic sort
 * TODO: add filter
 * TODO: add better block width finder for small matrices in matrixmul
@@ -134,6 +146,7 @@ Currently transformation code is quite difficult to read and write.
 Perhaps some DSL can be devised to make it easier?
 Even better, if that DSL could be applied to kernels too.
 Take a look at:
+
 * Copperhead (Python-based DSL for GPGPU)
 * CodePy (Python -> AST transformer)
 * Clyther (subset of Python -> OpenCL code)

@@ -44,10 +44,6 @@ def find_local_size(device_params, max_workgroup_size, dims):
     return tuple([sizes[i] for i in result_indices])
 
 
-def render_stub_vsize_funcs():
-    return TEMPLATE.get_def('stub_funcs').render()
-
-
 class VirtualSizes:
 
     def __init__(self, device_params, max_workgroup_size, global_size, local_size):
@@ -56,7 +52,7 @@ class VirtualSizes:
         self.global_size = wrap_in_tuple(global_size)
 
         if local_size is None:
-            local_size = find_local_size(device_params, max_workgroup_size, len(global_size))
+            local_size = find_local_size(device_params, max_workgroup_size, len(self.global_size))
 
         self.local_size = wrap_in_tuple(local_size)
 

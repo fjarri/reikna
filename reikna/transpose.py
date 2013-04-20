@@ -131,7 +131,7 @@ class Transpose(Computation):
             blocks_per_matrix=blocks_per_matrix)
 
         operations.add_kernel(
-            TEMPLATE, 'transpose', [output_name, input_name],
+            TEMPLATE.get_def('transpose'), [output_name, input_name],
             global_size=(grid_width * block_width, blocks_per_matrix * batch * block_width),
             local_size=(block_width, block_width),
             render_kwds=render_kwds,

@@ -1,105 +1,23 @@
-import os.path
 from logging import error
 
 import numpy
-from mako.template import Template
 from mako import exceptions
 
+import reikna.helpers as helpers
+from reikna.helpers import AttrDict, template_for, template_from
 from reikna.cluda import dtypes
-from reikna.helpers import template_for
+
 
 TEMPLATE = template_for(__file__)
-
-
-class FuncCollector:
-
-    def __init__(self, prefix=""):
-        self.prefix = prefix
-        self.functions = {}
-
-    def cast(self, out_dtype, in_dtype):
-        out_ctype = dtypes.ctype(out_dtype)
-        in_ctype = dtypes.ctype(in_dtype)
-        name = "_{prefix}_cast_{out}_{in_}".format(prefix=self.prefix, out=out_ctype, in_=in_ctype)
-        self.functions[name] = ('cast', (out_dtype, in_dtype))
-        return name
-
-    def mul(self, dtype1, dtype2, out=None):
-        if out is None:
-            out = numpy.result_type(dtype1, dtype2)
-        ctypes = [dtypes.ctype(dt) for dt in (dtype1, dtype2)]
-        ctypes = [ctype.replace(' ', '_') for ctype in ctypes]
-        out_ctype = dtypes.ctype(out).replace(' ', '_')
-
-        name = "_{prefix}_mul__{out}__{signature}".format(
-            prefix=self.prefix, out=out_ctype, signature = '_'.join(ctypes))
-
-        self.functions[name] = ('mul', (out, dtype1, dtype2))
-        return name
-
-    def div(self, dtype1, dtype2, out=None):
-        if out is None:
-            out = numpy.result_type(dtype1, dtype2)
-        ctypes = [dtypes.ctype(dt) for dt in (dtype1, dtype2)]
-        ctypes = [ctype.replace(' ', '_') for ctype in ctypes]
-        out_ctype = dtypes.ctype(out).replace(' ', '_')
-
-        name = "_{prefix}_div__{out}__{signature}".format(
-            prefix=self.prefix, out=out_ctype, signature = '_'.join(ctypes))
-
-        self.functions[name] = ('div', (out, dtype1, dtype2))
-        return name
-
-    def conj(self, dtype):
-        ctype = dtypes.ctype(dtype).replace(' ', '_')
-
-        name = "_{prefix}_conj__{ctype}".format(
-            prefix=self.prefix, ctype=ctype)
-
-        self.functions[name] = ('conj', (dtype,))
-        return name
-
-    def norm(self, dtype):
-        ctype = dtypes.ctype(dtype).replace(' ', '_')
-
-        name = "_{prefix}_norm__{ctype}".format(
-            prefix=self.prefix, ctype=ctype)
-
-        self.functions[name] = ('norm', (dtype,))
-        return name
-
-    def exp(self, dtype):
-        ctype = dtypes.ctype(dtype).replace(' ', '_')
-
-        name = "_{prefix}_exp__{ctype}".format(
-            prefix=self.prefix, ctype=ctype)
-
-        self.functions[name] = ('exp', (dtype,))
-        return name
-
-    def polar(self, dtype):
-        ctype = dtypes.ctype(dtype).replace(' ', '_')
-
-        name = "_{prefix}_polar__{ctype}".format(
-            prefix=self.prefix, ctype=ctype)
-
-        self.functions[name] = ('polar', (dtype,))
-        return name
-
-    def render(self):
-        src = []
-        for func_name, params in self.functions.items():
-            tmpl_name, args = params
-            src.append(TEMPLATE.get_def(tmpl_name).render(func_name, *args, dtypes=dtypes))
-        return "\n".join(src)
 
 
 def render_prelude(ctx):
     return TEMPLATE.get_def('prelude').render(api=ctx.api.API_ID, ctx_fast_math=ctx._fast_math)
 
-def render_without_funcs(template, func_c, *args, **kwds):
-    # add some "built-ins" to kernel
-    render_kwds = dict(dtypes=dtypes, numpy=numpy, func=func_c)
+
+def render_template(template, *args, **kwds):
+    # add some "built-ins" to the kernel
+    render_kwds = dict(dtypes=dtypes, numpy=numpy, helpers=helpers)
     assert set(render_kwds).isdisjoint(set(kwds))
     render_kwds.update(kwds)
 
@@ -110,10 +28,75 @@ def render_without_funcs(template, func_c, *args, **kwds):
         raise Exception("Template rendering failed")
     return src
 
-def render_template_source(template_src, *args, **kwds):
-    return render_template(Template(template_src), *args, **kwds)
 
-def render_template(template, *args, **kwds):
-    func_c = FuncCollector()
-    src = render_without_funcs(template, func_c, *args, **kwds)
-    return func_c.render() + src
+class Module:
+
+    def __init__(self, template, render_kwds=None, snippet=False):
+        self.template = template_from(template)
+        self.render_kwds = {} if render_kwds is None else dict(render_kwds)
+        self.snippet = snippet
+
+
+class ProcessedModule(AttrDict): pass
+
+
+def traverse_data(target_cls, target_func, accum, val):
+    traverse = lambda v: traverse_data(target_cls, target_func, accum, v)
+
+    if isinstance(val, target_cls):
+        return target_func(accum, traverse, val)
+    elif isinstance(val, AttrDict):
+        return AttrDict({k:traverse(v) for k, v in val.items()})
+    elif isinstance(val, dict):
+        return {k:traverse(v) for k, v in val.items()}
+    elif isinstance(val, tuple):
+        return tuple(traverse(v) for v in val)
+    elif isinstance(val, list):
+        return [traverse(v) for v in val]
+    else:
+        return val
+
+
+def flatten_module(module_list, traverse, module):
+
+    processed_module = ProcessedModule(
+        template=module.template,
+        render_kwds=traverse(module.render_kwds))
+
+    if not module.snippet:
+        prefix = "_module" + str(len(module_list)) + "_"
+        module_list.append(ProcessedModule(
+            template=template_from("""\n${module(prefix)}\n"""),
+            render_kwds=dict(module=processed_module, prefix=prefix)))
+        return prefix
+    else:
+        return processed_module
+
+
+def flatten_module_tree(src, args, render_kwds):
+    main_module = Module(src, render_kwds=render_kwds, snippet=True)
+    module_list = []
+    traverse = lambda v: traverse_data(Module, flatten_module, module_list, v)
+    args = traverse(args)
+    main_module = traverse(main_module)
+    module_list.append(main_module)
+    return args, module_list
+
+
+def create_renderer(_, traverse, pm):
+    pm.render_kwds = traverse(pm.render_kwds)
+    return lambda *args: render_template(pm.template, *args, **pm.render_kwds)
+
+
+def create_renderer_tree(pm):
+    return traverse_data(ProcessedModule, create_renderer, None, pm)
+
+
+def render_template_source(src, *args, **render_kwds):
+
+    args, module_list = flatten_module_tree(src, args, render_kwds)
+    renderers = [create_renderer_tree(pm) for pm in module_list]
+    src_list = [render() for render in renderers[:-1]]
+    src_list.append(renderers[-1](*args))
+
+    return "\n\n".join(src_list)
