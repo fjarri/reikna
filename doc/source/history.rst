@@ -36,6 +36,8 @@ Release history
 
 * FIXED: bug with incorrect processing of scalar global size in static kernels.
 
+* FIXED: bug in variance estimates in CBRNG tests
+
 
 0.2.1 (8 Mar 2013)
 ==================

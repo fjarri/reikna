@@ -116,13 +116,17 @@ def check_distribution(ctx, rng_name, rng_params,
         assert diff < 5 * v_std # about 1e-6 chance of fail
 
 
+def uniform_discrete_mean_and_std(min, max):
+    return (min + max) / 2., numpy.sqrt(((max - min + 1) ** 2 - 1.) / 12)
+
+
 def uniform_mean_and_std(min, max):
     return (min + max) / 2., (max - min) / numpy.sqrt(12)
 
 
 def test_32_to_64_bit(ctx):
     extent = (0, 2**63-1)
-    mean, std = uniform_mean_and_std(*extent)
+    mean, std = uniform_discrete_mean_and_std(*extent)
     check_distribution(ctx,
         'philox', dict(bitness=32, words=4),
         'uniform_integer', dict(min=extent[0], max=extent[1] + 1), numpy.uint64,
@@ -131,7 +135,7 @@ def test_32_to_64_bit(ctx):
 
 def test_64_to_32_bit(ctx):
     extent = (0, 2**31-1)
-    mean, std = uniform_mean_and_std(*extent)
+    mean, std = uniform_discrete_mean_and_std(*extent)
     check_distribution(ctx,
         'philox', dict(bitness=64, words=4),
         'uniform_integer', dict(min=extent[0], max=extent[1] + 1), numpy.uint32,
@@ -140,7 +144,7 @@ def test_64_to_32_bit(ctx):
 
 def test_uniform_integer(ctx):
     extent = (-10, 98)
-    mean, std = uniform_mean_and_std(*extent)
+    mean, std = uniform_discrete_mean_and_std(*extent)
     check_distribution(ctx,
         'philox', dict(bitness=64, words=4),
         'uniform_integer', dict(min=extent[0], max=extent[1] + 1), numpy.int32,
