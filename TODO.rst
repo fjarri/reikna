@@ -57,7 +57,6 @@
 * TODO: add support for arrays with aligned rows (mem_alloc_pitch() in PyCuda).
   This should make non-power-of-2 FFT much faster.
 * DECIDE: move all "raw" computations to their own submodule?
-* TODO: move part of core.transformation to a template
 * TODO: document _debug usage
 * TODO: add a global DEBUG variable that will create all computations in debug mode by default
 * TODO: add "dynamic regime"
