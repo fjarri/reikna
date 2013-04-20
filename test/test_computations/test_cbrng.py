@@ -100,12 +100,20 @@ def check_distribution(ctx, rng_name, rng_params,
         assert dest.max() <= extent[1]
 
     if mean is not None and std is not None:
+        # expected mean and std of the mean of the sample array
+        m_mean = mean
+        m_std = std / numpy.sqrt(batch * size)
+
         diff = abs(dest.mean() - mean)
-        assert diff < 5 * (std / numpy.sqrt(batch * size)) # about 1e-6 chance of fail
+        assert diff < 5 * m_std # about 1e-6 chance of fail
 
     if std is not None:
-        diff = numpy.sqrt(abs(dest.var() - std ** 2))
-        assert diff < 5 * numpy.sqrt(2. * std ** 4 / (batch * size)) # about 1e-6 chance of fail
+        # expected mean and std of the variance of the sample array
+        v_mean = std ** 2
+        v_std = numpy.sqrt(2. * std ** 4 / (batch * size - 1))
+
+        diff = abs(dest.var() - v_mean)
+        assert diff < 5 * v_std # about 1e-6 chance of fail
 
 
 def uniform_mean_and_std(min, max):
