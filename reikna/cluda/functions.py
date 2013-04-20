@@ -1,3 +1,9 @@
+"""
+This module contains :py:class:`reikna.cluda.kernel.Module` factories
+which are used to compensate for the lack of complex number operations in OpenCL,
+and the lack of C++ synthax which would allow one to write them.
+"""
+
 from warnings import warn
 
 import numpy
