@@ -7,4 +7,5 @@ include MANIFEST.in
 include README.rst
 include TODO.rst
 include test/pylintrc
+include test/test_computations/cbrng_ref.py
 include test/.coveragerc

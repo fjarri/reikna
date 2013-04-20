@@ -6,7 +6,7 @@ Release history
 0.2.3 (current development version)
 ===================================
 
-Under construction.
+* FIXED: added ``transformation.mako`` and ``cbrng_ref.py`` to the distribution package.
 
 
 0.2.2 (20 Apr 2013)
