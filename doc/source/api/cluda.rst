@@ -3,18 +3,15 @@
 CLUDA layer
 ===========
 
-CLUDA is the foundation of the reikna.
-It provides unified access to basic features of CUDA and OpenCL, such as memory operations, compilation and so on.
-It can also be used by itself, if you want to write GPU API-independent programs and happen to need the small subset of GPU API.
-The terminology is borrowed from OpenCL, since it is a more general API.
-
-Root level interface
---------------------
-
-This module contains functions for API discovery.
+CLUDA is the foundation of ``reikna``.
+It provides the unified access to basic features of ``CUDA`` and ``OpenCL``, such as memory operations, compilation and so on.
+It can also be used by itself, if you want to write GPU API-independent programs and happen to only need a small subset of GPU API.
+The terminology is borrowed from ``OpenCL``, since it is a more general API.
 
 .. automodule:: reikna.cluda
    :members:
+   :imported-members:
+
 
 API module
 ----------
@@ -24,15 +21,15 @@ It is referred here (and references from other parts of this documentation) as :
 
 .. py:module:: reikna.cluda.api
 
-.. py:data:: API_ID
+.. py:function:: get_id()
 
-    Identifier of this API.
+    Returns the identifier of this API.
 
 .. py:function:: get_platforms()
 
     Returns a list of platform objects.
     The methods and attributes available are described in the reference entry for :py:class:`Platform`.
-    In case of ``API_OCL`` returned objects are actually instances of :py:class:`pyopencl.Platform`.
+    In case of ``OpenCL`` returned objects are actually instances of :py:class:`pyopencl.Platform`.
 
 .. py:class:: Platform
 
@@ -57,21 +54,21 @@ It is referred here (and references from other parts of this documentation) as :
     Wraps an existing context in the CLUDA context object.
 
     .. note::
-        If you are using ``API_CUDA``, you must keep in mind the stateful nature of CUDA calls.
+        If you are using ``CUDA`` API, you must keep in mind the stateful nature of CUDA calls.
         Briefly, this means that there is the context stack, and the current context on top of it.
         When the :py:meth:`create` is called, the ``PyCUDA`` context gets pushed to the stack and made current.
         When the :py:class:`Context` object goes out of scope (and ``own_context`` option was set to ``True`` in the constructor), the context is popped, and it is the user's responsibility to make sure the popped context is the correct one.
         In simple single-context programs this only means that one should avoid reference cycles involving the :py:class:`Context` object.
 
     :param context: a context to wrap
-    :type context: :py:class:`pycuda.driver.Context` object for ``API_CUDA``, or :py:class:`pyopencl.Context` object for ``API_OCL``.
+    :type context: :py:class:`pycuda.driver.Context` object for ``CUDA``, or :py:class:`pyopencl.Context` object for ``OpenCL``.
     :param queue: a queue to serialize operations to.
         If not given, a new one will be created internally.
-    :type queue: :py:class:`pycuda.driver.Stream` object for ``API_CUDA``, or :py:class:`pyopencl.CommandQueue` object for ``API_OCL``.
+    :type queue: :py:class:`pycuda.driver.Stream` object for ``CUDA``, or :py:class:`pyopencl.CommandQueue` object for ``OpenCL``.
     :param fast_math: whether to enable fast mathematical operations during compilation.
     :param async: whether to execute all operations with this context asynchronously (you would generally want to set it to ``False`` only for profiling purposes).
-    :param owns_context: for ``API_CUDA``, tells whether the created object is responsible for popping the context from the CUDA context stack.
-        Does not have any effect for ``API_OCL``.
+    :param owns_context: for ``CUDA``, tells whether the created object is responsible for popping the context from the CUDA context stack.
+        Does not have any effect for ``OpenCL``.
 
     .. py:classmethod:: create(device=None, fast_math=True, async=True)
 
@@ -80,7 +77,7 @@ It is referred here (and references from other parts of this documentation) as :
 
         :param device: device to create context for, element of the list returned by :py:meth:`Platform.get_devices`.
             If not given, the device will be selected internally.
-        :type device: :py:class:`pycuda.driver.Device` object for ``API_CUDA``, or :py:class:`pyopencl.Device` object for ``API_OCL``.
+        :type device: :py:class:`pycuda.driver.Device` object for ``CUDA``, or :py:class:`pyopencl.Device` object for ``OpenCL``.
         :param fast_math: same as in :py:class:`Context`.
         :param async: same as in :py:class:`Context`.
 
@@ -172,13 +169,13 @@ It is referred here (and references from other parts of this documentation) as :
 .. py:class:: Buffer
 
     Low-level untyped memory allocation.
-    Actual class depends on the API: :py:class:`pycuda.driver.DeviceAllocation` for ``API_CUDA`` and :py:class:`pyopencl.Buffer` for ``API_OCL``.
+    Actual class depends on the API: :py:class:`pycuda.driver.DeviceAllocation` for ``CUDA`` and :py:class:`pyopencl.Buffer` for ``OpenCL``.
 
     .. py:attribute:: size
 
 .. py:class:: Array
 
-    Actual array class is different depending on the API: :py:class:`pycuda.gpuarray.GPUArray` for ``API_CUDA`` and :py:class:`pyopencl.array.Array` for ``API_OCL``.
+    Actual array class is different depending on the API: :py:class:`pycuda.gpuarray.GPUArray` for ``CUDA`` and :py:class:`pyopencl.array.Array` for ``OpenCL``.
     This is an interface they both provide.
 
     .. py:attribute:: shape

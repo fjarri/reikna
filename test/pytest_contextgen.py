@@ -14,7 +14,7 @@ def get_apis(config):
     conf_api_id = config.option.api
 
     if conf_api_id == "supported":
-        api_ids = cluda.supported_apis()
+        api_ids = cluda.supported_api_ids()
     else:
         if not cluda.supports_api(conf_api_id):
             raise Exception("Requested API " + conf_api_id + " is not supported.")
@@ -34,7 +34,7 @@ def get_contexts(config, vary_fast_math=False):
             device = platform.get_devices()[dnum]
 
             fm_suffix = {True:",fm", False:",nofm", None:""}[fast_math]
-            self.device_id = api.API_ID + "," + str(pnum) + "," + str(dnum)
+            self.device_id = api.get_id() + "," + str(pnum) + "," + str(dnum)
             self.platform_name = platform.name
             self.device_name = device.name
             self.id = self.device_id + fm_suffix

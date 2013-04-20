@@ -12,7 +12,7 @@ TEMPLATE = template_for(__file__)
 
 
 def render_prelude(ctx):
-    return TEMPLATE.get_def('prelude').render(api=ctx.api.API_ID, ctx_fast_math=ctx._fast_math)
+    return TEMPLATE.get_def('prelude').render(api=ctx.api.get_id(), ctx_fast_math=ctx._fast_math)
 
 
 def render_template(template, *args, **kwds):

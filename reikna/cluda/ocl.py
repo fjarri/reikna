@@ -15,7 +15,8 @@ from reikna.cluda.vsize import VirtualSizes
 from reikna.cluda.tempalloc import ZeroOffsetManager
 
 
-API_ID = cluda.API_OCL
+def get_id():
+    return cluda.ocl_id()
 
 
 def get_platforms():
@@ -53,7 +54,7 @@ class Context:
     def __init__(self, context, queue=None, fast_math=True, async=True, temp_alloc=None,
             owns_context=False):
 
-        self.api = cluda.api(API_ID)
+        self.api = cluda.api(get_id())
         self._fast_math = fast_math
         self._context = context
         self._async = async

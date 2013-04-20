@@ -19,7 +19,9 @@ from reikna.cluda.tempalloc import ZeroOffsetManager
 
 cuda.init()
 
-API_ID = cluda.API_CUDA
+
+def get_id():
+    return cluda.cuda_id()
 
 
 def get_platforms():
@@ -87,7 +89,7 @@ class Context:
             owns_context=False):
 
         self._owns_context = owns_context
-        self.api = cluda.api(API_ID)
+        self.api = cluda.api(get_id())
         self._fast_math = fast_math
         self._context = context
         self._async = async
