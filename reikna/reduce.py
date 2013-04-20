@@ -35,7 +35,7 @@ class Reduce(Computation):
         :param axis: axis over which reduction is performed.
             If ``None``, the whole array will be reduced to a single element.
         :param predicate: a lambda, taking positional argument mocks and returning a snippet
-            which takes names of two variables to reduce and ``return``s the result.
+            which takes names of two variables to reduce and ``return``'s the result.
     """
 
     def _get_argnames(self):
