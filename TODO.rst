@@ -1,18 +1,9 @@
-0.2.2
-=====
-
-* add comments to ``core.transformation`` and refactor its templates
-* write a tutorial on modules
-* fix the documentation according to API changes
-* try to avoid imports from ``cluda.*`` in core/computations
-
-
-0.3.0 (major API change)
+0.2.3 (CLUDA API change)
 ========================
 
-* TODO: change the misleading name Elementwise to PureParallel (or something)
 * TODO: rename Module to Program to make place for actual modules
-* TODO: use classes instead of functions transformations
+* write a tutorial on modules
+* try to avoid imports from ``cluda.*`` in core/computations
 
 * TODO: rename Context to Thread/Stream (more appropriate, less confusion)
 
@@ -20,6 +11,17 @@
   * add fork() instead, which creates another Thread with the same context?
   * create base class for Thread which contains the overlapping functionality
   * add add explicit context release methods for Thread --- not all Python implementations use reference counting, and non-instantaneous __del__ may cause problems with CUDA.
+
+* DECIDE: think of better way of module discovery in render keywords than looking inside AttrDicts. (see reikna.cluda.kernel.process_render_kwds)
+* DECIDE: positional arguments for modules?
+
+
+0.3.0 (Core API change)
+========================
+
+* TODO: add comments to ``core.transformation`` and refactor its templates
+* TODO: change the misleading name Elementwise to PureParallel (or something)
+* TODO: use classes instead of functions transformations
 
 * DECIDE: keyword arguments only?
 
@@ -44,14 +46,11 @@
   * ready for connects/prepare: ComputationTemplate?
   * ready for calls: Computation
 
-* DECIDE: think of better way of module discovery in render keywords than looking inside AttrDicts. (see reikna.cluda.kernel.process_render_kwds)
-* DECIDE: positional arguments for modules?
-* use modules in ``CBRNG``
 
-
-0.4.0
+0.3.1
 =====
 
+* TODO: use modules in ``CBRNG``
 * DECIDE: add ability to manually override inferred dependencies?
 * TODO: add support for arrays with aligned rows (mem_alloc_pitch() in PyCuda).
   This should make non-power-of-2 FFT much faster.
