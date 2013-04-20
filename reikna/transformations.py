@@ -39,7 +39,7 @@ def scale_const(multiplier):
         inputs=1, outputs=1,
         snippet="${o1.store}(${mul}(${i1.load}, ${coeff}));",
         derive_render_kwds=lambda o1, i1: dict(
-            mul=functions.mul(i1.dtype, dtype, out_dtype=o1),
+            mul=functions.mul(i1, dtype, out_dtype=o1),
             coeff=dtypes.c_constant(multiplier, dtype=dtype)))
 
 

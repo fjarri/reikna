@@ -3,6 +3,8 @@ Test standard transformations
 """
 import pytest
 
+from reikna.helpers import template_func
+from reikna.cluda.kernel import Module
 from reikna.elementwise import Elementwise, specialize_elementwise
 import reikna.transformations as tr
 
@@ -19,8 +21,15 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize('any_dtype', dtypes, ids=[str(x) for x in dtypes])
 
 
-TestComputation = specialize_elementwise('output', 'input', None,
-    dict(kernel="${output.store}(idx, ${input.load}(idx));"))
+identity = lambda output, input: Module(
+    template_func(
+        ['output', 'input'],
+        """
+        ${output.store}(idx, ${input.load}(idx));
+        """),
+    snippet=True)
+
+TestComputation = specialize_elementwise('output', 'input', None, identity)
 
 
 def test_identity(some_ctx, any_dtype):
