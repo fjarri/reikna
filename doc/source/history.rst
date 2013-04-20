@@ -36,7 +36,9 @@ Release history
 
 * FIXED: bug with incorrect processing of scalar global size in static kernels.
 
-* FIXED: bug in variance estimates in CBRNG tests
+* FIXED: bug in variance estimates in CBRNG tests.
+
+* FIXED: error in the temporary varaiable type in :py:func:`reikna.cluda.functions.polar` and :py:func:`reikna.cluda.functions.exp`.
 
 
 0.2.1 (8 Mar 2013)

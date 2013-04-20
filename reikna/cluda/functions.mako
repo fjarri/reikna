@@ -141,7 +141,7 @@ WITHIN_KERNEL ${dtypes.ctype(dtype)} ${prefix}(${dtypes.ctype(dtype)} a)
         res.y = native_sin(theta);
     #else
     %endif
-        real_t tmp;
+        ${dtypes.ctype(dtype)} tmp;
         res.y = sincos(theta, &tmp);
         res.x = tmp;
     %if not dtypes.is_double(dtype):
