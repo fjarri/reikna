@@ -11,7 +11,7 @@ import reikna.cluda as cluda
 import reikna.cluda.dtypes as dtypes
 from reikna.helpers import wrap_in_tuple, product
 from reikna.cluda.kernel import render_prelude, render_template_source
-from reikna.cluda.vsize import VirtualSizes, render_stub_vsize_funcs
+from reikna.cluda.vsize import VirtualSizes
 from reikna.cluda.tempalloc import ZeroOffsetManager
 
 
@@ -281,11 +281,14 @@ class StaticKernel:
             render_kwds = {}
 
         prelude = render_prelude(self._ctx)
-        stub_vsize_funcs = render_stub_vsize_funcs()
         src = render_template_source(template_src, *render_args, **render_kwds)
 
         # We need the first approximation of the maximum thread number for a kernel.
         # Stub virtual size functions instead of real ones will not change it (hopefully).
+        stub_vs = VirtualSizes(ctx.device_params, ctx.device_params.max_work_group_size,
+            global_size, local_size)
+        stub_vsize_funcs = stub_vs.render_vsize_funcs()
+
         stub_module = ctx._compile(str(prelude + stub_vsize_funcs + src))
         stub_kernel = getattr(stub_module, name)
         max_work_group_size = stub_kernel.get_work_group_info(

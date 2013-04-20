@@ -30,6 +30,8 @@ Release history
 
 * CHANGED: :py:class:`~reikna.elementwise.Elementwise` now uses modules.
 
+* FIXED: potential problem with local size finidng in static kernels (first approximation for the maximum workgroup size was not that good)
+
 * FIXED: some OpenCL compilation warnings caused by an incorrect version querying macro.
 
 * FIXED: bug with incorrect processing of scalar global size in static kernels.
