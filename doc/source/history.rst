@@ -8,6 +8,8 @@ Release history
 
 * CHANGED: CLUDA API discovery interface (see the documentation).
 
+* CHANGED: The part of CLUDA API that is supposed to be used by other layers was moved to the ``__init__.py``.
+
 * FIXED: added ``transformation.mako`` and ``cbrng_ref.py`` to the distribution package.
 
 

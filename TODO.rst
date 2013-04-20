@@ -3,7 +3,6 @@
 
 * TODO: rename Module to Program to make place for actual modules
 * write a tutorial on modules
-* try to avoid imports from ``cluda.*`` in core/computations
 
 * TODO: rename Context to Thread/Stream (more appropriate, less confusion)
 
