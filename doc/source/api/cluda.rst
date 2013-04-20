@@ -147,7 +147,7 @@ It is referred here (and references from other parts of this documentation) as :
         :param template_src: Mako template source to render
         :param render_kwds: a dictionary with additional parameters
             to be used while rendering the template.
-        :returns: a :py:class:`Module` object.
+        :returns: a :py:class:`Program` object.
 
     .. py:method:: compile_static(template_src, name, global_size, local_size=None, local_mem=0, render_args=None, render_kwds=None)
 
@@ -219,7 +219,7 @@ It is referred here (and references from other parts of this documentation) as :
 
         Dictionary ``{word_size:elements}``, where ``elements`` is the number of elements with size ``word_size`` in global memory that allow coalesced access.
 
-.. py:class:: Module
+.. py:class:: Program
 
     .. py:attribute:: source
 

@@ -187,15 +187,15 @@ class Context:
     def _compile(self, src):
         options = ['-use_fast_math'] if self._fast_math else []
         try:
-            module = SourceModule(src, no_extern_c=True, options=options)
+            program = SourceModule(src, no_extern_c=True, options=options)
         except:
             listing = "\n".join([str(i+1) + ":" + l for i, l in enumerate(src.split('\n'))])
             error("Failed to compile:\n" + listing)
             raise
-        return module
+        return program
 
     def compile(self, template_src, render_kwds=None):
-        return Module(self, template_src, render_kwds=render_kwds)
+        return Program(self, template_src, render_kwds=render_kwds)
 
     def compile_static(self, template_src, name, global_size,
             local_size=None, local_mem=0, render_args=None, render_kwds=None):
@@ -246,7 +246,7 @@ class DeviceParameters:
         self.local_mem_size = device.max_shared_memory_per_block
 
 
-class Module:
+class Program:
 
     def __init__(self, ctx, src, render_kwds=None):
         self._ctx = ctx
@@ -257,10 +257,10 @@ class Module:
         src = render_template_source(src, **render_kwds)
 
         self.source = prelude + src
-        self._module = ctx._compile(self.source)
+        self._program = ctx._compile(self.source)
 
     def __getattr__(self, name):
-        return Kernel(self._ctx, self._module.get_function(name))
+        return Kernel(self._ctx, self._program.get_function(name))
 
 
 class Kernel:
@@ -344,8 +344,8 @@ class StaticKernel:
             global_size, local_size)
         stub_vsize_funcs = stub_vs.render_vsize_funcs()
 
-        stub_module = ctx._compile(str(prelude + stub_vsize_funcs + src))
-        stub_kernel = stub_module.get_function(name)
+        stub_program = ctx._compile(str(prelude + stub_vsize_funcs + src))
+        stub_kernel = stub_program.get_function(name)
         max_work_group_size = stub_kernel.get_attribute(
             cuda.function_attribute.MAX_THREADS_PER_BLOCK)
 
@@ -355,9 +355,9 @@ class StaticKernel:
         self._grid = tuple(g // l for g, l in zip(self._global_size, self._local_size))
 
         self.source = prelude + static_prelude + src
-        self._module = ctx._compile(self.source)
+        self._program = ctx._compile(self.source)
 
-        self._kernel = self._module.get_function(name)
+        self._kernel = self._program.get_function(name)
 
         self.max_work_group_size = self._kernel.get_attribute(
             cuda.function_attribute.MAX_THREADS_PER_BLOCK)

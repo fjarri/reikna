@@ -147,15 +147,15 @@ class Context:
     def _compile(self, src):
         options = "-cl-mad-enable -cl-fast-relaxed-math" if self._fast_math else ""
         try:
-            module = cl.Program(self._context, src).build(options=options)
+            program = cl.Program(self._context, src).build(options=options)
         except:
             listing = "\n".join([str(i+1) + ":" + l for i, l in enumerate(src.split('\n'))])
             error("Failed to compile:\n" + listing)
             raise
-        return module
+        return program
 
     def compile(self, template_src, render_kwds=None):
-        return Module(self, template_src, render_kwds=render_kwds)
+        return Program(self, template_src, render_kwds=render_kwds)
 
     def compile_static(self, template_src, name, global_size,
             local_size=None, render_args=None, render_kwds=None):
@@ -217,7 +217,7 @@ class DeviceParameters:
         self.local_mem_size = device.local_mem_size
 
 
-class Module:
+class Program:
 
     def __init__(self, ctx, src, render_kwds=None):
         self._ctx = ctx
@@ -232,10 +232,10 @@ class Module:
         # New versions of Mako produce Unicode output by default,
         # and it makes OpenCL compiler unhappy
         self.source = str(prelude + src)
-        self._module = ctx._compile(self.source)
+        self._program = ctx._compile(self.source)
 
     def __getattr__(self, name):
-        return Kernel(self._ctx, getattr(self._module, name))
+        return Kernel(self._ctx, getattr(self._program, name))
 
 
 class Kernel:
@@ -290,8 +290,8 @@ class StaticKernel:
             global_size, local_size)
         stub_vsize_funcs = stub_vs.render_vsize_funcs()
 
-        stub_module = ctx._compile(str(prelude + stub_vsize_funcs + src))
-        stub_kernel = getattr(stub_module, name)
+        stub_program = ctx._compile(str(prelude + stub_vsize_funcs + src))
+        stub_kernel = getattr(stub_program, name)
         max_work_group_size = stub_kernel.get_work_group_info(
             cl.kernel_work_group_info.WORK_GROUP_SIZE, self._ctx._device)
 
@@ -303,9 +303,9 @@ class StaticKernel:
         # New versions of Mako produce Unicode output by default,
         # and it makes OpenCL compiler unhappy
         self.source = str(prelude + static_prelude + src)
-        self._module = ctx._compile(self.source)
+        self._program = ctx._compile(self.source)
 
-        self._kernel = getattr(self._module, name)
+        self._kernel = getattr(self._program, name)
 
         self.max_work_group_size = self._kernel.get_work_group_info(
             cl.kernel_work_group_info.WORK_GROUP_SIZE, self._ctx._device)
