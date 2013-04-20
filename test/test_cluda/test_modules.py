@@ -2,7 +2,7 @@ import pytest
 
 from helpers import *
 from reikna.helpers import *
-from reikna.cluda.kernel import Module
+from reikna.cluda import Module
 import reikna.cluda.functions as functions
 
 

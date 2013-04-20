@@ -4,7 +4,7 @@ Test standard transformations
 import pytest
 
 from reikna.helpers import template_func
-from reikna.cluda.kernel import Module
+from reikna.cluda import Module
 from reikna.elementwise import Elementwise, specialize_elementwise
 import reikna.transformations as tr
 

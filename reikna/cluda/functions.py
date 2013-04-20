@@ -11,7 +11,7 @@ import numpy
 import reikna.helpers as helpers
 from reikna.helpers import template_for
 from reikna.cluda import dtypes
-from reikna.cluda.kernel import Module
+from reikna.cluda import Module
 
 
 TEMPLATE = template_for(__file__)

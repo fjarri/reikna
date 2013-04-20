@@ -6,7 +6,7 @@ import pytest
 from helpers import *
 from reikna.reduce import Reduce
 from reikna.helpers import template_func
-from reikna.cluda.kernel import Module
+from reikna.cluda import Module
 import reikna.cluda.dtypes as dtypes
 
 

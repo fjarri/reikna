@@ -1,6 +1,6 @@
 import numpy
 
-from reikna.cluda.kernel import Module
+from reikna.cluda import Module
 from reikna.helpers import *
 from reikna.cluda import dtypes
 from reikna.core import *

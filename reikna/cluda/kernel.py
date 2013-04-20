@@ -30,6 +30,26 @@ def render_template(template, *args, **kwds):
 
 
 class Module:
+    """
+    Contains a code template and render keywords (possibly referencing other modules).
+
+    :param tempalte: a ``Mako`` template with the module code,
+        or a string with the template source.
+    :type template: ``str`` or ``Mako`` template.
+    :param render_kwds: a dictionary which will be used to render the template.
+        Can contain other modules.
+    :param snippet: defines the behavior of the module in the higher-level module
+        that has it in its ``render_kwds``.
+        If ``True``, the corresponding keyword will act as a function taking positional arguments
+        and rendering the template at the place of a call with these arguments
+        and its own ``render_kwds``.
+        If ``False``, the keyword will be a string with module prefix
+        which can be used to call module functions;
+        the module template will be rendered before the code for the higher-level template,
+        with the prefix passed as the only positional parameter.
+
+    For more details on how to use modules, see :ref:`tutorial-modules`.
+    """
 
     def __init__(self, template, render_kwds=None, snippet=False):
         self.template = template_from(template)

@@ -2,7 +2,7 @@ import numpy
 
 from reikna.helpers import *
 from reikna.core import *
-from reikna.cluda.kernel import Module
+from reikna.cluda import Module
 from reikna.cluda import functions
 import reikna.cluda.dtypes as dtypes
 from reikna.cluda import OutOfResourcesError

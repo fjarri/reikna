@@ -3,7 +3,7 @@ import re
 import numpy
 
 import reikna.cluda.dtypes as dtypes
-from reikna.cluda.kernel import Module
+from reikna.cluda import Module
 from reikna.helpers import AttrDict, product, wrap_in_tuple, template_func, template_for
 
 

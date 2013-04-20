@@ -3,7 +3,7 @@ import pytest
 
 from helpers import *
 from reikna.helpers import template_func
-from reikna.cluda.kernel import Module
+from reikna.cluda import Module
 from reikna.elementwise import Elementwise
 import reikna.cluda.dtypes as dtypes
 
