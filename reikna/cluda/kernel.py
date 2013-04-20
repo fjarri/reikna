@@ -14,8 +14,9 @@ TEMPLATE = template_for(__file__)
 def render_prelude(ctx):
     return TEMPLATE.get_def('prelude').render(api=ctx.api.API_ID, ctx_fast_math=ctx._fast_math)
 
-def render_without_funcs(template, *args, **kwds):
-    # add some "built-ins" to kernel
+
+def render_template(template, *args, **kwds):
+    # add some "built-ins" to the kernel
     render_kwds = dict(dtypes=dtypes, numpy=numpy, helpers=helpers)
     assert set(render_kwds).isdisjoint(set(kwds))
     render_kwds.update(kwds)
@@ -36,36 +37,34 @@ class Module:
         self.snippet = snippet
 
 
-def get_prefix(n):
-    return "_module" + str(n) + "_"
-
-
 class ProcessedModule(AttrDict): pass
 
 
-def process_render_val(module_list, val):
-    if isinstance(val, Module):
-        return flatten_module(module_list, val)
+def traverse_data(target_cls, target_func, accum, val):
+    traverse = lambda v: traverse_data(target_cls, target_func, accum, v)
+
+    if isinstance(val, target_cls):
+        return target_func(accum, traverse, val)
     elif isinstance(val, AttrDict):
-        return AttrDict({k:process_render_val(module_list, v) for k, v in val.items()})
+        return AttrDict({k:traverse(v) for k, v in val.items()})
     elif isinstance(val, dict):
-        return {k:process_render_val(module_list, v) for k, v in val.items()}
+        return {k:traverse(v) for k, v in val.items()}
     elif isinstance(val, tuple):
-        return tuple(process_render_val(module_list, v) for v in val)
+        return tuple(traverse(v) for v in val)
     elif isinstance(val, list):
-        return [process_render_val(module_list, v) for v in val]
+        return [traverse(v) for v in val]
     else:
         return val
 
 
-def flatten_module(module_list, module):
+def flatten_module(module_list, traverse, module):
 
     processed_module = ProcessedModule(
         template=module.template,
-        render_kwds=process_render_val(module_list, module.render_kwds))
+        render_kwds=traverse(module.render_kwds))
 
     if not module.snippet:
-        prefix = get_prefix(len(module_list))
+        prefix = "_module" + str(len(module_list)) + "_"
         module_list.append(ProcessedModule(
             template=template_from("""\n${module(prefix)}\n"""),
             render_kwds=dict(module=processed_module, prefix=prefix)))
@@ -77,37 +76,26 @@ def flatten_module(module_list, module):
 def flatten_module_tree(src, args, render_kwds):
     main_module = Module(src, render_kwds=render_kwds, snippet=True)
     module_list = []
-    args = process_render_val(module_list, args)
-    main_module = flatten_module(module_list, main_module)
+    traverse = lambda v: traverse_data(Module, flatten_module, module_list, v)
+    args = traverse(args)
+    main_module = traverse(main_module)
     module_list.append(main_module)
     return args, module_list
 
 
-def process_pm(val):
-    if isinstance(val, ProcessedModule):
-        return render_snippet_tree(val)
-    elif isinstance(val, AttrDict):
-        return AttrDict({k:process_pm(v) for k, v in val.items()})
-    elif isinstance(val, dict):
-        return {k:process_pm(v) for k, v in val.items()}
-    elif isinstance(val, tuple):
-        return tuple(process_pm(v) for v in val)
-    elif isinstance(val, list):
-        return [process_pm(v) for v in val]
-    else:
-        return val
+def create_renderer(_, traverse, pm):
+    pm.render_kwds = traverse(pm.render_kwds)
+    return lambda *args: render_template(pm.template, *args, **pm.render_kwds)
 
 
-def render_snippet_tree(pm):
-    pm.render_kwds = process_pm(pm.render_kwds)
-    return lambda *args: render_without_funcs(
-        pm.template, *args, **pm.render_kwds)
+def create_renderer_tree(pm):
+    return traverse_data(ProcessedModule, create_renderer, None, pm)
 
 
 def render_template_source(src, *args, **render_kwds):
 
     args, module_list = flatten_module_tree(src, args, render_kwds)
-    renderers = [render_snippet_tree(pm) for pm in module_list]
+    renderers = [create_renderer_tree(pm) for pm in module_list]
     src_list = [render() for render in renderers[:-1]]
     src_list.append(renderers[-1](*args))
 
