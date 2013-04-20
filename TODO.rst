@@ -46,6 +46,8 @@
   * ready for connects/prepare: ComputationTemplate?
   * ready for calls: Computation
 
+* TODO: take not only CLUDA context as a parameter for computation constructor, but also CommandQueue, opencl context, cuda stream and so on.
+
 
 0.3.1
 =====
@@ -94,7 +96,6 @@ Core:
 * CHECK: check correctness of types in Computation.__call__() if _debug is on
 * CHECK: check that types of arrays passed to prepare_for()/received from _get_base_signature() after creating a basis are supported by GPU (eliminates the need to check it in every computation)
 * TODO: remove unnecessary whitespace from the transformation code (generated code will look better)
-* TODO: take not only CLUDA context as a parameter for computation constructor, but also CommandQueue, opencl context, cuda stream and so on.
 * TODO: cache results of _construct_operations based on the basis, device_params, argnames and attached transformations
 
 Computations:
