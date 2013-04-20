@@ -3,6 +3,7 @@ import numpy
 from reikna.helpers import *
 from reikna.core import *
 from reikna.cluda import OutOfResourcesError
+from reikna.cluda import functions
 
 TEMPLATE = template_for(__file__)
 
@@ -103,7 +104,8 @@ class MatrixMul(Computation):
             render_kwds = dict(
                 block_width=block_width,
                 grid_width=grid_width,
-                blocks_per_matrix=blocks_per_matrix)
+                blocks_per_matrix=blocks_per_matrix,
+                mul=functions.mul(basis.a_dtype, basis.b_dtype, out_dtype=basis.out_dtype))
 
             try:
                 operations.add_kernel(
