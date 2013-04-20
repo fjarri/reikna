@@ -280,14 +280,15 @@ It takes a list of dependencies as an optional parameter which gives the allocat
 
 .. autoclass:: ZeroOffsetManager
 
-.. _cluda-kernel-toolbox:
-
 
 Function modules
 ----------------
 
 .. automodule :: reikna.cluda.functions
     :members:
+
+
+.. _cluda-kernel-toolbox:
 
 Kernel toolbox
 --------------
