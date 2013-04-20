@@ -37,16 +37,6 @@ def product(seq):
     return functools.reduce(lambda x1, x2: x1 * x2, seq, 1)
 
 
-def template_source_for(filename):
-    """
-    Returns the contents of the file which has the same name as ``filename``
-    and the extension ``.mako``.
-    Typically used in computation modules as ``template_source_for(__filename__)``.
-    """
-    name, ext = os.path.splitext(filename)
-    return open(name + ".mako").read()
-
-
 def template_from(template):
     """
     Creates a Mako template object from a given string.
@@ -56,21 +46,6 @@ def template_from(template):
         return template
     else:
         return Template(template, future_imports=['division'])
-
-
-def template_defs_for_code(code, argnames):
-    """
-    Returns the template source with two Mako defs ``code_functions`` and ``code_kernel``,
-    taking parameters with names from ``argnames``
-    and containing template snippets from ``code['kernel']`` and ``code['functions']`` (optional).
-    """
-    return (
-        "<%def name='code_functions(" + ", ".join(argnames) + ")'>\n" +
-        code.get('functions', "") +
-        "\n</%def>" +
-        "<%def name='code_kernel(" + ", ".join(argnames) + ")'>\n" +
-        code['kernel'] +
-        "\n</%def>")
 
 
 def template_func(argnames, code):

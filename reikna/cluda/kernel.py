@@ -104,7 +104,7 @@ def render_snippet_tree(pm):
         pm.template, *args, **pm.render_kwds)
 
 
-def render_template_source_with_modules(src, *args, **render_kwds):
+def render_template_source(src, *args, **render_kwds):
 
     args, module_list = flatten_module_tree(src, args, render_kwds)
     renderers = [render_snippet_tree(pm) for pm in module_list]
