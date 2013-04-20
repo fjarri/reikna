@@ -309,12 +309,6 @@ class TransformationTree:
                     continue
                 visited.add(name)
 
-                # assuming that if we got a name not from the tree,
-                # it is a temporary array
-                if name not in self.nodes:
-                    arrays.append(name)
-                    continue
-
                 node = self.nodes[name]
                 if node.children is None:
                     if node.type == Node.SCALAR:
@@ -326,14 +320,13 @@ class TransformationTree:
 
         visit(base_names)
 
-        return [(name, self.nodes[name].value if name in self.nodes else None)
-            for name in arrays + scalars]
+        return [(name, self.nodes[name].value) for name in arrays + scalars]
 
     def base_values(self):
         return [self.nodes[name].value for name in self.base_names]
 
-    def leaf_values_dict(self):
-        return {name:value for name, value in self.leaf_signature()}
+    def leaf_values_dict(self, base_names=None):
+        return {name:value for name, value in self.leaf_signature(base_names=base_names)}
 
     def all_children(self, name):
         return [name for name, _ in self.leaf_signature([name])]
