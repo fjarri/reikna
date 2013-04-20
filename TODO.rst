@@ -2,7 +2,6 @@
 =====
 
 * use modules in ``Reduce``
-* use modules in ``CBRNG``
 * remove unused rendering functions from ``cluda.kernel`` and ``helpers``, and simplify the rest
 * add comments to ``core.transformation`` and refactor its templates
 * write a tutorial on modules
@@ -49,6 +48,7 @@
 
 * DECIDE: think of better way of module discovery in render keywords than looking inside AttrDicts. (see reikna.cluda.kernel.process_render_kwds)
 * DECIDE: positional arguments for modules?
+* use modules in ``CBRNG``
 
 
 0.4.0
