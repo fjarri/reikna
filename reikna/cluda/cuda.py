@@ -328,6 +328,8 @@ class StaticKernel:
 
         self._ctx = ctx
 
+        if render_args is None:
+            render_args = []
         if render_kwds is None:
             render_kwds = {}
 
