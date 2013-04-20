@@ -1,7 +1,6 @@
 0.2.2
 =====
 
-* use modules in ``Reduce``
 * remove unused rendering functions from ``cluda.kernel`` and ``helpers``, and simplify the rest
 * add comments to ``core.transformation`` and refactor its templates
 * write a tutorial on modules

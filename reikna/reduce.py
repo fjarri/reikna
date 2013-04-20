@@ -1,11 +1,12 @@
 import numpy
 
+from reikna.cluda.kernel import Module
 from reikna.helpers import *
 from reikna.cluda import dtypes
 from reikna.core import *
 from reikna.transpose import Transpose
 
-TEMPLATE_SRC = template_source_for(__file__)
+TEMPLATE = template_for(__file__)
 
 
 def reduced_shape(shape, axis):
@@ -14,7 +15,13 @@ def reduced_shape(shape, axis):
     return tuple(l)
 
 
-SUM = dict(kernel="return input1 + input2;")
+predicate_sum = lambda output, input: Module(
+    template_func(
+        ['v1', 'v2'],
+        """
+        return ${v1} + ${v2};
+        """),
+    snippet=True)
 
 
 class Reduce(Computation):
@@ -27,7 +34,8 @@ class Reduce(Computation):
         :param input: input buffer
         :param axis: axis over which reduction is performed.
             If ``None``, the whole array will be reduced to a single element.
-        :param code: dictionary {kernel, functions} with the reduction code.
+        :param predicate: a lambda, taking positional argument mocks and returning a snippet
+            which takes names of two variables to reduce and ``return``s the result.
     """
 
     def _get_argnames(self):
@@ -43,7 +51,7 @@ class Reduce(Computation):
             output=ArrayValue(output_shape, basis.dtype),
             input=ArrayValue(basis.shape, basis.dtype))
 
-    def _get_basis_for(self, output, input, code=SUM, axis=None):
+    def _get_basis_for(self, output, input, predicate=predicate_sum, axis=None):
 
         assert input.dtype == output.dtype
         assert input.size % output.size == 0
@@ -59,7 +67,7 @@ class Reduce(Computation):
             bs['axis'] = 0
 
         if operation is not None:
-            bs['code'] = code
+            bs['predicate'] = predicate(output, input)
 
         return bs
 
@@ -121,11 +129,8 @@ class Reduce(Computation):
                 log2=log2, block_size=block_size,
                 warp_size=device_params.warp_size)
 
-            template = template_from(
-                template_defs_for_code(basis.code, ['output', 'input']) + TEMPLATE_SRC)
-
             operations.add_kernel(
-                template.get_def('reduce'), [output_name, input_name],
+                TEMPLATE.get_def('reduce'), [output_name, input_name],
                 global_size=(global_size,), local_size=(block_size,), render_kwds=render_kwds,
                 dependencies=[(input_name, output_name)])
 

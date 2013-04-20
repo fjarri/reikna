@@ -1,7 +1,5 @@
 <%def name="reduce(output, input)">
 
-${code_functions(output, input)}
-
 <%
     log2_warp_size = log2(warp_size)
     log2_block_size = log2(block_size)
@@ -13,9 +11,9 @@ ${code_functions(output, input)}
     ctype = output.ctype
 %>
 
-INLINE WITHIN_KERNEL ${ctype} _reduction_op(${ctype} input1, ${ctype} input2)
+INLINE WITHIN_KERNEL ${ctype} reduction_op(${ctype} input1, ${ctype} input2)
 {
-    ${code_kernel(output, input)}
+    ${basis.predicate('input1', 'input2')}
 }
 
 ${kernel_definition}
@@ -44,7 +42,7 @@ ${kernel_definition}
     %for reduction_pow in range(log2_block_size - 1, log2_warp_size, -1):
         if(tid < ${2 ** reduction_pow})
         {
-            local_mem[tid] = _reduction_op(local_mem[tid],
+            local_mem[tid] = reduction_op(local_mem[tid],
                 local_mem[tid + ${2 ** reduction_pow}]);
         }
         LOCAL_BARRIER;
@@ -63,7 +61,7 @@ ${kernel_definition}
 
     ${ctype} ttt;
     %for reduction_pow in range(min(log2_warp_size, log2_block_size - 1), -1, -1):
-        ttt = _reduction_op(smem[tid], smem[tid + ${2 ** reduction_pow}]);
+        ttt = reduction_op(smem[tid], smem[tid + ${2 ** reduction_pow}]);
         smem[tid] = ttt;
     %endfor
     }
