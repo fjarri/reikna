@@ -109,6 +109,12 @@ class Context:
     """
     Wraps an existing context in the CLUDA context object.
 
+    :param cqd: a ``Context``, ``Device`` or ``Stream``/``CommandQueue`` object to base on.
+        If a context is passed, a new stream/queue will be created internally.
+    :param fast_math: whether to enable fast mathematical operations during compilation.
+    :param async: whether to execute all operations with this context asynchronously
+        (you would generally want to set it to ``False`` only for profiling purposes).
+
     .. note::
         If you are using ``CUDA`` API, you must keep in mind the stateful nature of CUDA calls.
         Briefly, this means that there is the context stack, and the current context on top of it.
@@ -119,12 +125,6 @@ class Context:
         and it is the user's responsibility to make sure the popped context is the correct one.
         In simple single-context programs this only means that one should avoid reference cycles
         involving the :py:class:`Context` object.
-
-    :param cqd: a ``Context``, ``Device`` or ``Stream``/``CommandQueue`` object to base on.
-        If a context is passed, a new stream/queue will be created internally.
-    :param fast_math: whether to enable fast mathematical operations during compilation.
-    :param async: whether to execute all operations with this context asynchronously
-        (you would generally want to set it to ``False`` only for profiling purposes).
 
     .. warning::
 
