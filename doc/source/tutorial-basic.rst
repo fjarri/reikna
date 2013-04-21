@@ -56,7 +56,7 @@ As an example, let us consider an elementwise computation object with one output
     import reikna.transformations as transformations
 
     api = cluda.ocl_api()
-    ctx = api.Context.create()
+    ctx = api.Thread.create()
 
     TestComputation = specialize_elementwise(
         'out', ['in1', 'in2'], 'param',

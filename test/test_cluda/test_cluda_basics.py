@@ -63,7 +63,7 @@ def simple_context_test(ctx):
 
 
 def test_create_new_context(cluda_api):
-    ctx = cluda_api.Context.create()
+    ctx = cluda_api.Thread.create()
     simple_context_test(ctx)
 
 

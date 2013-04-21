@@ -66,7 +66,7 @@ class Buffer:
         self._buffer.free()
 
 
-class Context(api_base.Context):
+class Thread(api_base.Thread):
 
     api = sys.modules[__name__]
 

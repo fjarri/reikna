@@ -77,7 +77,7 @@ def create_counters(ctx, size, rng, distribution, rng_params):
     """
     Create a counter array on a device for use in :py:class:`~reikna.cbrng.CBRNG`.
 
-    :param ctx: a Context object.
+    :param ctx: a :py:class:`~reikna.cluda.api.Thread` object.
     :param size: a shape of the target random numbers array.
     :param rng: random number generator name.
     :param distribution: random distribution name.

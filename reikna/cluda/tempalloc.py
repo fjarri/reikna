@@ -27,7 +27,7 @@ class TemporaryManager:
     """
     Base class for a manager of temporary allocations.
 
-    :param ctx: an instance of :py:class:`~reikna.cluda.api.Context`.
+    :param ctx: an instance of :py:class:`~reikna.cluda.api.Thread`.
     :param pack_on_alloc: whether to repack allocations when a new allocation is requested.
     :param pack_on_free: whether to repack allocations when an allocation is freed.
     """

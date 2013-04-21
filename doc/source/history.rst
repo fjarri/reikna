@@ -36,7 +36,7 @@ Release history
 
 * CHANGED: signature of :py:meth:`~reikna.core.operation.OperationRecorder.add_kernel` takes a renderable instead of a full template.
 
-* CHANGED: :py:meth:`~reikna.cluda.api.Context.compile_static` now takes a template instead of a source.
+* CHANGED: :py:meth:`~reikna.cluda.api.Thread.compile_static` now takes a template instead of a source.
 
 * CHANGED: :py:class:`~reikna.elementwise.Elementwise` now uses modules.
 
@@ -78,7 +78,7 @@ Release history
 
 * Added Python 3 compatibility
 
-* Added Context-global automatic memory packing
+* Added Thread-global automatic memory packing
 
 * Added polar(), conj() and exp() functions to kernel toolbox
 

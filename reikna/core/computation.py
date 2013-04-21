@@ -23,7 +23,7 @@ STATE_PREPARED = 2
 class Computation:
     """
     Creates a computation class and performs basic initialization for the
-    :py:class:`~reikna.cluda.api.Context` object ``ctx``.
+    :py:class:`~reikna.cluda.api.Thread` object ``ctx``.
     Note that the computation is unusable until :py:func:`prepare`
     or :py:func:`prepare_for` is called.
     If ``debug`` is ``True``, a couple of additional checks will be performed in runtime

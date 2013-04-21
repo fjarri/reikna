@@ -17,7 +17,7 @@ def get_platforms():
     return cl.get_platforms()
 
 
-class Context(api_base.Context):
+class Thread(api_base.Thread):
 
     api = sys.modules[__name__]
 

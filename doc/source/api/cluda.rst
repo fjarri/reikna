@@ -30,7 +30,7 @@ Temporary Arrays
 Each context contains a special allocator for arrays with data that does not have to be persistent all the time.
 In many cases you only want some array to keep its contents between several kernel calls.
 This can be achieved by manually allocating and deallocating such arrays every time, but it slows the program down, and you have to synchronize the queue because allocation commands are not serialized.
-Therefore it is advantageous to use :py:meth:`~reikna.cluda.api.Context.temp_array` method to get such arrays.
+Therefore it is advantageous to use :py:meth:`~reikna.cluda.api.Thread.temp_array` method to get such arrays.
 It takes a list of dependencies as an optional parameter which gives the allocator a hint about which arrays should not use the same physical allocation.
 
 .. py:module:: reikna.cluda.tempalloc
@@ -115,7 +115,7 @@ Second, there is a set of macros attached to any kernel depending on the API it 
 
 .. c:macro:: VIRTUAL_SKIP_THREADS
 
-    This macro should start any kernel compiled with :py:meth:`~reikna.cluda.api.Context.compile_static`.
+    This macro should start any kernel compiled with :py:meth:`~reikna.cluda.api.Thread.compile_static`.
     It skips all the empty threads resulting from fitting call parameters into backend limitations.
 
 .. c:function:: int virtual_local_id(int dim)
@@ -125,13 +125,13 @@ Second, there is a set of macros attached to any kernel depending on the API it 
 .. c:function:: int virtual_num_groups(int dim)
 .. c:function:: int virtual_global_size(int dim)
 
-    Only available in :py:class:`~reikna.cluda.api.StaticKernel` objects obtained from :py:meth:`~reikna.cluda.api.Context.compile_static`.
+    Only available in :py:class:`~reikna.cluda.api.StaticKernel` objects obtained from :py:meth:`~reikna.cluda.api.Thread.compile_static`.
     Since its dimensions can differ from actual call dimensions, these functions have to be used.
 
 .. c:function:: int virtual_global_flat_id(int dim)
 .. c:function:: int virtual_global_flat_size(int dim)
 
-    Only available in :py:class:`~reikna.cluda.api.StaticKernel` objects obtained from :py:meth:`~reikna.cluda.api.Context.compile_static`.
+    Only available in :py:class:`~reikna.cluda.api.StaticKernel` objects obtained from :py:meth:`~reikna.cluda.api.Thread.compile_static`.
     useful for addressing input and output arrays.
 
 Datatype tools

@@ -168,5 +168,5 @@ Each computation class has to define the following methods:
     If you need additional device functions, they have to be specified between ``<%def ... >`` and ``${kernel_definition}`` (the latter is where the actual kernel signature will be rendered).
     Obviously, these functions can still use ``dtype`` and ``ctype`` object properties, although ``store`` and ``load`` will lead to unpredictable results (since they are rendered as macros using main kernel arguments).
 
-    Since kernel call parameters (``global_size`` and ``local_size``) are specified on creation, all kernel calls are rendered as CLUDA static kernels (see :py:meth:`~reikna.cluda.api.Context.compile_static`) and therefore can use all the corresponding macros and functions (like :c:func:`virtual_global_flat_id` in our kernel).
+    Since kernel call parameters (``global_size`` and ``local_size``) are specified on creation, all kernel calls are rendered as CLUDA static kernels (see :py:meth:`~reikna.cluda.api.Thread.compile_static`) and therefore can use all the corresponding macros and functions (like :c:func:`virtual_global_flat_id` in our kernel).
     Also, they must have :c:macro:`VIRTUAL_SKIP_THREADS` at the beginning of the kernel.

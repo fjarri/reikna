@@ -105,7 +105,7 @@ def get_platforms():
     raise NotImplementedError()
 
 
-class Context:
+class Thread:
     """
     Wraps an existing context in the CLUDA context object.
 
@@ -120,19 +120,19 @@ class Context:
         Briefly, this means that there is the context stack, and the current context on top of it.
         When the :py:meth:`create` is called, the ``PyCUDA`` context gets pushed to the stack
         and made current.
-        When the :py:class:`Context` object goes out of scope (and ``own_context`` option
+        When the ``Thread`` object goes out of scope (and ``own_context`` option
         was set to ``True`` in the constructor), the context is popped,
         and it is the user's responsibility to make sure the popped context is the correct one.
         In simple single-context programs this only means that one should avoid reference cycles
-        involving the :py:class:`Context` object.
+        involving the ``Thread`` object.
 
     .. warning::
 
-        Do not pass one ``Stream``/``CommandQueue`` object to several :py:class:`Context` objects.
+        Do not pass one ``Stream``/``CommandQueue`` object to several ``Thread`` objects.
 
     .. py:attribute:: api
 
-        Module object representing the CLUDA API corresponding to this Context.
+        Module object representing the CLUDA API corresponding to this ``Thread``.
 
     .. py:attribute:: device_params
 
@@ -147,7 +147,7 @@ class Context:
     @classmethod
     def create(cls, device=None, **kwds):
         """
-        Creates a new :py:class:`reikna.cluda.api.Context` object
+        Creates a new ``Thread`` object
         with its own context and queue inside.
         Intended for cases when you want to base your whole program on CLUDA.
 
@@ -156,8 +156,7 @@ class Context:
             If not given, the device will be selected internally.
         :type device: :py:class:`pycuda.driver.Device` object for ``CUDA``,
             or :py:class:`pyopencl.Device` object for ``OpenCL``.
-        :param fast_math: same as in :py:class:`Context`.
-        :param async: same as in :py:class:`Context`.
+        :param kwds: same as in :py:class:`Thread`.
         """
 
         def find_suitable_device():
@@ -176,7 +175,7 @@ class Context:
             if device is None:
                 raise RuntimeError("Cannot find a suitable device to create a CLUDA context")
 
-        return cls.api.Context(device, **kwds)
+        return cls.api.Thread(device, **kwds)
 
     def __init__(self, cqd, fast_math=True, async=True, temp_alloc=None):
 
@@ -352,7 +351,7 @@ class Context:
 
     def _pytest_finalize_specific(self):
         """
-        Overridden by a specific Context if it needs to do something before finalizing.
+        Overridden by a specific ``Thread`` if it needs to do something before finalizing.
         """
         pass
 

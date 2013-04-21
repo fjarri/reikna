@@ -22,7 +22,7 @@ Consider the following example, which is very similar to the one from the index 
     N = 256
 
     api = cluda.ocl_api()
-    ctx = api.Context.create()
+    ctx = api.Thread.create()
 
     module = ctx.compile("""
     KERNEL void multiply_them(
@@ -55,7 +55,7 @@ If you are familiar with PyCuda or PyOpenCL, you will easily understand all the 
 The ``cluda.ocl_api()`` call is the only place where OpenCL is mentioned, and if you replace it with ``cluda.cuda_api()`` it will be enough to make the code use CUDA.
 The abstraction is achieved by using generic API module on the Python side, and special macros (:c:macro:`KERNEL`, :c:macro:`GLOBAL_MEM`, and others) on the kernel side.
 
-The argument of :py:meth:`~reikna.cluda.api.Context.compile` method can also be a template, which is quite useful for metaprogramming, and also used to compensate for the lack of complex number operations in CUDA and OpenCL.
+The argument of :py:meth:`~reikna.cluda.api.Thread.compile` method can also be a template, which is quite useful for metaprogramming, and also used to compensate for the lack of complex number operations in CUDA and OpenCL.
 Let us illustrate both scenarios by making the initial example multiply complex arrays.
 The template engine of choice in ``reikna`` is `Mako <http://www.makotemplates.org>`_, and you are encouraged to read about it as it is quite useful. For the purpose of this example all we need to know is that ``${python_expression()}`` is a synthax construction which renders the expression result.
 
@@ -71,7 +71,7 @@ The template engine of choice in ``reikna`` is `Mako <http://www.makotemplates.o
     dtype = numpy.complex64
 
     api = cluda.ocl_api()
-    ctx = api.Context.create()
+    ctx = api.Thread.create()
 
     module = ctx.compile("""
     KERNEL void multiply_them(
@@ -109,7 +109,7 @@ Alternatively, we could call :py:func:`dtypes.ctype() <reikna.cluda.dtypes.ctype
 
 Note that CLUDA context is created by means of a static method and not using the constructor.
 The constructor is reserved for more probable scenario, where we want to include some ``reikna`` functionality in a larger program, and we want it to use the existing context and stream/queue.
-The :py:class:`~reikna.cluda.api.Context` constructor takes the PyCuda/PyOpenCL context and, optionally, the ``Stream``/``CommandQueue`` object as a ``queue`` parameter.
+The :py:class:`~reikna.cluda.api.Thread` constructor takes the PyCuda/PyOpenCL context and, optionally, the ``Stream``/``CommandQueue`` object as a ``queue`` parameter.
 All further operations with the ``reikna`` context will be performed using the objects provided.
 If ``queue`` is not given, an internal one will be created.
 
@@ -135,7 +135,7 @@ As an example, we will consider the matrix multiplication.
     from reikna.matrixmul import MatrixMul
 
     api = cluda.ocl_api()
-    ctx = api.Context.create()
+    ctx = api.Thread.create()
 
     shape1 = (100, 200)
     shape2 = (200, 100)
@@ -190,7 +190,7 @@ Let us change the previous example and connect transformations to it.
     from reikna.transformations import combine_complex
 
     api = cluda.ocl_api()
-    ctx = api.Context.create()
+    ctx = api.Thread.create()
 
     shape1 = (100, 200)
     shape2 = (200, 100)

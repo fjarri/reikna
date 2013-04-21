@@ -4,7 +4,7 @@ from reikna.cluda.kernel import Module
 
 class OutOfResourcesError(Exception):
     """
-    Thrown by :py:meth:`~reikna.cluda.api.Context.compile_static`
+    Thrown by :py:meth:`~reikna.cluda.api.Thread.compile_static`
     if the provided ``local_size`` is too big, or one cannot be found.
     """
     pass

@@ -43,7 +43,7 @@ def get_contexts(config, vary_fast_math=False):
             if fast_math is not None:
                 kwds['fast_math'] = fast_math
 
-            self.create = lambda: api.Context.create(**kwds)
+            self.create = lambda: api.Thread.create(**kwds)
 
             ctx = self.create()
             self.supports_double = ctx.supports_dtype(numpy.float64)
