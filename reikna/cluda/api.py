@@ -130,16 +130,15 @@ class Context:
 
         Do not pass one ``Stream``/``CommandQueue`` object to several :py:class:`Context` objects.
 
-
-    .. py:attribute: api
+    .. py:attribute:: api
 
         Module object representing the CLUDA API corresponding to this Context.
 
-    .. py:attribute: device_params
+    .. py:attribute:: device_params
 
         Instance of :py:class:`DeviceParameters` class for this context's device.
 
-    .. py:attribute: temp_alloc
+    .. py:attribute:: temp_alloc
 
         Instance of :py:class:`~reikna.cluda.tempalloc.TemporaryManager`
         which handles allocations of temporary arrays (see :py:meth:`temp_array`).
@@ -404,7 +403,7 @@ class Kernel:
     """
     An object containing GPU kernel.
 
-    .. py:attribute: max_work_group_size
+    .. py:attribute:: max_work_group_size
 
         Maximum size of the work group for the kernel.
     """
