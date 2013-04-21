@@ -19,7 +19,7 @@ def get_apis(config):
         if not cluda.supports_api(conf_api_id):
             raise Exception("Requested API " + conf_api_id + " is not supported.")
         api_ids = [conf_api_id]
-    apis = [cluda.api(api_id) for api_id in api_ids]
+    apis = [cluda.get_api(api_id) for api_id in api_ids]
     return apis, api_ids
 
 

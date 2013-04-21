@@ -24,7 +24,7 @@ def supports_api(api_id):
     Returns ``True`` if given API is supported.
     """
     try:
-        api(api_id)
+        get_api(api_id)
     except ImportError:
         return False
 
@@ -38,7 +38,7 @@ def supported_api_ids():
     return [api_id for api_id in api_ids() if supports_api(api_id)]
 
 
-def api(api_id):
+def get_api(api_id):
     """
     Returns an API module with the generalized interface :py:mod:`reikna.cluda.api`
     for the given identifier.
