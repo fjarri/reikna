@@ -95,7 +95,9 @@ class Thread(api_base.Thread):
         return Buffer(size)
 
     def array(self, shape, dtype, allocator=None):
-        return gpuarray.GPUArray(shape, dtype, allocator=allocator)
+        # In PyCuda, the default allocator is not None, but a default alloc object
+        kwds = {} if allocator is None else dict(allocator=allocator)
+        return gpuarray.GPUArray(shape, dtype, **kwds)
 
     def _copy_array(self, dest, src):
         dest.set_async(src, stream=self._queue)
