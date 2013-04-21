@@ -23,12 +23,12 @@ def get_apis(config):
     return apis, api_ids
 
 
-def get_contexts(config, vary_fast_math=False):
+def get_threads(config, vary_fast_math=False):
     """
-    Create a list of context creators, based on command line options and their availability.
+    Create a list of thread creators, based on command line options and their availability.
     """
 
-    class CtxCreator:
+    class ThrCreator:
         def __init__(self, api, pnum, dnum, fast_math=None):
             platform = api.get_platforms()[pnum]
             device = platform.get_devices()[dnum]
@@ -82,7 +82,7 @@ def get_contexts(config, vary_fast_math=False):
 
         return True
 
-    ccs = []
+    tcs = []
     seen_devices = set()
     for api in apis:
         for pnum, platform in enumerate(api.get_platforms()):
@@ -103,12 +103,12 @@ def get_contexts(config, vary_fast_math=False):
                 seen_devices.add(device.name)
 
                 for fm in fms:
-                    ccs.append(CtxCreator(api, pnum, dnum, fast_math=fm))
+                    tcs.append(ThrCreator(api, pnum, dnum, fast_math=fm))
 
-    return ccs, [str(cc) for cc in ccs]
+    return tcs, [str(tc) for tc in tcs]
 
 
-def pair_context_with_doubles(metafunc, cc):
+def pair_thread_with_doubles(metafunc, tc):
     d = metafunc.config.option.double
     ds = lambda dv: 'dp' if dv else 'sp'
 
@@ -116,7 +116,7 @@ def pair_context_with_doubles(metafunc, cc):
     ids = []
     if d == "supported":
         for dv in [False, True]:
-            if not dv or cc().supports_dtype(numpy.float64):
+            if not dv or tc().supports_dtype(numpy.float64):
                 vals.append((dv,))
                 ids.append(ds(dv))
     else:
@@ -124,38 +124,38 @@ def pair_context_with_doubles(metafunc, cc):
         vals.append((dv,))
         ids.append(ds(dv))
 
-    return [cc] * len(vals), vals, ids
+    return [tc] * len(vals), vals, ids
 
 
-def get_context_tuples(metafunc, get_remainders):
-    ccs, cc_ids = get_contexts(metafunc.config, vary_fast_math=True)
+def get_thread_tuples(metafunc, get_remainders):
+    tcs, tc_ids = get_threads(metafunc.config, vary_fast_math=True)
     tuples = []
     ids = []
-    for cc, cc_id in zip(ccs, cc_ids):
-        new_ccs, remainders, rem_ids = get_remainders(metafunc, cc)
-        for new_cc, remainder, rem_id in zip(new_ccs, remainders, rem_ids):
-            tuples.append((new_cc,) + remainder if isinstance(remainder, tuple) else (remainder,))
-            ids.append(cc_id + "," + rem_id)
+    for tc, tc_id in zip(tcs, tc_ids):
+        new_tcs, remainders, rem_ids = get_remainders(metafunc, tc)
+        for new_tc, remainder, rem_id in zip(new_tcs, remainders, rem_ids):
+            tuples.append((new_tc,) + remainder if isinstance(remainder, tuple) else (remainder,))
+            ids.append(tc_id + "," + rem_id)
 
-    # For tuples of 1 element (i.e. the context itself), just use this element as a parameter
+    # For tuples of 1 element (i.e. the thread itself), just use this element as a parameter
     tuples = [t[0] if len(t) == 1 else t for t in tuples]
 
     return tuples, ids
 
 
-def create_context_in_tuple(request):
+def create_thread_in_tuple(request):
     """
-    Instantiate context from the tuple of test parameters and create a corresponding finalizer.
+    Instantiate thread from the tuple of test parameters and create a corresponding finalizer.
     """
     params = request.param
     if isinstance(params, tuple):
-        cc = params[0]
+        tc = params[0]
         remainder = tuple(params[1:])
     else:
-        cc = params
+        tc = params
         remainder = tuple()
 
-    thr = cc()
+    thr = tc()
 
     def finalizer():
         # Py.Test won't release the reference to thr, so we need to finalize it explicitly.
@@ -171,6 +171,6 @@ def create_context_in_tuple(request):
         return thr
 
 
-def parametrize_context_tuple(metafunc, name, get_remainders):
-    tuples, tuple_ids = get_context_tuples(metafunc, get_remainders)
+def parametrize_thread_tuple(metafunc, name, get_remainders):
+    tuples, tuple_ids = get_thread_tuples(metafunc, get_remainders)
     metafunc.parametrize(name, tuples, ids=tuple_ids, indirect=True)

@@ -20,7 +20,7 @@
     .. py:method:: get()
 
         Returns :py:class:`numpy.ndarray` with the contents of the array.
-        Synchronizes the context.
+        Synchronizes the parent :py:class:`~reikna.cluda.api.Thread`.
 
 .. py:class:: DeviceParameters(device)
 
@@ -107,12 +107,12 @@ def get_platforms():
 
 class Thread:
     """
-    Wraps an existing context in the CLUDA context object.
+    Wraps an existing context in the CLUDA thread object.
 
     :param cqd: a ``Context``, ``Device`` or ``Stream``/``CommandQueue`` object to base on.
         If a context is passed, a new stream/queue will be created internally.
     :param fast_math: whether to enable fast mathematical operations during compilation.
-    :param async: whether to execute all operations with this context asynchronously
+    :param async: whether to execute all operations with this thread asynchronously
         (you would generally want to set it to ``False`` only for profiling purposes).
 
     .. note::
@@ -120,11 +120,11 @@ class Thread:
         Briefly, this means that there is the context stack, and the current context on top of it.
         When the :py:meth:`create` is called, the ``PyCUDA`` context gets pushed to the stack
         and made current.
-        When the ``Thread`` object goes out of scope (and ``own_context`` option
-        was set to ``True`` in the constructor), the context is popped,
-        and it is the user's responsibility to make sure the popped context is the correct one.
+        When the thread object goes out of scope (and the thread object owns it),
+        the context is popped, and it is the user's responsibility to make sure
+        the popped context is the correct one.
         In simple single-context programs this only means that one should avoid reference cycles
-        involving the ``Thread`` object.
+        involving the thread object.
 
     .. warning::
 
@@ -136,7 +136,7 @@ class Thread:
 
     .. py:attribute:: device_params
 
-        Instance of :py:class:`DeviceParameters` class for this context's device.
+        Instance of :py:class:`DeviceParameters` class for this thread's device.
 
     .. py:attribute:: temp_alloc
 
@@ -147,11 +147,10 @@ class Thread:
     @classmethod
     def create(cls, device=None, **kwds):
         """
-        Creates a new ``Thread`` object
-        with its own context and queue inside.
+        Creates a new ``Thread`` object with its own context and queue inside.
         Intended for cases when you want to base your whole program on CLUDA.
 
-        :param device: device to create context for, element of the list
+        :param device: device to create the thread for, element of the list
             returned by :py:meth:`Platform.get_devices`.
             If not given, the device will be selected internally.
         :type device: :py:class:`pycuda.driver.Device` object for ``CUDA``,
@@ -204,7 +203,7 @@ class Thread:
 
     def supports_dtype(self, dtype):
         """
-        Checks if given ``numpy`` dtype can be used in kernels compiled using this context.
+        Checks if given ``numpy`` dtype can be used in kernels compiled using this thread.
         """
         raise NotImplementedError()
 
@@ -263,7 +262,7 @@ class Thread:
         Transfers the contents of ``arr`` to a :py:class:`numpy.ndarray` object.
         The effect of ``dest`` parameter is the same as in :py:meth:`to_device`.
         If ``async`` is ``True``, the transfer is asynchronous
-        (the context-wide asynchronisity setting does not apply here).
+        (the thread-wide asynchronisity setting does not apply here).
 
         Alternatively, one can use :py:meth:`Array.get`.
         """
@@ -298,7 +297,7 @@ class Thread:
 
     def synchronize(self):
         """
-        Forcefully synchronize the context with the main thread.
+        Forcefully synchronize this thread with the main program.
         """
         raise NotImplementedError()
 

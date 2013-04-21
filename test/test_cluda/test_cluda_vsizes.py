@@ -7,42 +7,42 @@ from reikna.helpers import min_blocks, product
 import reikna.cluda.dtypes as dtypes
 from helpers import *
 
-from pytest_contextgen import parametrize_context_tuple, create_context_in_tuple
+from pytest_threadgen import parametrize_thread_tuple, create_thread_in_tuple
 
 
-pytest_funcarg__thr_with_gs_limits = create_context_in_tuple
+pytest_funcarg__thr_with_gs_limits = create_thread_in_tuple
 
 
-def set_context_gs_limits(metafunc, cc):
+def set_thread_gs_limits(metafunc, tc):
     """
-    Parametrize contexts with small grid limits for testing purposes
+    Parametrize threads with small grid limits for testing purposes
     """
-    new_ccs = []
+    new_tcs = []
     rem_ids = []
     for gl in [[31, 31], [31, 31, 31]]:
 
-        # If the context will not support these limits, skip
-        thr = cc()
+        # If the thread will not support these limits, skip
+        thr = tc()
         mgs = thr.device_params.max_num_groups
         del thr
         if len(gl) > len(mgs) or (len(mgs) > 2 and len(gl) > 2 and mgs[2] < gl[2]):
             continue
 
-        # New context creator function
-        def new_cc():
-            thr = cc()
+        # New thread creator function
+        def new_tc():
+            thr = tc()
             thr.override_device_params(max_num_groups=gl)
             return thr
 
         rem_ids.append(str(gl))
-        new_ccs.append(new_cc)
+        new_tcs.append(new_tc)
 
-    return new_ccs, [tuple()] * len(new_ccs), rem_ids
+    return new_tcs, [tuple()] * len(new_tcs), rem_ids
 
 
 def pytest_generate_tests(metafunc):
     if 'thr_with_gs_limits' in metafunc.funcargnames:
-        parametrize_context_tuple(metafunc, 'thr_with_gs_limits', set_context_gs_limits)
+        parametrize_thread_tuple(metafunc, 'thr_with_gs_limits', set_thread_gs_limits)
     if 'gs_is_multiple' in metafunc.funcargnames:
         metafunc.parametrize('gs_is_multiple', [True, False],
             ids=["gs_is_multiple", "gs_is_not_multiple"])
@@ -221,7 +221,7 @@ def test_sizes(thr_with_gs_limits, gl_size, gs_is_multiple):
 
 def test_incorrect_sizes(thr_with_gs_limits, incorrect_gl_size):
     """
-    Test that for sizes which exceed context capability the exception is raised
+    Test that for sizes which exceed thread capability the exception is raised
     """
 
     thr = thr_with_gs_limits

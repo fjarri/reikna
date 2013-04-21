@@ -2,11 +2,8 @@
 ========================
 
 * write a tutorial on modules
-
-* TODO: rename Context to Thread/Stream (more appropriate, less confusion)
-
-  * add fork() instead, which creates another Thread with the same context?
-  * add add explicit context release methods for Thread --- not all Python implementations use reference counting, and non-instantaneous __del__ may cause problems with CUDA.
+* add Thread.fork() which creates another Thread with the same context
+* add add explicit context release methods for Thread --- not all Python implementations use reference counting, and non-instantaneous __del__ may cause problems with CUDA.
 
 * DECIDE: think of better way of module discovery in render keywords than looking inside AttrDicts. (see reikna.cluda.kernel.process_render_kwds)
 * DECIDE: positional arguments for modules?
@@ -42,7 +39,7 @@
   * ready for connects/prepare: ComputationTemplate?
   * ready for calls: Computation
 
-* TODO: take not only CLUDA context as a parameter for computation constructor, but also CommandQueue, opencl context, cuda stream and so on.
+* TODO: take not only CLUDA Thread as a parameter for computation constructor, but also CommandQueue, opencl Context, CUDA Stream and so on.
 
 
 0.3.1

@@ -9,7 +9,7 @@ import reikna.cluda.functions as functions
 from reikna.helpers import product
 
 from helpers import *
-from pytest_contextgen import parametrize_context_tuple, create_context_in_tuple
+from pytest_threadgen import parametrize_thread_tuple, create_thread_in_tuple
 
 
 TEST_DTYPES = [
@@ -19,10 +19,10 @@ TEST_DTYPES = [
     numpy.complex64, numpy.complex128]
 
 
-pytest_funcarg__thr_and_global_size = create_context_in_tuple
+pytest_funcarg__thr_and_global_size = create_thread_in_tuple
 
 
-def pair_context_with_gs(metafunc, cc):
+def pair_thread_with_gs(metafunc, tc):
     global_sizes = [
         (100,), (2000,), (1153,),
         (10, 10), (150, 250), (137, 547),
@@ -33,8 +33,8 @@ def pair_context_with_gs(metafunc, cc):
 
     for gs in global_sizes:
 
-        # If the context will not support these limits, skip
-        thr = cc()
+        # If the thread will not support these limits, skip
+        thr = tc()
         mgs = thr.device_params.max_num_groups
         del thr
         if len(gs) > len(mgs) or (len(mgs) > 2 and len(gs) > 2 and mgs[2] < gs[2]):
@@ -43,15 +43,15 @@ def pair_context_with_gs(metafunc, cc):
         rem_ids.append(str(gs))
         vals.append((gs,))
 
-    return [cc] * len(vals), vals, rem_ids
+    return [tc] * len(vals), vals, rem_ids
 
 
 def pytest_generate_tests(metafunc):
     if 'thr_and_global_size' in metafunc.funcargnames:
-        parametrize_context_tuple(metafunc, 'thr_and_global_size', pair_context_with_gs)
+        parametrize_thread_tuple(metafunc, 'thr_and_global_size', pair_thread_with_gs)
 
 
-def simple_context_test(thr):
+def simple_thread_test(thr):
     shape = (1000,)
     dtype = numpy.float32
 
@@ -62,9 +62,9 @@ def simple_context_test(thr):
     assert diff_is_negligible(a, a_back)
 
 
-def test_create_new_context(cluda_api):
+def test_create_new_thread(cluda_api):
     thr = cluda_api.Thread.create()
-    simple_context_test(thr)
+    simple_thread_test(thr)
 
 
 def test_transfers(thr):
@@ -108,7 +108,7 @@ def test_transfers(thr):
     "dtype", TEST_DTYPES,
     ids=[dtypes.normalize_type(dtype).name for dtype in TEST_DTYPES])
 def test_dtype_support(thr, dtype):
-    # Test passes if either context correctly reports that it does not support given dtype,
+    # Test passes if either thread correctly reports that it does not support given dtype,
     # or it successfully compiles kernel that operates with this dtype.
 
     N = 256

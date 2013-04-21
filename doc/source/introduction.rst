@@ -107,10 +107,10 @@ The template engine of choice in ``reikna`` is `Mako <http://www.makotemplates.o
 Here we passed ``dtype`` and ``ctype`` values to the template, and used ``dtype`` to get the complex number multiplication function (``func`` is one of the "built-in" values that are available in CLUDA templates).
 Alternatively, we could call :py:func:`dtypes.ctype() <reikna.cluda.dtypes.ctype>` inside the template, as :py:mod:`~reikna.cluda.dtypes` module is available there too.
 
-Note that CLUDA context is created by means of a static method and not using the constructor.
+Note that CLUDA thread is created by means of a static method and not using the constructor.
 The constructor is reserved for more probable scenario, where we want to include some ``reikna`` functionality in a larger program, and we want it to use the existing context and stream/queue.
 The :py:class:`~reikna.cluda.api.Thread` constructor takes the PyCuda/PyOpenCL context and, optionally, the ``Stream``/``CommandQueue`` object as a ``queue`` parameter.
-All further operations with the ``reikna`` context will be performed using the objects provided.
+All further operations with the thread will be performed using the objects provided.
 If ``queue`` is not given, an internal one will be created.
 
 For the complete list of things available in CLUDA, please consult the :ref:`CLUDA reference <api-cluda>`.
@@ -159,8 +159,8 @@ As an example, we will consider the matrix multiplication.
     True
 
 Most of the code above should be already familiar, with the exception of the creation of :py:class:`~reikna.matrixmul.MatrixMul` object.
-As any other class derived from :py:class:`~reikna.core.Computation`, it requires ``reikna`` context as a constructor argument.
-The context serves as a source of data about the target API and device, and provides an execution queue.
+As any other class derived from :py:class:`~reikna.core.Computation`, it requires a :py:class:`~reikna.cluda.api.Thread` as a constructor argument.
+The thread serves as a source of data about the target API and device, and provides an execution queue.
 
 Before usage the object has to be prepared.
 It does not happen in the constructor, since the transformations may be connected after that, and they would invalidate previous preparation.
