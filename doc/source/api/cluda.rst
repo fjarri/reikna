@@ -21,6 +21,7 @@ It is referred here (and references from other parts of this documentation) as :
 
 .. automodule:: reikna.cluda.api
     :members:
+    :special-members: __call__
 
 
 Temporary Arrays

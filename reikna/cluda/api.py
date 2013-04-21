@@ -58,7 +58,7 @@
         Dictionary ``{word_size:elements}``, where ``elements`` is the number of elements
         with size ``word_size`` in global memory that allow coalesced access.
 
-.. py:class: Buffer
+.. py:class:: Platform
 
     A vendor-specific implementation of the GPGPU API.
 
@@ -266,7 +266,7 @@ class Context:
         If ``async`` is ``True``, the transfer is asynchronous
         (the context-wide asynchronisity setting does not apply here).
 
-        Alternatively, one might use :py:meth:`Array.get`.
+        Alternatively, one can use :py:meth:`Array.get`.
         """
         raise NotImplementedError()
 
@@ -321,8 +321,8 @@ class Context:
         Creates a module object from the given template.
 
         :param template_src: Mako template source to render
-        :param render_kwds: a dictionary with additional parameters
-            to be used while rendering the template.
+        :param render_kwds: an iterable with positional arguments to pass to the template.
+        :param render_kwds: a dictionary with keyword parameters to pass to the template.
         :returns: a :py:class:`Program` object.
         """
         src = render_template_source(
@@ -418,7 +418,7 @@ class Kernel:
         self._static = static
         self._fill_attributes()
 
-    def prepare(self, global_size, local_size=None):
+    def prepare(self, global_size, local_size=None, local_mem=0):
         """
         Prepare the kernel for execution with given parameters.
 
@@ -435,6 +435,7 @@ class Kernel:
     def prepared_call(self, *args):
         """
         Execute the kernel.
+        :py:class:`Array` objects are allowed as arguments.
         """
         self._prepared_call(*args)
         self._ctx._synchronize()
@@ -503,5 +504,6 @@ class StaticKernel:
     def __call__(self, *args):
         """
         Execute the kernel.
+        :py:class:`Array` objects are allowed as arguments.
         """
         self._kernel(*args)
