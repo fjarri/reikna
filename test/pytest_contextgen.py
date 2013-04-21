@@ -45,8 +45,8 @@ def get_contexts(config, vary_fast_math=False):
 
             self.create = lambda: api.Thread.create(**kwds)
 
-            ctx = self.create()
-            self.supports_double = ctx.supports_dtype(numpy.float64)
+            thr = self.create()
+            self.supports_double = thr.supports_dtype(numpy.float64)
 
         def __call__(self):
             return self.create()
@@ -155,20 +155,20 @@ def create_context_in_tuple(request):
         cc = params
         remainder = tuple()
 
-    ctx = cc()
+    thr = cc()
 
     def finalizer():
-        # Py.Test won't release the reference to ctx, so we need to finalize it explicitly.
-        ctx._pytest_finalize()
+        # Py.Test won't release the reference to thr, so we need to finalize it explicitly.
+        thr._pytest_finalize()
         # just in case there is some stuff left
         gc.collect()
 
     request.addfinalizer(finalizer)
 
     if isinstance(params, tuple):
-        return (ctx,) + remainder
+        return (thr,) + remainder
     else:
-        return ctx
+        return thr
 
 
 def parametrize_context_tuple(metafunc, name, get_remainders):

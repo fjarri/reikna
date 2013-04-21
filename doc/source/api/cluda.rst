@@ -67,7 +67,7 @@ Second, there is a set of macros attached to any kernel depending on the API it 
 
     If defined, specifies that the kernel is being compiled for CUDA API.
 
-.. c:macro:: CTX_FAST_MATH
+.. c:macro:: THREAD_FAST_MATH
 
     If defined, specifies that the context for which the kernel is being compiled was created with the key ``fast_math``.
 

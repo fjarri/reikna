@@ -52,17 +52,17 @@ def rng_ref(ctr, size, name, seed, **params):
     return result.T
 
 
-def test_raw(ctx, name_and_params):
+def test_raw(thr, name_and_params):
     name, params = name_and_params
     distribution = 'uniform_integer'
     size = 1000
     seed = 123
 
-    counters = create_counters(ctx, size, name, distribution, params)
-    dest = ctx.array((params['words'], size),
+    counters = create_counters(thr, size, name, distribution, params)
+    dest = thr.array((params['words'], size),
         numpy.uint32 if params['bitness'] == 32 else numpy.uint64)
 
-    rng = CBRNG(ctx).prepare_for(counters, dest, counters,
+    rng = CBRNG(thr).prepare_for(counters, dest, counters,
         seed=seed, rng=name, rng_params=params, distribution=distribution)
 
     rng(counters, dest, counters)
@@ -75,17 +75,17 @@ def test_raw(ctx, name_and_params):
 
 
 
-def check_distribution(ctx, rng_name, rng_params,
+def check_distribution(thr, rng_name, rng_params,
         distribution, distribution_params, dtype, reference):
 
     size = 10000
     batch = 100
     seed = 456
 
-    counters = create_counters(ctx, size, rng_name, distribution, rng_params)
-    dest = ctx.array((batch, size), dtype)
+    counters = create_counters(thr, size, rng_name, distribution, rng_params)
+    dest = thr.array((batch, size), dtype)
 
-    rng = CBRNG(ctx).prepare_for(counters, dest, counters,
+    rng = CBRNG(thr).prepare_for(counters, dest, counters,
         seed=seed, rng=rng_name, rng_params=rng_params,
         distribution=distribution, distribution_params=distribution_params)
     rng(counters, dest, counters)
@@ -124,61 +124,61 @@ def uniform_mean_and_std(min, max):
     return (min + max) / 2., (max - min) / numpy.sqrt(12)
 
 
-def test_32_to_64_bit(ctx):
+def test_32_to_64_bit(thr):
     extent = (0, 2**63-1)
     mean, std = uniform_discrete_mean_and_std(*extent)
-    check_distribution(ctx,
+    check_distribution(thr,
         'philox', dict(bitness=32, words=4),
         'uniform_integer', dict(min=extent[0], max=extent[1] + 1), numpy.uint64,
         dict(extent=extent, mean=mean, std=std))
 
 
-def test_64_to_32_bit(ctx):
+def test_64_to_32_bit(thr):
     extent = (0, 2**31-1)
     mean, std = uniform_discrete_mean_and_std(*extent)
-    check_distribution(ctx,
+    check_distribution(thr,
         'philox', dict(bitness=64, words=4),
         'uniform_integer', dict(min=extent[0], max=extent[1] + 1), numpy.uint32,
         dict(extent=extent, mean=mean, std=std))
 
 
-def test_uniform_integer(ctx):
+def test_uniform_integer(thr):
     extent = (-10, 98)
     mean, std = uniform_discrete_mean_and_std(*extent)
-    check_distribution(ctx,
+    check_distribution(thr,
         'philox', dict(bitness=64, words=4),
         'uniform_integer', dict(min=extent[0], max=extent[1] + 1), numpy.int32,
         dict(extent=extent, mean=mean, std=std))
 
 
-def test_uniform_float(ctx_and_double):
-    ctx, double = ctx_and_double
+def test_uniform_float(thr_and_double):
+    thr, double = thr_and_double
     dtype = numpy.float64 if double else numpy.float32
     extent = (-5, 7.7)
     mean, std = uniform_mean_and_std(*extent)
-    check_distribution(ctx,
+    check_distribution(thr,
         'philox', dict(bitness=64, words=4),
         'uniform_float', dict(min=extent[0], max=extent[1]), dtype,
         dict(extent=extent, mean=mean, std=std))
 
 
-def test_normal_bm(ctx_and_double):
-    ctx, double = ctx_and_double
+def test_normal_bm(thr_and_double):
+    thr, double = thr_and_double
     dtype = numpy.float64 if double else numpy.float32
     mean, std = -2, 10
-    check_distribution(ctx,
+    check_distribution(thr,
         'philox', dict(bitness=64, words=4),
         'normal_bm', dict(mean=mean, std=std), dtype,
         dict(mean=mean, std=std))
 
 
-def test_gamma(ctx_and_double):
-    ctx, double = ctx_and_double
+def test_gamma(thr_and_double):
+    thr, double = thr_and_double
     dtype = numpy.float64 if double else numpy.float32
     shape, scale = 3, 10
     mean = shape * scale
     std = numpy.sqrt(shape) * scale
-    check_distribution(ctx,
+    check_distribution(thr,
         'philox', dict(bitness=64, words=4),
         'gamma', dict(mean=mean, std=std), dtype,
         dict(shape=shape, scale=scale))

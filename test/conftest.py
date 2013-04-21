@@ -34,9 +34,9 @@ def pytest_addoption(parser):
         default=False)
 
 
-pytest_funcarg__ctx_and_double = create_context_in_tuple
-pytest_funcarg__ctx = create_context_in_tuple
-pytest_funcarg__some_ctx = create_context_in_tuple
+pytest_funcarg__thr_and_double = create_context_in_tuple
+pytest_funcarg__thr = create_context_in_tuple
+pytest_funcarg__some_thr = create_context_in_tuple
 
 
 def pytest_report_header(config):
@@ -51,17 +51,17 @@ def pytest_report_header(config):
 
 
 def pytest_generate_tests(metafunc):
-    if 'ctx_and_double' in metafunc.funcargnames:
-        parametrize_context_tuple(metafunc, 'ctx_and_double', pair_context_with_doubles)
+    if 'thr_and_double' in metafunc.funcargnames:
+        parametrize_context_tuple(metafunc, 'thr_and_double', pair_context_with_doubles)
 
-    if 'ctx' in metafunc.funcargnames:
+    if 'thr' in metafunc.funcargnames:
         ccs, cc_ids = get_contexts(metafunc.config)
-        metafunc.parametrize('ctx', ccs, ids=cc_ids, indirect=True)
+        metafunc.parametrize('thr', ccs, ids=cc_ids, indirect=True)
 
-    if 'some_ctx' in metafunc.funcargnames:
+    if 'some_thr' in metafunc.funcargnames:
         # Just some context for tests that only check context-independent stuff.
         ccs, cc_ids = get_contexts(metafunc.config)
-        metafunc.parametrize('some_ctx', [ccs[0]], ids=[cc_ids[0]], indirect=True)
+        metafunc.parametrize('some_thr', [ccs[0]], ids=[cc_ids[0]], indirect=True)
 
     if 'cluda_api' in metafunc.funcargnames:
         apis, api_ids = get_apis(metafunc.config)

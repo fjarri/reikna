@@ -381,22 +381,22 @@ class Program:
         Contains :py:class:`Kernel` object for the kernel ``kernel_name``.
     """
 
-    def __init__(self, ctx, src, static=False):
+    def __init__(self, thr, src, static=False):
         """__init__()""" # hide the signature from Sphinx
 
-        self._ctx = ctx
+        self._thr = thr
         self._static = static
 
-        prelude = render_prelude(self._ctx)
+        prelude = render_prelude(self._thr)
 
         # Casting source code to ASCII explicitly
         # New versions of Mako produce Unicode output by default,
         # and it makes the compiler unhappy
         self.source = str(prelude + src)
-        self._program = ctx._create_program(self.source)
+        self._program = thr._create_program(self.source)
 
     def __getattr__(self, name):
-        return self._ctx.api.Kernel(self._ctx, self._program, name, static=self._static)
+        return self._thr.api.Kernel(self._thr, self._program, name, static=self._static)
 
 
 class Kernel:
@@ -408,10 +408,10 @@ class Kernel:
         Maximum size of the work group for the kernel.
     """
 
-    def __init__(self, ctx, program, name, static=False):
+    def __init__(self, thr, program, name, static=False):
         """__init__()""" # hide the signature from Sphinx
 
-        self._ctx = ctx
+        self._thr = thr
         self._program = program
         self._kernel = self._get_kernel(program, name)
         self._static = static
@@ -437,7 +437,7 @@ class Kernel:
         :py:class:`Array` objects are allowed as arguments.
         """
         self._prepared_call(*args)
-        self._ctx._synchronize()
+        self._thr._synchronize()
 
     def __call__(self, *args, **kwds):
         """
@@ -462,11 +462,11 @@ class StaticKernel:
         Contains the source code of the program.
     """
 
-    def __init__(self, ctx, template_src, name, global_size, local_size=None,
+    def __init__(self, thr, template_src, name, global_size, local_size=None,
             render_args=None, render_kwds=None):
         """__init__()""" # hide the signature from Sphinx
 
-        self._ctx = ctx
+        self._thr = thr
 
         if render_args is None:
             render_args = []
@@ -479,20 +479,20 @@ class StaticKernel:
         # We need the first approximation of the maximum thread number for a kernel.
         # Stub virtual size functions instead of real ones will not change it (hopefully).
         stub_vs = VirtualSizes(
-            ctx.device_params, ctx.device_params.max_work_group_size,
+            thr.device_params, thr.device_params.max_work_group_size,
             global_size, local_size)
         stub_vsize_funcs = stub_vs.render_vsize_funcs()
 
-        stub_program = Program(self._ctx, stub_vsize_funcs + main_src, static=True)
+        stub_program = Program(self._thr, stub_vsize_funcs + main_src, static=True)
         stub_kernel = getattr(stub_program, name)
         max_work_group_size = stub_kernel.max_work_group_size
 
         # Second pass, compiling the actual kernel
 
-        vs = VirtualSizes(ctx.device_params, max_work_group_size, global_size, local_size)
+        vs = VirtualSizes(thr.device_params, max_work_group_size, global_size, local_size)
         vsize_funcs = vs.render_vsize_funcs()
         gs, ls = vs.get_call_sizes()
-        self._program = Program(self._ctx, vsize_funcs + main_src, static=True)
+        self._program = Program(self._thr, vsize_funcs + main_src, static=True)
         self._kernel = getattr(self._program, name)
 
         if self._kernel.max_work_group_size < product(ls):

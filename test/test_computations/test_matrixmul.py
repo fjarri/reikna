@@ -79,9 +79,9 @@ def ref_dot(a, b):
     return out
 
 
-def test_errors(ctx_and_double, shapes, arg_dtypes):
+def test_errors(thr_and_double, shapes, arg_dtypes):
 
-    ctx, double = ctx_and_double
+    thr, double = thr_and_double
     s1, s2 = shapes
     c1, c2 = arg_dtypes
 
@@ -93,31 +93,31 @@ def test_errors(ctx_and_double, shapes, arg_dtypes):
     b = get_test_array(s2, dtype2)
     res_ref = ref_dot(a, b)
 
-    a_dev = ctx.to_device(a)
-    b_dev = ctx.to_device(b)
-    res_dev = ctx.empty_like(res_ref)
+    a_dev = thr.to_device(a)
+    b_dev = thr.to_device(b)
+    res_dev = thr.empty_like(res_ref)
 
-    dot = MatrixMul(ctx).prepare_for(res_dev, a_dev, b_dev)
+    dot = MatrixMul(thr).prepare_for(res_dev, a_dev, b_dev)
     dot(res_dev, a_dev, b_dev)
 
-    assert diff_is_negligible(ctx.from_device(res_dev), res_ref)
+    assert diff_is_negligible(thr.from_device(res_dev), res_ref)
 
 
-def check_performance(ctx_and_double, shape1, shape2, bwo):
+def check_performance(thr_and_double, shape1, shape2, bwo):
 
-    ctx, double = ctx_and_double
+    thr, double = thr_and_double
     dtype = numpy.float64 if double else numpy.float32
 
     a = get_test_array(shape1, dtype)
     b = get_test_array(shape2, dtype)
 
-    a_dev = ctx.to_device(a)
-    b_dev = ctx.to_device(b)
+    a_dev = thr.to_device(a)
+    b_dev = thr.to_device(b)
     res_ref = ref_dot(a, b)
-    res_dev = ctx.array(res_ref.shape, dtype=dtype)
+    res_dev = thr.array(res_ref.shape, dtype=dtype)
 
     try:
-        dot = MatrixMul(ctx).prepare_for(res_dev, a_dev, b_dev, block_width_override=bwo)
+        dot = MatrixMul(thr).prepare_for(res_dev, a_dev, b_dev, block_width_override=bwo)
     except ValueError:
         pytest.skip()
 
@@ -125,21 +125,21 @@ def check_performance(ctx_and_double, shape1, shape2, bwo):
     t1 = time.time()
     for i in range(attempts):
         dot(res_dev, a_dev, b_dev)
-    ctx.synchronize()
+    thr.synchronize()
     t2 = time.time()
 
-    assert diff_is_negligible(ctx.from_device(res_dev), res_ref)
+    assert diff_is_negligible(thr.from_device(res_dev), res_ref)
 
     return (t2 - t1) / attempts, product(res_ref.shape) * shape1[-1] * 2
 
 
 @pytest.mark.perf
 @pytest.mark.returns('GFLOPS')
-def test_performance_shape(ctx_and_double, perf_shapes):
-    return check_performance(ctx_and_double, perf_shapes[0], perf_shapes[1], None)
+def test_performance_shape(thr_and_double, perf_shapes):
+    return check_performance(thr_and_double, perf_shapes[0], perf_shapes[1], None)
 
 
 @pytest.mark.perf
 @pytest.mark.returns('GFLOPS')
-def test_performance_block_width(ctx_and_double, perf_bwo):
-    return check_performance(ctx_and_double, (512, 512), (512, 512), perf_bwo)
+def test_performance_block_width(thr_and_double, perf_bwo):
+    return check_performance(thr_and_double, (512, 512), (512, 512), perf_bwo)

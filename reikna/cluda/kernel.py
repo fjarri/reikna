@@ -11,8 +11,9 @@ from reikna.cluda import dtypes
 TEMPLATE = template_for(__file__)
 
 
-def render_prelude(ctx):
-    return TEMPLATE.get_def('prelude').render(api=ctx.api.get_id(), ctx_fast_math=ctx._fast_math)
+def render_prelude(thr):
+    return TEMPLATE.get_def('prelude').render(
+        api=thr.api.get_id(), thread_fast_math=thr._fast_math)
 
 
 def render_template(template, *args, **kwds):

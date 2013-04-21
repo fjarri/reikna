@@ -8,10 +8,10 @@ from reikna.elementwise import Elementwise
 import reikna.cluda.dtypes as dtypes
 
 
-def test_errors(ctx):
+def test_errors(thr):
 
     argnames = (('output',), ('input',), ('param',))
-    elw = Elementwise(ctx).set_argnames(*argnames)
+    elw = Elementwise(thr).set_argnames(*argnames)
 
     code = lambda output, input, param: Module(
         template_func(
@@ -26,19 +26,19 @@ def test_errors(ctx):
 
     N = 1000
     a = get_test_array(N * 2, numpy.float32)
-    a_dev = ctx.to_device(a)
-    b_dev = ctx.array(N, numpy.float32)
+    a_dev = thr.to_device(a)
+    b_dev = thr.array(N, numpy.float32)
     param = 1
 
     elw.prepare_for(b_dev, a_dev, numpy.float32(param), code=code)
     elw(b_dev, a_dev, param)
-    assert diff_is_negligible(ctx.from_device(b_dev), a[:N] + a[N:] + param)
+    assert diff_is_negligible(thr.from_device(b_dev), a[:N] + a[N:] + param)
 
 
-def test_nontrivial_code(ctx):
+def test_nontrivial_code(thr):
 
     argnames = (('output',), ('input',), ('param',))
-    elw = Elementwise(ctx).set_argnames(*argnames)
+    elw = Elementwise(thr).set_argnames(*argnames)
 
     function = lambda output, input, param: Module(
         template_func(
@@ -67,10 +67,10 @@ def test_nontrivial_code(ctx):
 
     N = 1000
     a = get_test_array(N * 2, numpy.float32)
-    a_dev = ctx.to_device(a)
-    b_dev = ctx.array(N, numpy.float32)
+    a_dev = thr.to_device(a)
+    b_dev = thr.array(N, numpy.float32)
     param = 1
 
     elw.prepare_for(b_dev, a_dev, numpy.float32(param), code=code)
     elw(b_dev, a_dev, param)
-    assert diff_is_negligible(ctx.from_device(b_dev), a[:N] + a[N:] + param)
+    assert diff_is_negligible(thr.from_device(b_dev), a[:N] + a[N:] + param)

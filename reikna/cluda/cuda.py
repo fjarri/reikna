@@ -72,9 +72,9 @@ class Thread(api_base.Thread):
 
     def _process_cqd(self, cqd):
         if isinstance(cqd, cuda.Device):
-            ctx = cqd.make_context()
+            context = cqd.make_context()
             stream = cuda.Stream()
-            return ctx, stream, cqd, True
+            return context, stream, cqd, True
         elif isinstance(cqd, cuda.Context) or cqd is None:
             return cqd, cuda.Stream(), cqd.get_device(), False
         elif isinstance(cqd, cuda.Stream):
@@ -178,7 +178,7 @@ class Kernel(api_base.Kernel):
             # Dumb algorithm of finding suitable local_size.
             # Works more or less the same as its OpenCL equivalent.
             max_size = self.max_work_group_size
-            max_dims = self._ctx.device_params.max_work_item_sizes
+            max_dims = self._thr.device_params.max_work_item_sizes
 
             def fits_into_dims(block_size):
                 """Checks if block dimensions fit into limits"""
@@ -206,4 +206,4 @@ class Kernel(api_base.Kernel):
 
     def prepared_call(self, *args):
         self._kernel(*args, grid=self._grid, block=self._local_size,
-            stream=self._ctx._queue, shared=self._local_mem)
+            stream=self._thr._queue, shared=self._local_mem)

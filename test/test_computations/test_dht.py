@@ -116,7 +116,7 @@ class TestFunction:
         return res ** self.order
 
 
-def check_errors_first_order(ctx, mshape, batch, add_points=None, dtype=numpy.complex64):
+def check_errors_first_order(thr, mshape, batch, add_points=None, dtype=numpy.complex64):
 
     test_func = TestFunction(mshape, dtype, batch=batch, order=1)
 
@@ -125,12 +125,12 @@ def check_errors_first_order(ctx, mshape, batch, add_points=None, dtype=numpy.co
     xs = [get_spatial_grid(n, 1, add_points=ap) for n, ap in zip(mshape, add_points)]
 
     xdata = test_func(*xs)
-    xdata_dev = ctx.to_device(xdata)
-    mdata_dev = ctx.array((batch,) + mshape, dtype)
+    xdata_dev = thr.to_device(xdata)
+    mdata_dev = thr.array((batch,) + mshape, dtype)
     axes = range(1, len(mshape)+1)
 
-    dht_fw = DHT(ctx).prepare_for(mdata_dev, xdata_dev, inverse=False, axes=axes)
-    dht_inv = DHT(ctx).prepare_for(xdata_dev, mdata_dev, inverse=True, axes=axes)
+    dht_fw = DHT(thr).prepare_for(mdata_dev, xdata_dev, inverse=False, axes=axes)
+    dht_inv = DHT(thr).prepare_for(xdata_dev, mdata_dev, inverse=True, axes=axes)
 
     # forward transform
     dht_fw(mdata_dev, xdata_dev)
@@ -145,7 +145,7 @@ fo_shape_vals = [(5,), (20,), (50,), (3, 7), (10, 11), (5, 6, 7), (10, 11, 12)]
 @pytest.mark.parametrize('fo_shape', fo_shape_vals, ids=list(map(str, fo_shape_vals)))
 @pytest.mark.parametrize('fo_batch', [1, 10])
 @pytest.mark.parametrize('fo_add_points', ['0', '1', '1,2,...'])
-def test_first_order_errors(ctx, fo_shape, fo_batch, fo_add_points):
+def test_first_order_errors(thr, fo_shape, fo_batch, fo_add_points):
     """
     Checks that after the transformation of the manually constructed function in coordinate space
     we get exactly mode numbers used for its construction.
@@ -159,13 +159,13 @@ def test_first_order_errors(ctx, fo_shape, fo_batch, fo_add_points):
     else:
         add_points = range(1, len(fo_shape) + 1)
 
-    check_errors_first_order(ctx, fo_shape, fo_batch,
+    check_errors_first_order(thr, fo_shape, fo_batch,
         add_points=add_points, dtype=numpy.complex64)
 
 
 @pytest.mark.parametrize('ho_order', [2, 3])
 @pytest.mark.parametrize('ho_shape', [20, 30, 50])
-def test_high_order_forward(ctx, ho_order, ho_shape):
+def test_high_order_forward(thr, ho_order, ho_shape):
     """
     Checks that if we change the mode space while keeping mode population the same,
     the result of forward transformation for orders higher than 1 do not change.
@@ -183,14 +183,14 @@ def test_high_order_forward(ctx, ho_order, ho_shape):
     xdata1 = f1(xs1)
     xdata2 = f2(xs2)
 
-    xdata1_dev = ctx.to_device(xdata1)
-    xdata2_dev = ctx.to_device(xdata2)
+    xdata1_dev = thr.to_device(xdata1)
+    xdata2_dev = thr.to_device(xdata2)
 
-    mdata1_dev = ctx.array(ho_shape, dtype)
-    mdata2_dev = ctx.array(ho_shape + 1, dtype)
+    mdata1_dev = thr.array(ho_shape, dtype)
+    mdata2_dev = thr.array(ho_shape + 1, dtype)
 
-    dht_fw1 = DHT(ctx).prepare_for(mdata1_dev, xdata1_dev, inverse=False, order=ho_order)
-    dht_fw2 = DHT(ctx).prepare_for(mdata2_dev, xdata2_dev, inverse=False, order=ho_order)
+    dht_fw1 = DHT(thr).prepare_for(mdata1_dev, xdata1_dev, inverse=False, order=ho_order)
+    dht_fw2 = DHT(thr).prepare_for(mdata2_dev, xdata2_dev, inverse=False, order=ho_order)
 
     dht_fw1(mdata1_dev, xdata1_dev)
     dht_fw2(mdata2_dev, xdata2_dev)

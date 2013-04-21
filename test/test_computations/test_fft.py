@@ -131,17 +131,17 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize('non2problem_perf_shape_and_axes', vals, ids=ids)
 
 
-def check_errors(ctx, shape_and_axes):
+def check_errors(thr, shape_and_axes):
 
     dtype = numpy.complex64
 
     shape, axes = shape_and_axes
 
     data = get_test_array(shape, dtype)
-    data_dev = ctx.to_device(data)
-    res_dev = ctx.empty_like(data_dev)
+    data_dev = thr.to_device(data)
+    res_dev = thr.empty_like(data_dev)
 
-    fft = FFT(ctx).prepare_for(res_dev, data_dev, None, axes=axes)
+    fft = FFT(thr).prepare_for(res_dev, data_dev, None, axes=axes)
 
     # forward transform
     fft(res_dev, data_dev, -1)
@@ -154,7 +154,7 @@ def check_errors(ctx, shape_and_axes):
     assert diff_is_negligible(res_dev.get(), inv_ref)
 
 
-def test_trivial(some_ctx):
+def test_trivial(some_thr):
     """
     Checks that even if the FFT is trivial (problem size == 1),
     the transformations are still attached and executed.
@@ -165,10 +165,10 @@ def test_trivial(some_ctx):
     param = 4
 
     data = get_test_array(shape, dtype)
-    data_dev = some_ctx.to_device(data)
-    res_dev = some_ctx.empty_like(data_dev)
+    data_dev = some_thr.to_device(data)
+    res_dev = some_thr.empty_like(data_dev)
 
-    fft = FFT(some_ctx)
+    fft = FFT(some_thr)
     fft.connect(scale_param(), 'input', ['input_prime'], ['param'])
     fft.prepare_for(res_dev, data_dev, None, param, axes=axes)
 
@@ -176,33 +176,33 @@ def test_trivial(some_ctx):
     assert diff_is_negligible(res_dev.get(), data * param)
 
 
-def test_local(ctx, local_shape_and_axes):
-    check_errors(ctx, local_shape_and_axes)
+def test_local(thr, local_shape_and_axes):
+    check_errors(thr, local_shape_and_axes)
 
-def test_global(ctx, global_shape_and_axes):
-    check_errors(ctx, global_shape_and_axes)
+def test_global(thr, global_shape_and_axes):
+    check_errors(thr, global_shape_and_axes)
 
-def test_sequence(ctx, sequence_shape_and_axes):
-    check_errors(ctx, sequence_shape_and_axes)
+def test_sequence(thr, sequence_shape_and_axes):
+    check_errors(thr, sequence_shape_and_axes)
 
 
-def check_performance(ctx_and_double, shape_and_axes):
-    ctx, double = ctx_and_double
+def check_performance(thr_and_double, shape_and_axes):
+    thr, double = thr_and_double
 
     shape, axes = shape_and_axes
     dtype = numpy.complex128 if double else numpy.complex64
 
     data = get_test_array(shape, dtype)
-    data_dev = ctx.to_device(data)
-    res_dev = ctx.empty_like(data_dev)
+    data_dev = thr.to_device(data)
+    res_dev = thr.empty_like(data_dev)
 
-    fft = FFT(ctx).prepare_for(res_dev, data_dev, None, axes=axes)
+    fft = FFT(thr).prepare_for(res_dev, data_dev, None, axes=axes)
 
     attempts = 10
     t1 = time.time()
     for i in range(attempts):
         fft(res_dev, data_dev, -1)
-    ctx.synchronize()
+    thr.synchronize()
     t2 = time.time()
     dev_time = (t2 - t1) / attempts
 
@@ -214,11 +214,11 @@ def check_performance(ctx_and_double, shape_and_axes):
 
 @pytest.mark.perf
 @pytest.mark.returns('GFLOPS')
-def test_power_of_2_performance(ctx_and_double, perf_shape_and_axes):
-    return check_performance(ctx_and_double, perf_shape_and_axes)
+def test_power_of_2_performance(thr_and_double, perf_shape_and_axes):
+    return check_performance(thr_and_double, perf_shape_and_axes)
 
 
 @pytest.mark.perf
 @pytest.mark.returns('GFLOPS')
-def test_non_power_of_2_performance(ctx_and_double, non2problem_perf_shape_and_axes):
-    return check_performance(ctx_and_double, non2problem_perf_shape_and_axes)
+def test_non_power_of_2_performance(thr_and_double, non2problem_perf_shape_and_axes):
+    return check_performance(thr_and_double, non2problem_perf_shape_and_axes)

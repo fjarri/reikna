@@ -28,13 +28,13 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize('shape_and_axes', vals,
             ids=[str(shape) + "," + str(axes) for shape, axes in vals])
 
-def test_errors(ctx, shape_and_axes):
+def test_errors(thr, shape_and_axes):
     shape, axes = shape_and_axes
     a = get_test_array(shape, numpy.int32)
-    a_dev = ctx.to_device(a)
+    a_dev = thr.to_device(a)
     res_ref = numpy.transpose(a, axes)
-    res_dev = ctx.array(res_ref.shape, dtype=numpy.int32)
-    tr = Transpose(ctx).prepare_for(res_dev, a_dev, axes=axes)
+    res_dev = thr.array(res_ref.shape, dtype=numpy.int32)
+    tr = Transpose(thr).prepare_for(res_dev, a_dev, axes=axes)
     tr(res_dev, a_dev)
 
     assert diff_is_negligible(res_dev.get(), res_ref)

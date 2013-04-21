@@ -22,9 +22,9 @@ Consider the following example, which is very similar to the one from the index 
     N = 256
 
     api = cluda.ocl_api()
-    ctx = api.Thread.create()
+    thr = api.Thread.create()
 
-    module = ctx.compile("""
+    module = thr.compile("""
     KERNEL void multiply_them(
         GLOBAL_MEM float *dest,
         GLOBAL_MEM float *a,
@@ -39,9 +39,9 @@ Consider the following example, which is very similar to the one from the index 
 
     a = numpy.random.randn(N).astype(numpy.float32)
     b = numpy.random.randn(N).astype(numpy.float32)
-    a_dev = ctx.to_device(a)
-    b_dev = ctx.to_device(b)
-    dest_dev = ctx.empty_like(a_dev)
+    a_dev = thr.to_device(a)
+    b_dev = thr.to_device(b)
+    dest_dev = thr.empty_like(a_dev)
 
     multiply_them(dest_dev, a_dev, b_dev, local_size=N, global_size=N)
     print((dest_dev.get() - a * b == 0).all())
@@ -71,9 +71,9 @@ The template engine of choice in ``reikna`` is `Mako <http://www.makotemplates.o
     dtype = numpy.complex64
 
     api = cluda.ocl_api()
-    ctx = api.Thread.create()
+    thr = api.Thread.create()
 
-    module = ctx.compile("""
+    module = thr.compile("""
     KERNEL void multiply_them(
         GLOBAL_MEM ${ctype} *dest,
         GLOBAL_MEM ${ctype} *a,
@@ -92,9 +92,9 @@ The template engine of choice in ``reikna`` is `Mako <http://www.makotemplates.o
     r2 = numpy.random.randn(N).astype(numpy.float32)
     a = r1 + 1j * r2
     b = r1 - 1j * r2
-    a_dev = ctx.to_device(a)
-    b_dev = ctx.to_device(b)
-    dest_dev = ctx.empty_like(a_dev)
+    a_dev = thr.to_device(a)
+    b_dev = thr.to_device(b)
+    dest_dev = thr.empty_like(a_dev)
 
     multiply_them(dest_dev, a_dev, b_dev, local_size=N, global_size=N)
     print(norm(dest_dev.get() - a * b) / norm(a * b) <= 1e-6)
@@ -135,18 +135,18 @@ As an example, we will consider the matrix multiplication.
     from reikna.matrixmul import MatrixMul
 
     api = cluda.ocl_api()
-    ctx = api.Thread.create()
+    thr = api.Thread.create()
 
     shape1 = (100, 200)
     shape2 = (200, 100)
 
     a = numpy.random.randn(*shape1).astype(numpy.float32)
     b = numpy.random.randn(*shape2).astype(numpy.float32)
-    a_dev = ctx.to_device(a)
-    b_dev = ctx.to_device(b)
-    res_dev = ctx.array((shape1[0], shape2[1]), dtype=numpy.float32)
+    a_dev = thr.to_device(a)
+    b_dev = thr.to_device(b)
+    res_dev = thr.array((shape1[0], shape2[1]), dtype=numpy.float32)
 
-    dot = MatrixMul(ctx).prepare_for(res_dev, a_dev, b_dev)
+    dot = MatrixMul(thr).prepare_for(res_dev, a_dev, b_dev)
     dot(res_dev, a_dev, b_dev)
 
     res_reference = numpy.dot(a, b)
@@ -190,7 +190,7 @@ Let us change the previous example and connect transformations to it.
     from reikna.transformations import combine_complex
 
     api = cluda.ocl_api()
-    ctx = api.Thread.create()
+    thr = api.Thread.create()
 
     shape1 = (100, 200)
     shape2 = (200, 100)
@@ -199,11 +199,11 @@ Let us change the previous example and connect transformations to it.
     a_im = numpy.random.randn(*shape1).astype(numpy.float32)
     b_re = numpy.random.randn(*shape2).astype(numpy.float32)
     b_im = numpy.random.randn(*shape2).astype(numpy.float32)
-    a_re_dev, a_im_dev, b_re_dev, b_im_dev = [ctx.to_device(x) for x in [a_re, a_im, b_re, b_im]]
+    a_re_dev, a_im_dev, b_re_dev, b_im_dev = [thr.to_device(x) for x in [a_re, a_im, b_re, b_im]]
 
-    res_dev = ctx.array((shape1[0], shape2[1]), dtype=numpy.complex64)
+    res_dev = thr.array((shape1[0], shape2[1]), dtype=numpy.complex64)
 
-    dot = MatrixMul(ctx)
+    dot = MatrixMul(thr)
     dot.connect(combine_complex(), 'a', ['a_re', 'a_im'])
     dot.connect(combine_complex(), 'b', ['b_re', 'b_im'])
     dot.prepare_for(res_dev, a_re_dev, a_im_dev, b_re_dev, b_im_dev)

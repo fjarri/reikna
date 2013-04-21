@@ -23,8 +23,8 @@ class Thread(api_base.Thread):
 
     def _process_cqd(self, cqd):
         if isinstance(cqd, cl.Device):
-            ctx = cl.Context(devices=[cqd])
-            return ctx, cl.CommandQueue(ctx), cqd, False
+            context = cl.Context(devices=[cqd])
+            return context, cl.CommandQueue(context), cqd, False
         elif isinstance(cqd, cl.Context):
             return cqd, cl.CommandQueue(cqd), cqd.devices[0], False
         elif isinstance(cqd, cl.CommandQueue):
@@ -116,7 +116,7 @@ class Kernel(api_base.Kernel):
 
     def _fill_attributes(self):
         self.max_work_group_size = self._kernel.get_work_group_info(
-            cl.kernel_work_group_info.WORK_GROUP_SIZE, self._ctx._device)
+            cl.kernel_work_group_info.WORK_GROUP_SIZE, self._thr._device)
 
     def prepare(self, global_size, local_size=None):
         if local_size is None:
@@ -127,4 +127,4 @@ class Kernel(api_base.Kernel):
 
     def _prepared_call(self, *args):
         args = [x.data if isinstance(x, clarray.Array) else x for x in args]
-        self._kernel(self._ctx._queue, self._global_size, self._local_size, *args)
+        self._kernel(self._thr._queue, self._global_size, self._local_size, *args)

@@ -136,7 +136,7 @@ WITHIN_KERNEL ${dtypes.ctype(dtype)} ${prefix}(${dtypes.ctype(dtype)} a)
     #else
     ## It seems that native_cos/sin option is only available for single precision.
     %if not dtypes.is_double(dtype):
-    #ifdef CTX_FAST_MATH
+    #ifdef THREAD_FAST_MATH
         res.x = native_cos(theta);
         res.y = native_sin(theta);
     #else

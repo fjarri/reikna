@@ -20,29 +20,29 @@ shapes_and_axes_ids = [str(shape) + "," + str(axis) for shape, axis in shapes_an
 
 
 @pytest.mark.parametrize(('shape', 'axis'), shapes_and_axes, ids=shapes_and_axes_ids)
-def test_normal(ctx, shape, axis):
+def test_normal(thr, shape, axis):
 
-    rd = Reduce(ctx)
+    rd = Reduce(thr)
 
     a = get_test_array(shape, numpy.int64)
-    a_dev = ctx.to_device(a)
+    a_dev = thr.to_device(a)
     b_ref = a.sum(axis)
     if len(b_ref.shape) == 0:
         b_ref = numpy.array([b_ref], numpy.int64)
-    b_dev = ctx.array(b_ref.shape, numpy.int64)
+    b_dev = thr.array(b_ref.shape, numpy.int64)
 
     rd.prepare_for(b_dev, a_dev, axis=axis)
     rd(b_dev, a_dev)
     assert diff_is_negligible(b_dev.get(), b_ref)
 
 
-def test_nondefault_function(ctx):
-    rd = Reduce(ctx)
+def test_nondefault_function(thr):
+    rd = Reduce(thr)
     shape = (100, 100)
     a = get_test_array(shape, numpy.int64)
-    a_dev = ctx.to_device(a)
+    a_dev = thr.to_device(a)
     b_ref = a.sum(0)
-    b_dev = ctx.array((100,), numpy.int64)
+    b_dev = thr.array((100,), numpy.int64)
 
     predicate = lambda output, input: Module(
         template_func(
