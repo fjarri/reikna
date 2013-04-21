@@ -384,6 +384,8 @@ class Program:
     """
 
     def __init__(self, ctx, src, static=False):
+        """__init__()""" # hide the signature from Sphinx
+
         self._ctx = ctx
         self._static = static
 
@@ -409,6 +411,8 @@ class Kernel:
     """
 
     def __init__(self, ctx, program, name, static=False):
+        """__init__()""" # hide the signature from Sphinx
+
         self._ctx = ctx
         self._program = program
         self._kernel = self._get_kernel(program, name)
@@ -456,11 +460,12 @@ class StaticKernel:
 
     .. py:attribute:: source
 
-        Contains module source code.
+        Contains the source code of the program.
     """
 
     def __init__(self, ctx, template_src, name, global_size, local_size=None,
             render_args=None, render_kwds=None):
+        """__init__()""" # hide the signature from Sphinx
 
         self._ctx = ctx
 
