@@ -231,7 +231,6 @@ class Thread:
         For a list of values ``dependencies`` takes, see the reference entry for
         :py:class:`~reikna.cluda.tempalloc.TemporaryManager`.
         """
-        assert 'allocator' not in kwds
         return self.temp_alloc.array(*args, **kwds)
 
     def empty_like(self, arr):
