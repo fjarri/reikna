@@ -10,6 +10,8 @@ Release history
 
 * CHANGED: The part of CLUDA API that is supposed to be used by other layers was moved to the ``__init__.py``.
 
+* CHANGED: CLUDA ``Context`` was renamed to ``Thread``, to avoid confusion with ``PyCUDA``/``PyOpenCL`` contexts.
+
 * FIXED: added ``transformation.mako`` and ``cbrng_ref.py`` to the distribution package.
 
 
