@@ -42,8 +42,8 @@ class Context(api_base.Context):
     def allocate(self, size):
         return cl.Buffer(self._context, cl.mem_flags.READ_WRITE, size=size)
 
-    def array(self, *args, **kwds):
-        return clarray.Array(self._queue, *args, **kwds)
+    def array(self, shape, dtype, allocator=None):
+        return clarray.Array(self._queue, shape, dtype, allocator=allocator)
 
     def _copy_array(self, dest, src):
         dest.set(src, queue=self._queue, async=self._async)

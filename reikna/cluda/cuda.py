@@ -94,8 +94,8 @@ class Context(api_base.Context):
     def allocate(self, size):
         return Buffer(size)
 
-    def array(self, *args, **kwds):
-        return gpuarray.GPUArray(*args, **kwds)
+    def array(self, shape, dtype, allocator=None):
+        return gpuarray.GPUArray(self, shape, dtype, allocator=allocator)
 
     def _copy_array(self, dest, src):
         dest.set_async(src, stream=self._queue)

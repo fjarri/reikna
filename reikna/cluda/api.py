@@ -215,7 +215,7 @@ class Context:
         """
         raise NotImplementedError()
 
-    def array(self, *args, **kwds):
+    def array(self, shape, dtype, allocator=None):
         """
         Creates an :py:class:`Array` on GPU with given ``shape`` and ``dtype``.
         Optionally, an ``allocator`` is a callable returning any object castable to ``int``
@@ -223,9 +223,9 @@ class Context:
         """
         raise NotImplementedError()
 
-    def temp_array(self, *args, **kwds):
+    def temp_array(self, shape, dtype, dependencies=None):
         """
-        Creates a temporary :py:class:`Array` on GPU with given ``shape`` and ``dtype``.
+        Creates an :py:class:`Array` on GPU with given ``shape`` and ``dtype``.
         In order to reduce the memory footprint of the program, the temporary array manager
         will allow these arrays to overlap.
         Two arrays will not overlap, if one of them was specified in ``dependencies``
@@ -234,7 +234,6 @@ class Context:
         :py:class:`~reikna.cluda.tempalloc.TemporaryManager`.
         """
         assert 'allocator' not in kwds
-        assert 'data' not in kwds
         return self.temp_alloc.array(*args, **kwds)
 
     def empty_like(self, arr):
