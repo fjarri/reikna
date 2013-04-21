@@ -231,7 +231,7 @@ class Thread:
         For a list of values ``dependencies`` takes, see the reference entry for
         :py:class:`~reikna.cluda.tempalloc.TemporaryManager`.
         """
-        return self.temp_alloc.array(*args, **kwds)
+        return self.temp_alloc.array(shape, dtype, dependencies=dependencies)
 
     def empty_like(self, arr):
         """
