@@ -112,9 +112,14 @@ def create_renderer_tree(pm):
     return traverse_data(ProcessedModule, create_renderer, None, pm)
 
 
-def render_template_source(src, *args, **render_kwds):
+def render_template_source(src, render_args=None, render_kwds=None):
 
-    args, module_list = flatten_module_tree(src, args, render_kwds)
+    if render_args is None:
+        render_args = []
+    if render_kwds is None:
+        render_kwds = {}
+
+    args, module_list = flatten_module_tree(src, render_args, render_kwds)
     renderers = [create_renderer_tree(pm) for pm in module_list]
     src_list = [render() for render in renderers[:-1]]
     src_list.append(renderers[-1](*args))

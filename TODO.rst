@@ -5,9 +5,7 @@
 
 * TODO: rename Context to Thread/Stream (more appropriate, less confusion)
 
-  * create_queue() method in Context is not used anywhere, we can remove it
   * add fork() instead, which creates another Thread with the same context?
-  * create base class for Thread which contains the overlapping functionality
   * add add explicit context release methods for Thread --- not all Python implementations use reference counting, and non-instantaneous __del__ may cause problems with CUDA.
 
 * DECIDE: think of better way of module discovery in render keywords than looking inside AttrDicts. (see reikna.cluda.kernel.process_render_kwds)

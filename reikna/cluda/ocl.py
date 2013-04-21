@@ -1,18 +1,12 @@
-from logging import error
 import sys
-import weakref
 
-import numpy
 import pyopencl as cl
 import pyopencl.array as clarray
 
-from reikna.helpers import AttrDict
+from reikna.helpers import wrap_in_tuple
 import reikna.cluda as cluda
 import reikna.cluda.dtypes as dtypes
-from reikna.helpers import wrap_in_tuple, product
-from reikna.cluda.kernel import render_prelude, render_template_source
-from reikna.cluda.vsize import VirtualSizes
-from reikna.cluda.tempalloc import ZeroOffsetManager
+import reikna.cluda.api as api_base
 
 
 def get_id():
@@ -23,63 +17,20 @@ def get_platforms():
     return cl.get_platforms()
 
 
-class Context:
+class Context(api_base.Context):
 
-    @classmethod
-    def create(cls, device=None, **kwds):
+    api = sys.modules[__name__]
 
-        # cl.create_some_context() creates multiple-device context,
-        # and we do not want that (yet)
-
-        def find_suitable_device():
-            platforms = get_platforms()
-            target_device = None
-            for platform in platforms:
-                devices = platform.get_devices()
-                for device in devices:
-                    params = DeviceParameters(device)
-                    if params.max_work_group_size > 1:
-                        return device
-            return None
-
-        if device is None:
-            device = find_suitable_device()
-            if device is None:
-                raise RuntimeError("Cannot find suitable OpenCL device to create CLUDA context")
-
-        ctx = cl.Context(devices=[device])
-
-        return cls(ctx, **kwds)
-
-    def __init__(self, context, queue=None, fast_math=True, async=True, temp_alloc=None,
-            owns_context=False):
-
-        self.api = cluda.api(get_id())
-        self._fast_math = fast_math
-        self._context = context
-        self._async = async
-        self.device_params = DeviceParameters(context.get_info(cl.context_info.DEVICES)[0])
-        self._device = self._context.devices[0]
-        self._queue = self.create_queue() if queue is None else queue
-
-        temp_alloc_params = AttrDict(
-            cls=ZeroOffsetManager, pack_on_alloc=False, pack_on_free=False)
-        if temp_alloc is not None:
-            temp_alloc_params.update(temp_alloc)
-
-        self.temp_alloc = temp_alloc_params.cls(weakref.proxy(self),
-            pack_on_alloc=temp_alloc_params.pack_on_alloc,
-            pack_on_free=temp_alloc_params.pack_on_free)
-
-    def override_device_params(self, **kwds):
-        for kwd in kwds:
-            if hasattr(self.device_params, kwd):
-                setattr(self.device_params, kwd, kwds[kwd])
-            else:
-                raise ValueError("Device parameter " + str(kwd) + " does not exist")
-
-    def create_queue(self):
-        return cl.CommandQueue(self._context)
+    def _process_cqd(self, cqd):
+        if isinstance(cqd, cl.Device):
+            ctx = cl.Context(devices=[cqd])
+            return ctx, cl.CommandQueue(ctx), cqd, False
+        elif isinstance(cqd, cl.Context):
+            return cqd, cl.CommandQueue(cqd), cqd.devices[0], False
+        elif isinstance(cqd, cl.CommandQueue):
+            return cqd.context, cqd, cqd.device, False
+        else:
+            return ValueError("The value provided is not Device, Context or CommandQueue")
 
     def supports_dtype(self, dtype):
         if dtypes.is_double(dtype):
@@ -94,84 +45,25 @@ class Context:
     def array(self, *args, **kwds):
         return clarray.Array(self._queue, *args, **kwds)
 
-    def temp_array(self, *args, **kwds):
-        assert 'allocator' not in kwds
-        assert 'data' not in kwds
-        return self.temp_alloc.array(*args, **kwds)
-
-    def empty_like(self, arr):
-        return self.array(arr.shape, arr.dtype)
-
-    def to_device(self, arr, dest=None):
-        if dest is None:
-            arr_device = self.empty_like(arr)
-        else:
-            arr_device = dest
-
-        arr_device.set(arr, queue=self._queue, async=self._async)
-
-        if dest is None:
-            return arr_device
+    def _copy_array(self, dest, src):
+        dest.set(src, queue=self._queue, async=self._async)
 
     def from_device(self, arr, dest=None, async=False):
         arr_cpu = arr.get(queue=self._queue, ary=dest, async=async)
         if dest is None:
             return arr_cpu
 
-    def copy_array(self, arr, dest=None, src_offset=0, dest_offset=0, size=None):
-        if dest is None:
-            arr_device = self.empty_like(arr)
-        else:
-            arr_device = dest
-
-        itemsize = arr.dtype.itemsize
-        nbytes = arr.nbytes if size is None else itemsize * size
-        src_offset *= itemsize
-        dest_offset *= itemsize
-
-        cl.enqueue_copy(self._queue,
-            arr_device.data, arr.data,
+    def _copy_array_buffer(self, dest, src, nbytes, src_offset=0, dest_offset=0):
+        cl.enqueue_copy(
+            self._queue, dest.data, src.data,
             byte_count=nbytes, src_offset=src_offset, dest_offset=dest_offset)
-        self._synchronize()
-
-        if dest is None:
-            return arr_device
 
     def synchronize(self):
         self._queue.finish()
 
-    def _synchronize(self):
-        if not self._async:
-            self.synchronize()
-
     def _compile(self, src):
         options = "-cl-mad-enable -cl-fast-relaxed-math" if self._fast_math else ""
-        try:
-            program = cl.Program(self._context, src).build(options=options)
-        except:
-            listing = "\n".join([str(i+1) + ":" + l for i, l in enumerate(src.split('\n'))])
-            error("Failed to compile:\n" + listing)
-            raise
-        return program
-
-    def compile(self, template_src, render_kwds=None):
-        return Program(self, template_src, render_kwds=render_kwds)
-
-    def compile_static(self, template_src, name, global_size,
-            local_size=None, render_args=None, render_kwds=None):
-        return StaticKernel(self, template_src, name, global_size,
-            local_size=local_size, render_args=render_args, render_kwds=render_kwds)
-
-    def _pytest_finalize(self):
-        """
-        Py.Test holds the reference to the created funcarg/fixture,
-        which interferes with ``__del__`` functionality.
-        This method forcefully frees critical resources
-        (rendering the object unusable).
-        """
-        del self._device
-        del self._queue
-        del self._context
+        return cl.Program(self._context, src).build(options=options)
 
 
 class DeviceParameters:
@@ -217,33 +109,13 @@ class DeviceParameters:
         self.local_mem_size = device.local_mem_size
 
 
-class Program:
+class Kernel(api_base.Kernel):
 
-    def __init__(self, ctx, src, render_kwds=None):
-        self._ctx = ctx
+    def _get_kernel(self, program, name):
+        return getattr(program, name)
 
-        if render_kwds is None:
-            render_kwds = {}
-        prelude = render_prelude(self._ctx)
-
-        src = render_template_source(src, **render_kwds)
-
-        # Casting source code to ASCII explicitly
-        # New versions of Mako produce Unicode output by default,
-        # and it makes OpenCL compiler unhappy
-        self.source = str(prelude + src)
-        self._program = ctx._compile(self.source)
-
-    def __getattr__(self, name):
-        return Kernel(self._ctx, getattr(self._program, name))
-
-
-class Kernel:
-
-    def __init__(self, ctx, kernel):
-        self._ctx = ctx
-        self._kernel = kernel
-        self._max_work_group_size = kernel.get_work_group_info(
+    def _fill_attributes(self):
+        self.max_work_group_size = self._kernel.get_work_group_info(
             cl.kernel_work_group_info.WORK_GROUP_SIZE, self._ctx._device)
 
     def prepare(self, global_size, local_size=None):
@@ -253,66 +125,6 @@ class Kernel:
             self._local_size = wrap_in_tuple(local_size)
         self._global_size = wrap_in_tuple(global_size)
 
-    def prepared_call(self, *args):
-
-        # Unlike PyCuda, PyOpenCL does not allow passing array objects as is
+    def _prepared_call(self, *args):
         args = [x.data if isinstance(x, clarray.Array) else x for x in args]
         self._kernel(self._ctx._queue, self._global_size, self._local_size, *args)
-        self._ctx._synchronize()
-
-    def __call__(self, *args, **kwds):
-        if 'global_size' in kwds:
-            prep_args = (kwds.pop('global_size'),)
-        else:
-            prep_args = tuple()
-        self.prepare(*prep_args, **kwds)
-        self.prepared_call(*args)
-
-
-class StaticKernel:
-
-    def __init__(self, ctx, template_src, name, global_size, local_size=None,
-            render_args=None, render_kwds=None):
-
-        self._ctx = ctx
-
-        if render_args is None:
-            render_args = []
-        if render_kwds is None:
-            render_kwds = {}
-
-        prelude = render_prelude(self._ctx)
-        src = render_template_source(template_src, *render_args, **render_kwds)
-
-        # We need the first approximation of the maximum thread number for a kernel.
-        # Stub virtual size functions instead of real ones will not change it (hopefully).
-        stub_vs = VirtualSizes(ctx.device_params, ctx.device_params.max_work_group_size,
-            global_size, local_size)
-        stub_vsize_funcs = stub_vs.render_vsize_funcs()
-
-        stub_program = ctx._compile(str(prelude + stub_vsize_funcs + src))
-        stub_kernel = getattr(stub_program, name)
-        max_work_group_size = stub_kernel.get_work_group_info(
-            cl.kernel_work_group_info.WORK_GROUP_SIZE, self._ctx._device)
-
-        vs = VirtualSizes(ctx.device_params, max_work_group_size, global_size, local_size)
-        static_prelude = vs.render_vsize_funcs()
-        self._global_size, self._local_size = vs.get_call_sizes()
-
-        # Casting source code to ASCII explicitly
-        # New versions of Mako produce Unicode output by default,
-        # and it makes OpenCL compiler unhappy
-        self.source = str(prelude + static_prelude + src)
-        self._program = ctx._compile(self.source)
-
-        self._kernel = getattr(self._program, name)
-
-        self.max_work_group_size = self._kernel.get_work_group_info(
-            cl.kernel_work_group_info.WORK_GROUP_SIZE, self._ctx._device)
-        if self.max_work_group_size < product(self._local_size):
-            raise cluda.OutOfResourcesError("Not enough registers/local memory for this local size")
-
-    def __call__(self, *args):
-        args = [x.data if isinstance(x, clarray.Array) else x for x in args]
-        self._kernel(self._ctx._queue, self._global_size, self._local_size, *args)
-        self._ctx._synchronize()
