@@ -95,7 +95,7 @@ class Thread(api_base.Thread):
         return Buffer(size)
 
     def array(self, shape, dtype, allocator=None):
-        return gpuarray.GPUArray(self, shape, dtype, allocator=allocator)
+        return gpuarray.GPUArray(shape, dtype, allocator=allocator)
 
     def _copy_array(self, dest, src):
         dest.set_async(src, stream=self._queue)
