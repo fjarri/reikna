@@ -83,7 +83,7 @@ def test_modules(some_ctx):
     snum = 10
     N = 128
 
-    module = some_ctx.compile(
+    program = some_ctx.compile(
         """
         KERNEL void test(GLOBAL_MEM float *dest, GLOBAL_MEM float *a, GLOBAL_MEM float *b)
         {
@@ -99,7 +99,7 @@ def test_modules(some_ctx):
     b_dev = some_ctx.to_device(b)
     dest_dev = some_ctx.empty_like(a_dev)
 
-    module.test(dest_dev, a_dev, b_dev, local_size=N, global_size=N)
+    program.test(dest_dev, a_dev, b_dev, local_size=N, global_size=N)
     ref = (a * b + m1num) + ((a * b + m2num) - snum)
 
     assert diff_is_negligible(dest_dev.get(), ref)
@@ -113,7 +113,7 @@ def test_snippet(some_ctx):
     snum = 10
     N = 128
 
-    module = some_ctx.compile(
+    program = some_ctx.compile(
         """
         KERNEL void test(GLOBAL_MEM float *dest, GLOBAL_MEM float *a, GLOBAL_MEM float *b)
         {
@@ -129,7 +129,7 @@ def test_snippet(some_ctx):
     b_dev = some_ctx.to_device(b)
     dest_dev = some_ctx.empty_like(a_dev)
 
-    module.test(dest_dev, a_dev, b_dev, local_size=N, global_size=N)
+    program.test(dest_dev, a_dev, b_dev, local_size=N, global_size=N)
     ref = (a * b + m1num) + ((a * b + m2num) - snum)
 
     assert diff_is_negligible(dest_dev.get(), ref)

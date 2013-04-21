@@ -118,7 +118,7 @@ def test_dtype_support(ctx, dtype):
 
     mul = functions.mul(dtype, dtype)
     div = functions.div(dtype, dtype)
-    module = ctx.compile(
+    program = ctx.compile(
     """
     KERNEL void test(
         GLOBAL_MEM ${ctype} *dest, GLOBAL_MEM ${ctype} *a, GLOBAL_MEM ${ctype} *b)
@@ -129,7 +129,7 @@ def test_dtype_support(ctx, dtype):
     }
     """, render_kwds=dict(ctype=dtypes.ctype(dtype), dtype=dtype, mul=mul, div=div))
 
-    test = module.test
+    test = program.test
 
     # we need results to fit even in unsigned char
     a = get_test_array(N, dtype, high=8)
@@ -191,10 +191,10 @@ def test_multiarg_mul(ctx, out_dtype, in_dtypes):
         filterwarnings("ignore", "", numpy.ComplexWarning)
         mul = functions.mul(*in_dtypes, out_dtype=out_dtype)
 
-    module = ctx.compile(src,
+    program = ctx.compile(src,
         render_kwds=dict(in_dtypes=in_dtypes, out_dtype=out_dtype, mul=mul))
 
-    test = module.test
+    test = program.test
 
     # we need results to fit even in unsigned char
     arrays = [get_test_array(N, dt, no_zeros=True) for dt in in_dtypes]
@@ -213,7 +213,7 @@ def test_find_local_size(ctx_and_global_size):
     (not necessarily optimal).
     """
 
-    module = ctx.compile(
+    program = ctx.compile(
     """
     KERNEL void test(GLOBAL_MEM int *dest)
     {
@@ -223,7 +223,7 @@ def test_find_local_size(ctx_and_global_size):
       dest[i] = i;
     }
     """)
-    test = module.test
+    test = program.test
     dest_dev = ctx.array(global_size, numpy.int32)
     test(dest_dev, global_size=global_size)
 
