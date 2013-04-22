@@ -1,4 +1,5 @@
 from reikna.cluda.api_discovery import *
+from reikna.cluda.api_tools import *
 from reikna.cluda.kernel import Module
 
 

@@ -3,6 +3,8 @@ import gc, re
 
 import numpy
 
+from reikna.cluda import find_devices
+
 
 def get_apis(config):
     """
@@ -62,46 +64,19 @@ def get_threads(config, vary_fast_math=False):
     else:
         fms = [None]
 
-    include_devices = config.option.device_include_mask
-    exclude_devices = config.option.device_exclude_mask
-    include_platforms = config.option.platform_include_mask
-    exclude_platforms = config.option.platform_exclude_mask
-
-    def name_matches_masks(name, includes, excludes):
-        if len(includes) > 0:
-            for include in includes:
-                if re.search(include, name):
-                    break
-            else:
-                return False
-
-        if len(excludes) > 0:
-            for exclude in excludes:
-                if re.search(exclude, name):
-                    return False
-
-        return True
-
     tcs = []
-    seen_devices = set()
     for api in apis:
-        for pnum, platform in enumerate(api.get_platforms()):
+        devices = find_devices(
+            api,
+            include_devices=config.option.device_include_mask,
+            exclude_devices=config.option.device_exclude_mask,
+            include_platforms=config.option.platform_include_mask,
+            exclude_platforms=config.option.platform_exclude_mask,
+            include_duplicate_devices=config.option.include_duplicate_devices)
 
-            seen_devices.clear()
-
-            if not name_matches_masks(platform.name, include_platforms, exclude_platforms):
-                continue
-
-            for dnum, device in enumerate(platform.get_devices()):
-                if not name_matches_masks(device.name, include_devices, exclude_devices):
-                    continue
-
-                if (not config.option.include_duplicate_devices and
-                        device.name in seen_devices):
-                    continue
-
-                seen_devices.add(device.name)
-
+        for pnum in sorted(devices.keys()):
+            dnums = sorted(devices[pnum])
+            for dnum in dnums:
                 for fm in fms:
                     tcs.append(ThrCreator(api, pnum, dnum, fast_math=fm))
 
