@@ -210,6 +210,7 @@ class Thread:
 
     def __init__(self, cqd, fast_math=True, async=True, temp_alloc=None):
 
+        self._released = False
         self._async = async
         self._fast_math = fast_math
 
@@ -379,23 +380,32 @@ class Thread:
         return StaticKernel(self, template_src, name, global_size,
             local_size=local_size, render_args=render_args, render_kwds=render_kwds)
 
-    def _pytest_finalize_specific(self):
+    def _release_specific(self):
         """
         Overridden by a specific ``Thread`` if it needs to do something before finalizing.
         """
         pass
 
-    def _pytest_finalize(self):
+    def release(self):
         """
-        Py.Test holds the reference to the created funcarg/fixture,
-        which interferes with ``__del__`` functionality.
-        This method forcefully frees critical resources
-        (rendering the object unusable).
+        Forcefully free critical resources (rendering the object unusable).
+        In most cases you can rely on the garbage collector taking care of things.
+        Calling this method explicitly may be necessary in case of CUDA API
+        when you want to make sure the context got popped.
         """
-        self._pytest_finalize_specific()
-        del self._device
-        del self._queue
-        del self._context
+        # Note that we rely on reference counting here, which is not available
+        # in some Python implementations.
+        # But since PyCUDA and PyOpenCL only work in CPython anyway,
+        # and I cannot see the way to make Thread release both GC-only-compatible
+        # and auto-releasable when not in use (crucial for CUDA because of its
+        # stupid stateful contexts), I'll leave at is it is for now.
+
+        if not self._released:
+            self._release_specific()
+            self._device = None
+            self._queue = None
+            self._context = None
+            self._released = True
 
 
 class Program:

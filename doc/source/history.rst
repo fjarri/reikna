@@ -6,6 +6,8 @@ Release history
 0.2.3 (current development version)
 ===================================
 
+* ADDED: explicit :py:meth:`~reikna.cluda.api.Thread.release` (primarily for certain rare CUDA use cases).
+
 * CHANGED: CLUDA API discovery interface (see the documentation).
 
 * CHANGED: The part of CLUDA API that is supposed to be used by other layers was moved to the ``__init__.py``.

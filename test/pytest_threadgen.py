@@ -133,8 +133,11 @@ def create_thread_in_tuple(request):
     thr = tc()
 
     def finalizer():
-        # Py.Test won't release the reference to thr, so we need to finalize it explicitly.
-        thr._pytest_finalize()
+        # Py.Test holds the reference to the created funcarg/fixture,
+        # which interferes with ``__del__`` functionality.
+        # This method forcefully frees critical resources explicitly
+        # (rendering the object unusable).
+        thr.release()
         # just in case there is some stuff left
         gc.collect()
 

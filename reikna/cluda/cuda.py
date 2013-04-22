@@ -124,13 +124,13 @@ class Thread(api_base.Thread):
         options = ['-use_fast_math'] if self._fast_math else []
         return SourceModule(src, no_extern_c=True, options=options)
 
-    def _pytest_finalize_specific(self):
+    def _release_specific(self):
+        # If we own the context, it is our responsibility to pop() it
         if self._owns_context:
             cuda.Context.pop()
 
     def __del__(self):
-        # If we own the context, it is our responsibility to pop() it
-        self._pytest_finalize_specific()
+        self.release()
 
 
 class DeviceParameters:

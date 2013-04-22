@@ -1,9 +1,7 @@
 0.2.3 (CLUDA API change)
 ========================
 
-* write a tutorial on modules
-* add add explicit context release methods for Thread --- not all Python implementations use reference counting, and non-instantaneous __del__ may cause problems with CUDA.
-
+* TODO: write a tutorial on modules
 * DECIDE: think of better way of module discovery in render keywords than looking inside AttrDicts. (see reikna.cluda.kernel.process_render_kwds)
 * DECIDE: positional arguments for modules?
 
