@@ -19,7 +19,7 @@ def set_thread_gs_limits(metafunc, tc):
     """
     new_tcs = []
     rem_ids = []
-    for gl in [[31, 31], [31, 31, 31]]:
+    for gl in [[31, 31], [31, 63], [31, 31, 31]]:
 
         # If the thread will not support these limits, skip
         thr = tc()
@@ -135,6 +135,8 @@ def test_ids(thr_with_gs_limits, gl_size, gs_is_multiple):
 
     thr = thr_with_gs_limits
     grid_size, local_size = gl_size
+    if product(grid_size) > product(thr.device_params.max_num_groups):
+        pytest.skip()
 
     ref = ReferenceIds(grid_size, local_size, gs_is_multiple)
 
