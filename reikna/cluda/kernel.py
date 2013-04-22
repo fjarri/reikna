@@ -34,7 +34,7 @@ class Module:
     """
     Contains a code template and render keywords (possibly referencing other modules).
 
-    :param tempalte: a ``Mako`` template with the module code,
+    :param template: a ``Mako`` template with the module code,
         or a string with the template source.
     :type template: ``str`` or ``Mako`` template.
     :param render_kwds: a dictionary which will be used to render the template.
