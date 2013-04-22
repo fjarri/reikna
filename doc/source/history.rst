@@ -12,6 +12,8 @@ Release history
 
 * CHANGED: CLUDA ``Context`` was renamed to ``Thread``, to avoid confusion with ``PyCUDA``/``PyOpenCL`` contexts.
 
+* CHANGED: signature of :py:meth:`~reikna.cluda.api.Thread.create`; it can filter devices now, and supports interactive mode.
+
 * FIXED: added ``transformation.mako`` and ``cbrng_ref.py`` to the distribution package.
 
 * FIXED: incorrect parameter generation in ``test/cluda/cluda_vsizes/ids``.

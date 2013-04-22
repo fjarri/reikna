@@ -79,11 +79,12 @@
         Returns a list of device objects available in the platform.
 """
 
+from __future__ import print_function
 from logging import error
 import weakref
 
 from reikna.helpers import AttrDict
-from reikna.cluda import OutOfResourcesError
+from reikna.cluda import OutOfResourcesError, find_devices
 from reikna.helpers import wrap_in_tuple, product
 from reikna.cluda.kernel import render_prelude, render_template_source
 from reikna.cluda.vsize import VirtualSizes
@@ -145,36 +146,67 @@ class Thread:
     """
 
     @classmethod
-    def create(cls, device=None, **kwds):
+    def create(cls, interactive=False, device_filters=None, **thread_kwds):
         """
         Creates a new ``Thread`` object with its own context and queue inside.
         Intended for cases when you want to base your whole program on CLUDA.
 
-        :param device: device to create the thread for, element of the list
-            returned by :py:meth:`Platform.get_devices`.
-            If not given, the device will be selected internally.
-        :type device: :py:class:`pycuda.driver.Device` object for ``CUDA``,
-            or :py:class:`pyopencl.Device` object for ``OpenCL``.
+        :param interactive: ask a user to choose a platform and a device from the ones found.
+            If there is only one platform/device available, they will be chosen automatically.
+        :param device_filters: keywords to filter devices
+            (see the keywords for :py:func:`~reikna.cluda.find_devices`).
+        :param thread_kwds: keywords to pass to :py:class:`Thread` constructor.
         :param kwds: same as in :py:class:`Thread`.
         """
 
-        def find_suitable_device():
-            platforms = cls.api.get_platforms()
-            target_device = None
-            for platform in platforms:
-                devices = platform.get_devices()
-                for device in devices:
-                    params = cls.api.DeviceParameters(device)
-                    if params.max_work_group_size > 1:
-                        return device
-            return None
+        if device_filters is None:
+            device_filters = {}
+        devices = find_devices(cls.api, **device_filters)
 
-        if device is None:
-            device = find_suitable_device()
-            if device is None:
-                raise RuntimeError("Cannot find a suitable device to create a CLUDA context")
+        platforms = cls.api.get_platforms()
 
-        return cls.api.Thread(device, **kwds)
+        if interactive:
+            pnums = sorted(devices.keys())
+            if len(pnums) == 1:
+                selected_pnum = pnums[0]
+                print("Platform:", platforms[0].name)
+            else:
+                print("Platforms:")
+                default_pnum = pnums[0]
+                for pnum in pnums:
+                    print("[{pnum}]: {pname}".format(pnum=pnum, pname=platforms[pnum].name))
+                print(
+                    "Choose the platform [{default_pnum}]:".format(default_pnum=default_pnum),
+                    end='')
+                selected_pnum = raw_input()
+                if selected_pnum == '':
+                    selected_pnum = default_pnum
+
+            platform = platforms[selected_pnum]
+            dnums = sorted(devices[selected_pnum])
+            if len(dnums) == 1:
+                selected_dnum = dnums[0]
+                print("Device:", platform.get_devices()[0].name)
+            else:
+                print("Devices:")
+                default_dnum = dnums[0]
+                for dnum in dnums:
+                    print("[{dnum}]: {dname}".format(
+                        dnum=dnum, dname=platform.get_devices()[dnum].name))
+                print(
+                    "Choose the device [{default_dnum}]:".format(default_dnum=default_dnum),
+                    end='')
+                selected_dnum = raw_input()
+                if selected_dnum == '':
+                    selected_dnum = default_dnum
+
+        else:
+            selected_pnum = sorted(devices.keys())[0]
+            selected_dnum = devices[selected_pnum][0]
+
+        if thread_kwds is None:
+            thread_kwds = {}
+        return cls(platforms[selected_pnum].get_devices()[selected_dnum], **thread_kwds)
 
     def __init__(self, cqd, fast_math=True, async=True, temp_alloc=None):
 
