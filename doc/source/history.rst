@@ -20,6 +20,8 @@ Release history
 
 * FIXED: setting the correct length of :py:attr:`~reikna.cluda.api.DeviceParameters.max_num_groups` in case of CUDA and a device with CC < 2.
 
+* FIXED: typo in ``cluda.api_discovery``.
+
 
 0.2.2 (20 Apr 2013)
 ===================

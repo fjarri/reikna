@@ -57,11 +57,11 @@ def cuda_api():
     """
     Returns the ``PyCUDA``-based API module.
     """
-    return api(api_cuda())
+    return get_api(cuda_id())
 
 
 def ocl_api():
     """
     Returns the ``PyOpenCL``-based API module.
     """
-    return api(api_ocl())
+    return get_api(ocl_id())
