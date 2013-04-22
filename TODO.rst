@@ -2,7 +2,6 @@
 ========================
 
 * write a tutorial on modules
-* add Thread.fork() which creates another Thread with the same context
 * add add explicit context release methods for Thread --- not all Python implementations use reference counting, and non-instantaneous __del__ may cause problems with CUDA.
 
 * DECIDE: think of better way of module discovery in render keywords than looking inside AttrDicts. (see reikna.cluda.kernel.process_render_kwds)
@@ -60,6 +59,9 @@
   it is called again with reduced local size
 * TODO: add special optimized kernel for matrix-vector multiplication in MatrixMul.
   Or create specific matrix-vector and vector-vector computations?
+* TODO: add ``Thread.fork()`` which creates another Thread with the same context and device but different queue.
+  Also, how do we create a ``Thread`` with the same context, but different device?
+  Or how do we create and use a ``Thread`` with several devices?
 
 
 1.0.0 (production-quality version... hopefully)
