@@ -29,9 +29,10 @@ def set_thread_gs_limits(metafunc, tc):
             continue
 
         # New thread creator function
+        gl_local = gl # otherwise the closure will use the last 'gl' value the cycle reaches
         def new_tc():
             thr = tc()
-            thr.override_device_params(max_num_groups=gl)
+            thr.override_device_params(max_num_groups=gl_local)
             return thr
 
         rem_ids.append(str(gl))

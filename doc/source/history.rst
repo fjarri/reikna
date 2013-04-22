@@ -14,6 +14,8 @@ Release history
 
 * FIXED: added ``transformation.mako`` and ``cbrng_ref.py`` to the distribution package.
 
+* FIXED: incorrect parameter generation in ``test/cluda/cluda_vsizes/ids``
+
 
 0.2.2 (20 Apr 2013)
 ===================
