@@ -41,11 +41,11 @@ def get_threads(config, vary_fast_math=False):
             self.device_name = device.name
             self.id = self.device_id + fm_suffix
 
-            kwds = dict(device=device)
+            kwds = {}
             if fast_math is not None:
                 kwds['fast_math'] = fast_math
 
-            self.create = lambda: api.Thread.create(**kwds)
+            self.create = lambda: api.Thread(device, **kwds)
 
             thr = self.create()
             self.supports_double = thr.supports_dtype(numpy.float64)
