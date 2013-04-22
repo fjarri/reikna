@@ -193,6 +193,8 @@ def test_sizes(thr_with_gs_limits, gl_size, gs_is_multiple):
 
     thr = thr_with_gs_limits
     grid_size, local_size = gl_size
+    if product(grid_size) > product(thr.device_params.max_num_groups):
+        pytest.skip()
 
     ref = ReferenceIds(grid_size, local_size, gs_is_multiple)
 
