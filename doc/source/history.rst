@@ -18,6 +18,8 @@ Release history
 
 * FIXED: skipping testcases with incompatible parameters in ``test/cluda/cluda_vsizes/ids``.
 
+* FIXED: setting the correct length of :py:attr:`~reikna.cluda.api.DeviceParameters.max_num_groups` in case of CUDA and a device with CC < 2.
+
 
 0.2.2 (20 Apr 2013)
 ===================
