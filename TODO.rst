@@ -38,6 +38,8 @@
 
 * TODO: take not only CLUDA Thread as a parameter for computation constructor, but also CommandQueue, opencl Context, CUDA Stream and so on.
 
+* TODO: move some of the functionality to the top level of ``reikna`` module?
+
 
 0.3.1
 =====
