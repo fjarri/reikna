@@ -24,7 +24,7 @@ Consider the following example, which is very similar to the one from the index 
     api = cluda.ocl_api()
     thr = api.Thread.create()
 
-    module = thr.compile("""
+    program = thr.compile("""
     KERNEL void multiply_them(
         GLOBAL_MEM float *dest,
         GLOBAL_MEM float *a,
@@ -35,7 +35,7 @@ Consider the following example, which is very similar to the one from the index 
     }
     """)
 
-    multiply_them = module.multiply_them
+    multiply_them = program.multiply_them
 
     a = numpy.random.randn(N).astype(numpy.float32)
     b = numpy.random.randn(N).astype(numpy.float32)
@@ -63,9 +63,9 @@ The template engine of choice in ``reikna`` is `Mako <http://www.makotemplates.o
 
     import numpy
     from numpy.linalg import norm
-    import reikna.cluda as cluda
-    from reikna.cluda import functions
-    import reikna.cluda.dtypes as dtypes
+
+    from reikna import cluda
+    from reikna.cluda import functions, dtypes
 
     N = 256
     dtype = numpy.complex64
@@ -73,7 +73,7 @@ The template engine of choice in ``reikna`` is `Mako <http://www.makotemplates.o
     api = cluda.ocl_api()
     thr = api.Thread.create()
 
-    module = thr.compile("""
+    program = thr.compile("""
     KERNEL void multiply_them(
         GLOBAL_MEM ${ctype} *dest,
         GLOBAL_MEM ${ctype} *a,
@@ -83,10 +83,10 @@ The template engine of choice in ``reikna`` is `Mako <http://www.makotemplates.o
       dest[i] = ${mul}(a[i], b[i]);
     }
     """, render_kwds=dict(
-        dtype=dtype, ctype=dtypes.ctype(dtype),
+        ctype=dtypes.ctype(dtype),
         mul=functions.mul(dtype, dtype)))
 
-    multiply_them = module.multiply_them
+    multiply_them = program.multiply_them
 
     r1 = numpy.random.randn(N).astype(numpy.float32)
     r2 = numpy.random.randn(N).astype(numpy.float32)
