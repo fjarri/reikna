@@ -9,7 +9,7 @@ For more details see :ref:`basic <tutorial-basic>` and :ref:`advanced <tutorial-
 CLUDA
 =====
 
-CLUDA is an abstraction layer on top of PyCuda/PyOpenCL.
+CLUDA is an abstraction layer on top of ``PyCUDA``/``PyOpenCL``.
 Its main purpose is to separate the rest of ``reikna`` from the difference in their APIs, but it can be used by itself too for some simple tasks.
 
 Consider the following example, which is very similar to the one from the index page on PyCuda documentation:
@@ -51,7 +51,7 @@ Consider the following example, which is very similar to the one from the index 
 
     True
 
-If you are familiar with PyCuda or PyOpenCL, you will easily understand all the steps we have done here.
+If you are familiar with ``PyCUDA`` or ``PyOpenCL``, you will easily understand all the steps we have made here.
 The ``cluda.ocl_api()`` call is the only place where OpenCL is mentioned, and if you replace it with ``cluda.cuda_api()`` it will be enough to make the code use CUDA.
 The abstraction is achieved by using generic API module on the Python side, and special macros (:c:macro:`KERNEL`, :c:macro:`GLOBAL_MEM`, and others) on the kernel side.
 
@@ -104,16 +104,16 @@ The template engine of choice in ``reikna`` is `Mako <http://www.makotemplates.o
 
     True
 
-Here we passed ``dtype`` and ``ctype`` values to the template, and used ``dtype`` to get the complex number multiplication function (``func`` is one of the "built-in" values that are available in CLUDA templates).
-Alternatively, we could call :py:func:`dtypes.ctype() <reikna.cluda.dtypes.ctype>` inside the template, as :py:mod:`~reikna.cluda.dtypes` module is available there too.
+Note that CLUDA ``Thread`` is created by means of a static method and not using the constructor.
+The constructor is reserved for more probable scenario, where we want to include some ``reikna`` functionality in a larger program, and we want it to use the existing context and stream/queue (see the :py:class:`~reikna.cluda.api.Thread` constructor).
+In this case all further operations with the thread will be performed using the objects provided.
 
-Note that CLUDA thread is created by means of a static method and not using the constructor.
-The constructor is reserved for more probable scenario, where we want to include some ``reikna`` functionality in a larger program, and we want it to use the existing context and stream/queue.
-The :py:class:`~reikna.cluda.api.Thread` constructor takes the PyCuda/PyOpenCL context and, optionally, the ``Stream``/``CommandQueue`` object as a ``queue`` parameter.
-All further operations with the thread will be performed using the objects provided.
-If ``queue`` is not given, an internal one will be created.
+Here we have passed two values to the template: ``ctype`` (a string with C type name), and ``mul`` which is a :py:class:`~reikna.cluda.Module` object containing a single multiplication function.
+The object is created by a function :py:func:`~reikna.cluda.functions.mul` which takes data types being multiplied and returns a module that was parametrized accordingly.
+Inside the template the variable ``mul`` is essentially the prefix for all the global C objects (functions, structures, macros etc) from the module.
+If there is only one public object in the module (which is recommended), it is a common practice to give it the name consisting just of the prefix, so that it could be called easily from the parent code.
 
-For the complete list of things available in CLUDA, please consult the :ref:`CLUDA reference <api-cluda>`.
+For more information on modules, see :ref:`tutorial-modules`; the complete list of things available in CLUDA can be found in :ref:`CLUDA reference <api-cluda>`.
 
 
 Computations
