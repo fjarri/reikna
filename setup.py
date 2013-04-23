@@ -141,7 +141,7 @@ if __name__ == '__main__':
         requires=requires,
         install_requires=install_requires,
         package_data={'reikna': ['*.mako'],
-                      'reikna/cluda': ['*.mako'],
+                      'reikna/core': ['*.mako'],
                       'reikna/cluda': ['*.mako']},
         version=VERSION_STR,
         author='Bogdan Opanchuk',
