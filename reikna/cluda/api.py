@@ -536,7 +536,7 @@ class StaticKernel:
         self._kernel = getattr(self._program, name)
 
         if self._kernel.max_work_group_size < product(ls):
-            raise cluda.OutOfResourcesError("Not enough registers/local memory for this local size")
+            raise OutOfResourcesError("Not enough registers/local memory for this local size")
 
         self._kernel.prepare(gs, local_size=ls)
 
