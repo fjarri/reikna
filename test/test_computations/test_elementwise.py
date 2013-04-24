@@ -2,7 +2,7 @@ import numpy
 import pytest
 
 from helpers import *
-from reikna.helpers import template_func
+from reikna.helpers import template_def
 from reikna.cluda import Module
 from reikna.elementwise import Elementwise
 import reikna.cluda.dtypes as dtypes
@@ -14,7 +14,7 @@ def test_errors(thr):
     elw = Elementwise(thr).set_argnames(*argnames)
 
     code = lambda output, input, param: Module(
-        template_func(
+        template_def(
             ['output', 'input', 'param'],
             """
             ${input.ctype} a1 = ${input.load}(idx);
@@ -41,7 +41,7 @@ def test_nontrivial_code(thr):
     elw = Elementwise(thr).set_argnames(*argnames)
 
     function = lambda output, input, param: Module(
-        template_func(
+        template_def(
             ['prefix'],
             """
             WITHIN_KERNEL ${otype} ${prefix}(${itype} val, ${ptype} param)
@@ -55,7 +55,7 @@ def test_nontrivial_code(thr):
             ptype=dtypes.ctype(param.dtype)))
 
     code = lambda output, input, param: Module(
-        template_func(
+        template_def(
             ['output', 'input', 'param'],
             """
             ${input.ctype} a1 = ${input.load}(idx);

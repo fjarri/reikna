@@ -48,9 +48,9 @@ def template_from(template):
         return Template(template, future_imports=['division'])
 
 
-def template_func(argnames, code):
+def template_def(argnames, code):
     """
-    Returns a Mako template with positional arguments
+    Returns a ``Mako`` template def with positional arguments
     from the list ``argnames`` and the body ``code``.
     """
     arglist = ", ".join(argnames)

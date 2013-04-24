@@ -40,7 +40,7 @@ Release history
 
 * ADDED: Module support in CLUDA; see :ref:`tutorial-modules` for details.
 
-* ADDED: :py:func:`~reikna.helpers.template_func`.
+* ADDED: :py:func:`~reikna.helpers.template_def`.
 
 * CHANGED: :py:func:`~reikna.cluda.kernel.render_template_source` is the main renderer now.
 

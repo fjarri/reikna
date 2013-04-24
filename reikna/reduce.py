@@ -16,7 +16,7 @@ def reduced_shape(shape, axis):
 
 
 predicate_sum = lambda output, input: Module(
-    template_func(
+    template_def(
         ['v1', 'v2'],
         """
         return ${v1} + ${v2};

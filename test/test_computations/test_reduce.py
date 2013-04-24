@@ -5,7 +5,7 @@ import pytest
 
 from helpers import *
 from reikna.reduce import Reduce
-from reikna.helpers import template_func
+from reikna.helpers import template_def
 from reikna.cluda import Module
 import reikna.cluda.dtypes as dtypes
 
@@ -45,7 +45,7 @@ def test_nondefault_function(thr):
     b_dev = thr.array((100,), numpy.int64)
 
     predicate = lambda output, input: Module(
-        template_func(
+        template_def(
             ['v1', 'v2'],
             "return ${v1} + ${v2};"),
         snippet=True)

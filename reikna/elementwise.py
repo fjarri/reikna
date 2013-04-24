@@ -59,7 +59,7 @@ class Elementwise(Computation):
         code = kwds.get('code', None)
         if code is None:
             code = lambda *code_args: Module(
-                template_func(
+                template_def(
                     outputs + inputs + params,
                     ""),
                 snippet=True)
@@ -81,7 +81,7 @@ class Elementwise(Computation):
         names = sum(self._get_argnames(), tuple())
         name_str = ", ".join(names)
 
-        template = template_func(
+        template = template_def(
             names,
             """
             ${kernel_definition}

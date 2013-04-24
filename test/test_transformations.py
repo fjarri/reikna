@@ -3,7 +3,7 @@ Test standard transformations
 """
 import pytest
 
-from reikna.helpers import template_func
+from reikna.helpers import template_def
 from reikna.cluda import Module
 from reikna.elementwise import Elementwise, specialize_elementwise
 import reikna.transformations as tr
@@ -22,7 +22,7 @@ def pytest_generate_tests(metafunc):
 
 
 identity = lambda output, input: Module(
-    template_func(
+    template_def(
         ['output', 'input'],
         """
         ${output.store}(idx, ${input.load}(idx));

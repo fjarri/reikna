@@ -518,7 +518,7 @@ class FFT(Computation):
             operations = self._get_operation_recorder()
 
             code = lambda output, input: Module(
-                template_func(
+                template_def(
                     ['output', 'input'],
                     """
                     ${output.store}(idx, ${input.load}(idx));

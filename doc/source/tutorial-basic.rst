@@ -52,7 +52,7 @@ As an example, let us consider an elementwise computation object with one output
     import numpy
     from reikna import cluda
     from reikna.cluda import Module
-    from reikna.helpers import template_func
+    from reikna.helpers import template_def
     from reikna.core import Transformation
     from reikna.elementwise import specialize_elementwise
     import reikna.transformations as transformations
@@ -61,7 +61,7 @@ As an example, let us consider an elementwise computation object with one output
     thr = api.Thread.create()
 
     code = lambda out, in1, in2, param: Module(
-        template_func(
+        template_def(
             ['out', 'in1', 'in2', 'param'],
             """
             ${out.store}(idx, ${in1.load}(idx) + ${in2.load}(idx) + ${param});
