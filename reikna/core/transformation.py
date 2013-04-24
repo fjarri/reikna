@@ -3,8 +3,8 @@ import re
 import numpy
 
 import reikna.cluda.dtypes as dtypes
-from reikna.cluda.kernel import Module
-from reikna.helpers import AttrDict, product, wrap_in_tuple, template_func, template_for
+from reikna.cluda import Snippet, Module
+from reikna.helpers import AttrDict, product, wrap_in_tuple, template_def, template_for
 
 
 TEMPLATE = template_for(__file__)
@@ -28,7 +28,7 @@ class ArrayValue(object):
 
     .. py:attribute:: dtype
 
-        :py:class:`numpy.dtype` object specifying the data type of the array.
+        ``numpy.dtype`` object specifying the data type of the array.
     """
 
     def __init__(self, shape, dtype):
@@ -78,7 +78,7 @@ class ScalarValue:
 
     .. py:attribute:: dtype
 
-        :py:class:`numpy.dtype` object specifying the data type of the scalar.
+        ``numpy.dtype`` object specifying the data type of the scalar.
     """
 
     def __init__(self, dtype):
@@ -153,7 +153,7 @@ class Transformation:
         if snippet is None:
             snippet = "${" + self.outputs[0] + ".store}(${" + self.inputs[0] + ".load});"
 
-        self.snippet_template = template_func(
+        self.snippet_template = template_def(
             self.outputs + self.inputs + self.scalars,
             snippet)
 
@@ -184,7 +184,7 @@ class Transformation:
 
     def construct_snippet(self, *args):
         render_kwds = self.derive_render_kwds(*args)
-        return Module(self.snippet_template, render_kwds=render_kwds, snippet=True)
+        return Snippet(self.snippet_template, render_kwds=render_kwds)
 
 
 class Node:

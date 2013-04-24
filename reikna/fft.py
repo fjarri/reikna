@@ -2,7 +2,7 @@ import numpy
 
 from reikna.helpers import *
 from reikna.core import *
-from reikna.cluda.kernel import Module
+from reikna.cluda import Snippet
 from reikna.cluda import functions
 import reikna.cluda.dtypes as dtypes
 from reikna.cluda import OutOfResourcesError
@@ -466,7 +466,7 @@ def get_fft_kernels(basis, device_params, local_kernel_limit):
 class FFT(Computation):
     """
     Performs the Fast Fourier Transform.
-    The interface is similar to :py:class:`numpy.fft.fftn`.
+    The interface is similar to ``numpy.fft.fftn``.
     The inverse transform is normalized so that ``IFFT(FFT(X)) = X``.
 
     .. py:method:: prepare_for(output, input, direction, axes=None)
@@ -517,13 +517,12 @@ class FFT(Computation):
             # because we still have to run transformations.
             operations = self._get_operation_recorder()
 
-            code = lambda output, input: Module(
-                template_func(
+            code = lambda output, input: Snippet(
+                template_def(
                     ['output', 'input'],
                     """
                     ${output.store}(idx, ${input.load}(idx));
-                    """),
-                snippet=True)
+                    """))
 
             identity = self.get_nested_computation(
                 specialize_elementwise('output', 'input', None, code))

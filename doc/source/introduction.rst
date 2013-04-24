@@ -9,7 +9,7 @@ For more details see :ref:`basic <tutorial-basic>` and :ref:`advanced <tutorial-
 CLUDA
 =====
 
-CLUDA is an abstraction layer on top of PyCuda/PyOpenCL.
+CLUDA is an abstraction layer on top of ``PyCUDA``/``PyOpenCL``.
 Its main purpose is to separate the rest of ``reikna`` from the difference in their APIs, but it can be used by itself too for some simple tasks.
 
 Consider the following example, which is very similar to the one from the index page on PyCuda documentation:
@@ -22,9 +22,9 @@ Consider the following example, which is very similar to the one from the index 
     N = 256
 
     api = cluda.ocl_api()
-    ctx = api.Context.create()
+    thr = api.Thread.create()
 
-    module = ctx.compile("""
+    program = thr.compile("""
     KERNEL void multiply_them(
         GLOBAL_MEM float *dest,
         GLOBAL_MEM float *a,
@@ -35,13 +35,13 @@ Consider the following example, which is very similar to the one from the index 
     }
     """)
 
-    multiply_them = module.multiply_them
+    multiply_them = program.multiply_them
 
     a = numpy.random.randn(N).astype(numpy.float32)
     b = numpy.random.randn(N).astype(numpy.float32)
-    a_dev = ctx.to_device(a)
-    b_dev = ctx.to_device(b)
-    dest_dev = ctx.empty_like(a_dev)
+    a_dev = thr.to_device(a)
+    b_dev = thr.to_device(b)
+    dest_dev = thr.empty_like(a_dev)
 
     multiply_them(dest_dev, a_dev, b_dev, local_size=N, global_size=N)
     print((dest_dev.get() - a * b == 0).all())
@@ -51,11 +51,11 @@ Consider the following example, which is very similar to the one from the index 
 
     True
 
-If you are familiar with PyCuda or PyOpenCL, you will easily understand all the steps we have done here.
+If you are familiar with ``PyCUDA`` or ``PyOpenCL``, you will easily understand all the steps we have made here.
 The ``cluda.ocl_api()`` call is the only place where OpenCL is mentioned, and if you replace it with ``cluda.cuda_api()`` it will be enough to make the code use CUDA.
 The abstraction is achieved by using generic API module on the Python side, and special macros (:c:macro:`KERNEL`, :c:macro:`GLOBAL_MEM`, and others) on the kernel side.
 
-The argument of :py:meth:`~reikna.cluda.api.Context.compile` method can also be a template, which is quite useful for metaprogramming, and also used to compensate for the lack of complex number operations in CUDA and OpenCL.
+The argument of :py:meth:`~reikna.cluda.api.Thread.compile` method can also be a template, which is quite useful for metaprogramming, and also used to compensate for the lack of complex number operations in CUDA and OpenCL.
 Let us illustrate both scenarios by making the initial example multiply complex arrays.
 The template engine of choice in ``reikna`` is `Mako <http://www.makotemplates.org>`_, and you are encouraged to read about it as it is quite useful. For the purpose of this example all we need to know is that ``${python_expression()}`` is a synthax construction which renders the expression result.
 
@@ -63,17 +63,17 @@ The template engine of choice in ``reikna`` is `Mako <http://www.makotemplates.o
 
     import numpy
     from numpy.linalg import norm
-    import reikna.cluda as cluda
-    from reikna.cluda import functions
-    import reikna.cluda.dtypes as dtypes
+
+    from reikna import cluda
+    from reikna.cluda import functions, dtypes
 
     N = 256
     dtype = numpy.complex64
 
     api = cluda.ocl_api()
-    ctx = api.Context.create()
+    thr = api.Thread.create()
 
-    module = ctx.compile("""
+    program = thr.compile("""
     KERNEL void multiply_them(
         GLOBAL_MEM ${ctype} *dest,
         GLOBAL_MEM ${ctype} *a,
@@ -83,18 +83,18 @@ The template engine of choice in ``reikna`` is `Mako <http://www.makotemplates.o
       dest[i] = ${mul}(a[i], b[i]);
     }
     """, render_kwds=dict(
-        dtype=dtype, ctype=dtypes.ctype(dtype),
+        ctype=dtypes.ctype(dtype),
         mul=functions.mul(dtype, dtype)))
 
-    multiply_them = module.multiply_them
+    multiply_them = program.multiply_them
 
     r1 = numpy.random.randn(N).astype(numpy.float32)
     r2 = numpy.random.randn(N).astype(numpy.float32)
     a = r1 + 1j * r2
     b = r1 - 1j * r2
-    a_dev = ctx.to_device(a)
-    b_dev = ctx.to_device(b)
-    dest_dev = ctx.empty_like(a_dev)
+    a_dev = thr.to_device(a)
+    b_dev = thr.to_device(b)
+    dest_dev = thr.empty_like(a_dev)
 
     multiply_them(dest_dev, a_dev, b_dev, local_size=N, global_size=N)
     print(norm(dest_dev.get() - a * b) / norm(a * b) <= 1e-6)
@@ -104,16 +104,16 @@ The template engine of choice in ``reikna`` is `Mako <http://www.makotemplates.o
 
     True
 
-Here we passed ``dtype`` and ``ctype`` values to the template, and used ``dtype`` to get the complex number multiplication function (``func`` is one of the "built-in" values that are available in CLUDA templates).
-Alternatively, we could call :py:func:`dtypes.ctype() <reikna.cluda.dtypes.ctype>` inside the template, as :py:mod:`~reikna.cluda.dtypes` module is available there too.
+Note that CLUDA ``Thread`` is created by means of a static method and not using the constructor.
+The constructor is reserved for more probable scenario, where we want to include some ``reikna`` functionality in a larger program, and we want it to use the existing context and stream/queue (see the :py:class:`~reikna.cluda.api.Thread` constructor).
+In this case all further operations with the thread will be performed using the objects provided.
 
-Note that CLUDA context is created by means of a static method and not using the constructor.
-The constructor is reserved for more probable scenario, where we want to include some ``reikna`` functionality in a larger program, and we want it to use the existing context and stream/queue.
-The :py:class:`~reikna.cluda.api.Context` constructor takes the PyCuda/PyOpenCL context and, optionally, the ``Stream``/``CommandQueue`` object as a ``queue`` parameter.
-All further operations with the ``reikna`` context will be performed using the objects provided.
-If ``queue`` is not given, an internal one will be created.
+Here we have passed two values to the template: ``ctype`` (a string with C type name), and ``mul`` which is a :py:class:`~reikna.cluda.Module` object containing a single multiplication function.
+The object is created by a function :py:func:`~reikna.cluda.functions.mul` which takes data types being multiplied and returns a module that was parametrized accordingly.
+Inside the template the variable ``mul`` is essentially the prefix for all the global C objects (functions, structures, macros etc) from the module.
+If there is only one public object in the module (which is recommended), it is a common practice to give it the name consisting just of the prefix, so that it could be called easily from the parent code.
 
-For the complete list of things available in CLUDA, please consult the :ref:`CLUDA reference <api-cluda>`.
+For more information on modules, see :ref:`tutorial-modules`; the complete list of things available in CLUDA can be found in :ref:`CLUDA reference <api-cluda>`.
 
 
 Computations
@@ -135,18 +135,18 @@ As an example, we will consider the matrix multiplication.
     from reikna.matrixmul import MatrixMul
 
     api = cluda.ocl_api()
-    ctx = api.Context.create()
+    thr = api.Thread.create()
 
     shape1 = (100, 200)
     shape2 = (200, 100)
 
     a = numpy.random.randn(*shape1).astype(numpy.float32)
     b = numpy.random.randn(*shape2).astype(numpy.float32)
-    a_dev = ctx.to_device(a)
-    b_dev = ctx.to_device(b)
-    res_dev = ctx.array((shape1[0], shape2[1]), dtype=numpy.float32)
+    a_dev = thr.to_device(a)
+    b_dev = thr.to_device(b)
+    res_dev = thr.array((shape1[0], shape2[1]), dtype=numpy.float32)
 
-    dot = MatrixMul(ctx).prepare_for(res_dev, a_dev, b_dev)
+    dot = MatrixMul(thr).prepare_for(res_dev, a_dev, b_dev)
     dot(res_dev, a_dev, b_dev)
 
     res_reference = numpy.dot(a, b)
@@ -159,8 +159,8 @@ As an example, we will consider the matrix multiplication.
     True
 
 Most of the code above should be already familiar, with the exception of the creation of :py:class:`~reikna.matrixmul.MatrixMul` object.
-As any other class derived from :py:class:`~reikna.core.Computation`, it requires ``reikna`` context as a constructor argument.
-The context serves as a source of data about the target API and device, and provides an execution queue.
+As any other class derived from :py:class:`~reikna.core.Computation`, it requires a :py:class:`~reikna.cluda.api.Thread` as a constructor argument.
+The thread serves as a source of data about the target API and device, and provides an execution queue.
 
 Before usage the object has to be prepared.
 It does not happen in the constructor, since the transformations may be connected after that, and they would invalidate previous preparation.
@@ -190,7 +190,7 @@ Let us change the previous example and connect transformations to it.
     from reikna.transformations import combine_complex
 
     api = cluda.ocl_api()
-    ctx = api.Context.create()
+    thr = api.Thread.create()
 
     shape1 = (100, 200)
     shape2 = (200, 100)
@@ -199,11 +199,11 @@ Let us change the previous example and connect transformations to it.
     a_im = numpy.random.randn(*shape1).astype(numpy.float32)
     b_re = numpy.random.randn(*shape2).astype(numpy.float32)
     b_im = numpy.random.randn(*shape2).astype(numpy.float32)
-    a_re_dev, a_im_dev, b_re_dev, b_im_dev = [ctx.to_device(x) for x in [a_re, a_im, b_re, b_im]]
+    a_re_dev, a_im_dev, b_re_dev, b_im_dev = [thr.to_device(x) for x in [a_re, a_im, b_re, b_im]]
 
-    res_dev = ctx.array((shape1[0], shape2[1]), dtype=numpy.complex64)
+    res_dev = thr.array((shape1[0], shape2[1]), dtype=numpy.complex64)
 
-    dot = MatrixMul(ctx)
+    dot = MatrixMul(thr)
     dot.connect(combine_complex(), 'a', ['a_re', 'a_im'])
     dot.connect(combine_complex(), 'b', ['b_re', 'b_im'])
     dot.prepare_for(res_dev, a_re_dev, a_im_dev, b_re_dev, b_im_dev)

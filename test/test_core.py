@@ -151,13 +151,13 @@ tr_scale = Transformation(
     snippet="${o1.store}(${mul}(${i1.load}, ${s1}));")
 
 
-def test_non_prepared_call(some_ctx):
-    d = Dummy(some_ctx)
+def test_non_prepared_call(some_thr):
+    d = Dummy(some_thr)
     with pytest.raises(InvalidStateError):
         d(None, None, None, None, None)
 
-def test_incorrect_connections(some_ctx):
-    d = Dummy(some_ctx)
+def test_incorrect_connections(some_thr):
+    d = Dummy(some_thr)
     d.connect(tr_trivial, 'A', ['A_prime'])
     d.connect(tr_trivial, 'D', ['D_prime'])
 
@@ -193,18 +193,18 @@ def test_incorrect_connections(some_ctx):
         with pytest.raises(ValueError):
             d.connect(*test)
 
-def test_non_array_connection(some_ctx):
-    d = Dummy(some_ctx)
+def test_non_array_connection(some_thr):
+    d = Dummy(some_thr)
     with pytest.raises(ValueError):
         d.connect(tr_trivial, 'coeff', ['A_prime'])
 
-def test_non_existent_connection(some_ctx):
-    d = Dummy(some_ctx)
+def test_non_existent_connection(some_thr):
+    d = Dummy(some_thr)
     with pytest.raises(ValueError):
         d.connect(tr_trivial, 'blah', ['A_prime'])
 
-def test_signature_correctness(some_ctx):
-    d = Dummy(some_ctx)
+def test_signature_correctness(some_thr):
+    d = Dummy(some_thr)
 
     # Signature of non-prepared array: no types, no shapes
     assert d.signature_str() == "(array) C, (array) D, (array) A, (array) B, (scalar) coeff"
@@ -232,24 +232,24 @@ def test_signature_correctness(some_ctx):
         "(scalar, float32) D_param, "
         "(scalar, float32) B_param")
 
-def test_incorrect_number_of_arguments_in_prepare(some_ctx):
-    d = Dummy(some_ctx)
+def test_incorrect_number_of_arguments_in_prepare(some_thr):
+    d = Dummy(some_thr)
     with pytest.raises(TypeError):
         d.prepare_for(None, None, None, None)
 
-def test_incorrect_number_of_arguments_in_call(some_ctx):
+def test_incorrect_number_of_arguments_in_call(some_thr):
     array = ArrayValue((1024,), numpy.complex64)
     scalar = ScalarValue(numpy.float32)
 
-    d = Dummy(some_ctx)
+    d = Dummy(some_thr)
     d.prepare_for(array, array, array, array, scalar)
     with pytest.raises(TypeError):
         d(None, None, None, None)
 
-def test_scalar_instead_of_array(some_ctx):
+def test_scalar_instead_of_array(some_thr):
     N = 1024
 
-    d = Dummy(some_ctx)
+    d = Dummy(some_thr)
 
     A = get_test_array(N, numpy.complex64)
     B = get_test_array(N, numpy.complex64)
@@ -261,14 +261,14 @@ def test_scalar_instead_of_array(some_ctx):
     with pytest.raises(TypeError):
         d.prepare_for(C, D, A, B, B)
 
-def test_debug_signature_check(some_ctx):
+def test_debug_signature_check(some_thr):
     N1 = 1024
     N2 = 512
 
     array = ArrayValue(N1, numpy.complex64)
     scalar = ScalarValue(numpy.float32)
 
-    d = Dummy(some_ctx, debug=True)
+    d = Dummy(some_thr, debug=True)
     d.prepare_for(array, array, array, array, scalar)
 
     A1 = get_test_array(N1, numpy.complex64)
@@ -293,14 +293,14 @@ def test_debug_signature_check(some_ctx):
         # array argument in place of scalar
         d(C1, D1, A1, B1, B1)
 
-def test_transformations_work(ctx):
+def test_transformations_work(thr):
 
     coeff = numpy.float32(2)
     B_param = numpy.float32(3)
     D_param = numpy.float32(4)
     N = 1024
 
-    d = Dummy(ctx)
+    d = Dummy(thr)
 
     d.connect(tr_trivial, 'A', ['A_prime'])
     d.connect(tr_2_to_1, 'B', ['A_prime', 'B_prime'], ['B_param'])
@@ -311,11 +311,11 @@ def test_transformations_work(ctx):
 
     A_prime = get_test_array(N, numpy.complex64)
     B_new_prime = get_test_array(N, numpy.complex64)
-    gpu_A_prime = ctx.to_device(A_prime)
-    gpu_B_new_prime = ctx.to_device(B_new_prime)
-    gpu_C_new_half1 = ctx.array(N, numpy.complex64)
-    gpu_C_half2 = ctx.array(N, numpy.complex64)
-    gpu_D_prime = ctx.array(N, numpy.complex64)
+    gpu_A_prime = thr.to_device(A_prime)
+    gpu_B_new_prime = thr.to_device(B_new_prime)
+    gpu_C_new_half1 = thr.array(N, numpy.complex64)
+    gpu_C_half2 = thr.array(N, numpy.complex64)
+    gpu_D_prime = thr.array(N, numpy.complex64)
     d.prepare_for(
         gpu_C_new_half1, gpu_C_half2, gpu_D_prime,
         gpu_A_prime, gpu_B_new_prime,
@@ -331,18 +331,18 @@ def test_transformations_work(ctx):
     C_half2 = C / 2
     D_prime = D * D_param
 
-    assert diff_is_negligible(ctx.from_device(gpu_C_new_half1), C_new_half1)
-    assert diff_is_negligible(ctx.from_device(gpu_C_half2), C_half2)
-    assert diff_is_negligible(ctx.from_device(gpu_D_prime), D_prime)
+    assert diff_is_negligible(thr.from_device(gpu_C_new_half1), C_new_half1)
+    assert diff_is_negligible(thr.from_device(gpu_C_half2), C_half2)
+    assert diff_is_negligible(thr.from_device(gpu_D_prime), D_prime)
 
-def test_connection_to_base(ctx):
+def test_connection_to_base(thr):
 
     coeff = numpy.float32(2)
     B_param = numpy.float32(3)
     D_param = numpy.float32(4)
     N = 1024
 
-    d = Dummy(ctx)
+    d = Dummy(thr)
 
     # connect to the base array argument (effectively making B the same as A)
     d.connect(tr_trivial, 'A', ['B'])
@@ -351,9 +351,9 @@ def test_connection_to_base(ctx):
     d.connect(tr_scale, 'C', ['C_prime'], ['coeff'])
 
     B = get_test_array(N, numpy.complex64)
-    gpu_B = ctx.to_device(B)
-    gpu_C_prime = ctx.array(N, numpy.complex64)
-    gpu_D = ctx.array(N, numpy.complex64)
+    gpu_B = thr.to_device(B)
+    gpu_C_prime = thr.array(N, numpy.complex64)
+    gpu_D = thr.array(N, numpy.complex64)
     d.prepare_for(gpu_C_prime, gpu_D, gpu_B, coeff)
     d(gpu_C_prime, gpu_D, gpu_B, coeff)
 
@@ -361,17 +361,17 @@ def test_connection_to_base(ctx):
     C, D = mock_dummy(A, B, coeff)
     C_prime = C * coeff
 
-    assert diff_is_negligible(ctx.from_device(gpu_C_prime), C_prime)
-    assert diff_is_negligible(ctx.from_device(gpu_D), D)
+    assert diff_is_negligible(thr.from_device(gpu_C_prime), C_prime)
+    assert diff_is_negligible(thr.from_device(gpu_D), D)
 
-def test_nested(ctx):
+def test_nested(thr):
 
     coeff = numpy.float32(2)
     B_param = numpy.float32(3)
     D_param = numpy.float32(4)
     N = 1024
 
-    d = DummyNested(ctx)
+    d = DummyNested(thr)
 
     d.connect(tr_trivial, 'A', ['A_prime'])
     d.connect(tr_2_to_1, 'B', ['A_prime', 'B_prime'], ['B_param'])
@@ -382,11 +382,11 @@ def test_nested(ctx):
 
     A_prime = get_test_array(N, numpy.complex64)
     B_new_prime = get_test_array(N, numpy.complex64)
-    gpu_A_prime = ctx.to_device(A_prime)
-    gpu_B_new_prime = ctx.to_device(B_new_prime)
-    gpu_C_new_half1 = ctx.array(N, numpy.complex64)
-    gpu_C_half2 = ctx.array(N, numpy.complex64)
-    gpu_D_prime = ctx.array(N, numpy.complex64)
+    gpu_A_prime = thr.to_device(A_prime)
+    gpu_B_new_prime = thr.to_device(B_new_prime)
+    gpu_C_new_half1 = thr.array(N, numpy.complex64)
+    gpu_C_half2 = thr.array(N, numpy.complex64)
+    gpu_D_prime = thr.array(N, numpy.complex64)
     d.prepare_for(
         gpu_C_new_half1, gpu_C_half2, gpu_D_prime,
         gpu_A_prime, gpu_B_new_prime,
@@ -402,12 +402,12 @@ def test_nested(ctx):
     C_half2 = C / 2
     D_prime = D * D_param
 
-    assert diff_is_negligible(ctx.from_device(gpu_C_new_half1), C_new_half1)
-    assert diff_is_negligible(ctx.from_device(gpu_C_half2), C_half2)
-    assert diff_is_negligible(ctx.from_device(gpu_D_prime), D_prime)
+    assert diff_is_negligible(thr.from_device(gpu_C_new_half1), C_new_half1)
+    assert diff_is_negligible(thr.from_device(gpu_C_half2), C_half2)
+    assert diff_is_negligible(thr.from_device(gpu_D_prime), D_prime)
 
 
-def test_scalar_fixed_type(some_ctx):
+def test_scalar_fixed_type(some_thr):
     """
     Regression test for the bug when explicitly specified type for a scalar argument
     was ignored, and the result of result numpy.min_scalar_type() was used instead.
@@ -417,11 +417,11 @@ def test_scalar_fixed_type(some_ctx):
     p = numpy.int32(2)
     coeff = numpy.int32(1)
 
-    test = Dummy(some_ctx)
-    A = some_ctx.array(N, numpy.int32)
-    B = some_ctx.array(N, numpy.int32)
-    C = some_ctx.array(N, numpy.int32)
-    D = some_ctx.array(N, numpy.int32)
+    test = Dummy(some_thr)
+    A = some_thr.array(N, numpy.int32)
+    B = some_thr.array(N, numpy.int32)
+    C = some_thr.array(N, numpy.int32)
+    D = some_thr.array(N, numpy.int32)
 
     test.connect(transformations.scale_param(), 'A', ['A_prime'], ['param'])
     test.prepare_for(C, D, A, B, coeff, p)

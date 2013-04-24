@@ -16,9 +16,9 @@ The positional arguments should be either the same arrays and scalars you are go
 
 ::
 
-    input = ctx.array((100, 200), dtype=numpy.float32)
-    output = ctx.array((200, 100), dtype=numpy.float32)
-    tr = Transpose(ctx).prepare_for(output, input)
+    input = thr.array((100, 200), dtype=numpy.float32)
+    output = thr.array((200, 100), dtype=numpy.float32)
+    tr = Transpose(thr).prepare_for(output, input)
     tr(output, input)
 
 Consequently, API of each computation class is fully defined by the documentation for its ``prepare_for`` method.
@@ -50,19 +50,25 @@ As an example, let us consider an elementwise computation object with one output
 .. testcode:: transformation_example
 
     import numpy
-    import reikna.cluda as cluda
+    from reikna import cluda
+    from reikna.cluda import Snippet
     from reikna.core import Transformation
     from reikna.elementwise import specialize_elementwise
     import reikna.transformations as transformations
 
     api = cluda.ocl_api()
-    ctx = api.Context.create()
+    thr = api.Thread.create()
+
+    code = lambda out_dtype, in1_dtype, in2_dtype, param_dtype: Snippet.create(
+        lambda out, in1, in2, param:
+            """
+            ${out.store}(idx, ${in1.load}(idx) + ${in2.load}(idx) + ${param});
+            """)
 
     TestComputation = specialize_elementwise(
-        'out', ['in1', 'in2'], 'param',
-        dict(kernel="${out.store}(idx, ${in1.load}(idx) + ${in2.load}(idx) + ${param});"))
+        'out', ['in1', 'in2'], 'param', code)
 
-    comp = TestComputation(ctx)
+    comp = TestComputation(thr)
 
 The details of creating the ``TestComputation`` class are not important for this example; they are provided here just for the sake of completeness.
 The initial transformation tree of ``comp`` object looks like:
@@ -127,10 +133,10 @@ When ``prepare_for`` is called, the data types and shapes of the given arguments
 .. testcode:: transformation_example
 
     N = 128
-    out1 = ctx.array(N, numpy.float32)
-    out2 = ctx.array(N, numpy.float32)
-    in1 = ctx.to_device(numpy.ones(N, numpy.float32))
-    in2_prime = ctx.to_device(numpy.ones(N, numpy.float32))
+    out1 = thr.array(N, numpy.float32)
+    out2 = thr.array(N, numpy.float32)
+    in1 = thr.to_device(numpy.ones(N, numpy.float32))
+    in2_prime = thr.to_device(numpy.ones(N, numpy.float32))
     param = 3
     param2 = 4
     comp.prepare_for(out1, out2, in1, in2_prime, param, param2)

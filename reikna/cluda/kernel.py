@@ -4,15 +4,17 @@ import numpy
 from mako import exceptions
 
 import reikna.helpers as helpers
-from reikna.helpers import AttrDict, template_for, template_from
+from reikna.helpers import AttrDict, template_for, template_from, \
+    template_def, extract_argspec_and_value
 from reikna.cluda import dtypes
 
 
 TEMPLATE = template_for(__file__)
 
 
-def render_prelude(ctx):
-    return TEMPLATE.get_def('prelude').render(api=ctx.api.API_ID, ctx_fast_math=ctx._fast_math)
+def render_prelude(thr):
+    return TEMPLATE.get_def('prelude').render(
+        api=thr.api.get_id(), thread_fast_math=thr._fast_math)
 
 
 def render_template(template, *args, **kwds):
@@ -29,12 +31,60 @@ def render_template(template, *args, **kwds):
     return src
 
 
-class Module:
-
+class BaseModule:
     def __init__(self, template, render_kwds=None, snippet=False):
         self.template = template_from(template)
         self.render_kwds = {} if render_kwds is None else dict(render_kwds)
         self.snippet = snippet
+
+
+class Snippet(BaseModule):
+    """
+    Contains a CLUDA snippet.
+    See :ref:`tutorial-modules` for details.
+
+    :param template_src: a ``Mako`` template with the module code,
+        or a string with the template source.
+    :type template_src: ``str`` or ``Mako`` template.
+    :param render_kwds: a dictionary which will be used to render the template.
+        Can contain other modules and snippets.
+    """
+
+    def __init__(self, template_src, render_kwds=None):
+        BaseModule.__init__(self, template_src, render_kwds=render_kwds, snippet=True)
+
+    @classmethod
+    def create(cls, argspec_func, render_kwds=None):
+        """
+        Creates a snippet from the ``Mako`` def with the same signature as ``argspec_func``
+        and the body equal to the string it returns.
+        """
+        argspec, code = extract_argspec_and_value(argspec_func)
+        return cls(template_def(argspec, code), render_kwds=render_kwds)
+
+
+class Module(BaseModule):
+    """
+    Contains a CLUDA module.
+    See :ref:`tutorial-modules` for details.
+
+    :param template_src: a ``Mako`` template with the module code,
+        or a string with the template source.
+    :type template_src: ``str`` or ``Mako`` template.
+    :param render_kwds: a dictionary which will be used to render the template.
+        Can contain other modules and snippets.
+    """
+
+    def __init__(self, template_src, render_kwds=None):
+        BaseModule.__init__(self, template_src, render_kwds=render_kwds, snippet=False)
+
+    @classmethod
+    def create(cls, code, render_kwds=None):
+        """
+        Creates a module from the ``Mako`` def with a single positional argument ``prefix``
+        and the body ``code``.
+        """
+        return cls(template_def(['prefix'], code), render_kwds=render_kwds)
 
 
 class ProcessedModule(AttrDict): pass
@@ -74,9 +124,9 @@ def flatten_module(module_list, traverse, module):
 
 
 def flatten_module_tree(src, args, render_kwds):
-    main_module = Module(src, render_kwds=render_kwds, snippet=True)
+    main_module = Snippet(src, render_kwds=render_kwds)
     module_list = []
-    traverse = lambda v: traverse_data(Module, flatten_module, module_list, v)
+    traverse = lambda v: traverse_data(BaseModule, flatten_module, module_list, v)
     args = traverse(args)
     main_module = traverse(main_module)
     module_list.append(main_module)
@@ -92,9 +142,14 @@ def create_renderer_tree(pm):
     return traverse_data(ProcessedModule, create_renderer, None, pm)
 
 
-def render_template_source(src, *args, **render_kwds):
+def render_template_source(src, render_args=None, render_kwds=None):
 
-    args, module_list = flatten_module_tree(src, args, render_kwds)
+    if render_args is None:
+        render_args = []
+    if render_kwds is None:
+        render_kwds = {}
+
+    args, module_list = flatten_module_tree(src, render_args, render_kwds)
     renderers = [create_renderer_tree(pm) for pm in module_list]
     src_list = [render() for render in renderers[:-1]]
     src_list.append(renderers[-1](*args))

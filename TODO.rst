@@ -1,21 +1,3 @@
-0.2.3 (CLUDA API change)
-========================
-
-* TODO: rename Module to Program to make place for actual modules
-* write a tutorial on modules
-* try to avoid imports from ``cluda.*`` in core/computations
-
-* TODO: rename Context to Thread/Stream (more appropriate, less confusion)
-
-  * create_queue() method in Context is not used anywhere, we can remove it
-  * add fork() instead, which creates another Thread with the same context?
-  * create base class for Thread which contains the overlapping functionality
-  * add add explicit context release methods for Thread --- not all Python implementations use reference counting, and non-instantaneous __del__ may cause problems with CUDA.
-
-* DECIDE: think of better way of module discovery in render keywords than looking inside AttrDicts. (see reikna.cluda.kernel.process_render_kwds)
-* DECIDE: positional arguments for modules?
-
-
 0.3.0 (Core API change)
 ========================
 
@@ -46,6 +28,10 @@
   * ready for connects/prepare: ComputationTemplate?
   * ready for calls: Computation
 
+* TODO: take not only CLUDA Thread as a parameter for computation constructor, but also CommandQueue, opencl Context, CUDA Stream and so on.
+
+* TODO: move some of the functionality to the top level of ``reikna`` module?
+
 
 0.3.1
 =====
@@ -65,6 +51,10 @@
   it is called again with reduced local size
 * TODO: add special optimized kernel for matrix-vector multiplication in MatrixMul.
   Or create specific matrix-vector and vector-vector computations?
+* TODO: add ``Thread.fork()`` which creates another Thread with the same context and device but different queue.
+  Also, how do we create a ``Thread`` with the same context, but different device?
+  Or how do we create and use a ``Thread`` with several devices?
+* DECIDE: think of better way of module discovery in render keywords than looking inside AttrDicts. (see ``reikna.cluda.kernel.process_render_kwds``)
 
 
 1.0.0 (production-quality version... hopefully)
@@ -94,7 +84,6 @@ Core:
 * CHECK: check correctness of types in Computation.__call__() if _debug is on
 * CHECK: check that types of arrays passed to prepare_for()/received from _get_base_signature() after creating a basis are supported by GPU (eliminates the need to check it in every computation)
 * TODO: remove unnecessary whitespace from the transformation code (generated code will look better)
-* TODO: take not only CLUDA context as a parameter for computation constructor, but also CommandQueue, opencl context, cuda stream and so on.
 * TODO: cache results of _construct_operations based on the basis, device_params, argnames and attached transformations
 
 Computations:

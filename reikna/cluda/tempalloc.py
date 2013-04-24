@@ -27,13 +27,13 @@ class TemporaryManager:
     """
     Base class for a manager of temporary allocations.
 
-    :param ctx: an instance of :py:class:`~reikna.cluda.api.Context`.
+    :param thr: an instance of :py:class:`~reikna.cluda.api.Thread`.
     :param pack_on_alloc: whether to repack allocations when a new allocation is requested.
     :param pack_on_free: whether to repack allocations when an allocation is freed.
     """
 
-    def __init__(self, ctx, pack_on_alloc=False, pack_on_free=False):
-        self._ctx = ctx
+    def __init__(self, thr, pack_on_alloc=False, pack_on_free=False):
+        self._thr = thr
         self._id_counter = 0
         self._arrays = {}
         self._pack_on_alloc = pack_on_alloc
@@ -61,7 +61,7 @@ class TemporaryManager:
         self._id_counter += 1
 
         allocator = DummyAllocator()
-        array = self._ctx.array(shape, dtype, allocator=allocator)
+        array = self._thr.array(shape, dtype, allocator=allocator)
         array.__tempalloc_id__ = new_id
 
         dependencies = extract_dependencies(dependencies)
@@ -116,7 +116,7 @@ class TrivialManager(TemporaryManager):
         self._allocations = {}
 
     def _allocate(self, new_id, size, dependencies, pack):
-        buf = self._ctx.allocate(size)
+        buf = self._thr.allocate(size)
         self._allocations[new_id] = buf
 
     def _get_buffer(self, id):
@@ -189,7 +189,7 @@ class ZeroOffsetManager(TemporaryManager):
                 break
         else:
             # If no suitable real allocation is found, create a new one.
-            buf = self._ctx.allocate(size)
+            buf = self._thr.allocate(size)
             real_id = self._real_id_counter
             self._real_id_counter += 1
 
@@ -241,7 +241,7 @@ class ZeroOffsetManager(TemporaryManager):
 
         # Need to synchronize, because we are going to change allocation addresses,
         # and we do not want to free the memory some kernel is reading from.
-        self._ctx.synchronize()
+        self._thr.synchronize()
 
         # Clear all real allocation data.
         self._real_sizes.clear()

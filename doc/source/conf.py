@@ -108,6 +108,8 @@ pygments_style = 'sphinx'
 # A list of ignored prefixes for module index sorting.
 #modindex_common_prefix = []
 
+# complain about broken links to Python objects
+nitpicky = True
 
 # -- Options for HTML output ---------------------------------------------------
 

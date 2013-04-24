@@ -5,6 +5,7 @@ Computations and transformations are based on two classes, which provide the use
 
 .. autoclass:: reikna.core.Computation
     :members:
+    :special-members: __call__
 
 .. autoclass:: reikna.core.Transformation
     :members:

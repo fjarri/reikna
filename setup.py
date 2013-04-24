@@ -89,7 +89,7 @@ if not release:
     version = full_version
     '''
 
-    VERSION = (0, 2, 2)
+    VERSION = (0, 2, 3)
     RELEASED = True
 
     version_str = '%d.%d.%d' % VERSION
@@ -127,15 +127,21 @@ if __name__ == '__main__':
     DOCUMENTATION = open('README.rst').read()
     _, VERSION_STR = ensure_version_py()
 
-    dependencies = ['mako', 'numpy']
+    # seuptool's ``install_requires`` and distutil's ``requires`` have slightly different format
+    dependencies = [
+        ('mako', '>= 0.8.0'),
+        ('numpy', '>= 1.6.0')]
+    requires = list(map(lambda nr: nr[0] + '(' + nr[1] + ')', dependencies))
+    install_requires = list(map(lambda nr: nr[0] + ' ' + nr[1], dependencies))
 
     setup(
         name='reikna',
         packages=['reikna', 'reikna/cluda', 'reikna/core', 'reikna/helpers'],
         provides=['reikna'],
-        requires=dependencies,
-        install_requires=dependencies,
+        requires=requires,
+        install_requires=install_requires,
         package_data={'reikna': ['*.mako'],
+                      'reikna/core': ['*.mako'],
                       'reikna/cluda': ['*.mako']},
         version=VERSION_STR,
         author='Bogdan Opanchuk',

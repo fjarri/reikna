@@ -73,18 +73,18 @@ import reikna.cluda.dtypes as dtypes
 TEMPLATE = template_for(__file__)
 
 
-def create_counters(ctx, size, rng, distribution, rng_params):
+def create_counters(thr, size, rng, distribution, rng_params):
     """
     Create a counter array on a device for use in :py:class:`~reikna.cbrng.CBRNG`.
 
-    :param ctx: a Context object.
+    :param thr: a :py:class:`~reikna.cluda.api.Thread` object.
     :param size: a shape of the target random numbers array.
     :param rng: random number generator name.
     :param distribution: random distribution name.
     :param rng_params: random number generator parameters.
     """
     size = wrap_in_tuple(size)
-    return ctx.to_device(numpy.zeros(
+    return thr.to_device(numpy.zeros(
         size + (rng_params['words'],),
         numpy.uint32 if rng_params['bitness'] == 32 else numpy.uint64))
 

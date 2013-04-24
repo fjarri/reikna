@@ -21,9 +21,9 @@ Contents
    :maxdepth: 2
 
    introduction
+   tutorial-modules
    tutorial-basic
    tutorial-advanced
-   tutorial-modules
    api/index
    history
 

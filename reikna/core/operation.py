@@ -7,8 +7,8 @@ from reikna.core.transformation import ArrayValue
 
 class OperationRecorder:
 
-    def __init__(self, prefix, ctx, tr_tree, basis, base_values):
-        self._ctx = ctx
+    def __init__(self, prefix, thr, tr_tree, basis, base_values):
+        self._thr = thr
         self._prefix = prefix
         self._tr_tree = tr_tree
         self.basis = basis
@@ -41,7 +41,7 @@ class OperationRecorder:
 
         value = ArrayValue(data.shape, data.dtype)
         self.values[self._prefix + name] = value
-        self._const_allocations[self._prefix + name] = self._ctx.to_device(data)
+        self._const_allocations[self._prefix + name] = self._thr.to_device(data)
         self._tr_tree.add_temp_node(self._prefix + name, value)
         return name
 
@@ -53,8 +53,8 @@ class OperationRecorder:
 
         :param template: Mako template for the kernel.
         :param argnames: names of the arguments the kernel takes.
-            These must either belong to the list of external argument names,
-            or be allocated by :py:meth:`add_allocation` earlier.
+            These must either belong to the list of external argument names, or be allocated by
+            :py:meth:`~reikna.core.operation.OperationRecorder.add_allocation` earlier.
         :param global_size: global size to use for the call.
         :param local_size: local size to use for the call.
             If ``None``, the local size will be picked automatically.
@@ -84,7 +84,7 @@ class OperationRecorder:
         render_kwds = dict(render_kwds) # shallow copy
         render_kwds.update(additional_kwds)
 
-        kernel = self._ctx.compile_static(
+        kernel = self._thr.compile_static(
             template, kernel_name, global_size, local_size=local_size,
             render_args=argobjects, render_kwds=render_kwds)
         leaf_argnames = [name for name, _ in self._tr_tree.leaf_signature(argnames)]
@@ -188,7 +188,7 @@ class OperationRecorder:
             for dep in self._dependencies[name]:
                 if dep in self.allocations:
                     dependencies.append(self.allocations[dep])
-            self.allocations[name] = self._ctx.temp_array(
+            self.allocations[name] = self._thr.temp_array(
                 value.shape, value.dtype, dependencies=dependencies)
 
 

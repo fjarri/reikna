@@ -2,7 +2,7 @@ import pytest
 
 from helpers import *
 from reikna.helpers import *
-from reikna.cluda.kernel import Module
+from reikna.cluda import Module, Snippet
 import reikna.cluda.functions as functions
 
 
@@ -69,13 +69,12 @@ def combinator(dtype, m1num=1, m2num=1, snum=1):
 
 def combinator_call(dtype, m1num=1, m2num=1, snum=1):
     c = combinator(dtype, m1num=m1num, m2num=m2num, snum=snum)
-    return Module(
+    return Snippet(
         TEMPLATE.get_def('snippet'),
-        render_kwds=dict(c=c),
-        snippet=True)
+        render_kwds=dict(c=c))
 
 
-def test_modules(some_ctx):
+def test_modules(some_thr):
 
     dtype = numpy.float32
     m1num = 2
@@ -83,7 +82,7 @@ def test_modules(some_ctx):
     snum = 10
     N = 128
 
-    module = some_ctx.compile(
+    program = some_thr.compile(
         """
         KERNEL void test(GLOBAL_MEM float *dest, GLOBAL_MEM float *a, GLOBAL_MEM float *b)
         {
@@ -95,17 +94,17 @@ def test_modules(some_ctx):
 
     a = get_test_array(N, dtype)
     b = get_test_array(N, dtype)
-    a_dev = some_ctx.to_device(a)
-    b_dev = some_ctx.to_device(b)
-    dest_dev = some_ctx.empty_like(a_dev)
+    a_dev = some_thr.to_device(a)
+    b_dev = some_thr.to_device(b)
+    dest_dev = some_thr.empty_like(a_dev)
 
-    module.test(dest_dev, a_dev, b_dev, local_size=N, global_size=N)
+    program.test(dest_dev, a_dev, b_dev, local_size=N, global_size=N)
     ref = (a * b + m1num) + ((a * b + m2num) - snum)
 
     assert diff_is_negligible(dest_dev.get(), ref)
 
 
-def test_snippet(some_ctx):
+def test_snippet(some_thr):
 
     dtype = numpy.float32
     m1num = 2
@@ -113,7 +112,7 @@ def test_snippet(some_ctx):
     snum = 10
     N = 128
 
-    module = some_ctx.compile(
+    program = some_thr.compile(
         """
         KERNEL void test(GLOBAL_MEM float *dest, GLOBAL_MEM float *a, GLOBAL_MEM float *b)
         {
@@ -125,11 +124,11 @@ def test_snippet(some_ctx):
 
     a = get_test_array(N, dtype)
     b = get_test_array(N, dtype)
-    a_dev = some_ctx.to_device(a)
-    b_dev = some_ctx.to_device(b)
-    dest_dev = some_ctx.empty_like(a_dev)
+    a_dev = some_thr.to_device(a)
+    b_dev = some_thr.to_device(b)
+    dest_dev = some_thr.empty_like(a_dev)
 
-    module.test(dest_dev, a_dev, b_dev, local_size=N, global_size=N)
+    program.test(dest_dev, a_dev, b_dev, local_size=N, global_size=N)
     ref = (a * b + m1num) + ((a * b + m2num) - snum)
 
     assert diff_is_negligible(dest_dev.get(), ref)

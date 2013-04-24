@@ -1,6 +1,6 @@
 import numpy
 
-from reikna.cluda.kernel import Module
+from reikna.cluda import Snippet
 from reikna.helpers import *
 from reikna.cluda import dtypes
 from reikna.core import *
@@ -15,13 +15,12 @@ def reduced_shape(shape, axis):
     return tuple(l)
 
 
-predicate_sum = lambda output, input: Module(
-    template_func(
+predicate_sum = lambda output, input: Snippet(
+    template_def(
         ['v1', 'v2'],
         """
         return ${v1} + ${v2};
-        """),
-    snippet=True)
+        """))
 
 
 class Reduce(Computation):
@@ -35,7 +34,7 @@ class Reduce(Computation):
         :param axis: axis over which reduction is performed.
             If ``None``, the whole array will be reduced to a single element.
         :param predicate: a lambda, taking positional argument mocks and returning a snippet
-            which takes names of two variables to reduce and ``return``s the result.
+            which takes names of two variables to reduce and ``return``'s the result.
     """
 
     def _get_argnames(self):

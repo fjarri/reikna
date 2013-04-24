@@ -3,10 +3,36 @@ Release history
 ***************
 
 
-0.2.3 (current development version)
+0.3.0 (current development version)
 ===================================
 
 Under construction.
+
+
+0.2.3 (25 Apr 2013)
+===================
+
+* ADDED: explicit :py:meth:`~reikna.cluda.api.Thread.release` (primarily for certain rare CUDA use cases).
+
+* CHANGED: CLUDA API discovery interface (see the documentation).
+
+* CHANGED: The part of CLUDA API that is supposed to be used by other layers was moved to the ``__init__.py``.
+
+* CHANGED: CLUDA ``Context`` was renamed to ``Thread``, to avoid confusion with ``PyCUDA``/``PyOpenCL`` contexts.
+
+* CHANGED: signature of :py:meth:`~reikna.cluda.api.Thread.create`; it can filter devices now, and supports interactive mode.
+
+* CHANGED: :py:class:`~reikna.cluda.Module` with ``snippet=True`` is now :py:class:`~reikna.cluda.Snippet`
+
+* FIXED: added ``transformation.mako`` and ``cbrng_ref.py`` to the distribution package.
+
+* FIXED: incorrect parameter generation in ``test/cluda/cluda_vsizes/ids``.
+
+* FIXED: skipping testcases with incompatible parameters in ``test/cluda/cluda_vsizes/ids`` and ``sizes``.
+
+* FIXED: setting the correct length of :py:attr:`~reikna.cluda.api.DeviceParameters.max_num_groups` in case of CUDA and a device with CC < 2.
+
+* FIXED: typo in ``cluda.api_discovery``.
 
 
 0.2.2 (20 Apr 2013)
@@ -22,9 +48,9 @@ Under construction.
 
 * ADDED: Module support in CLUDA; see :ref:`tutorial-modules` for details.
 
-* ADDED: :py:func:`~reikna.helpers.template_func`.
+* ADDED: :py:func:`~reikna.helpers.template_def`.
 
-* CHANGED: :py:func:`~reikna.cluda.kernel.render_template_source` is the main renderer now.
+* CHANGED: ``reikna.cluda.kernel.render_template_source`` is the main renderer now.
 
 * CHANGED: ``FuncCollector`` class was removed; functions are now used as common modules.
 
@@ -32,7 +58,7 @@ Under construction.
 
 * CHANGED: signature of :py:meth:`~reikna.core.operation.OperationRecorder.add_kernel` takes a renderable instead of a full template.
 
-* CHANGED: :py:meth:`~reikna.cluda.api.Context.compile_static` now takes a template instead of a source.
+* CHANGED: :py:meth:`~reikna.cluda.api.Thread.compile_static` now takes a template instead of a source.
 
 * CHANGED: :py:class:`~reikna.elementwise.Elementwise` now uses modules.
 
@@ -74,7 +100,7 @@ Under construction.
 
 * Added Python 3 compatibility
 
-* Added Context-global automatic memory packing
+* Added Thread-global automatic memory packing
 
 * Added polar(), conj() and exp() functions to kernel toolbox
 

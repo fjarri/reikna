@@ -9,7 +9,7 @@ import reikna.cluda.functions as functions
 from reikna.helpers import product
 
 from helpers import *
-from pytest_contextgen import parametrize_context_tuple, create_context_in_tuple
+from pytest_threadgen import parametrize_thread_tuple, create_thread_in_tuple
 
 
 TEST_DTYPES = [
@@ -19,10 +19,10 @@ TEST_DTYPES = [
     numpy.complex64, numpy.complex128]
 
 
-pytest_funcarg__ctx_and_global_size = create_context_in_tuple
+pytest_funcarg__thr_and_global_size = create_thread_in_tuple
 
 
-def pair_context_with_gs(metafunc, cc):
+def pair_thread_with_gs(metafunc, tc):
     global_sizes = [
         (100,), (2000,), (1153,),
         (10, 10), (150, 250), (137, 547),
@@ -33,88 +33,65 @@ def pair_context_with_gs(metafunc, cc):
 
     for gs in global_sizes:
 
-        # If the context will not support these limits, skip
-        ctx = cc()
-        mgs = ctx.device_params.max_num_groups
-        del ctx
+        # If the thread will not support these limits, skip
+        thr = tc()
+        mgs = thr.device_params.max_num_groups
+        del thr
         if len(gs) > len(mgs) or (len(mgs) > 2 and len(gs) > 2 and mgs[2] < gs[2]):
             continue
 
         rem_ids.append(str(gs))
         vals.append((gs,))
 
-    return [cc] * len(vals), vals, rem_ids
+    return [tc] * len(vals), vals, rem_ids
 
 
 def pytest_generate_tests(metafunc):
-    if 'ctx_and_global_size' in metafunc.funcargnames:
-        parametrize_context_tuple(metafunc, 'ctx_and_global_size', pair_context_with_gs)
+    if 'thr_and_global_size' in metafunc.funcargnames:
+        parametrize_thread_tuple(metafunc, 'thr_and_global_size', pair_thread_with_gs)
 
 
-def simple_context_test(ctx):
+def simple_thread_test(thr):
     shape = (1000,)
     dtype = numpy.float32
 
     a = get_test_array(shape, dtype)
-    a_dev = ctx.to_device(a)
-    a_back = ctx.from_device(a_dev)
+    a_dev = thr.to_device(a)
+    a_back = thr.from_device(a_dev)
 
     assert diff_is_negligible(a, a_back)
 
 
-def test_create_new_context(cluda_api):
-    ctx = cluda_api.Context.create()
-    simple_context_test(ctx)
+def test_create_new_thread(cluda_api):
+    thr = cluda_api.Thread.create()
+    simple_thread_test(thr)
 
 
-def test_connect_to_context(cluda_api):
-    ctx = cluda_api.Context.create()
-
-    ctx2 = cluda_api.Context(ctx._context)
-    ctx3 = cluda_api.Context(ctx._context, async=False)
-
-    simple_context_test(ctx)
-    simple_context_test(ctx2)
-    simple_context_test(ctx3)
-
-
-def test_connect_to_context_and_queue(cluda_api):
-    ctx = cluda_api.Context.create()
-    queue = ctx.create_queue()
-
-    ctx2 = cluda_api.Context(ctx._context, queue=queue)
-    ctx3 = cluda_api.Context(ctx._context, queue=queue, async=False)
-
-    simple_context_test(ctx)
-    simple_context_test(ctx2)
-    simple_context_test(ctx3)
-
-
-def test_transfers(ctx):
+def test_transfers(thr):
     a = get_test_array(1024, numpy.float32)
 
     def to_device1(x):
-        return ctx.to_device(x)
+        return thr.to_device(x)
     def to_device2(x):
-        y = ctx.empty_like(x)
-        ctx.to_device(x, dest=y)
+        y = thr.empty_like(x)
+        thr.to_device(x, dest=y)
         return y
     def from_device1(x):
         return x.get()
     def from_device2(x):
-        return ctx.from_device(x)
+        return thr.from_device(x)
     def from_device3(x):
         y = numpy.empty(x.shape, x.dtype)
-        ctx.from_device(x, dest=y)
+        thr.from_device(x, dest=y)
         return y
     def from_device4(x):
-        y = ctx.from_device(x, async=True)
-        ctx.synchronize()
+        y = thr.from_device(x, async=True)
+        thr.synchronize()
         return y
     def from_device5(x):
         y = numpy.empty(x.shape, x.dtype)
-        ctx.from_device(x, dest=y, async=True)
-        ctx.synchronize()
+        thr.from_device(x, dest=y, async=True)
+        thr.synchronize()
         return y
 
     to_device = (to_device1, to_device2)
@@ -122,7 +99,7 @@ def test_transfers(ctx):
 
     for to_d, from_d in itertools.product(to_device, from_device):
         a_device = to_d(a)
-        a_copy = ctx.copy_array(a_device)
+        a_copy = thr.copy_array(a_device)
         a_back = from_d(a_copy)
         assert diff_is_negligible(a, a_back)
 
@@ -130,18 +107,18 @@ def test_transfers(ctx):
 @pytest.mark.parametrize(
     "dtype", TEST_DTYPES,
     ids=[dtypes.normalize_type(dtype).name for dtype in TEST_DTYPES])
-def test_dtype_support(ctx, dtype):
-    # Test passes if either context correctly reports that it does not support given dtype,
+def test_dtype_support(thr, dtype):
+    # Test passes if either thread correctly reports that it does not support given dtype,
     # or it successfully compiles kernel that operates with this dtype.
 
     N = 256
 
-    if not ctx.supports_dtype(dtype):
+    if not thr.supports_dtype(dtype):
         pytest.skip()
 
     mul = functions.mul(dtype, dtype)
     div = functions.div(dtype, dtype)
-    module = ctx.compile(
+    program = thr.compile(
     """
     KERNEL void test(
         GLOBAL_MEM ${ctype} *dest, GLOBAL_MEM ${ctype} *a, GLOBAL_MEM ${ctype} *b)
@@ -152,22 +129,22 @@ def test_dtype_support(ctx, dtype):
     }
     """, render_kwds=dict(ctype=dtypes.ctype(dtype), dtype=dtype, mul=mul, div=div))
 
-    test = module.test
+    test = program.test
 
     # we need results to fit even in unsigned char
     a = get_test_array(N, dtype, high=8)
     b = get_test_array(N, dtype, no_zeros=True, high=8)
 
-    a_dev = ctx.to_device(a)
-    b_dev = ctx.to_device(b)
-    dest_dev = ctx.empty_like(a_dev)
+    a_dev = thr.to_device(a)
+    b_dev = thr.to_device(b)
+    dest_dev = thr.empty_like(a_dev)
     test(dest_dev, a_dev, b_dev, global_size=N)
-    assert diff_is_negligible(ctx.from_device(dest_dev), a)
+    assert diff_is_negligible(thr.from_device(dest_dev), a)
 
 
 @pytest.mark.parametrize('in_dtypes', ["ii", "ff", "cc", "cfi", "ifccfi"])
 @pytest.mark.parametrize('out_dtype', ["auto", "i", "f", "c"])
-def test_multiarg_mul(ctx, out_dtype, in_dtypes):
+def test_multiarg_mul(thr, out_dtype, in_dtypes):
     """
     Checks multi-argument mul() with a variety of data types.
     """
@@ -214,29 +191,29 @@ def test_multiarg_mul(ctx, out_dtype, in_dtypes):
         filterwarnings("ignore", "", numpy.ComplexWarning)
         mul = functions.mul(*in_dtypes, out_dtype=out_dtype)
 
-    module = ctx.compile(src,
+    program = thr.compile(src,
         render_kwds=dict(in_dtypes=in_dtypes, out_dtype=out_dtype, mul=mul))
 
-    test = module.test
+    test = program.test
 
     # we need results to fit even in unsigned char
     arrays = [get_test_array(N, dt, no_zeros=True) for dt in in_dtypes]
-    arrays_dev = map(ctx.to_device, arrays)
-    dest_dev = ctx.array(N, out_dtype)
+    arrays_dev = map(thr.to_device, arrays)
+    dest_dev = thr.array(N, out_dtype)
 
     test(dest_dev, *arrays_dev, global_size=N)
-    assert diff_is_negligible(ctx.from_device(dest_dev), reference_func(*arrays))
+    assert diff_is_negligible(thr.from_device(dest_dev), reference_func(*arrays))
 
 
-def test_find_local_size(ctx_and_global_size):
-    ctx, global_size = ctx_and_global_size
+def test_find_local_size(thr_and_global_size):
+    thr, global_size = thr_and_global_size
 
     """
     Check that if None is passed as local_size, kernel can find some local_size to run with
     (not necessarily optimal).
     """
 
-    module = ctx.compile(
+    program = thr.compile(
     """
     KERNEL void test(GLOBAL_MEM int *dest)
     {
@@ -246,8 +223,8 @@ def test_find_local_size(ctx_and_global_size):
       dest[i] = i;
     }
     """)
-    test = module.test
-    dest_dev = ctx.array(global_size, numpy.int32)
+    test = program.test
+    dest_dev = thr.array(global_size, numpy.int32)
     test(dest_dev, global_size=global_size)
 
     assert diff_is_negligible(dest_dev.get().ravel(),

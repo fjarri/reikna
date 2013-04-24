@@ -23,14 +23,14 @@ STATE_PREPARED = 2
 class Computation:
     """
     Creates a computation class and performs basic initialization for the
-    :py:class:`~reikna.cluda.api.Context` object ``ctx``.
-    Note that the computation is unusable until :py:func:`prepare`
-    or :py:func:`prepare_for` is called.
+    :py:class:`~reikna.cluda.api.Thread` object ``thr``.
+    Note that the computation is unusable until
+    :py:meth:`~reikna.core.Computation.prepare_for` is called.
     If ``debug`` is ``True``, a couple of additional checks will be performed in runtime
     during preparation and calls to computation.
 
     The following methods are for overriding by computations
-    inheriting :py:class:`Computation` class.
+    inheriting :py:class:`~reikna.core.Computation` class.
 
     .. py:module:: reikna.core
 
@@ -48,7 +48,7 @@ class Computation:
 
         Must return a tuple ``(outputs, inputs, scalars)``, where each of
         ``outputs``, ``inputs``, ``scalars`` is a tuple of argument names used by this computation.
-        If this method is not overridden, :py:meth:`set_argnames` will have to be called
+        If this method is not overridden, ``set_argnames`` will have to be called
         right after creating the computation object.
 
     .. py:method:: _get_argvalues(argnames, basis)
@@ -73,8 +73,8 @@ class Computation:
     The rest is public methods.
     """
 
-    def __init__(self, ctx, debug=False, prefix=''):
-        self._ctx = ctx
+    def __init__(self, thr, debug=False, prefix=''):
+        self._thr = thr
         self._debug = debug
         self._prefix = prefix
         self._nested_counter = 1
@@ -105,7 +105,7 @@ class Computation:
         """
         prefix = self._prefix + cls.__name__[0] + str(self._nested_counter) + '_'
         self._nested_counter += 1
-        return cls(self._ctx, debug=self._debug, prefix=prefix)
+        return cls(self._thr, debug=self._debug, prefix=prefix)
 
     def _get_base_values(self):
         """
@@ -201,7 +201,7 @@ class Computation:
             raise InvalidStateError("Cannot prepare the same computation twice")
 
         self._basis = self._basis_for(args, kwds)
-        self._operations = self._construct_operations(self._basis, self._ctx.device_params)
+        self._operations = self._construct_operations(self._basis, self._thr.device_params)
 
         # Using prefix as an indicator of the nested computation
         # (which means that we do not need to allocate and pack the memory).
@@ -234,7 +234,7 @@ class Computation:
 
     def _get_operation_recorder(self):
         return OperationRecorder(
-            self._prefix, self._ctx, self._tr_tree.copy(), self._basis, self._get_base_values())
+            self._prefix, self._thr, self._tr_tree.copy(), self._basis, self._get_base_values())
 
     def signature_str(self):
         """

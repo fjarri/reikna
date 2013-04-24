@@ -1,7 +1,7 @@
 <%def name="prelude()">
 
-%if ctx_fast_math:
-#define CTX_FAST_MATH
+%if thread_fast_math:
+#define THREAD_FAST_MATH
 %endif
 
 %if api == 'cuda':
