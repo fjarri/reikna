@@ -3,7 +3,7 @@ import pytest
 
 from helpers import *
 from reikna.helpers import template_def
-from reikna.cluda import Module
+from reikna.cluda import Module, Snippet
 from reikna.elementwise import Elementwise
 import reikna.cluda.dtypes as dtypes
 
@@ -13,7 +13,7 @@ def test_errors(thr):
     argnames = (('output',), ('input',), ('param',))
     elw = Elementwise(thr).set_argnames(*argnames)
 
-    code = lambda output, input, param: Module(
+    code = lambda output, input, param: Snippet(
         template_def(
             ['output', 'input', 'param'],
             """
@@ -21,8 +21,7 @@ def test_errors(thr):
             ${input.ctype} a2 = ${input.load}(idx + ${size});
             ${output.store}(idx, a1 + a2 + ${param});
             """),
-        render_kwds=dict(size=output.size),
-        snippet=True)
+        render_kwds=dict(size=output.size))
 
     N = 1000
     a = get_test_array(N * 2, numpy.float32)
@@ -54,7 +53,7 @@ def test_nontrivial_code(thr):
             itype=dtypes.ctype(input.dtype),
             ptype=dtypes.ctype(param.dtype)))
 
-    code = lambda output, input, param: Module(
+    code = lambda output, input, param: Snippet(
         template_def(
             ['output', 'input', 'param'],
             """
@@ -62,8 +61,7 @@ def test_nontrivial_code(thr):
             ${input.ctype} a2 = ${input.load}(idx + ${size});
             ${output.store}(idx, a1 + ${func}(a2, ${param}));
             """),
-        render_kwds=dict(func=function(output, input, param), size=output.size),
-        snippet=True)
+        render_kwds=dict(func=function(output, input, param), size=output.size))
 
     N = 1000
     a = get_test_array(N * 2, numpy.float32)

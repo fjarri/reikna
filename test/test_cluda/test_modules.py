@@ -2,7 +2,7 @@ import pytest
 
 from helpers import *
 from reikna.helpers import *
-from reikna.cluda import Module
+from reikna.cluda import Module, Snippet
 import reikna.cluda.functions as functions
 
 
@@ -69,10 +69,9 @@ def combinator(dtype, m1num=1, m2num=1, snum=1):
 
 def combinator_call(dtype, m1num=1, m2num=1, snum=1):
     c = combinator(dtype, m1num=m1num, m2num=m2num, snum=snum)
-    return Module(
+    return Snippet(
         TEMPLATE.get_def('snippet'),
-        render_kwds=dict(c=c),
-        snippet=True)
+        render_kwds=dict(c=c))
 
 
 def test_modules(some_thr):

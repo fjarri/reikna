@@ -51,7 +51,7 @@ As an example, let us consider an elementwise computation object with one output
 
     import numpy
     from reikna import cluda
-    from reikna.cluda import Module
+    from reikna.cluda import Snippet
     from reikna.core import Transformation
     from reikna.elementwise import specialize_elementwise
     import reikna.transformations as transformations
@@ -59,12 +59,11 @@ As an example, let us consider an elementwise computation object with one output
     api = cluda.ocl_api()
     thr = api.Thread.create()
 
-    code = lambda out_dtype, in1_dtype, in2_dtype, param_dtype: Module.create(
+    code = lambda out_dtype, in1_dtype, in2_dtype, param_dtype: Snippet.create(
         lambda out, in1, in2, param:
             """
             ${out.store}(idx, ${in1.load}(idx) + ${in2.load}(idx) + ${param});
-            """,
-        snippet=True)
+            """)
 
     TestComputation = specialize_elementwise(
         'out', ['in1', 'in2'], 'param', code)

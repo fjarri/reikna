@@ -1,6 +1,7 @@
 import itertools
 import numpy
 
+from reikna.cluda import Snippet
 from reikna.helpers import *
 from reikna.core import *
 
@@ -58,11 +59,8 @@ class Elementwise(Computation):
         # Python 2 does not support explicit kwds after *args
         code = kwds.get('code', None)
         if code is None:
-            code = lambda *code_args: Module(
-                template_def(
-                    outputs + inputs + params,
-                    ""),
-                snippet=True)
+            code = lambda *code_args: Snippet(template_def(
+                outputs + inputs + params, ""))
 
         dependencies = kwds.get('dependencies', None)
         if dependencies is None:

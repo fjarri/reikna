@@ -31,41 +31,60 @@ def render_template(template, *args, **kwds):
     return src
 
 
-class Module:
-    """
-    Contains a code template and render keywords (possibly referencing other modules).
-
-    :param template: a ``Mako`` template with the module code,
-        or a string with the template source.
-    :type template: ``str`` or ``Mako`` template.
-    :param render_kwds: a dictionary which will be used to render the template.
-        Can contain other modules.
-    :param snippet: defines the behavior of the module in the higher-level module
-        that has it in its ``render_kwds``.
-        If ``True``, the corresponding keyword will act as a function taking positional arguments
-        and rendering the template at the place of a call with these arguments
-        and its own ``render_kwds``.
-        If ``False``, the keyword will be a string with module prefix
-        which can be used to call module functions;
-        the module template will be rendered before the code for the higher-level template,
-        with the prefix passed as the only positional parameter.
-
-    For more details on how to use modules, see :ref:`tutorial-modules`.
-    """
-
+class BaseModule:
     def __init__(self, template, render_kwds=None, snippet=False):
         self.template = template_from(template)
         self.render_kwds = {} if render_kwds is None else dict(render_kwds)
         self.snippet = snippet
 
+
+class Snippet(BaseModule):
+    """
+    Contains a CLUDA snippet.
+    See :ref:`tutorial-modules` for details.
+
+    :param template_src: a ``Mako`` template with the module code,
+        or a string with the template source.
+    :type template_src: ``str`` or ``Mako`` template.
+    :param render_kwds: a dictionary which will be used to render the template.
+        Can contain other modules and snippets.
+    """
+
+    def __init__(self, template_src, render_kwds=None):
+        BaseModule.__init__(self, template_src, render_kwds=render_kwds, snippet=True)
+
     @classmethod
-    def create(cls, argspec_func, render_kwds=None, snippet=False):
+    def create(cls, argspec_func, render_kwds=None):
         """
-        Creates a module from the ``Mako`` def with the same signature as ``argspec_func``
-        and the code equal to the string it returns.
+        Creates a snippet from the ``Mako`` def with the same signature as ``argspec_func``
+        and the body equal to the string it returns.
         """
         argspec, code = extract_argspec_and_value(argspec_func)
-        return cls(template_def(argspec, code), render_kwds=render_kwds, snippet=snippet)
+        return cls(template_def(argspec, code), render_kwds=render_kwds)
+
+
+class Module(BaseModule):
+    """
+    Contains a CLUDA module.
+    See :ref:`tutorial-modules` for details.
+
+    :param template_src: a ``Mako`` template with the module code,
+        or a string with the template source.
+    :type template_src: ``str`` or ``Mako`` template.
+    :param render_kwds: a dictionary which will be used to render the template.
+        Can contain other modules and snippets.
+    """
+
+    def __init__(self, template_src, render_kwds=None):
+        BaseModule.__init__(self, template_src, render_kwds=render_kwds, snippet=False)
+
+    @classmethod
+    def create(cls, code, render_kwds=None):
+        """
+        Creates a module from the ``Mako`` def with a single positional argument ``prefix``
+        and the body ``code.
+        """
+        return cls(template_def(['prefix'], code), render_kwds=render_kwds)
 
 
 class ProcessedModule(AttrDict): pass
@@ -105,9 +124,9 @@ def flatten_module(module_list, traverse, module):
 
 
 def flatten_module_tree(src, args, render_kwds):
-    main_module = Module(src, render_kwds=render_kwds, snippet=True)
+    main_module = Snippet(src, render_kwds=render_kwds)
     module_list = []
-    traverse = lambda v: traverse_data(Module, flatten_module, module_list, v)
+    traverse = lambda v: traverse_data(BaseModule, flatten_module, module_list, v)
     args = traverse(args)
     main_module = traverse(main_module)
     module_list.append(main_module)

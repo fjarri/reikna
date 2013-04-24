@@ -1,6 +1,6 @@
 import numpy
 
-from reikna.cluda import Module
+from reikna.cluda import Snippet
 from reikna.helpers import *
 from reikna.cluda import dtypes
 from reikna.core import *
@@ -15,13 +15,12 @@ def reduced_shape(shape, axis):
     return tuple(l)
 
 
-predicate_sum = lambda output, input: Module(
+predicate_sum = lambda output, input: Snippet(
     template_def(
         ['v1', 'v2'],
         """
         return ${v1} + ${v2};
-        """),
-    snippet=True)
+        """))
 
 
 class Reduce(Computation):

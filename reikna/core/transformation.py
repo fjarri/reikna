@@ -3,7 +3,7 @@ import re
 import numpy
 
 import reikna.cluda.dtypes as dtypes
-from reikna.cluda import Module
+from reikna.cluda import Snippet, Module
 from reikna.helpers import AttrDict, product, wrap_in_tuple, template_def, template_for
 
 
@@ -184,7 +184,7 @@ class Transformation:
 
     def construct_snippet(self, *args):
         render_kwds = self.derive_render_kwds(*args)
-        return Module(self.snippet_template, render_kwds=render_kwds, snippet=True)
+        return Snippet(self.snippet_template, render_kwds=render_kwds)
 
 
 class Node:

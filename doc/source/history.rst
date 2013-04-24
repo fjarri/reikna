@@ -16,6 +16,8 @@ Release history
 
 * CHANGED: signature of :py:meth:`~reikna.cluda.api.Thread.create`; it can filter devices now, and supports interactive mode.
 
+* CHANGED: :py:class:`~reikna.cluda.Module` with ``snippet=True`` is now :py:class:`~reikna.cluda.Snippet`
+
 * FIXED: added ``transformation.mako`` and ``cbrng_ref.py`` to the distribution package.
 
 * FIXED: incorrect parameter generation in ``test/cluda/cluda_vsizes/ids``.
