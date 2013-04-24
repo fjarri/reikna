@@ -3,8 +3,14 @@ Release history
 ***************
 
 
-0.2.3 (current development version)
+0.3.0 (current development version)
 ===================================
+
+Under construction.
+
+
+0.2.3 (25 Apr 2013)
+===================
 
 * ADDED: explicit :py:meth:`~reikna.cluda.api.Thread.release` (primarily for certain rare CUDA use cases).
 
