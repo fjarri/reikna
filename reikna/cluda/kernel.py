@@ -4,7 +4,8 @@ import numpy
 from mako import exceptions
 
 import reikna.helpers as helpers
-from reikna.helpers import AttrDict, template_for, template_from
+from reikna.helpers import AttrDict, template_for, template_from, \
+    template_def, extract_argspec_and_value
 from reikna.cluda import dtypes
 
 
@@ -56,6 +57,15 @@ class Module:
         self.template = template_from(template)
         self.render_kwds = {} if render_kwds is None else dict(render_kwds)
         self.snippet = snippet
+
+    @classmethod
+    def create(cls, argspec_func, render_kwds=None, snippet=False):
+        """
+        Creates a module from the ``Mako`` def with the same signature as ``argspec_func``
+        and the code equal to the string it returns.
+        """
+        argspec, code = extract_argspec_and_value(argspec_func)
+        return cls(template_def(argspec, code), render_kwds=render_kwds, snippet=snippet)
 
 
 class ProcessedModule(AttrDict): pass

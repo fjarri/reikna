@@ -8,6 +8,7 @@ import functools
 import collections
 import os.path
 import warnings
+import inspect
 
 from mako.template import Template
 
@@ -48,13 +49,32 @@ def template_from(template):
         return Template(template, future_imports=['division'])
 
 
-def template_def(argnames, code):
+def extract_argspec_and_value(argspec_func):
+    if not inspect.isfunction(argspec_func):
+        raise ValueError("A function is required")
+
+    argspec = inspect.getargspec(argspec_func)
+
+    # pass mock values to extract the value
+    args = [None] * len(argspec.args) if argspec.args is not None else []
+    kwds = {k:None for k in argspec.keywords} if argspec.keywords is not None else {}
+    return argspec, argspec_func(*args, **kwds)
+
+
+def template_def(argspec, code):
     """
-    Returns a ``Mako`` template def with positional arguments
-    from the list ``argnames`` and the body ``code``.
+    Constructs a ``Mako`` template def.
+
+    :param argspec: a list of postitional argument names, or a named tuple ``ArgSpec``
+        (returned from Python's standard :py:func:``inspect.getargspec``,
+        see the documentation for ``inspect`` module for details).
+    :code: a body of the template.
     """
-    arglist = ", ".join(argnames)
-    template_src = "<%def name='_func(" + arglist + ")'>\n" + code + "\n</%def>"
+    if isinstance(argspec, inspect.ArgSpec):
+        argspec = inspect.formatargspec(*argspec)
+    else:
+        argspec = "(" + ", ".join(argspec) + ")"
+    template_src = "<%def name='_func" + argspec + "'>\n" + code + "\n</%def>"
     return template_from(template_src).get_def('_func')
 
 
