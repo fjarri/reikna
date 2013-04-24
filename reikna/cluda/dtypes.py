@@ -45,14 +45,14 @@ def _promote_dtype(dtype):
 
 def result_type(*dtypes):
     """
-    Wrapper for :py:func:`numpy.result_type`
+    Wrapper for ``numpy.result_type``
     which takes into account types supported by GPUs.
     """
     return _promote_dtype(numpy.result_type(*dtypes))
 
 def min_scalar_type(val):
     """
-    Wrapper for :py:func:`numpy.min_scalar_dtype`
+    Wrapper for ``numpy.min_scalar_dtype``
     which takes into account types supported by GPUs.
     """
     return _promote_dtype(numpy.min_scalar_type(val))

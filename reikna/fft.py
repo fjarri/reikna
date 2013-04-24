@@ -466,7 +466,7 @@ def get_fft_kernels(basis, device_params, local_kernel_limit):
 class FFT(Computation):
     """
     Performs the Fast Fourier Transform.
-    The interface is similar to :py:class:`numpy.fft.fftn`.
+    The interface is similar to ``numpy.fft.fftn``.
     The inverse transform is normalized so that ``IFFT(FFT(X)) = X``.
 
     .. py:method:: prepare_for(output, input, direction, axes=None)

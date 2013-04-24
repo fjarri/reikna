@@ -2,15 +2,15 @@
 .. py:class:: Buffer
 
     Low-level untyped memory allocation.
-    Actual class depends on the API: :py:class:`pycuda.driver.DeviceAllocation` for ``CUDA``
-    and :py:class:`pyopencl.Buffer` for ``OpenCL``.
+    Actual class depends on the API: ``pycuda.driver.DeviceAllocation`` for ``CUDA``
+    and ``pyopencl.Buffer`` for ``OpenCL``.
 
     .. py:attribute:: size
 
 .. py:class:: Array
 
-    Actual array class is different depending on the API: :py:class:`pycuda.gpuarray.GPUArray`
-    for ``CUDA`` and :py:class:`pyopencl.array.Array` for ``OpenCL``.
+    Actual array class is different depending on the API: ``pycuda.gpuarray.GPUArray``
+    for ``CUDA`` and ``pyopencl.array.Array`` for ``OpenCL``.
     This is an interface they both provide.
 
     .. py:attribute:: shape
@@ -19,7 +19,7 @@
 
     .. py:method:: get()
 
-        Returns :py:class:`numpy.ndarray` with the contents of the array.
+        Returns ``numpy.ndarray`` with the contents of the array.
         Synchronizes the parent :py:class:`~reikna.cluda.api.Thread`.
 
 .. py:class:: DeviceParameters(device)
@@ -101,7 +101,7 @@ def get_id():
 def get_platforms():
     """
     Returns a list of available :py:class:`Platform` objects.
-    In case of ``OpenCL`` returned objects are actually instances of :py:class:`pyopencl.Platform`.
+    In case of ``OpenCL`` returned objects are actually instances of ``pyopencl.Platform``.
     """
     raise NotImplementedError()
 
@@ -291,7 +291,7 @@ class Thread:
 
     def from_device(self, arr, dest=None, async=False):
         """
-        Transfers the contents of ``arr`` to a :py:class:`numpy.ndarray` object.
+        Transfers the contents of ``arr`` to a ``numpy.ndarray`` object.
         The effect of ``dest`` parameter is the same as in :py:meth:`to_device`.
         If ``async`` is ``True``, the transfer is asynchronous
         (the thread-wide asynchronisity setting does not apply here).

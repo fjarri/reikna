@@ -24,13 +24,13 @@ class Computation:
     """
     Creates a computation class and performs basic initialization for the
     :py:class:`~reikna.cluda.api.Thread` object ``thr``.
-    Note that the computation is unusable until :py:func:`prepare`
-    or :py:func:`prepare_for` is called.
+    Note that the computation is unusable until
+    :py:meth:`~reikna.core.Computation.prepare_for` is called.
     If ``debug`` is ``True``, a couple of additional checks will be performed in runtime
     during preparation and calls to computation.
 
     The following methods are for overriding by computations
-    inheriting :py:class:`Computation` class.
+    inheriting :py:class:`~reikna.core.Computation` class.
 
     .. py:module:: reikna.core
 
@@ -48,7 +48,7 @@ class Computation:
 
         Must return a tuple ``(outputs, inputs, scalars)``, where each of
         ``outputs``, ``inputs``, ``scalars`` is a tuple of argument names used by this computation.
-        If this method is not overridden, :py:meth:`set_argnames` will have to be called
+        If this method is not overridden, ``set_argnames`` will have to be called
         right after creating the computation object.
 
     .. py:method:: _get_argvalues(argnames, basis)

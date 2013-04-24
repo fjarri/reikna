@@ -137,7 +137,7 @@ Second, there is a set of macros attached to any kernel depending on the API it 
 Datatype tools
 --------------
 
-This module contains various convenience functions which operate with :py:class:`numpy.dtype` objects.
+This module contains various convenience functions which operate with ``numpy.dtype`` objects.
 
 .. automodule:: reikna.cluda.dtypes
     :members:

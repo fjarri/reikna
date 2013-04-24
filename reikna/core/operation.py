@@ -53,8 +53,8 @@ class OperationRecorder:
 
         :param template: Mako template for the kernel.
         :param argnames: names of the arguments the kernel takes.
-            These must either belong to the list of external argument names,
-            or be allocated by :py:meth:`add_allocation` earlier.
+            These must either belong to the list of external argument names, or be allocated by
+            :py:meth:`~reikna.core.operation.OperationRecorder.add_allocation` earlier.
         :param global_size: global size to use for the call.
         :param local_size: local size to use for the call.
             If ``None``, the local size will be picked automatically.

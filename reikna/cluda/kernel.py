@@ -82,7 +82,7 @@ class Module(BaseModule):
     def create(cls, code, render_kwds=None):
         """
         Creates a module from the ``Mako`` def with a single positional argument ``prefix``
-        and the body ``code.
+        and the body ``code``.
         """
         return cls(template_def(['prefix'], code), render_kwds=render_kwds)
 

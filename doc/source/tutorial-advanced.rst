@@ -36,15 +36,15 @@ This happens when ``prepare_for`` is called; first function will be used to prop
 If the transformation has more than one output or more than one input, and, therefore, cannot be connected to the output or input argument, respectively, the corresponding function should not be supplied.
 On the other hand, if the function is not supplied, but is required, the fallback is the :py:func:`~reikna.cluda.dtypes.result_type`.
 
-The format of required functions is the following (here ``iN``, ``oN`` and ``sN`` are :py:class:`numpy.dtype` objects):
+The format of required functions is the following (here ``iN``, ``oN`` and ``sN`` are ``numpy.dtype`` objects):
 
-* ``derive_o_from_is(i1, ..., s1, ...)``, returns the :py:class:`numpy.dtype` for ``o1``.
-* ``derive_i_from_os(o1, ..., s1, ...)``, returns the :py:class:`numpy.dtype` for ``i1``.
+* ``derive_o_from_is(i1, ..., s1, ...)``, returns the ``numpy.dtype`` for ``o1``.
+* ``derive_i_from_os(o1, ..., s1, ...)``, returns the ``numpy.dtype`` for ``i1``.
 
 The last part of the constructor is a ``code`` parameter.
 It is a string with the Mako template which describes the transformation.
 Variables ``i1``, ..., ``o1``, ..., ``s1``, ... are available in the template and help specify load and store actions for inputs, outputs and parameters, and also to obtain their data types.
-Each of these variables has attributes ``dtype`` (contains the :py:class:`numpy.dtype`), ``ctype`` (contains a string with corresponding C type) and either one of ``load`` (for inputs), ``store`` (for outputs) and ``__str__`` (for scalar parameters).
+Each of these variables has attributes ``dtype`` (contains the ``numpy.dtype``), ``ctype`` (contains a string with corresponding C type) and either one of ``load`` (for inputs), ``store`` (for outputs) and ``__str__`` (for scalar parameters).
 ``${i1.load}`` can be used as a variable, and ``${o1.store}(val)`` as a function that takes one variable.
 Also the ``dtypes`` variable is available in the template, providing access :py:mod:`~reikna.cluda.dtypes` module, and ``func`` is a module-like object containing generalizations of arithmetic functions (see :ref:`cluda-kernel-toolbox` for details).
 
@@ -161,7 +161,7 @@ Each computation class has to define the following methods:
     Usual pattern in this case is to call the template file same as the file where the computation class is defined (for example, ``testcomp.mako`` for ``testcomp.py``), and store it in some variable on module load using :py:func:`~reikna.helpers.template_for` as ``TEMPLATE = template_for(__file__)``.
 
     The template function should take the same number of positional arguments as the kernel; you can view ``<%def ... >`` part as an actual kernel definition, but with the arguments being python objects containing variable metadata.
-    Namely, every such object has attributes ``dtype`` and ``ctype``, which contain :py:class:`numpy.dtype` object and C type string for the corresponding argument.
+    Namely, every such object has attributes ``dtype`` and ``ctype``, which contain ``numpy.dtype`` object and C type string for the corresponding argument.
     Also, depending on whether the corresponding argument is an output array, an input array or a scalar parameter, the object can be used as ``${obj.store}(val, index)``, ``${obj.load}(index)`` or ``${obj}``.
     This will produce corresponding request to the global memory or kernel arguments.
 

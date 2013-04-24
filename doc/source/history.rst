@@ -44,7 +44,7 @@ Release history
 
 * ADDED: :py:func:`~reikna.helpers.template_def`.
 
-* CHANGED: :py:func:`~reikna.cluda.kernel.render_template_source` is the main renderer now.
+* CHANGED: ``reikna.cluda.kernel.render_template_source`` is the main renderer now.
 
 * CHANGED: ``FuncCollector`` class was removed; functions are now used as common modules.
 

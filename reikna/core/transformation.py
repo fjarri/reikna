@@ -28,7 +28,7 @@ class ArrayValue(object):
 
     .. py:attribute:: dtype
 
-        :py:class:`numpy.dtype` object specifying the data type of the array.
+        ``numpy.dtype`` object specifying the data type of the array.
     """
 
     def __init__(self, shape, dtype):
@@ -78,7 +78,7 @@ class ScalarValue:
 
     .. py:attribute:: dtype
 
-        :py:class:`numpy.dtype` object specifying the data type of the scalar.
+        ``numpy.dtype`` object specifying the data type of the scalar.
     """
 
     def __init__(self, dtype):

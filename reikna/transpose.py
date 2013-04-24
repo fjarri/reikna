@@ -72,7 +72,7 @@ def get_transposes(shape, axes=None):
 class Transpose(Computation):
     """
     Changes the order of axes in a multidimensional array.
-    Works analogous to :py:func:`numpy.transpose`.
+    Works analogous to ``numpy.transpose``.
 
     .. py:method:: prepare_for(output, input, axes=None)
 
