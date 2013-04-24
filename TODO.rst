@@ -1,11 +1,3 @@
-0.2.3 (CLUDA API change)
-========================
-
-* TODO: write a tutorial on modules
-* DECIDE: think of better way of module discovery in render keywords than looking inside AttrDicts. (see reikna.cluda.kernel.process_render_kwds)
-* DECIDE: positional arguments for modules?
-
-
 0.3.0 (Core API change)
 ========================
 
@@ -62,6 +54,7 @@
 * TODO: add ``Thread.fork()`` which creates another Thread with the same context and device but different queue.
   Also, how do we create a ``Thread`` with the same context, but different device?
   Or how do we create and use a ``Thread`` with several devices?
+* DECIDE: think of better way of module discovery in render keywords than looking inside AttrDicts. (see ``reikna.cluda.kernel.process_render_kwds``)
 
 
 1.0.0 (production-quality version... hopefully)
