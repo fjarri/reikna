@@ -26,7 +26,12 @@ def render_template(template, *args, **kwds):
     try:
         src = template.render(*args, **render_kwds)
     except:
-        error("Failed to render template:\n" + exceptions.text_error_template().render())
+        error(
+            "Failed to render template with"
+            "\nargs: {args}\nkwds: {kwds}\nsource:\n{source}\n"
+            "{exception}".format(
+                args=args, kwds=kwds, source=template.source,
+                exception=exceptions.text_error_template().render()))
         raise Exception("Template rendering failed")
     return src
 
