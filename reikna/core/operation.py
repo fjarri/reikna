@@ -119,9 +119,8 @@ class OperationRecorder:
         with necessary basis set and transformations connected.
         ``argnames`` list specifies which positional arguments will be passed to this kernel.
         """
-        for i, arg in enumerate(argnames):
-            if not isinstance(arg, str):
-                argnames[i] = self.add_scalar(arg)
+        argnames = [self.add_scalar(arg) if not isinstance(arg, str) else arg
+            for arg in argnames]
 
         argnames = [self._prefix + name for name in argnames]
         connections = self._tr_tree.connections_for(argnames)
