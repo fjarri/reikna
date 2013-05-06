@@ -174,7 +174,7 @@ class Computation:
     def leaf_signature(self):
         return self._tr_tree.leaf_signature()
 
-    def connect(self, tr, array_arg, new_array_args, new_scalar_args=None):
+    def connect(self, tr, array_arg, new_array_args, new_scalar_args=None, add_prefix=True):
         """
         Connects a :py:class:`~reikna.core.Transformation` instance to the computation.
         After the successful connection the computation resets to teh unprepared state.
@@ -189,6 +189,10 @@ class Computation:
 
         if new_scalar_args is None:
             new_scalar_args = []
+        if add_prefix:
+            array_arg = self._prefix + array_arg
+            new_array_args = [self._prefix + name for name in new_array_args]
+            new_scalar_args = [self._prefix + name for name in new_scalar_args]
         self._tr_tree.connect(tr, array_arg, new_array_args, new_scalar_args)
 
     def prepare_for(self, *args, **kwds):

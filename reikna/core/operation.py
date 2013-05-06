@@ -137,7 +137,8 @@ class OperationRecorder:
             array_arg = map_to_int(array_arg)
             new_array_args = map(map_to_int, new_array_args)
             new_scalar_args = map(map_to_int, new_scalar_args)
-            computation.connect(tr, array_arg, new_array_args, new_scalar_args)
+            computation.connect(tr, array_arg, new_array_args,
+                new_scalar_args=new_scalar_args, add_prefix=False)
 
         values = self._tr_tree.leaf_values_dict(argnames)
         ext_names = [map_to_ext(name) for name, _ in computation.leaf_signature()]
