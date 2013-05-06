@@ -51,7 +51,7 @@ class OperationRecorder:
         name = '_scalar' + str(self._scalar_counter)
         self._scalar_counter += 1
 
-        dtype = detect_type(x)
+        dtype = dtypes.detect_type(x)
         value = ScalarValue(dtype)
         self.values[self._prefix + name] = value
         self.scalars[self._prefix + name] = dtypes.cast(dtype)(x)
