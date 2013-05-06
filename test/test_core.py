@@ -89,9 +89,11 @@ class DummyNested(Computation):
     def _get_argnames(self):
         return ('C', 'D'), ('A', 'B'), ('coeff',)
 
-    def _get_basis_for(self, C, D, A, B, coeff):
+    def _get_basis_for(self, C, D, A, B, coeff, fixed_coeff=False):
         assert C.dtype == D.dtype == A.dtype == B.dtype
-        return dict(arr_dtype=C.dtype, coeff_dtype=coeff.dtype, size=C.size)
+        return dict(
+            arr_dtype=C.dtype, coeff_dtype=coeff.dtype, size=C.size,
+            fixed_coeff=coeff if fixed_coeff else None)
 
     def _get_argvalues(self, basis):
         av = ArrayValue((basis.size,), basis.arr_dtype)
@@ -102,7 +104,10 @@ class DummyNested(Computation):
         operations = self._get_operation_recorder()
         nested = self.get_nested_computation(Dummy)
         # note that the argument order is changed
-        operations.add_computation(nested, 'D', 'C', 'B', 'A', 'coeff')
+        if basis.fixed_coeff is None:
+            operations.add_computation(nested, 'D', 'C', 'B', 'A', 'coeff')
+        else:
+            operations.add_computation(nested, 'D', 'C', 'B', 'A', basis.fixed_coeff)
         return operations
 
 
@@ -364,7 +369,9 @@ def test_connection_to_base(thr):
     assert diff_is_negligible(thr.from_device(gpu_C_prime), C_prime)
     assert diff_is_negligible(thr.from_device(gpu_D), D)
 
-def test_nested(thr):
+
+@pytest.mark.parametrize('fixed_coeff', [False, True], ids=['var_coeff', 'fixed_coeff'])
+def test_nested(thr, fixed_coeff):
 
     coeff = numpy.float32(2)
     B_param = numpy.float32(3)

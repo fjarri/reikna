@@ -209,17 +209,18 @@ class Computation:
         if self._prefix == "":
             self._operations.finalize()
             self._kernels = self._operations.kernels
-            self._arrays = dict(self._operations.allocations)
-            self._arrays.update(self._operations._const_allocations)
+            self._internal_args = dict(self._operations.allocations)
+            self._internal_args.update(self._operations._const_allocations)
+            self._internal_args.update(self._operations.scalars)
 
             self._leaf_signature = self.leaf_signature()
 
-            arr_names = sorted(self._arrays.keys())
+            arg_names = sorted(self._internal_args.keys())
 
-            self._arrays_list = [self._arrays[name] for name in arr_names]
+            self._internal_args_list = [self._internal_args[name] for name in arg_names]
 
             array_to_int = {name:(i + len(self._leaf_signature))
-                for i, name in enumerate(arr_names)}
+                for i, name in enumerate(arg_names)}
             array_to_int.update({pair[0]:i for i, pair in enumerate(self._leaf_signature)})
 
             self._casts = [(lambda x: x) if value.is_array else cast(value.dtype)
@@ -272,7 +273,7 @@ class Computation:
                 " arguments (" + str(len(args)) + " given)")
 
         # Call kernels with argument list based on their base arguments
-        pos_args = [cast(arg) for cast, arg in zip(self._casts, args)] + self._arrays_list
+        pos_args = [cast(arg) for cast, arg in zip(self._casts, args)] + self._internal_args_list
         for kernel in self._kernels:
             op_args = [pos_args[i] for i in kernel.argnames_indices]
             kernel(*op_args)

@@ -16,10 +16,12 @@ class OperationRecorder:
         self.kernels = []
         self._allocations = {}
         self._const_allocations = {}
+        self.scalars = {}
         self._dependencies = defaultdict(set)
 
         self._temp_counter = 0
         self._const_counter = 0
+        self._scalar_counter = 0
 
     def add_allocation(self, shape, dtype):
         """
@@ -42,6 +44,17 @@ class OperationRecorder:
         value = ArrayValue(data.shape, data.dtype)
         self.values[self._prefix + name] = value
         self._const_allocations[self._prefix + name] = self._thr.to_device(data)
+        self._tr_tree.add_temp_node(self._prefix + name, value)
+        return name
+
+    def add_scalar(self, x):
+        name = '_scalar' + str(self._scalar_counter)
+        self._scalar_counter += 1
+
+        dtype = detect_type(x)
+        value = ScalarValue(dtype)
+        self.values[self._prefix + name] = value
+        self.scalars[self._prefix + name] = dtypes.cast(dtype)(x)
         self._tr_tree.add_temp_node(self._prefix + name, value)
         return name
 
@@ -106,6 +119,10 @@ class OperationRecorder:
         with necessary basis set and transformations connected.
         ``argnames`` list specifies which positional arguments will be passed to this kernel.
         """
+        for i, arg in enumerate(argnames):
+            if not isinstance(arg, str):
+                argnames[i] = self.add_scalar(arg)
+
         argnames = [self._prefix + name for name in argnames]
         connections = self._tr_tree.connections_for(argnames)
         int_argnames = computation.leaf_signature()

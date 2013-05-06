@@ -375,7 +375,7 @@ class TransformationTree:
 
         node = self.nodes[name]
 
-        if node.type == Node.SCALAR:
+        if node.type == Node.SCALAR or (node.type == Node.TEMP and not node.value.is_array):
             return ScalarArgument(node)
 
         if node.type == Node.TEMP:
