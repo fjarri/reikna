@@ -2,7 +2,7 @@ from collections import defaultdict
 
 from reikna.helpers import AttrDict
 import reikna.cluda.dtypes as dtypes
-from reikna.core.transformation import ArrayValue
+from reikna.core.transformation import ArrayValue, ScalarValue
 
 
 class OperationRecorder:
