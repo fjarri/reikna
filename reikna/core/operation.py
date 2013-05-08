@@ -176,8 +176,10 @@ class OperationRecorder:
         # and last in kernel N, all buffers in kernels from M+1 till N-1 depend on it
         # (in other words, data in X has to persist from call M till call N)
         usage = {}
-        watchlist = set(name for name, value in self.values.items()
-            if name not in self._const_allocations and value.is_array)
+
+        # We are interested in: 1) temporary allocations and 2) external array arguments
+        watchlist = set(self._allocations.keys())
+        watchlist.update(name for name, value in self.values.items() if value.is_array)
 
         for i, kernel in enumerate(self.kernels):
             for argname in kernel.argnames:
@@ -187,6 +189,7 @@ class OperationRecorder:
                     usage[argname][1] = i
                 else:
                     usage[argname] = [i, i]
+
         for name, pair in usage.items():
             start, end = pair
             if end - start < 2:

@@ -6,7 +6,7 @@ Release history
 0.3.0 (current development version)
 ===================================
 
-Under construction.
+* FIXED: bug in dependency inference algorithm which caused it to ignore allocations in nested computations
 
 
 0.2.3 (25 Apr 2013)
