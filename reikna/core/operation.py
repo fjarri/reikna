@@ -196,7 +196,7 @@ class OperationRecorder:
                 continue
             for i in range(start + 1, end):
                 for other_name in self.kernels[i].argnames:
-                    if other_name not in watchlist:
+                    if other_name not in watchlist or other_name == name:
                         continue
                     self._dependencies[name].add(other_name)
                     self._dependencies[other_name].add(name)
