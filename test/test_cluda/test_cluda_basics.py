@@ -6,6 +6,7 @@ import pytest
 import reikna.cluda as cluda
 import reikna.cluda.dtypes as dtypes
 import reikna.cluda.functions as functions
+from reikna.cluda import tempalloc
 from reikna.helpers import product
 
 from helpers import *
@@ -229,3 +230,79 @@ def test_find_local_size(thr_and_global_size):
 
     assert diff_is_negligible(dest_dev.get().ravel(),
         numpy.arange(product(global_size)).astype(numpy.int32))
+
+
+@pytest.mark.parametrize(
+    'tempalloc_cls',
+    [tempalloc.TrivialManager, tempalloc.ZeroOffsetManager],
+    ids=['trivial', 'zero_offset'])
+@pytest.mark.parametrize('pack', [False, True], ids=['no_pack', 'pack'])
+def test_tempalloc(cluda_api, tempalloc_cls, pack):
+
+    shape = (10000,)
+    dtype = numpy.int32
+    thr = cluda_api.Thread.create(temp_alloc=dict(
+        cls=tempalloc_cls, pack_on_alloc=False))
+
+    # Dependency graph for the test
+    dependencies = dict(
+        _temp0=[],
+        _temp1=['_temp9', '_temp8', '_temp3', '_temp5', '_temp4', '_temp7', '_temp6', 'input'],
+        _temp10=['output', '_temp7'],
+        _temp11=['_temp7'],
+        _temp2=['input'],
+        _temp3=['_temp1', 'input'],
+        _temp4=['_temp9', '_temp8', '_temp1', '_temp7', '_temp6'],
+        _temp5=['_temp1'],
+        _temp6=['_temp1', '_temp4'],
+        _temp7=['_temp9', '_temp1', '_temp4', 'output', '_temp11', '_temp10'],
+        _temp8=['_temp1', '_temp4'],
+        _temp9=['_temp1', '_temp4', '_temp7'],
+        input=['_temp1', '_temp3', '_temp2'],
+        output=['_temp10', '_temp7'])
+
+    program = thr.compile(
+    """
+    KERNEL void fill(GLOBAL_MEM ${ctype} *dest, ${ctype} val)
+    {
+      const int i = get_global_id(0);
+      dest[i] = val;
+    }
+
+    KERNEL void transfer(GLOBAL_MEM ${ctype} *dest, GLOBAL_MEM ${ctype} *src)
+    {
+      const int i = get_global_id(0);
+      dest[i] = src[i];
+    }
+    """, render_kwds=dict(ctype=dtypes.ctype(dtype)))
+    fill = program.fill
+    transfer = program.transfer
+
+    arrays = {}
+    transfer_dest = thr.array(shape, dtype)
+
+    # Allocate temporary arrays with dependencies
+    for name in sorted(dependencies.keys()):
+        deps = dependencies[name]
+        arr_deps = [arrays[d] for d in deps if d in arrays]
+        arrays[name] = thr.temp_array(shape, dtype, dependencies=arr_deps)
+        fill(arrays[name], dtype(0), global_size=shape)
+
+    if pack:
+        thr.temp_alloc.pack()
+
+    # Fill arrays with zeros
+    for name in sorted(dependencies.keys()):
+        deps = dependencies[name]
+        arr_deps = [arrays[d] for d in deps if d in arrays]
+        arrays[name] = thr.temp_array(shape, dtype, dependencies=arr_deps)
+        fill(arrays[name], dtype(0), global_size=shape)
+
+    for i, name in enumerate(sorted(dependencies.keys())):
+        val = dtype(i + 1)
+        fill(arrays[name], val, global_size=shape)
+        for dep in dependencies[name]:
+            # CUDA does not support get() for GPUArray with custom buffers,
+            # So we need to transfer the data to a normal array first.
+            transfer(transfer_dest, arrays[dep], global_size=shape)
+            assert (transfer_dest.get() != val).all()
