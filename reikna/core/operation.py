@@ -2,7 +2,7 @@ from collections import defaultdict
 
 from reikna.helpers import AttrDict
 import reikna.cluda.dtypes as dtypes
-from reikna.core.transformation import ArrayValue
+from reikna.core.transformation import ArrayValue, ScalarValue
 
 
 class OperationRecorder:
@@ -16,10 +16,12 @@ class OperationRecorder:
         self.kernels = []
         self._allocations = {}
         self._const_allocations = {}
+        self.scalars = {}
         self._dependencies = defaultdict(set)
 
         self._temp_counter = 0
         self._const_counter = 0
+        self._scalar_counter = 0
 
     def add_allocation(self, shape, dtype):
         """
@@ -42,6 +44,17 @@ class OperationRecorder:
         value = ArrayValue(data.shape, data.dtype)
         self.values[self._prefix + name] = value
         self._const_allocations[self._prefix + name] = self._thr.to_device(data)
+        self._tr_tree.add_temp_node(self._prefix + name, value)
+        return name
+
+    def add_scalar(self, x):
+        name = '_scalar' + str(self._scalar_counter)
+        self._scalar_counter += 1
+
+        dtype = dtypes.detect_type(x)
+        value = ScalarValue(dtype)
+        self.values[self._prefix + name] = value
+        self.scalars[self._prefix + name] = dtypes.cast(dtype)(x)
         self._tr_tree.add_temp_node(self._prefix + name, value)
         return name
 
@@ -106,6 +119,9 @@ class OperationRecorder:
         with necessary basis set and transformations connected.
         ``argnames`` list specifies which positional arguments will be passed to this kernel.
         """
+        argnames = [self.add_scalar(arg) if not isinstance(arg, str) else arg
+            for arg in argnames]
+
         argnames = [self._prefix + name for name in argnames]
         connections = self._tr_tree.connections_for(argnames)
         int_argnames = computation.leaf_signature()
@@ -120,7 +136,8 @@ class OperationRecorder:
             array_arg = map_to_int(array_arg)
             new_array_args = map(map_to_int, new_array_args)
             new_scalar_args = map(map_to_int, new_scalar_args)
-            computation.connect(tr, array_arg, new_array_args, new_scalar_args)
+            computation.connect(tr, array_arg, new_array_args,
+                new_scalar_args=new_scalar_args, add_prefix=False)
 
         values = self._tr_tree.leaf_values_dict(argnames)
         ext_names = [map_to_ext(name) for name, _ in computation.leaf_signature()]
@@ -159,8 +176,10 @@ class OperationRecorder:
         # and last in kernel N, all buffers in kernels from M+1 till N-1 depend on it
         # (in other words, data in X has to persist from call M till call N)
         usage = {}
-        watchlist = set(name for name, value in self.values.items()
-            if name not in self._const_allocations and value.is_array)
+
+        # We are interested in: 1) temporary allocations and 2) external array arguments
+        watchlist = set(self._allocations.keys())
+        watchlist.update(name for name, value in self.values.items() if value.is_array)
 
         for i, kernel in enumerate(self.kernels):
             for argname in kernel.argnames:
@@ -170,13 +189,14 @@ class OperationRecorder:
                     usage[argname][1] = i
                 else:
                     usage[argname] = [i, i]
+
         for name, pair in usage.items():
             start, end = pair
             if end - start < 2:
                 continue
             for i in range(start + 1, end):
                 for other_name in self.kernels[i].argnames:
-                    if other_name not in watchlist:
+                    if other_name not in watchlist or other_name == name:
                         continue
                     self._dependencies[name].add(other_name)
                     self._dependencies[other_name].add(name)

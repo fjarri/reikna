@@ -3,10 +3,15 @@ Release history
 ***************
 
 
-0.3.0 (current development version)
-===================================
+0.2.4 (11 May 2013)
+===================
 
-Under construction.
+* ADDED: ability to introduce new scalar arguments for nested computations
+  (the API is quite ugly at the moment).
+
+* FIXED: handling prefixes properly when connecting transformations to nested computations.
+
+* FIXED: bug in dependency inference algorithm which caused it to ignore allocations in nested computations.
 
 
 0.2.3 (25 Apr 2013)

@@ -174,7 +174,7 @@ class Computation:
     def leaf_signature(self):
         return self._tr_tree.leaf_signature()
 
-    def connect(self, tr, array_arg, new_array_args, new_scalar_args=None):
+    def connect(self, tr, array_arg, new_array_args, new_scalar_args=None, add_prefix=True):
         """
         Connects a :py:class:`~reikna.core.Transformation` instance to the computation.
         After the successful connection the computation resets to teh unprepared state.
@@ -189,6 +189,10 @@ class Computation:
 
         if new_scalar_args is None:
             new_scalar_args = []
+        if add_prefix:
+            array_arg = self._prefix + array_arg
+            new_array_args = [self._prefix + name for name in new_array_args]
+            new_scalar_args = [self._prefix + name for name in new_scalar_args]
         self._tr_tree.connect(tr, array_arg, new_array_args, new_scalar_args)
 
     def prepare_for(self, *args, **kwds):
@@ -209,17 +213,18 @@ class Computation:
         if self._prefix == "":
             self._operations.finalize()
             self._kernels = self._operations.kernels
-            self._arrays = dict(self._operations.allocations)
-            self._arrays.update(self._operations._const_allocations)
+            self._internal_args = dict(self._operations.allocations)
+            self._internal_args.update(self._operations._const_allocations)
+            self._internal_args.update(self._operations.scalars)
 
             self._leaf_signature = self.leaf_signature()
 
-            arr_names = sorted(self._arrays.keys())
+            arg_names = sorted(self._internal_args.keys())
 
-            self._arrays_list = [self._arrays[name] for name in arr_names]
+            self._internal_args_list = [self._internal_args[name] for name in arg_names]
 
             array_to_int = {name:(i + len(self._leaf_signature))
-                for i, name in enumerate(arr_names)}
+                for i, name in enumerate(arg_names)}
             array_to_int.update({pair[0]:i for i, pair in enumerate(self._leaf_signature)})
 
             self._casts = [(lambda x: x) if value.is_array else cast(value.dtype)
@@ -272,7 +277,7 @@ class Computation:
                 " arguments (" + str(len(args)) + " given)")
 
         # Call kernels with argument list based on their base arguments
-        pos_args = [cast(arg) for cast, arg in zip(self._casts, args)] + self._arrays_list
+        pos_args = [cast(arg) for cast, arg in zip(self._casts, args)] + self._internal_args_list
         for kernel in self._kernels:
             op_args = [pos_args[i] for i in kernel.argnames_indices]
             kernel(*op_args)
