@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.2.4 (current development version)
-===================================
+0.2.4 (11 May 2013)
+===================
 
 * ADDED: ability to introduce new scalar arguments for nested computations
   (the API is quite ugly at the moment).
