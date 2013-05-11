@@ -31,6 +31,9 @@
 * TODO: take not only CLUDA Thread as a parameter for computation constructor, but also CommandQueue, opencl Context, CUDA Stream and so on.
 
 * TODO: move some of the functionality to the top level of ``reikna`` module?
+* TODO: add ability to introduce new scalar values inside the Computation (same as new allocations for array values)
+* TODO: add ability to create output transformations with new inputs (o, i1, ... -> o1, o2)
+* TODO: allow transformation to access current ``idx``.
 
 
 0.3.1
