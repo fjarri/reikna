@@ -5,7 +5,7 @@ from mako import exceptions
 
 import reikna.helpers as helpers
 from reikna.helpers import AttrDict, template_for, template_from, \
-    template_def, extract_argspec_and_value
+    template_def, template_argspec, extract_argspec_and_value
 from reikna.cluda import dtypes
 
 
@@ -39,6 +39,7 @@ def render_template(template, *args, **kwds):
 class BaseModule:
     def __init__(self, template, render_kwds=None, snippet=False):
         self.template = template_from(template)
+        self.argspec = template_argspec(self.template)
         self.render_kwds = {} if render_kwds is None else dict(render_kwds)
         self.snippet = snippet
 
@@ -53,6 +54,11 @@ class Snippet(BaseModule):
     :type template_src: ``str`` or ``Mako`` template.
     :param render_kwds: a dictionary which will be used to render the template.
         Can contain other modules and snippets.
+
+    .. py:attribute:: argspec
+
+        An ``ArgSpec`` named tuple with the template's signature
+        (see ``inspect`` module for details).
     """
 
     def __init__(self, template_src, render_kwds=None):
@@ -78,6 +84,11 @@ class Module(BaseModule):
     :type template_src: ``str`` or ``Mako`` template.
     :param render_kwds: a dictionary which will be used to render the template.
         Can contain other modules and snippets.
+
+    .. py:attribute:: argspec
+
+        An ``ArgSpec`` named tuple with the template's signature
+        (see ``inspect`` module for details).
     """
 
     def __init__(self, template_src, render_kwds=None):
