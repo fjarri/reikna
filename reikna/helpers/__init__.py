@@ -79,6 +79,13 @@ def template_def(argspec, code):
     return template_from(template_src).get_def('_func')
 
 
+def template_argspec(template_def):
+    argspec = inspect.getargspec(template_def.callable_)
+    # Trim the first positional argument before returns;
+    # it is an internal Mako ``context`` argument.
+    return inspect.ArgSpec(argspec.args[1:], argspec.varargs, argspec.keywords, argspec.defaults)
+
+
 def template_for(filename):
     """
     Returns the Mako template object created from the file
