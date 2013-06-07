@@ -63,18 +63,19 @@ def extract_argspec_and_value(argspec_func):
 
 def template_def(argspec, code):
     """
-    Constructs a ``Mako`` template def.
+    Returns a ``Mako`` template with the given ``argspec``.
 
     :param argspec: a list of postitional argument names, or a named tuple ``ArgSpec``
         (returned from Python's standard :py:func:``inspect.getargspec``,
         see the documentation for ``inspect`` module for details).
     :code: a body of the template.
     """
-    if isinstance(argspec, inspect.ArgSpec):
-        argspec = inspect.formatargspec(*argspec)
-    else:
-        argspec = "(" + ", ".join(argspec) + ")"
-    template_src = "<%def name='_func" + argspec + "'>\n" + code + "\n</%def>"
+    if not isinstance(argspec, inspect.ArgSpec):
+        # treating ``argspec`` as a list of positional arguments
+        argspec = inspect.ArgSpec(argspec, None, None, None)
+
+    argspec_str = inspect.formatargspec(*argspec)
+    template_src = "<%def name='_func" + argspec_str + "'>\n" + code + "\n</%def>"
     return template_from(template_src).get_def('_func')
 
 
