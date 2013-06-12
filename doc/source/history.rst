@@ -6,6 +6,7 @@ Release history
 0.3.0 (current development version)
 ===================================
 
+* ADDED: argspecs for snippets and modules
 
 * FIXED: undefined variable in functions.exp() template (reported by Tibault North)
 
