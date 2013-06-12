@@ -12,7 +12,7 @@ Release history
 
 * FIXED: incorrect behavior of functions.norm() for non-complex arguments.
 
-* FIXED: undefined variable in functions.exp() template (reported by Tibault North)
+* FIXED: undefined variable in functions.exp() template (reported by Thibault North)
 
 
 0.2.4 (11 May 2013)
