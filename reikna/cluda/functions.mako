@@ -111,7 +111,7 @@ WITHIN_KERNEL ${dtypes.ctype(out_dtype)} ${prefix}(
         result = "a.x * a.x + a.y * a.y"
     else:
         out_dtype = dtype
-        result = "abs(a)"
+        result = "a * a"
 %>
 WITHIN_KERNEL ${dtypes.ctype(out_dtype)} ${prefix}(${dtypes.ctype(dtype)} a)
 {

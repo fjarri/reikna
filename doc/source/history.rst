@@ -8,6 +8,8 @@ Release history
 
 * ADDED: argspecs for snippets and modules
 
+* FIXED: incorrect behavior of functions.norm() for non-complex arguments.
+
 * FIXED: undefined variable in functions.exp() template (reported by Tibault North)
 
 
