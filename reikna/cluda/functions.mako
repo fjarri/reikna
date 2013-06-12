@@ -128,7 +128,13 @@ WITHIN_KERNEL ${dtypes.ctype(dtype)} ${prefix}(${dtypes.ctype(dtype)} a)
 </%def>
 
 
-<%def name="sincos(dtype)">
+<%def name="sincos(prefix, dtype)">
+<%
+    c_ctype = dtypes.ctype(dtypes.complex_for(dtype))
+    s_ctype = dtypes.ctype(dtype)
+%>
+WITHIN_KERNEL ${c_ctype} sincos${prefix}(${s_ctype} theta)
+{
     ${dtypes.ctype(dtypes.complex_for(dtype))} res;
 
     #ifdef CUDA
@@ -141,23 +147,30 @@ WITHIN_KERNEL ${dtypes.ctype(dtype)} ${prefix}(${dtypes.ctype(dtype)} a)
         res.y = native_sin(theta);
     #else
     %endif
-        ${dtypes.ctype(dtype)} tmp;
+        ${s_ctype} tmp;
         res.y = sincos(theta, &tmp);
         res.x = tmp;
     %if not dtypes.is_double(dtype):
     #endif
     %endif
     #endif
+
+    return res;
+}
 </%def>
 
 
 <%def name="exp(prefix)">
+%if not dtypes.is_real(dtype):
+${sincos(prefix, dtypes.real_for(dtype))}
+%endif
+
 WITHIN_KERNEL ${dtypes.ctype(dtype)} ${prefix}(${dtypes.ctype(dtype)} a)
 {
     %if dtypes.is_real(dtype):
     return exp(a);
     %else:
-    ${sincos(dtypes.real_for(dtype))}
+    ${dtypes.ctype(dtype)} res = sincos${prefix}(a.y);
     ${dtypes.ctype(dtypes.real_for(dtype))} rho = exp(a.x);
     res.x *= rho;
     res.y *= rho;
@@ -171,10 +184,13 @@ WITHIN_KERNEL ${dtypes.ctype(dtype)} ${prefix}(${dtypes.ctype(dtype)} a)
 <%
     out_dtype = dtypes.complex_for(dtype)
 %>
+
+${sincos(prefix, dtype)}
+
 WITHIN_KERNEL ${dtypes.ctype(out_dtype)} ${prefix}(
     ${dtypes.ctype(dtype)} rho, ${dtypes.ctype(dtype)} theta)
 {
-    ${sincos(dtype)}
+    ${dtypes.ctype(out_dtype)} res = sincos${prefix}(theta);
     res.x *= rho;
     res.y *= rho;
     return res;

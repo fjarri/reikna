@@ -6,7 +6,8 @@ Release history
 0.3.0 (current development version)
 ===================================
 
-Under construction.
+
+* FIXED: undefined variable in functions.exp() template (reported by Tibault North)
 
 
 0.2.4 (11 May 2013)
