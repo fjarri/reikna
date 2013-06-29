@@ -1,63 +1,40 @@
 0.3.0 (Core API change)
 ========================
 
-* TODO: add comments to ``core.transformation`` and refactor its templates
 * TODO: change the misleading name Elementwise to PureParallel (or something)
-* TODO: use classes instead of functions transformations
-
-* DECIDE: keyword arguments only?
-
-  * can mark an argument as both input and output
-  * easier to construct and return signature
-  * easier to handle internally
-  * can return dependencies between external arguments with the signature
-  * can allow to omit some of the positional arguments during the preparation
-    and deduce their shape (i.e., direction in FFT)
-  * arguments (and their types/shapes) can be available as attributes of the computation object
-  * any disadvantages?
-
-* DECIDE: several methods in the same Computations?
-
-  * FFT, DHT, CBRNG can take advantage of that
-  * connect as ``fft.forward.output.connect(...)``
-  * which method prepare_for() uses? Or just use some general prepare()?
-
-* TODO: use different classes for different states of Computation
-
-  * ready for setting arglist: ComputationFactory?
-  * ready for connects/prepare: ComputationTemplate?
-  * ready for calls: Computation
-
 * TODO: take not only CLUDA Thread as a parameter for computation constructor, but also CommandQueue, opencl Context, CUDA Stream and so on.
-
 * TODO: move some of the functionality to the top level of ``reikna`` module?
-* TODO: add ability to introduce new scalar values inside the Computation (same as new allocations for array values)
-* TODO: add ability to create output transformations with new inputs (o, i1, ... -> o1, o2)
-* TODO: allow transformation to access current ``idx``.
-
+* TODO: check if Signature.bind() is too slow in the kernel call; perhaps we will have to rewrite it taking into account restrictions to Parameter types we have.
+* TODO: rewrite all internal classes using ``collections.namedtuple`` factory to force their immutability.
+* DECIDE: need to make available only those ``ComputationArgument`` objects that are actually usable: root ones for the plan creator, and all for the user connecting transformations.
+But techically the plan creator does not know anything about connections anyway, so it is not that important.
+* DECIDE: pass ``kernel_definition`` as a positional argument to a kernel template def?
+* DECIDE: when we are connecting a transformation to an existing scalar parameter, during the leaf signature building it moves from its place, which may seem a bit surprising. Should we attempt to keep it at the same place? Like, keep all parameters with default values at the end (thus breaking the "depth first" order, of course)?
+* DECIDE: misleading use of the word "dependencies" on CLUDA level and on Computation level: in the latter they are rather "decorrelations" and can exist, say, between two input nodes.
 
 0.3.1
 =====
 
 * TODO: use modules in ``CBRNG``
 * DECIDE: add ability to manually override inferred dependencies?
-* TODO: add support for arrays with aligned rows (mem_alloc_pitch() in PyCuda).
-  This should make non-power-of-2 FFT much faster.
 * DECIDE: move all "raw" computations to their own submodule?
-* TODO: document _debug usage
-* TODO: add a global DEBUG variable that will create all computations in debug mode by default
-* TODO: add "dynamic regime"
 * TODO: run coverage tests and see if some functionality has to be tested,
   and check existing testcases for redundancy (fft and vsizes in particular)
 * TODO: run pylint
-* TODO: create "fallback" when if _construct_operations() does not catch OutOfResources,
+* TODO: create "fallback" when if _build_plan() does not catch OutOfResources,
   it is called again with reduced local size
 * TODO: add special optimized kernel for matrix-vector multiplication in MatrixMul.
   Or create specific matrix-vector and vector-vector computations?
 * TODO: add ``Thread.fork()`` which creates another Thread with the same context and device but different queue.
   Also, how do we create a ``Thread`` with the same context, but different device?
   Or how do we create and use a ``Thread`` with several devices?
-* DECIDE: think of better way of module discovery in render keywords than looking inside AttrDicts. (see ``reikna.cluda.kernel.process_render_kwds``)
+* TODO: reduction with multiple predicates on a single (or multiple too?) array.
+  Basically, the first stage has to be modified to store results in several arrays and then several separate reductions can be performed.
+* TODO: implement custom structures as types (will also require updating the strides-to-flat-index algorithm)
+* DECIDE: do something about the inconsistency of array shapes (row-major) and global sizes (column-major). Special get_id() functions maybe?
+* DECIDE: add ``load_flat``/``store_flat`` to argobjects?
+* TODO: use Graph class in cluda.temparray
+* DECIDE: when passing scalar to plan.kernel_call(), there's no typecheck (and the only check that happens is during execution). Need to somehow query the kernel about type of its parameters.
 
 
 1.0.0 (production-quality version... hopefully)
@@ -110,6 +87,7 @@ Core:
 
 * DECIDE: Some mechanism to merge together two successive Computation calls. Will require an API to tell reikna that certain computations are executed together, plus some way to determine if the computation is local and elementwise (otherwise the connection will require the change of code).
 
+* DECIDE: Some mechanism to detect when two transformations are reading from the same node at the same index, and only read the global memory once. This can be done by storing node results in kernel-global variables instead of chaining functions like it's done now. The problem is that we have to be able to distinguish between several loads from the same node at different indices.
 
 2.*
 ===
