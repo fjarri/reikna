@@ -246,17 +246,17 @@ class Thread:
         """
         raise NotImplementedError()
 
-    def array(self, shape, dtype, allocator=None):
+    def array(self, shape, dtype, strides=None, allocator=None):
         """
-        Creates an :py:class:`Array` on GPU with given ``shape`` and ``dtype``.
+        Creates an :py:class:`Array` on GPU with given ``shape``, ``dtype`` and ``strides``.
         Optionally, an ``allocator`` is a callable returning any object castable to ``int``
         representing the physical address on the device (for instance, :py:class:`Buffer`).
         """
         raise NotImplementedError()
 
-    def temp_array(self, shape, dtype, dependencies=None):
+    def temp_array(self, shape, dtype, strides=None, dependencies=None):
         """
-        Creates an :py:class:`Array` on GPU with given ``shape`` and ``dtype``.
+        Creates an :py:class:`Array` on GPU with given ``shape``, ``dtype`` and ``strides``.
         In order to reduce the memory footprint of the program, the temporary array manager
         will allow these arrays to overlap.
         Two arrays will not overlap, if one of them was specified in ``dependencies``
@@ -264,13 +264,17 @@ class Thread:
         For a list of values ``dependencies`` takes, see the reference entry for
         :py:class:`~reikna.cluda.tempalloc.TemporaryManager`.
         """
-        return self.temp_alloc.array(shape, dtype, dependencies=dependencies)
+        return self.temp_alloc.array(shape, dtype, strides=strides, dependencies=dependencies)
 
     def empty_like(self, arr):
         """
-        Allocates an array on GPU with the same shape and dtype as ``arr``.
+        Allocates an array on GPU with the same attributes as ``arr``.
         """
-        return self.array(arr.shape, arr.dtype)
+        if hasattr(arr, 'allocator'):
+            allocator = arr.allocator
+        else:
+            allocator = None
+        return self.array(arr.shape, arr.dtype, strides=arr.strides, allocator=allocator)
 
     def to_device(self, arr, dest=None):
         """

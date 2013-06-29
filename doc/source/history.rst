@@ -12,6 +12,8 @@ Release history
 
 * ADDED: module/snippet attributes discovery protocol for custom objects.
 
+* ADDED: strides support to array allocation functions in CLUDA.
+
 * FIXED: incorrect behavior of functions.norm() for non-complex arguments.
 
 * FIXED: undefined variable in functions.exp() template (reported by Thibault North)

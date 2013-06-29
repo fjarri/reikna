@@ -39,12 +39,13 @@ class TemporaryManager:
         self._pack_on_alloc = pack_on_alloc
         self._pack_on_free = pack_on_free
 
-    def array(self, shape, dtype, dependencies=None):
+    def array(self, shape, dtype, strides=None, dependencies=None):
         """
         Returns a temporary array.
 
         :param shape: shape of the array.
         :param dtype: data type of the array.
+        :param strides: tuple of bytes to step in each dimension when traversing an array.
         :param dependencies: can be a :py:class:`~reikna.cluda.api.Array` instance
             (the ones containing persistent allocations will be ignored),
             an iterable with valid values,
@@ -61,7 +62,7 @@ class TemporaryManager:
         self._id_counter += 1
 
         allocator = DummyAllocator()
-        array = self._thr.array(shape, dtype, allocator=allocator)
+        array = self._thr.array(shape, dtype, strides=strides, allocator=allocator)
         array.__tempalloc_id__ = new_id
 
         dependencies = extract_dependencies(dependencies)
