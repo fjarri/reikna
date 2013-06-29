@@ -1,7 +1,7 @@
 import sys
 major, minor, _, _, _ = sys.version_info
-if not ((major == 2 and minor >= 5) or major >= 3):
-    print("Python >=2.5 is required to use this module.")
+if not ((major == 2 and minor >= 6) or (major == 3 and minor >= 2)):
+    print("Python >=2.6 or >=3.2 is required to use this module.")
     sys.exit(1)
 
 try:
@@ -130,7 +130,8 @@ if __name__ == '__main__':
     # seuptool's ``install_requires`` and distutil's ``requires`` have slightly different format
     dependencies = [
         ('mako', '>= 0.8.0'),
-        ('numpy', '>= 1.6.0')]
+        ('numpy', '>= 1.6.0'),
+        ('funcsigs', '>= 0.3')]
     requires = list(map(lambda nr: nr[0] + '(' + nr[1] + ')', dependencies))
     install_requires = list(map(lambda nr: nr[0] + ' ' + nr[1], dependencies))
 

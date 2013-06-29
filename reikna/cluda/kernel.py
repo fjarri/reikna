@@ -5,7 +5,7 @@ from mako import exceptions
 
 import reikna.helpers as helpers
 from reikna.helpers import AttrDict, template_for, template_from, \
-    template_def, template_argspec, extract_argspec_and_value
+    template_def, extract_signature_and_value
 from reikna.cluda import dtypes
 
 
@@ -46,26 +46,20 @@ class Snippet:
     :type template_src: ``str`` or ``Mako`` template.
     :param render_kwds: a dictionary which will be used to render the template.
         Can contain other modules and snippets.
-
-    .. py:attribute:: argspec
-
-        An ``ArgSpec`` named tuple with the template's signature
-        (see ``inspect`` module for details).
     """
 
     def __init__(self, template_src, render_kwds=None):
         self.template = template_from(template_src)
-        self.argspec = template_argspec(self.template)
         self.render_kwds = {} if render_kwds is None else dict(render_kwds)
 
     @classmethod
-    def create(cls, argspec_func, render_kwds=None):
+    def create(cls, signature_func, render_kwds=None):
         """
-        Creates a snippet from the ``Mako`` def with the same signature as ``argspec_func``
+        Creates a snippet from the ``Mako`` def with the same signature as ``signature_func``
         and the body equal to the string it returns.
         """
-        argspec, code = extract_argspec_and_value(argspec_func)
-        return cls(template_def(argspec, code), render_kwds=render_kwds)
+        signature, code = extract_signature_and_value(signature_func)
+        return cls(template_def(signature, code), render_kwds=render_kwds)
 
 
 class Module:
@@ -78,16 +72,10 @@ class Module:
     :type template_src: ``str`` or ``Mako`` template.
     :param render_kwds: a dictionary which will be used to render the template.
         Can contain other modules and snippets.
-
-    .. py:attribute:: argspec
-
-        An ``ArgSpec`` named tuple with the template's signature
-        (see ``inspect`` module for details).
     """
 
     def __init__(self, template_src, render_kwds=None):
         self.template = template_from(template_src)
-        self.argspec = template_argspec(self.template)
         self.render_kwds = {} if render_kwds is None else dict(render_kwds)
 
     @classmethod

@@ -9,6 +9,7 @@ import collections
 import os.path
 import warnings
 import inspect
+import funcsigs
 
 from mako.template import Template
 
@@ -70,41 +71,33 @@ def template_from(template):
         return make_template(template)
 
 
-def extract_argspec_and_value(argspec_func):
-    if not inspect.isfunction(argspec_func):
+def extract_signature_and_value(func):
+    if not inspect.isfunction(func):
         raise ValueError("A function is required")
 
-    argspec = inspect.getargspec(argspec_func)
+    signature = funcsigs.signature(func)
 
     # pass mock values to extract the value
-    args = [None] * len(argspec.args) if argspec.args is not None else []
-    kwds = {k:None for k in argspec.keywords} if argspec.keywords is not None else {}
-    return argspec, argspec_func(*args, **kwds)
+    args = [None] * len(signature.parameters)
+    return signature, func(*args)
 
 
-def template_def(argspec, code):
+def template_def(signature, code):
     """
-    Returns a ``Mako`` template with the given ``argspec``.
+    Returns a ``Mako`` template with the given ``signature``.
 
-    :param argspec: a list of postitional argument names, or a named tuple ``ArgSpec``
-        (returned from Python's standard :py:func:``inspect.getargspec``,
-        see the documentation for ``inspect`` module for details).
+    :param signature: a list of postitional argument names,
+        or a ``Signature`` object from ``funcsigs`` module.
     :code: a body of the template.
     """
-    if not isinstance(argspec, inspect.ArgSpec):
-        # treating ``argspec`` as a list of positional arguments
-        argspec = inspect.ArgSpec(argspec, None, None, None)
+    if not isinstance(signature, funcsigs.Signature):
+        # treating ``signature`` as a list of positional arguments
+        # HACK: Signature or Parameter constructors are not documented.
+        kind = funcsigs.Parameter.POSITIONAL_OR_KEYWORD
+        signature = funcsigs.Signature([funcsigs.Parameter(name, kind=kind) for name in signature])
 
-    argspec_str = inspect.formatargspec(*argspec)
-    template_src = "<%def name='_func" + argspec_str + "'>\n" + code + "\n</%def>"
+    template_src = "<%def name='_func" + str(signature) + "'>\n" + code + "\n</%def>"
     return template_from(template_src).get_def('_func')
-
-
-def template_argspec(template_def):
-    argspec = inspect.getargspec(template_def.callable_)
-    # Trim the first positional argument before returns;
-    # it is an internal Mako ``context`` argument.
-    return inspect.ArgSpec(argspec.args[1:], argspec.varargs, argspec.keywords, argspec.defaults)
 
 
 def template_for(filename):

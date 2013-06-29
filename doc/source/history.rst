@@ -6,9 +6,9 @@ Release history
 0.3.0 (current development version)
 ===================================
 
-* ADDED: argspecs for snippets and modules
+* Bumped Python requirements to >=2.6 or >=3.2, and added a dependency on ``funcsig``.
 
-* ADDED: more tests for cluda.functions
+* ADDED: more tests for cluda.functions.
 
 * ADDED: module/snippet attributes discovery protocol for custom objects.
 
@@ -16,7 +16,7 @@ Release history
 
 * FIXED: incorrect behavior of functions.norm() for non-complex arguments.
 
-* FIXED: undefined variable in functions.exp() template (reported by Thibault North)
+* FIXED: undefined variable in functions.exp() template (reported by Thibault North).
 
 
 0.2.4 (11 May 2013)
