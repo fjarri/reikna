@@ -3,8 +3,6 @@ import gc, re
 
 import numpy
 
-from reikna.cluda import find_devices
-
 
 def get_apis(config):
     """
@@ -29,6 +27,8 @@ def get_threads(config, vary_fast_math=False):
     """
     Create a list of thread creators, based on command line options and their availability.
     """
+    # if we import it in the header, it messes up with coverage results
+    from reikna.cluda import find_devices
 
     class ThrCreator:
         def __init__(self, api, pnum, dnum, fast_math=None):
