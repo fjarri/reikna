@@ -38,6 +38,24 @@ def product(seq):
     return functools.reduce(lambda x1, x2: x1 * x2, seq, 1)
 
 
+def make_template(template, filename=False):
+    # Can't import submodules from reikna itself here, because it creates circular dependencies
+    # (computation modules have template_for() calls at the root level,
+    # so they get activated on import).
+    kwds = dict(
+        future_imports=['division'],
+        strict_undefined=True,
+        imports=['import numpy'])
+
+    # Creating a template from a filename results in more comprehensible stack traces,
+    # so we are taking advantage of this if possible.
+    if filename:
+        kwds['filename'] = template
+        return Template(**kwds)
+    else:
+        return Template(template, **kwds)
+
+
 def template_from(template):
     """
     Creates a Mako template object from a given string.
@@ -46,7 +64,7 @@ def template_from(template):
     if hasattr(template, 'render'):
         return template
     else:
-        return Template(template, future_imports=['division'])
+        return make_template(template)
 
 
 def extract_argspec_and_value(argspec_func):
@@ -93,7 +111,7 @@ def template_for(filename):
     Typically used in computation modules as ``template_for(__filename__)``.
     """
     name, ext = os.path.splitext(os.path.abspath(filename))
-    return Template(filename=name + '.mako', future_imports=['division'])
+    return make_template(name + '.mako', filename=True)
 
 
 def min_blocks(length, block):

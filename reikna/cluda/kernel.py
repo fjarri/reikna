@@ -19,7 +19,7 @@ def render_prelude(thr):
 
 def render_template(template, *args, **kwds):
     # add some "built-ins" to the kernel
-    render_kwds = dict(dtypes=dtypes, numpy=numpy, helpers=helpers)
+    render_kwds = dict(dtypes=dtypes, helpers=helpers)
     assert set(render_kwds).isdisjoint(set(kwds))
     render_kwds.update(kwds)
 
