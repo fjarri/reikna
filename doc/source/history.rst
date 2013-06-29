@@ -10,6 +10,8 @@ Release history
 
 * ADDED: more tests for cluda.functions
 
+* ADDED: module/snippet attributes discovery protocol for custom objects.
+
 * FIXED: incorrect behavior of functions.norm() for non-complex arguments.
 
 * FIXED: undefined variable in functions.exp() template (reported by Thibault North)

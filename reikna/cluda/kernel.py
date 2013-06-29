@@ -36,15 +36,7 @@ def render_template(template, *args, **kwds):
     return src
 
 
-class BaseModule:
-    def __init__(self, template, render_kwds=None, snippet=False):
-        self.template = template_from(template)
-        self.argspec = template_argspec(self.template)
-        self.render_kwds = {} if render_kwds is None else dict(render_kwds)
-        self.snippet = snippet
-
-
-class Snippet(BaseModule):
+class Snippet:
     """
     Contains a CLUDA snippet.
     See :ref:`tutorial-modules` for details.
@@ -62,7 +54,9 @@ class Snippet(BaseModule):
     """
 
     def __init__(self, template_src, render_kwds=None):
-        BaseModule.__init__(self, template_src, render_kwds=render_kwds, snippet=True)
+        self.template = template_from(template_src)
+        self.argspec = template_argspec(self.template)
+        self.render_kwds = {} if render_kwds is None else dict(render_kwds)
 
     @classmethod
     def create(cls, argspec_func, render_kwds=None):
@@ -74,7 +68,7 @@ class Snippet(BaseModule):
         return cls(template_def(argspec, code), render_kwds=render_kwds)
 
 
-class Module(BaseModule):
+class Module:
     """
     Contains a CLUDA module.
     See :ref:`tutorial-modules` for details.
@@ -92,7 +86,9 @@ class Module(BaseModule):
     """
 
     def __init__(self, template_src, render_kwds=None):
-        BaseModule.__init__(self, template_src, render_kwds=render_kwds, snippet=False)
+        self.template = template_from(template_src)
+        self.argspec = template_argspec(self.template)
+        self.render_kwds = {} if render_kwds is None else dict(render_kwds)
 
     @classmethod
     def create(cls, code, render_kwds=None):
@@ -103,59 +99,43 @@ class Module(BaseModule):
         return cls(template_def(['prefix'], code), render_kwds=render_kwds)
 
 
-class ProcessedModule(AttrDict): pass
+class Renderable:
+    def __init__(self, template_def, render_kwds):
+        self.template_def = template_def
+        self.render_kwds = render_kwds
+
+    def __call__(self, *args):
+        return render_template(self.template_def, *args, **self.render_kwds)
 
 
-def traverse_data(target_cls, target_func, accum, val):
-    traverse = lambda v: traverse_data(target_cls, target_func, accum, v)
+def process(obj, renderables):
 
-    if isinstance(val, target_cls):
-        return target_func(accum, traverse, val)
-    elif isinstance(val, AttrDict):
-        return AttrDict({k:traverse(v) for k, v in val.items()})
-    elif isinstance(val, dict):
-        return {k:traverse(v) for k, v in val.items()}
-    elif isinstance(val, tuple):
-        return tuple(traverse(v) for v in val)
-    elif isinstance(val, list):
-        return [traverse(v) for v in val]
-    else:
-        return val
+    if isinstance(obj, Snippet):
+        render_kwds = process(obj.render_kwds, renderables)
+        return Renderable(obj.template, render_kwds)
 
+    elif isinstance(obj, Module):
+        render_kwds = process(obj.render_kwds, renderables)
+        prefix = "_module" + str(len(renderables)) + "_"
 
-def flatten_module(module_list, traverse, module):
+        module_renderable = Renderable(obj.template, render_kwds)
+        wrapper_renderable = Renderable(
+            template_from("""\n${module(prefix)}\n"""),
+            render_kwds=dict(module=module_renderable, prefix=prefix))
 
-    processed_module = ProcessedModule(
-        template=module.template,
-        render_kwds=traverse(module.render_kwds))
-
-    if not module.snippet:
-        prefix = "_module" + str(len(module_list)) + "_"
-        module_list.append(ProcessedModule(
-            template=template_from("""\n${module(prefix)}\n"""),
-            render_kwds=dict(module=processed_module, prefix=prefix)))
+        renderables.append(wrapper_renderable)
         return prefix
+
+    elif hasattr(obj, '__process_modules__'):
+        return obj.__process_modules__(lambda x: process(x, renderables))
+    elif isinstance(obj, dict):
+        return {k:process(v, renderables) for k, v in obj.items()}
+    elif isinstance(obj, tuple):
+        return tuple(process(v, renderables) for v in obj)
+    elif isinstance(obj, list):
+        return [process(v, renderables) for v in obj]
     else:
-        return processed_module
-
-
-def flatten_module_tree(src, args, render_kwds):
-    main_module = Snippet(src, render_kwds=render_kwds)
-    module_list = []
-    traverse = lambda v: traverse_data(BaseModule, flatten_module, module_list, v)
-    args = traverse(args)
-    main_module = traverse(main_module)
-    module_list.append(main_module)
-    return args, module_list
-
-
-def create_renderer(_, traverse, pm):
-    pm.render_kwds = traverse(pm.render_kwds)
-    return lambda *args: render_template(pm.template, *args, **pm.render_kwds)
-
-
-def create_renderer_tree(pm):
-    return traverse_data(ProcessedModule, create_renderer, None, pm)
+        return obj
 
 
 def render_template_source(src, render_args=None, render_kwds=None):
@@ -165,9 +145,11 @@ def render_template_source(src, render_args=None, render_kwds=None):
     if render_kwds is None:
         render_kwds = {}
 
-    args, module_list = flatten_module_tree(src, render_args, render_kwds)
-    renderers = [create_renderer_tree(pm) for pm in module_list]
-    src_list = [render() for render in renderers[:-1]]
-    src_list.append(renderers[-1](*args))
+    renderables = []
+    render_args = process(render_args, renderables)
+    main_renderable = process(Snippet(src, render_kwds=render_kwds), renderables)
+
+    src_list = [renderable() for renderable in renderables]
+    src_list.append(main_renderable(*render_args))
 
     return "\n\n".join(src_list)

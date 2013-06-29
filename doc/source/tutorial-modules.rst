@@ -175,6 +175,29 @@ The shortcut constructor creates a ``Mako`` def with a single argument called ``
 Of course, both :py:class:`~reikna.cluda.Snippet` and :py:class:`~reikna.cluda.Module` constructors can take already created ``Mako`` defs, which is convenient if you keep templates in a separate file.
 
 
+Module and snippet discovery
+============================
+
+Sometimes you may want to pass a module or a snippet inside a template as an attribute of a custom object.
+In order for CLUDA to be able to discover and process it without modifying your original object, you need to make your object comply to a discovery protocol.
+The protocol method takes a processing function and is expected to return a **new object** of the same class with the processing function applied to all the attributes that may contain a module or a snippet.
+By default, objects of type ``tuple``, ``list``, ``dict`` and :py:class:`~reikna.helpers.AttrDict` are discoverable.
+
+For example:
+
+::
+
+    class MyClass:
+
+        def __init__(self, coeff, mul_module, div_module):
+            self.coeff = coeff
+            self.mul = mul_module
+            self.div = div_module
+
+        def __process_modules__(self, process):
+            return MyClass(self.coeff, process(self.mul), process(self.div))
+
+
 Nontrivial example
 ==================
 

@@ -26,6 +26,9 @@ class AttrDict(dict):
     def __setattr__(self, attr, value):
         self[attr] = value
 
+    def __process_modules__(self, process):
+        return AttrDict({k:process(v) for k, v in self.items()})
+
     def __repr__(self):
         return "AttrDict(" + \
             ", ".join((key + "=" + repr(value)) for key, value in self.items()) + ")"
