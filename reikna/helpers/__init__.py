@@ -5,6 +5,7 @@ This module contains various auxiliary functions which are used throughout the l
 from __future__ import division
 
 import functools
+import itertools
 import collections
 import os.path
 import warnings
@@ -33,6 +34,54 @@ class AttrDict(dict):
     def __repr__(self):
         return "AttrDict(" + \
             ", ".join((key + "=" + repr(value)) for key, value in self.items()) + ")"
+
+
+class Graph:
+
+    def __init__(self, pairs=None):
+        self._pairs = set()
+        self._nodes = collections.defaultdict(lambda: set())
+        if pairs is not None:
+            self.add_edges(pairs)
+
+    def add_edge(self, node1, node2):
+        assert node1 != node2
+        self._nodes[node1].add(node2)
+        self._nodes[node2].add(node1)
+        self._pairs.add(tuple(sorted((node1, node2))))
+
+    def add_edges(self, pairs):
+        for node1, node2 in pairs:
+            self.add_edge(node1, node2)
+
+    def add_graph(self, graph):
+        for node1, node2 in graph.pairs():
+            self.add_edge(node1, node2)
+
+    def add_cluster(self, nodes):
+        self.add_edges([
+            (node1, node2) for node1, node2
+            in itertools.product(nodes, nodes)
+            if node1 != node2])
+
+    def remove_node(self, node):
+        deps = self._nodes[node]
+        for dep in deps:
+            self._nodes[dep].remove(node)
+            self._pairs.remove(tuple(sorted((node, dep))))
+        del self._nodes[node]
+
+    def __getitem__(self, node):
+        return self._nodes[node]
+
+    def pairs(self):
+        return self._pairs
+
+    def translate(self, translator):
+        pairs = []
+        for node1, node2 in self._pairs:
+            pairs.append(tuple(sorted((translator(node1), translator(node2)))))
+        return Graph(pairs)
 
 
 def product(seq):

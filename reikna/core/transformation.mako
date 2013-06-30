@@ -1,82 +1,129 @@
 <%!
-    INDEX_NAME = "idx"
-    VALUE_NAME = "val"
+    INDEX_NAME = "_idx"
+    VALUE_NAME = "_val"
+
+    def index_cnames(param):
+        type = param.annotation.type
+        return [INDEX_NAME + str(i) for i in range(len(type.shape))]
+
+    def index_cnames_str(param, qualified=False):
+        names = index_cnames(param)
+        if qualified:
+            names = ["int " + name for name in names]
+        return ", ".join(names)
+
+    def flat_index_expr(param):
+        # FIXME: Assuming that all strides are multiples of dtype.itemsize,
+        # which is true as long as we use primitive types from numpy.
+        # This can change with custom structures, and we will have
+        # to cast device pointer to bytes and back.
+        # Need to investigate what happens in this case on some concrete example.
+
+        type = param.annotation.type
+        item_strides = [stride // type.dtype.itemsize for stride in type.strides]
+
+        names = index_cnames(param)
+
+        return " + ".join([
+            name + " * " + str(stride)
+            for name, stride in zip(names, item_strides)])
+
+    def param_cname(p, qualified=False):
+        name = "_leaf_" + p.name
+        if qualified:
+            ctype = p.annotation.type.ctype
+            if p.annotation.array:
+                return "GLOBAL_MEM " + ctype + " *" + name
+            else:
+                return ctype + " " + name
+        else:
+            return name
+
+    def param_cnames_str(params, qualified=False):
+        return ", ".join([param_cname(p, qualified=qualified) for p in params])
 %>
 
-<%def name="argument_list(nodes)">
-%for i, node in enumerate(nodes):
+
+<%def name="kernel_definition(kernel_name, params)">
+KERNEL void ${kernel_name}(${param_cnames_str(params, qualified=True)})
+</%def>
+
+
+<%def name="leaf_input_macro(prefix)">
+// leaf input macro for "${param.name}"
+#define ${prefix}(${index_cnames_str(param)}) (${leaf_name(param.name)}[${flat_index_expr(param)}])
+</%def>
+
+
+<%def name="leaf_output_macro(prefix)">
+// leaf output macro for "${param.name}"
+#define ${prefix}(${index_cnames_str(param)}, ${VALUE_NAME}) ${leaf_name(param.name)}[${flat_index_expr(param)}] = (${VALUE_NAME})
+</%def>
+
+
+<%def name="node_input_connector()">
+return \
+</%def>
+
+<%def name="node_output_connector()">
+${VALUE_NAME}\
+</%def>
+
+
+<%def name="node_input_transformation(prefix)">
 <%
-    ctype = dtypes.ctype(node.value.dtype)
-    name = node.leaf_name
-    comma = "" if i == len(nodes) - 1 else ","
+    connector_ctype = param.annotation.type.ctype
+    nq_indices = index_cnames_str(param)
+    q_indices = index_cnames_str(param, qualified=True)
+    nq_params = param_cnames_str(subtree_params)
+    q_params = param_cnames_str(subtree_params, qualified=True)
 %>
-    %if node.value.is_array:
-        GLOBAL_MEM ${ctype} *${name}${comma}
-    %else:
-        ${ctype} ${name}${comma}
-    %endif
-%endfor
-</%def>
-
-
-<%def name="kernel_definition(kernel_name, nodes)">
-KERNEL void ${kernel_name}(${argument_list(nodes)})
-</%def>
-
-
-<%def name="leaf_macro(prefix)">
-// leaf ${node_type} "${node.name}"
-%if node_type == node.INPUT:
-%if base:
-#define ${prefix}(${INDEX_NAME}) (${node.leaf_name}[${INDEX_NAME}])
-%else:
-#define ${prefix} (${node.leaf_name}[${INDEX_NAME}])
-%endif
-%else:
-%if base:
-#define ${prefix}(${INDEX_NAME}, ${VALUE_NAME}) ${node.leaf_name}[${INDEX_NAME}] = (${VALUE_NAME})
-%else:
-#define ${prefix}(${VALUE_NAME}) ${node.leaf_name}[${INDEX_NAME}] = (${VALUE_NAME})
-%endif
-%endif
-</%def>
-
-
-<%def name="connector(node)">
-%if node.type == node.INPUT:
-return
-%else:
-${VALUE_NAME}
-%endif
-</%def>
-
-
-<%def name="transformation_node(prefix)">
-// ${node.type} "${node.name}"
-<%
-    connector_ctype = dtypes.ctype(node.value.dtype)
-    outtype = connector_ctype if node.type == node.INPUT else 'void'
-    inarg = "" if node.type == node.INPUT else (", " + connector_ctype + " " + VALUE_NAME)
-    arglist = ", ".join([leaf_node.leaf_name for leaf_node in leaf_nodes])
-%>
-
-INLINE WITHIN_KERNEL ${outtype} ${prefix}func(${argument_list(leaf_nodes)},
-    int ${INDEX_NAME} ${inarg})
+// input transformation node for "${param.name}"
+INLINE WITHIN_KERNEL ${connector_ctype} ${prefix}func(
+    ${q_params},
+    ${q_indices})
 {
     ${tr_snippet(*tr_args)}
 }
+#define ${prefix}(${nq_indices}) ${prefix}func(${nq_params}, ${nq_indices})
+</%def>
 
-%if node.type == node.INPUT:
-%if base:
-#define ${prefix}(${INDEX_NAME}) ${prefix}func(${arglist}, ${INDEX_NAME})
-%else:
-#define ${prefix} ${prefix}func(${arglist}, ${INDEX_NAME})
-%endif
-%else:
-%if base:
-#define ${prefix}(${INDEX_NAME}, ${VALUE_NAME}) ${prefix}func(${arglist}, ${INDEX_NAME}, ${VALUE_NAME})
-%else:
-#define ${prefix}(${VALUE_NAME}) ${prefix}func(${arglist}, ${INDEX_NAME}, ${VALUE_NAME})
-%endif
-%endif
+
+<%def name="node_input_same_indices(prefix)">
+<%
+    nq_indices = index_cnames_str(param)
+    nq_params = param_cnames_str(subtree_params)
+%>
+// input for a transformation for "${param.name}"
+#define ${prefix} ${load_idx}(${nq_indices})
+</%def>
+
+
+<%def name="node_output_transformation(prefix)">
+<%
+    connector_ctype = param.annotation.type.ctype
+    nq_indices = index_cnames_str(param)
+    q_indices = index_cnames_str(param, qualified=True)
+    nq_params = param_cnames_str(subtree_params)
+    q_params = param_cnames_str(subtree_params, qualified=True)
+%>
+// output transformation node for "${param.name}"
+INLINE WITHIN_KERNEL void ${prefix}func(
+    ${q_params},
+    ${q_indices},
+    ${connector_ctype} ${VALUE_NAME})
+{
+    ${tr_snippet(*tr_args)}
+}
+#define ${prefix}(${nq_indices}, ${VALUE_NAME}) ${prefix}func(${nq_params}, ${nq_indices}, ${VALUE_NAME})
+</%def>
+
+
+<%def name="node_output_same_indices(prefix)">
+<%
+    nq_indices = index_cnames_str(param)
+    nq_params = param_cnames_str(subtree_params)
+%>
+// output from a transformation for "${param.name}"
+#define ${prefix}(${VALUE_NAME}) ${store_idx}(${nq_indices}, ${VALUE_NAME})
 </%def>

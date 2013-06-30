@@ -1,520 +1,339 @@
-import re
-
-import numpy
-
+from reikna.helpers import template_for, template_def, Graph
 import reikna.cluda.dtypes as dtypes
-from reikna.cluda import Snippet, Module
-from reikna.helpers import AttrDict, product, wrap_in_tuple, template_def, template_for
+from reikna.cluda import Module, Snippet
+from reikna.core.signature import Signature, ArgType, Parameter, TransformationParameter
 
 
 TEMPLATE = template_for(__file__)
 
 
-class TypePropagationError(Exception):
-    pass
-
-
-def valid_argument_name(name):
-    return (re.match(r"^[a-zA-Z_]\w*$", name) is not None)
-
-
-class ArrayValue(object):
-    """
-    Stub object for array arguments.
-
-    .. py:attribute:: shape
-
-        Tuple specifying the shape of the array.
-
-    .. py:attribute:: dtype
-
-        ``numpy.dtype`` object specifying the data type of the array.
-    """
-
-    def __init__(self, shape, dtype):
-        self.shape = wrap_in_tuple(shape) if shape is not None else None
-        self.dtype = dtypes.normalize_type(dtype) if dtype is not None else None
-        self.is_array = True
-
-    def fill_with(self, other):
-        self.shape = other.shape
-        self.dtype = other.dtype
-
-    def clear(self):
-        self.shape = None
-        self.dtype = None
-
-    def get_shape(self):
-        return self._shape
-
-    def set_shape(self, shape):
-        self._shape = shape
-        if shape is None:
-            self._size = None
-        else:
-            self._size = product(shape)
-
-    shape = property(get_shape, set_shape)
-
-    @property
-    def size(self):
-        return self._size
-
-    def __str__(self):
-        props = ["array"]
-        if self.dtype is not None:
-            props.append(str(self.dtype))
-        if self.shape is not None:
-            props.append(str(self.shape))
-        return ", ".join(props)
-
-    def __repr__(self):
-        return "ArrayValue(" + repr(self.shape) + "," + repr(self.dtype) + ")"
-
-
-class ScalarValue:
-    """
-    Stub object for scalar arguments.
-
-    .. py:attribute:: dtype
-
-        ``numpy.dtype`` object specifying the data type of the scalar.
-    """
-
-    def __init__(self, dtype):
-        self.dtype = dtypes.normalize_type(dtype) if dtype is not None else None
-        self.is_array = False
-
-    def fill_with(self, other):
-        self.dtype = other.dtype
-
-    def clear(self):
-        self.dtype = None
-
-    def __str__(self):
-        props = ["scalar"]
-        if self.dtype is not None:
-            props.append(str(self.dtype))
-        return ", ".join(props)
-
-    def __repr__(self):
-        return "ScalarValue(" + repr(self.dtype) + ")"
-
-
-def wrap_value(value):
-    if isinstance(value, ScalarValue) or isinstance(value, ArrayValue):
-        return value
-    elif hasattr(value, 'dtype'):
-        if hasattr(value, 'shape') and len(value.shape) > 0:
-            return ArrayValue(value.shape, value.dtype)
-        else:
-            return ScalarValue(value.dtype)
-    else:
-        dtype = dtypes.min_scalar_type(value)
-        return ScalarValue(dtype)
-
-
 class Transformation:
     """
-    Defines an elementwise transformation.
-
-    :param inputs: list with input value names (these names will be used in the template),
-        or the number of input array values (in which case they will be given names
-        ``i1``, ``i2`` etc).
-    :param outputs: list with output value names (these names will be used in the template),
-        or the number of input array values (in which case they will be given names
-        ``o1``, ``o2`` etc).
-    :param scalars: list with scalar parameter names (these names will be used in the template),
-        or the number of input array values (in which case they will be given names
-        ``p1``, ``p2`` etc).
-    :param derive_o_from_is: a function taking dtypes of ``inputs`` and ``scalars``,
-        and returning the output dtype.
-        If ``None``, :py:func:`~reikna.cluda.dtypes.result_type` is used.
-        Called when the transformation is connected to the input argument.
-    :param derive_i_from_os: a function taking dtypes of ``outputs`` and ``scalars``,
-        and returning the input dtype.
-        If ``None``, :py:func:`~reikna.cluda.dtypes.result_type` is used.
-        Called when the transformation is connected to the output argument.
-    :param code: template source with the transformation code.
-        See :ref:`tutorial-advanced-transformation` section for details.
+    # A transformantion is a TypedKernel that:
+    # - can't use local memory
+    # - can't use thread/block id getters
+    # - can't have 'io' arguments (not really necessary, but makes things simpler)
+    # - has at least one argument that uses load_conn/store_conn, and does it only once
+    #   (these are called connectors)
+    #   (technically, 'load_conn' can be called several times, but it is not necessary)
+    # Which of those can be statically checked?
     """
+    def __init__(self, parameters, code, render_kwds=None, connectors=None, dependencies=None):
+        self.signature = Signature(parameters)
+        self.dependencies = Graph(dependencies)
 
-    def __init__(self, inputs=1, outputs=1, scalars=0,
-            derive_o_from_is=None, derive_i_from_os=None,
-            derive_render_kwds=None,
-            snippet=None):
+        for param in self.signature.parameters.values():
+            setattr(
+                self, param.name,
+                TransformationParameter(self, param.name, param.annotation.type))
 
-        gen_names = lambda names, prefix: [prefix + str(i+1) for i in xrange(names)] \
-            if isinstance(names, int) else list(names)
-        self.inputs = gen_names(inputs, 'i')
-        self.outputs = gen_names(outputs, 'o')
-        self.scalars = gen_names(scalars, 's')
-
-        if snippet is None:
-            snippet = "${" + self.outputs[0] + ".store}(${" + self.inputs[0] + ".load});"
-
-        self.snippet_template = template_def(
-            self.outputs + self.inputs + self.scalars,
-            snippet)
-
-        if derive_o_from_is is None:
-            if len(self.outputs) == 1:
-                derive_o_from_is = dtypes.result_type
+        if connectors is not None:
+            self.connectors = connectors
         else:
-            if len(self.outputs) > 1:
-                raise ValueError(
-                    "This transformation cannot be used for an input and therefore cannot have "
-                    "a ``derive_o_from_is`` parameter")
+            self.connectors = [param.name for param in parameters if param.annotation.array]
 
-        if derive_i_from_os is None:
-            if len(self.inputs) == 1:
-                derive_i_from_os = dtypes.result_type
-        else:
-            if len(self.inputs) > 1:
-                raise ValueError(
-                    "This transformation cannot be used for an output and therefore cannot have "
-                    "a ``derive_i_from_os`` parameter")
-
-        if derive_render_kwds is None:
-            derive_render_kwds = lambda *args: {}
-
-        self.derive_o_from_is = derive_o_from_is
-        self.derive_i_from_os = derive_i_from_os
-        self.derive_render_kwds = derive_render_kwds
-
-    def construct_snippet(self, *args):
-        render_kwds = self.derive_render_kwds(*args)
-        return Snippet(self.snippet_template, render_kwds=render_kwds)
+        tr_param_names = ['idxs'] + [param.name for param in self.signature.parameters.values()]
+        self.snippet = Snippet(template_def(tr_param_names, code), render_kwds=render_kwds)
 
 
 class Node:
 
-    INPUT = "input node"
-    OUTPUT = "output node"
-    SCALAR = "scalar node"
-    TEMP = "temporary node"
+    def __init__(self, param, input_ntr=None, output_ntr=None):
+        self.param = param
+        self.input_ntr = input_ntr
+        self.output_ntr = output_ntr
 
-    def __init__(self, name, node_type, value=None):
-        self.name = name
-        self.leaf_name = "_leaf_" + name
-        self.type = node_type
-        if value is None:
-            value = ScalarValue(None) if node_type == self.SCALAR else ArrayValue(None, None)
-        self.value = value
-        self.children=None
-        self.tr_to_children=None
-
-    def __repr__(self):
-        return repr((self.type, self.name))
-
-
-class TransformationArgument(AttrDict):
-
-    def __init__(self, node, load=None, store=None):
-        AttrDict.__init__(self)
-        self._node = node
-
-        self.dtype = node.value.dtype
-        self.ctype = dtypes.ctype(self.dtype)
-
-        if load is not None:
-            self.load = load
-        if store is not None:
-            self.store = store
-
-
-class ConnectorArgument:
-
-    def __init__(self, node):
-        self.dtype = node.value.dtype
-        self.ctype = dtypes.ctype(self.dtype)
-
-        connector = TEMPLATE.get_def('connector').render(node)
-
-        if node.type == Node.INPUT:
-            self.store = connector
+    def connect(self, ntr):
+        if ntr.output:
+            return Node(self.param, input_ntr=self.input_ntr, output_ntr=ntr)
         else:
-            self.load = connector
+            return Node(self.param, input_ntr=ntr, output_ntr=self.output_ntr)
+
+    def get_child_names(self):
+        get_names = lambda ntr: [] if ntr is None else ntr.get_child_names()
+        return get_names(self.output_ntr) + get_names(self.input_ntr)
+
+    def get_connections(self):
+        get_conn = lambda ntr: [] if ntr is None else [ntr]
+        return get_conn(self.output_ntr) + get_conn(self.input_ntr)
 
 
-class ScalarArgument:
+class NodeTransformation:
 
-    def __init__(self, node):
-        self.leaf_name = node.leaf_name
-        self.dtype = node.value.dtype
-        self.ctype = dtypes.ctype(self.dtype)
+    def __init__(self, connector_node_name, tr, node_names, tr_names, output=False):
+        self.tr = tr
+        self.connector_node_name = connector_node_name
+        self.output = output
 
-    def __str__(self):
-        return self.leaf_name
+        assert len(node_names) == len(tr_names) == len(set(node_names)) == len(set(tr_names))
+        self.node_from_tr = {tr_name:node_name for tr_name, node_name in zip(tr_names, node_names)}
+
+    def get_child_names(self):
+        names = []
+        # Walking the tree conserving the order of parameters in the transformation.
+        for tr_param in self.tr.signature.parameters.values():
+            node_name = self.node_from_tr[tr_param.name]
+            if node_name != self.connector_node_name:
+                names.append(node_name)
+        return names
+
+    def translate_node_names(self, translator):
+        tr_names, node_names = zip(*list(self.node_from_tr.items()))
+        return NodeTransformation(
+            translator(self.connector_node_name),
+            self.tr,
+            list(map(translator, node_names)),
+            tr_names,
+            output=self.output)
+
+    def get_node_dependencies(self):
+        return self.tr.dependencies.translate(lambda x: self.node_from_tr[x])
 
 
 class TransformationTree:
 
-    def __init__(self, outputs, inputs, scalars):
-        self._outputs = outputs
-        self._inputs = inputs
-        self._scalars = scalars
+    def __init__(self, root_params):
+        self.root_signature = Signature(root_params)
+        self.nodes = {param.name:Node(param) for param in root_params}
 
-        self.nodes = {}
-        self.temp_nodes = {}
-        self.base_names = outputs + inputs + scalars
+    def _get_subtree_names(self, names, visited, leaves_only=False):
 
-        # check names for correctness
-        for name in self.base_names:
-            if not valid_argument_name(name):
-                raise ValueError("Incorrect argument name: " + name)
+        result = []
 
-        # check for repeating names
-        if len(set(self.base_names)) != len(self.base_names):
-            raise ValueError("There are repeating argument names")
+        for name in names:
+            if name in visited:
+                continue
+            visited.add(name)
 
-        for name in outputs:
-            self.nodes[name] = Node(name, Node.OUTPUT)
-        for name in inputs:
-            self.nodes[name] = Node(name, Node.INPUT)
-        for name in scalars:
-            self.nodes[name] = Node(name, Node.SCALAR)
+            child_names = self.nodes[name].get_child_names()
 
-    def copy(self):
-        tree = TransformationTree(self._outputs, self._inputs, self._scalars)
+            if not leaves_only or len(child_names) == 0:
+                result.append(name)
 
-        # recreate connections
-        connections = self.connections_for(self._outputs + self._inputs + self._scalars)
-        for tr, array_arg, new_array_args, new_scalar_args in connections:
-            tree.connect(tr, array_arg, new_array_args, new_scalar_args)
+            result += self._get_subtree_names(
+                child_names, visited, leaves_only=leaves_only)
 
-        # repopulate nodes
-        tree.propagate_to_base({name:value for name, value in self.leaf_signature()})
+        return result
 
-        return tree
+    def get_subtree_names(self, root_names, leaves_only=False):
+        return self._get_subtree_names(root_names, set(), leaves_only=leaves_only)
 
-    def leaf_signature(self, base_names=None):
+    def get_leaf_signature(self):
+        root_names = [param.name for param in self.root_signature.parameters.values()]
+        leaf_names = self.get_subtree_names(root_names, leaves_only=True)
+        return Signature([self.nodes[name].param for name in leaf_names])
 
-        if base_names is None:
-            base_names = self.base_names
+    def get_node_parameters(self):
+        root_names = [param.name for param in self.root_signature.parameters.values()]
+        node_names = self.get_subtree_names(root_names, leaves_only=False)
+        return [self.nodes[name].param for name in node_names]
 
-        arrays = []
+    def _connect(self, ntr):
 
-        # Intended order of the leaf signature is the following:
-        # leaf arrays, base scalars, transformation scalars.
-        # So we are pre-filling scalars accumulator with base scalars before
-        # stating depth-first walk.
-        scalars = [name for name in base_names
-            if name in self.nodes and self.nodes[name].type == Node.SCALAR]
-        visited = set(scalars)
+        # New nodes introduced by the transformation
+        new_nodes = {}
+        for tr_param in ntr.tr.signature.parameters.values():
+            node_name = ntr.node_from_tr[tr_param.name]
+            if node_name not in self.nodes:
+                new_param = Parameter(node_name, tr_param.annotation)
+                new_nodes[node_name] = Node(new_param)
 
-        def visit(names):
-            for name in names:
-                if name in visited:
-                    continue
-                visited.add(name)
+        old_node = self.nodes[ntr.connector_node_name]
+        new_nodes[ntr.connector_node_name] = old_node.connect(ntr)
 
-                node = self.nodes[name]
-                if node.children is None:
-                    if node.type == Node.SCALAR:
-                        scalars.append(name)
-                    else:
-                        arrays.append(name)
-                else:
-                    visit(node.children)
+        # Delaying the internal changes before all the data structures are created.
+        # This way a failed .connect() does not break any internals
+        # (mostly important for interactive regime).
+        self.nodes.update(new_nodes)
 
-        visit(base_names)
+    def connect(self, leaf_name, tr, param_names, tr_names):
 
-        return [(name, self.nodes[name].value) for name in arrays + scalars]
+        # Check:
+        # - there's a node ``leaf_name`` and it doesn't have a connection of this type attached
+        # - check that ``primary_conn`` exist in ``tr``
+        # - check that keys of ``connections.from_tr`` point to nodes of proper types, or are new names
+        # - check that values of ``connections.from_node`` exist in ``tr``
+        output = self.nodes[leaf_name].param.annotation.output
+        self._connect(NodeTransformation(leaf_name, tr, param_names, tr_names, output=output))
 
-    def base_values(self):
-        return [self.nodes[name].value for name in self.base_names]
+    def reconnect(self, other_tree, translator=None):
+        for ntr in other_tree.connections():
+            if translator is not None:
+                ntr = ntr.translate_node_names(translator)
+            if ntr.connector_node_name in self.nodes:
+                self._connect(ntr)
 
-    def leaf_values_dict(self, base_names=None):
-        return {name:value for name, value in self.leaf_signature(base_names=base_names)}
-
-    def all_children(self, name):
-        return [name for name, _ in self.leaf_signature([name])]
-
-    def add_temp_node(self, name, value):
-         self.nodes[name] = Node(name, Node.TEMP, value=value)
-
-    def propagate_to_base(self, values_dict):
-        # takes {name: mock_val} and propagates it from leaves to roots,
-        # updating nodes
-
-        # clear the transformation tree
-        for name in self.nodes:
-            self.nodes[name].value.clear()
-
-        def deduce(name):
+    def connections(self):
+        root_names = [param.name for param in self.root_signature.parameters.values()]
+        node_names = self.get_subtree_names(root_names, leaves_only=False)
+        for name in node_names:
             node = self.nodes[name]
-            if node.children is None:
-                # Values received from user may point to the same object.
-                # Therefore we're playing it safe and not assigning them.
-                node.value.fill_with(values_dict[name])
-                return
+            for ntr in node.get_connections():
+                yield ntr
 
-            for child in node.children:
-                deduce(child)
+    def translate(self, translator):
+        root_params = self.root_signature.parameters.values()
+        new_root_params = [param.rename(translator(param.name)) for param in root_params]
+        new_tree = TransformationTree(new_root_params)
+        new_tree.reconnect(self, translator=translator)
 
-            # derive type
-            child_dtypes = [self.nodes[child].value.dtype for child in node.children]
-            tr = node.tr_to_children
-            derive_types = tr.derive_i_from_os if node.type == Node.OUTPUT else tr.derive_o_from_is
-            node.value.dtype = dtypes.normalize_type(derive_types(*child_dtypes))
+        return new_tree
 
-            # derive shape
-            child_shapes = [self.nodes[child].value.shape for child in node.children
-                if hasattr(self.nodes[child].value, 'shape')]
-            assert len(set(child_shapes)) == 1
-            node.value.shape = child_shapes[0]
+    def get_subtree(self, argnames, parameters):
+        new_params = [
+            self.nodes[name].param if name in self.nodes else parameters[name]
+            for name in argnames]
+        new_tree = TransformationTree(new_params)
+        new_tree.reconnect(self)
+        return new_tree
 
-        for name in self.base_names:
-            deduce(name)
+    def get_kernel_definition(self, kernel_name):
+        leaf_params = self.get_leaf_signature().parameters.values()
+        return TEMPLATE.get_def('kernel_definition').render(
+            kernel_name, leaf_params, leaf_name=leaf_name)
 
-    def _transformations_for(self, name, base=False):
+    def _get_transformation_module(self, ntr):
+
+        # HACK: Technically, ``module`` attribute is not documented.
+        # The reason it is used here is that I need to keep generation of C names for
+        # index variable in one place, and the template is the best choice
+        # (because they are mostly used there).
+        param = self.nodes[ntr.connector_node_name].param
+        index_cnames = TEMPLATE.module.index_cnames(param)
+
+        if ntr.output:
+            connector_def = "node_output_connector"
+            transformation_def = "node_output_transformation"
+        else:
+            connector_def = "node_input_connector"
+            transformation_def = "node_input_transformation"
+
+        tr_args = [index_cnames]
+        connection_names = []
+        for tr_param in ntr.tr.signature.parameters.values():
+            connection_name = ntr.node_from_tr[tr_param.name]
+            connection_names.append(connection_name)
+
+            if connection_name == ntr.connector_node_name:
+                if ntr.output:
+                    load_same = TEMPLATE.get_def(connector_def).render()
+                    tr_args.append(ArrayArgument(param, load_same=load_same))
+                else:
+                    store_same = TEMPLATE.get_def(connector_def).render()
+                    tr_args.append(ArrayArgument(param, store_same=store_same))
+            else:
+                tr_args.append(self._get_argobject(connection_name))
+
+        subtree_names = self.get_subtree_names([ntr.connector_node_name], leaves_only=True)
+        subtree_params = [self.nodes[name].param for name in subtree_names]
+
+        return Module(
+            TEMPLATE.get_def(transformation_def),
+            render_kwds=dict(
+                tr_snippet=ntr.tr.snippet,
+                tr_args=tr_args,
+                param=param,
+                subtree_params=subtree_params,
+                leaf_name=leaf_name))
+
+    def _get_argobject(self, name, base=False):
         # Takes a base argument name and returns the corresponding Argument object
         # which can be passed to the main kernel.
         # If the name is not in base, it is treated as a leaf.
 
         node = self.nodes[name]
+        param = node.param
 
-        if node.type == Node.SCALAR or (node.type == Node.TEMP and not node.value.is_array):
-            return ScalarArgument(node)
+        if not param.annotation.array:
+            return ScalarArgument(param)
 
-        if node.type == Node.TEMP:
-            module_load = Module(
-                TEMPLATE.get_def('leaf_macro'),
-                render_kwds=dict(node=node, node_type=node.INPUT, base=base))
-            module_store = Module(
-                TEMPLATE.get_def('leaf_macro'),
-                render_kwds=dict(node=node, node_type=node.OUTPUT, base=base))
-            return TransformationArgument(node, load=module_load, store=module_store)
+        load_idx = None
+        store_idx = None
+        load_same = None
+        store_same = None
 
-        if node.children is None:
-            module = Module(
-                TEMPLATE.get_def('leaf_macro'),
-                render_kwds=dict(node=node, node_type=node.type, base=base))
-            if node.type == Node.INPUT:
-                return TransformationArgument(node, load=module)
+        if param.annotation.input:
+            if node.input_ntr is None:
+                load_idx = Module(
+                    TEMPLATE.get_def('leaf_input_macro'),
+                    render_kwds=dict(param=param, leaf_name=leaf_name))
             else:
-                return TransformationArgument(node, store=module)
+                load_idx = self._get_transformation_module(node.input_ntr)
 
-        tr = node.tr_to_children
-        if node.type == Node.INPUT:
-            tr_args = (
-                [ConnectorArgument(node)] +
-                [self._transformations_for(name) for name in node.children])
-            tr_names = [node.name] + node.children
-        else:
-            outputs = node.children[:len(tr.outputs)]
-            scalars = node.children[len(tr.outputs):]
-            tr_args = (
-                [self._transformations_for(name) for name in outputs] +
-                [ConnectorArgument(node)] +
-                [self._transformations_for(name) for name in scalars])
-            tr_names = outputs + [node.name] + scalars
+            if not base:
+                subtree_names = self.get_subtree_names([name], leaves_only=True)
+                subtree_params = [self.nodes[st_name].param for st_name in subtree_names]
+                load_same = Module(
+                    TEMPLATE.get_def('node_input_same_indices'),
+                    render_kwds=dict(
+                        param=param, load_idx=load_idx, leaf_name=leaf_name,
+                        subtree_params=subtree_params))
 
-        all_children = self.all_children(node.name)
-
-        tr_dtypes = [self.nodes[name].value.dtype for name in tr_names]
-        tr_snippet = tr.construct_snippet(*tr_dtypes)
-
-        render_kwds=dict(
-            tr_snippet=tr_snippet,
-            tr_args=tr_args,
-            node=node,
-            base=base,
-            leaf_nodes=[self.nodes[name] for name in all_children])
-
-        module = Module(
-            TEMPLATE.get_def('transformation_node'),
-            render_kwds=render_kwds)
-
-        if node.type == Node.INPUT:
-            return TransformationArgument(node, load=module)
-        else:
-            return TransformationArgument(node, store=module)
-
-    def transformations_for(self, kernel_name, names):
-        # Takes [name] for bases and returns a list with Argument objects
-        # corresponding to the list of names.
-        # If some of the names are not in base, they are treated as leaves.
-
-        leaf_nodes = [self.nodes[name] for name, _ in self.leaf_signature(names)]
-
-        kernel_def = TEMPLATE.get_def('kernel_definition').render(
-            kernel_name, leaf_nodes, dtypes=dtypes)
-        tr_args = [self._transformations_for(name, base=True) for name in names]
-
-        return kernel_def, tr_args
-
-    def connections_for(self, names):
-        connections = []
-
-        def visit(name):
-            node = self.nodes[name]
-            children = node.children
-            if children is None:
-                return
-            array_children = [n for n in children if self.nodes[n].value.is_array]
-            scalar_children = [n for n in children if not self.nodes[n].value.is_array]
-            connections.append((node.tr_to_children, name, array_children, scalar_children))
-            for n in array_children:
-                visit(n)
-
-        for name in names:
-            if name not in self.temp_nodes:
-                visit(name)
-
-        return connections
-
-    def has_array_leaf(self, name):
-        names = set(n for n, v in self.leaf_signature() if v.is_array)
-        return name in names
-
-    def connect(self, tr, array_arg, new_array_args, new_scalar_args):
-
-        if not self.has_array_leaf(array_arg):
-            raise ValueError("Argument " + array_arg +
-                " does not exist or is not suitable for connection")
-
-        for name in new_array_args + new_scalar_args:
-            if not valid_argument_name(name):
-                raise ValueError("Incorrect argument name: " + name)
-
-        parent = self.nodes[array_arg]
-
-        if parent.type == Node.OUTPUT:
-            if len(tr.inputs) > 1:
-                raise ValueError("Transformation for an output node must have one input")
-            if len(tr.outputs) != len(new_array_args):
-                raise ValueError("Number of array argument names does not match the transformation")
-
-        if parent.type == Node.INPUT:
-            if len(tr.outputs) > 1:
-                raise ValueError("Transformation for an input node must have one output")
-            if len(tr.inputs) != len(new_array_args):
-                raise ValueError("Number of array argument names does not match the transformation")
-
-        if len(tr.scalars) != len(new_scalar_args):
-            raise ValueError("Number of scalar argument names does not match the transformation")
-
-        # Delay applying changes until the end of the method,
-        # in case we get an error in the process.
-        new_nodes = {}
-
-        for name in new_array_args:
-            if name in self.nodes:
-                if self.nodes[name].type == Node.SCALAR:
-                    raise ValueError("Argument " + name + " is a scalar, expected an array")
-                if parent.type == Node.OUTPUT:
-                    raise ValueError("Cannot connect to an existing output node")
+        if param.annotation.output:
+            if node.output_ntr is None:
+                store_idx = Module(
+                    TEMPLATE.get_def('leaf_output_macro'),
+                    render_kwds=dict(param=param, leaf_name=leaf_name))
             else:
-                new_nodes[name] = Node(name, parent.type)
-        for name in new_scalar_args:
-            if name in self.nodes:
-                if self.nodes[name].type != Node.SCALAR:
-                    raise ValueError("Argument " + name + " is an array, expected a scalar")
-            else:
-                new_nodes[name] = Node(name, Node.SCALAR)
+                store_idx = self._get_transformation_module(node.output_ntr)
 
-        parent.children = new_array_args + new_scalar_args
-        parent.tr_to_children = tr
-        self.nodes.update(new_nodes)
+            if not base:
+                subtree_names = self.get_subtree_names([name], leaves_only=True)
+                subtree_params = [self.nodes[st_name].param for st_name in subtree_names]
+                store_same = Module(
+                    TEMPLATE.get_def('node_output_same_indices'),
+                    render_kwds=dict(
+                        param=param, store_idx=store_idx, leaf_name=leaf_name,
+                        subtree_params=subtree_params))
+
+        return ArrayArgument(
+            param,
+            load_idx=load_idx,
+            store_idx=store_idx,
+            load_same=load_same,
+            store_same=store_same)
+
+    def get_argobjects(self):
+        return [self._get_argobject(param.name, base=True)
+            for param in self.root_signature.parameters.values()]
+
+
+def leaf_name(name):
+    return "_leaf_" + name
+
+
+class ScalarArgument:
+
+    def __init__(self, param):
+        self.type = param.annotation.type
+        self.ctype = dtypes.ctype(self.type.dtype)
+        self.name = param.name
+        self._leaf_name = leaf_name(param.name)
+
+    def __str__(self):
+        return self._leaf_name
+
+
+class ArrayArgument:
+
+    def __init__(self, param, load_idx=None, store_idx=None, load_same=None, store_same=None):
+        self._param = param
+        self.name = param.name
+        self.type = param.annotation.type
+        self.ctype = dtypes.ctype(self.type.dtype)
+
+        if load_idx is not None: self.load_idx = load_idx
+        if store_idx is not None: self.store_idx = store_idx
+        if load_same is not None: self.load_same = load_same
+        if store_same is not None: self.store_same = store_same
+
+    def __process_modules__(self, process):
+        kwds = {}
+        for attr in ('load_idx', 'store_idx', 'load_same', 'store_same'):
+            if hasattr(self, attr):
+                kwds[attr] = process(getattr(self, attr))
+
+        return ArrayArgument(self._param, **kwds)
+
+    def __repr__(self):
+        return "ArrayArgument("+ self.name + ")"
