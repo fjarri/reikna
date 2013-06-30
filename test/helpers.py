@@ -33,9 +33,12 @@ def float_diff(m, m_ref):
 
 def diff_is_negligible(m, m_ref):
     assert m.dtype == m_ref.dtype
+
     if dtypes.is_integer(m.dtype):
         return ((m - m_ref) == 0).all()
-    elif dtypes.is_double(m.dtype):
-        return float_diff(m, m_ref) < DOUBLE_EPS
+
+    diff = float_diff(m, m_ref)
+    if dtypes.is_double(m.dtype):
+        return diff < DOUBLE_EPS
     else:
-        return float_diff(m, m_ref) < SINGLE_EPS
+        return diff < SINGLE_EPS
