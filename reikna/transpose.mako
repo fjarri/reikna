@@ -1,9 +1,4 @@
 <%def name="transpose(output, input)">
-
-<%
-	ctype = dtypes.ctype(basis.dtype)
-%>
-
 ${kernel_definition}
 {
 	VIRTUAL_SKIP_THREADS;
@@ -18,7 +13,7 @@ ${kernel_definition}
 	//   array starts in a different bank - so reading from shared memory
 	//   doesn't cause bank conflicts when writing the transpose out to global
 	//   memory.
-	LOCAL_MEM ${ctype} block[(${block_width} + 1) * ${block_width}];
+	LOCAL_MEM ${output.ctype} block[(${block_width} + 1) * ${block_width}];
 
 	unsigned int lid_x = virtual_local_id(0);
 	unsigned int lid_y = virtual_local_id(1);
@@ -26,8 +21,9 @@ ${kernel_definition}
 	unsigned int gid_x = virtual_group_id(0);
 	unsigned int gid_y = virtual_group_id(1);
 
-	unsigned int batch_num = gid_y / ${blocks_per_matrix};
-	gid_y = gid_y % ${blocks_per_matrix};
+	//unsigned int batch_num = gid_y / ${blocks_per_matrix};
+	//gid_y = gid_y % ${blocks_per_matrix};
+	unsigned int batch_num = virtual_global_id(2);
 
 	unsigned int xBlock = ${block_width} * gid_x;
 	unsigned int yBlock = ${block_width} * gid_y;
@@ -35,18 +31,22 @@ ${kernel_definition}
 	unsigned int yIndex = yBlock + lid_y;
 	unsigned int index_block = lid_y * (${block_width} + 1) + lid_x;
 	unsigned int index_transpose = lid_x * (${block_width} + 1) + lid_y;
-	unsigned int index_in = ${input_width} * yIndex + xIndex +
-		batch_num * ${input_width * input_height};
-	unsigned int index_out = ${input_height} * (xBlock + lid_y) + yBlock + lid_x +
-		batch_num * ${input_width * input_height};
+
+	//unsigned int index_in = ${input_width} * yIndex + xIndex +
+	//	batch_num * ${input_width * input_height};
+	//unsigned int index_out = ${input_height} * (xBlock + lid_y) + yBlock + lid_x +
+	//	batch_num * ${input_width * input_height};
 
 	if(xIndex < ${input_width} && yIndex < ${input_height})
-		block[index_block] = ${input.load}(index_in);
+		block[index_block] = ${input.load_combined_idx(input_slices)}(
+			batch_num, yIndex, xIndex);
 
 	LOCAL_BARRIER;
 
 	if(xBlock + lid_y < ${input_width} && yBlock + lid_x < ${input_height})
-		${output.store}(index_out, block[index_transpose]);
+		${output.store_combined_idx(output_slices)}(
+			batch_num, xBlock + lid_y, yBlock + lid_x,
+			block[index_transpose]);
 }
 
 </%def>
