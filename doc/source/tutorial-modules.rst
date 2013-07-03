@@ -60,23 +60,23 @@ Modules
 =======
 
 Modules are quite similar to snippets in a sense that they are also ``Mako`` defs with an associated dictionary of render keywords.
-The difference lies in the way they are processed, and their def must take only one positional argument.
+The difference lies in the way they are processed.
 Consider a module containing a single function:
 
 ::
 
     add = Module("""
-    <%def name="add(prefix)">
+    <%def name="add(prefix, arg)">
     WITHIN_KERNEL int ${prefix}(int x)
     {
-        return x + ${num};
+        return x + ${num} + ${arg};
     }
     </%def>
     """,
     render_kwds=dict(num=1))
 
 Modules contain complete C entities (function, macros, structures) and get rendered in the root level of the source file.
-In order to avoid name clashes, their def gets a string which it has to use to prefix these entities' names.
+In order to avoid name clashes, their def gets a string as a first argument, which it has to use to prefix these entities' names.
 If the module contains only one entity that is supposed to be used by the parent code, it is a good idea to set its name to ``prefix`` only, to simplify its usage.
 
 Let us now create a kernel that uses this module:
@@ -88,7 +88,7 @@ Let us now create a kernel that uses this module:
     {
         int idx = get_global_id(0);
         int a = arr[idx];
-        arr[idx] = ${add}(x);
+        arr[idx] = ${add(2)}(x);
     }
     """,
     render_kwds=dict(add=add))
@@ -96,7 +96,7 @@ Let us now create a kernel that uses this module:
 Before the compilation render keywords are inspected, and if a module object is encountered, the following things happen:
 
 1. This object's ``render_kwds`` are inspected recursively and any modules there are rendered in the same way as described here, producing a source file.
-2. The module itself gets assigned a new prefix and its template function is rendered with this prefix.
+2. The module itself gets assigned a new prefix and its template function is rendered with this prefix as the first argument, with the positional arguments given following it.
    The result is attached to the source file.
 3. The corresponding value in the current ``render_kwds`` is replaced by the newly assigned prefix.
 
@@ -106,7 +106,7 @@ With the code above, the rendered module will produce the code
 
     WITHIN_KERNEL int _module0(int x)
     {
-        return x + 1;
+        return x + 1 + 2;
     }
 
 and the ``add`` keyword in the ``render_kwds`` gets its value changed to ``_module0``.
@@ -127,6 +127,7 @@ Then the main code is rendered and appended to the previously renderd parts, giv
     }
 
 which is then passed to the compiler.
+If your module's template def does not take any arguments except for ``prefix``, you can call it in the parent template just as ``${add}`` (without empty parentheses).
 
 Modules can reference snippets in their ``render_kwds``, which, in turn, can reference other modules.
 This produces a tree-like structure with the snippet made from the code passed by user at the root.
