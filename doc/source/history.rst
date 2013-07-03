@@ -14,6 +14,8 @@ Release history
 
 * ADDED: strides support to array allocation functions in CLUDA.
 
+* ADDED: modules can now take positional arguments on instantiation, same as snippets.
+
 * FIXED: incorrect behavior of functions.norm() for non-complex arguments.
 
 * FIXED: undefined variable in functions.exp() template (reported by Thibault North).

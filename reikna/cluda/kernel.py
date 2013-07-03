@@ -87,7 +87,27 @@ class Module:
         return cls(template_def(['prefix'], code), render_kwds=render_kwds)
 
 
-class Renderable:
+class SourceCollector:
+
+    def __init__(self):
+        self.sources = []
+        self.prefix_counter = 0
+
+    def add_module(self, template_def, args, render_kwds):
+        prefix = "_module" + str(self.prefix_counter) + "_"
+        self.prefix_counter += 1
+
+        src = render_template(template_def, prefix, *args, **render_kwds)
+        self.sources.append(src)
+
+        return prefix
+
+    def get_source(self):
+        return "\n\n".join(self.sources)
+
+
+class RenderableSnippet:
+
     def __init__(self, template_def, render_kwds):
         self.template_def = template_def
         self.render_kwds = render_kwds
@@ -96,32 +116,42 @@ class Renderable:
         return render_template(self.template_def, *args, **self.render_kwds)
 
 
-def process(obj, renderables):
+class RenderableModule:
 
-    if isinstance(obj, Snippet):
-        render_kwds = process(obj.render_kwds, renderables)
-        return Renderable(obj.template, render_kwds)
+    def __init__(self, collector, template_def, render_kwds):
+        self.collector = collector
+        self.template_def = template_def
+        self.render_kwds = render_kwds
+        self.no_arg_prefix = None
 
-    elif isinstance(obj, Module):
-        render_kwds = process(obj.render_kwds, renderables)
-        prefix = "_module" + str(len(renderables)) + "_"
-
-        module_renderable = Renderable(obj.template, render_kwds)
-        wrapper_renderable = Renderable(
-            template_from("""\n${module(prefix)}\n"""),
-            render_kwds=dict(module=module_renderable, prefix=prefix))
-
-        renderables.append(wrapper_renderable)
+    def __call__(self, *args):
+        prefix = self.collector.add_module(self.template_def, args, self.render_kwds)
         return prefix
 
+    def __str__(self):
+        # To avoid a lot of repeating module renders when it's called without arguments
+        # (which will be the majority of calls),
+        # we are caching the corresponding prefix.
+        if self.no_arg_prefix is None:
+            self.no_arg_prefix = self()
+        return self.no_arg_prefix
+
+
+def process(obj, collector):
+    if isinstance(obj, Snippet):
+        render_kwds = process(obj.render_kwds, collector)
+        return RenderableSnippet(obj.template, render_kwds)
+    elif isinstance(obj, Module):
+        render_kwds = process(obj.render_kwds, collector)
+        return RenderableModule(collector, obj.template, render_kwds)
     elif hasattr(obj, '__process_modules__'):
-        return obj.__process_modules__(lambda x: process(x, renderables))
+        return obj.__process_modules__(lambda x: process(x, collector))
     elif isinstance(obj, dict):
-        return {k:process(v, renderables) for k, v in obj.items()}
+        return {k:process(v, collector) for k, v in obj.items()}
     elif isinstance(obj, tuple):
-        return tuple(process(v, renderables) for v in obj)
+        return tuple(process(v, collector) for v in obj)
     elif isinstance(obj, list):
-        return [process(v, renderables) for v in obj]
+        return [process(v, collector) for v in obj]
     else:
         return obj
 
@@ -133,11 +163,10 @@ def render_template_source(src, render_args=None, render_kwds=None):
     if render_kwds is None:
         render_kwds = {}
 
-    renderables = []
-    render_args = process(render_args, renderables)
-    main_renderable = process(Snippet(src, render_kwds=render_kwds), renderables)
+    collector = SourceCollector()
+    render_args = process(render_args, collector)
+    main_renderable = process(Snippet(src, render_kwds=render_kwds), collector)
 
-    src_list = [renderable() for renderable in renderables]
-    src_list.append(main_renderable(*render_args))
+    main_src = main_renderable(*render_args)
 
-    return "\n\n".join(src_list)
+    return collector.get_source() + "\n\n" + main_src
