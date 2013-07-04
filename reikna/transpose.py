@@ -126,7 +126,7 @@ class Transpose(Computation):
             input_slices=[len(batch_shape), len(height_shape), len(width_shape)],
             output_slices=[len(batch_shape), len(width_shape), len(height_shape)])
 
-        operations.add_kernel(
+        plan.kernel_call(
             TEMPLATE.get_def('transpose'), [output_name, input_name],
             global_size=(grid_width * block_width, blocks_per_matrix * block_width, batch),
             local_size=(block_width, block_width, 1),
@@ -145,7 +145,8 @@ class Transpose(Computation):
             if i == len(transposes) - 1:
                 mem_out = 'output'
             else:
-                mem_out = plan.temp_array(batch_shape + height_shape + width_shape, basis.dtype)
+                mem_out = plan.temp_array(
+                    batch_shape + width_shape + height_shape, self.output.dtype)
 
             self._add_transpose(plan, device_params,
                 mem_out, mem_in, batch_shape, height_shape, width_shape)
