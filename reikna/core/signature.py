@@ -1,5 +1,3 @@
-import weakref
-
 import funcsigs # backport of inspect.signature() and related objects for Py2
 import numpy
 
@@ -106,44 +104,3 @@ class Signature(funcsigs.Signature):
                 if not param.annotation.array:
                     ba.arguments[param.name] = param.annotation.type(ba.arguments[param.name])
         return ba
-
-
-class ComputationParameter(ArgType):
-
-    def __init__(self, computation, name, type_):
-        ArgType.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
-        self._computation = weakref.ref(computation)
-        self.name = name
-
-    def belongs_to(self, comp):
-        return self._computation() is comp
-
-    def connect(self, tr, tr_connector, **connections):
-        return self._computation().connect(self.name, tr, tr_connector, **connections)
-
-
-class TransformationParameter(ArgType):
-
-    def __init__(self, tr, name, type_):
-        ArgType.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
-        self._tr = weakref.ref(tr)
-        self.name = name
-
-    def belongs_to(self, tr):
-        return self._tr() is tr
-
-
-def extract_parameter_name(parent, obj):
-    if isinstance(obj, ComputationParameter):
-        if not obj.belongs_to(parent):
-            raise ValueError(
-                "Parameter " + obj.name + " belongs to a different computation object")
-        return obj.name
-    elif isinstance(obj, TransformationParameter):
-        if not obj.belongs_to(parent):
-            raise ValueError(
-                "Parameter " + obj.name + " belongs to a different transformation object")
-        return obj.name
-    elif isinstance(obj, str):
-        return obj
-    raise ValueError("Unknown type of computation parameter: " + str(type(obj)))

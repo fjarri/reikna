@@ -1,10 +1,23 @@
+import weakref
+
 from reikna.helpers import template_for, template_def, Graph
 import reikna.cluda.dtypes as dtypes
 from reikna.cluda import Module, Snippet
-from reikna.core.signature import Signature, ArgType, Parameter, TransformationParameter
+from reikna.core.signature import Signature, ArgType, Parameter
 
 
 TEMPLATE = template_for(__file__)
+
+
+class TransformationParameter(ArgType):
+
+    def __init__(self, tr, name, type_):
+        ArgType.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
+        self._tr = weakref.ref(tr)
+        self.name = name
+
+    def belongs_to(self, tr):
+        return self._tr() is tr
 
 
 class Transformation:
@@ -60,13 +73,12 @@ class Node:
 
 class NodeTransformation:
 
-    def __init__(self, connector_node_name, tr, node_names, tr_names, output=False):
+    def __init__(self, connector_node_name, tr, param_connections, output=False):
         self.tr = tr
         self.connector_node_name = connector_node_name
         self.output = output
-
-        assert len(node_names) == len(tr_names) == len(set(node_names)) == len(set(tr_names))
-        self.node_from_tr = {tr_name:node_name for tr_name, node_name in zip(tr_names, node_names)}
+        self.node_from_tr = {
+            tr_param_name:param_name for param_name, tr_param_name in param_connections.items()}
 
     def get_child_names(self):
         names = []
@@ -146,15 +158,15 @@ class TransformationTree:
         # (mostly important for interactive regime).
         self.nodes.update(new_nodes)
 
-    def connect(self, leaf_name, tr, param_names, tr_names):
+    def connect(self, param_name, tr, param_connections):
 
         # Check:
         # - there's a node ``leaf_name`` and it doesn't have a connection of this type attached
         # - check that ``primary_conn`` exist in ``tr``
         # - check that keys of ``connections.from_tr`` point to nodes of proper types, or are new names
         # - check that values of ``connections.from_node`` exist in ``tr``
-        output = self.nodes[leaf_name].param.annotation.output
-        self._connect(NodeTransformation(leaf_name, tr, param_names, tr_names, output=output))
+        output = self.nodes[param_name].param.annotation.output
+        self._connect(NodeTransformation(param_name, tr, param_connections, output=output))
 
     def reconnect(self, other_tree, translator=None):
         for ntr in other_tree.connections():

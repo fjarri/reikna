@@ -1,7 +1,22 @@
+import weakref
+
 from reikna.helpers import Graph
-from reikna.core.signature import Parameter, Annotation, ArgType, \
-    ComputationParameter, extract_parameter_name
-from reikna.core.transformation import TransformationTree
+from reikna.core.signature import Parameter, Annotation, ArgType
+from reikna.core.transformation import TransformationTree, TransformationParameter
+
+
+class ComputationParameter(ArgType):
+
+    def __init__(self, computation, name, type_):
+        ArgType.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
+        self._computation = weakref.ref(computation)
+        self.name = name
+
+    def belongs_to(self, comp):
+        return self._computation() is comp
+
+    def connect(self, tr, tr_connector, **connections):
+        return self._computation().connect(self.name, tr, tr_connector, **connections)
 
 
 class Translator:
@@ -35,17 +50,31 @@ class Computation:
     def signature(self):
         return self._tr_tree.get_leaf_signature()
 
-    # comp.output.connect(tr.i1, new_out=tr.o1, new_in=tr.i2, old_in=tr.i3)
-    def connect(self, leaf_name, tr, tr_connector, **connections_dict):
+    def connect(self, param, tr, tr_param, **param_connections):
 
-        leaf_name = extract_parameter_name(self, leaf_name)
-        for name in connections_dict:
-            connections_dict[name] = extract_parameter_name(tr, connections_dict[name])
-        connections_dict[leaf_name] = extract_parameter_name(tr, tr_connector)
+        if isinstance(param, ComputationParameter):
+            if not param.belongs_to(self):
+                raise ValueError("")
+            param_name = param.name
+        elif isinstance(param, str):
+            param_name = param
+        else:
+            raise ValueError("")
 
-        param_names, tr_names = zip(*connections_dict.items())
-        # FIXME: renew ComputationArguments according to the new nodes
-        self._tr_tree.connect(leaf_name, tr, param_names, tr_names)
+        param_connections[param_name] = tr_param
+        processed_connections = {}
+        for comp_connection_name, tr_connection in param_connections.items():
+            if isinstance(tr_connection, TransformationParameter):
+                if not tr_connection.belongs_to(tr):
+                    raise ValueError("")
+                tr_connection_name = tr_connection.name
+            elif isinstance(tr_connection, str):
+                tr_connection_name = tr_connection
+            else:
+                raise ValueError("")
+            processed_connections[comp_connection_name] = tr_connection_name
+
+        self._tr_tree.connect(param_name, tr, processed_connections)
         self._update_attributes()
         return self
 
