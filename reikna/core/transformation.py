@@ -251,6 +251,8 @@ class TransformationTree:
         store_idx = None
         load_same = None
         store_same = None
+        load_combined_idx = None
+        store_combined_idx = None
 
         if param.annotation.input:
             if node.input_ntr is None:
@@ -260,14 +262,20 @@ class TransformationTree:
             else:
                 load_idx = self._get_transformation_module(node.input_ntr)
 
+            subtree_names = self.get_subtree_names([name], leaves_only=True)
+            subtree_params = [self.nodes[st_name].param for st_name in subtree_names]
+
             if not base:
-                subtree_names = self.get_subtree_names([name], leaves_only=True)
-                subtree_params = [self.nodes[st_name].param for st_name in subtree_names]
                 load_same = Module(
                     TEMPLATE.get_def('node_input_same_indices'),
                     render_kwds=dict(
                         param=param, load_idx=load_idx, leaf_name=leaf_name,
                         subtree_params=subtree_params))
+
+            load_combined_idx = Module(
+                TEMPLATE.get_def('node_input_combined'),
+                render_kwds=dict(param=param, leaf_name=leaf_name, load_idx=load_idx,
+                    subtree_params=subtree_params))
 
         if param.annotation.output:
             if node.output_ntr is None:
@@ -277,21 +285,29 @@ class TransformationTree:
             else:
                 store_idx = self._get_transformation_module(node.output_ntr)
 
+            subtree_names = self.get_subtree_names([name], leaves_only=True)
+            subtree_params = [self.nodes[st_name].param for st_name in subtree_names]
+
             if not base:
-                subtree_names = self.get_subtree_names([name], leaves_only=True)
-                subtree_params = [self.nodes[st_name].param for st_name in subtree_names]
                 store_same = Module(
                     TEMPLATE.get_def('node_output_same_indices'),
                     render_kwds=dict(
                         param=param, store_idx=store_idx, leaf_name=leaf_name,
                         subtree_params=subtree_params))
 
+            store_combined_idx = Module(
+                TEMPLATE.get_def('node_output_combined'),
+                render_kwds=dict(param=param, leaf_name=leaf_name, store_idx=store_idx,
+                    subtree_params=subtree_params))
+
         return ArrayArgument(
             param,
             load_idx=load_idx,
             store_idx=store_idx,
             load_same=load_same,
-            store_same=store_same)
+            store_same=store_same,
+            load_combined_idx=load_combined_idx,
+            store_combined_idx=store_combined_idx)
 
     def get_argobjects(self):
         return [self._get_argobject(param.name, base=True)
@@ -316,7 +332,9 @@ class ScalarArgument:
 
 class ArrayArgument:
 
-    def __init__(self, param, load_idx=None, store_idx=None, load_same=None, store_same=None):
+    def __init__(self, param, load_idx=None, store_idx=None, load_same=None, store_same=None,
+            load_combined_idx=None, store_combined_idx=None):
+
         self._param = param
         self.name = param.name
         self.type = param.annotation.type
@@ -326,10 +344,15 @@ class ArrayArgument:
         if store_idx is not None: self.store_idx = store_idx
         if load_same is not None: self.load_same = load_same
         if store_same is not None: self.store_same = store_same
+        if load_combined_idx is not None: self.load_combined_idx = load_combined_idx
+        if store_combined_idx is not None: self.store_combined_idx = store_combined_idx
 
     def __process_modules__(self, process):
         kwds = {}
-        for attr in ('load_idx', 'store_idx', 'load_same', 'store_same'):
+        attrs = (
+            'load_idx', 'store_idx', 'load_same', 'store_same',
+            'load_combined_idx', 'store_combined_idx')
+        for attr in attrs:
             if hasattr(self, attr):
                 kwds[attr] = process(getattr(self, attr))
 

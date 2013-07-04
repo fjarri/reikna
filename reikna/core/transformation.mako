@@ -99,6 +99,72 @@ INLINE WITHIN_KERNEL ${connector_ctype} ${prefix}func(
 </%def>
 
 
+<%def name="disassemble_combined(combined_indices, indices, slices, shape)">
+%for combined_index, slice_len in enumerate(slices):
+<%
+    index_start = sum(slices[:combined_index])
+    index_end = index_start + slice_len
+%>
+    %for index in range(index_start, index_end):
+    <%
+        stride = helpers.product(shape[index+1:index_end])
+    %>
+    int ${indices[index]} = ${combined_indices[combined_index]} / ${stride};
+    ${combined_indices[combined_index]} -= ${indices[index]} * ${stride};
+    %endfor
+%endfor
+</%def>
+
+
+<%def name="node_input_combined(prefix, slices)">
+<%
+    connector_ctype = param.annotation.type.ctype
+    nq_indices = index_cnames_str(param)
+    q_indices = index_cnames_str(param, qualified=True)
+    q_params = param_cnames_str(subtree_params, qualified=True)
+    nq_params = param_cnames_str(subtree_params)
+
+    indices = index_cnames(param)
+    combined_indices = ['c_idx' + str(i) for i in range(len(slices))]
+    q_combined_indices = ", ".join(['int ' + ind for ind in combined_indices])
+    nq_combined_indices = ", ".join(combined_indices)
+%>
+INLINE WITHIN_KERNEL ${connector_ctype} ${prefix}func(
+    ${q_params},
+    ${q_combined_indices})
+{
+    ${disassemble_combined(combined_indices, indices, slices, param.annotation.type.shape)}
+    return ${load_idx}(${nq_indices});
+}
+#define ${prefix}(${nq_combined_indices}) ${prefix}func(${nq_params}, ${nq_combined_indices})
+</%def>
+
+
+<%def name="node_output_combined(prefix, slices)">
+<%
+    connector_ctype = param.annotation.type.ctype
+    nq_indices = index_cnames_str(param)
+    q_indices = index_cnames_str(param, qualified=True)
+    q_params = param_cnames_str(subtree_params, qualified=True)
+    nq_params = param_cnames_str(subtree_params)
+
+    indices = index_cnames(param)
+    combined_indices = ['c_idx' + str(i) for i in range(len(slices))]
+    q_combined_indices = ", ".join(['int ' + ind for ind in combined_indices])
+    nq_combined_indices = ", ".join(combined_indices)
+%>
+INLINE WITHIN_KERNEL ${connector_ctype} ${prefix}func(
+    ${q_params},
+    ${q_combined_indices},
+    ${connector_ctype} ${VALUE_NAME})
+{
+    ${disassemble_combined(combined_indices, indices, slices, param.annotation.type.shape)}
+    ${store_idx}(${nq_indices}, ${VALUE_NAME});
+}
+#define ${prefix}(${nq_combined_indices}, ${VALUE_NAME}) ${prefix}func(${nq_params}, ${nq_combined_indices}, ${VALUE_NAME})
+</%def>
+
+
 <%def name="node_output_transformation(prefix)">
 <%
     connector_ctype = param.annotation.type.ctype
