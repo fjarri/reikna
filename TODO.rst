@@ -1,40 +1,48 @@
 0.3.0 (Core API change)
 ========================
 
-* TODO: change the misleading name Elementwise to PureParallel (or something)
-* TODO: take not only CLUDA Thread as a parameter for computation constructor, but also CommandQueue, opencl Context, CUDA Stream and so on.
-* TODO: move some of the functionality to the top level of ``reikna`` module?
-* TODO: check if Signature.bind() is too slow in the kernel call; perhaps we will have to rewrite it taking into account restrictions to Parameter types we have.
-* TODO: rewrite all internal classes using ``collections.namedtuple`` factory to force their immutability.
-* DECIDE: need to make available only those ``ComputationArgument`` objects that are actually usable: root ones for the plan creator, and all for the user connecting transformations.
+To merge the new API branch:
+
+* DOCS: add docstrings for main core classes and check that doctests pass
+* FIX: update existing Computations and Transformations to a new API
+* API (computations): change the misleading name Elementwise to PureParallel (or something)
+
+After merging:
+
+* ?API (computations): move some of the functionality to the top level of ``reikna`` module?
+* ?API (core): pass ``kernel_definition`` as a positional argument to a kernel template def?
+* ?API (core): when we are connecting a transformation to an existing scalar parameter, during the leaf signature building it moves from its place, which may seem a bit surprising. Should we attempt to keep it at the same place? Like, keep all parameters with default values at the end (thus breaking the "depth first" order, of course)?
+* ?API (core): misleading use of the word "dependencies" on CLUDA level and on Computation level: in the latter they are rather "decorrelations" and can exist, say, between two input nodes.
+  Perhaps it is worth adding a special section with their strict definition to the docs
+* FEATURE (core): take not only CLUDA Thread as a parameter for computation ``compile``, but also CommandQueue, opencl Context, CUDA Stream and so on.
+* ?FIX (core): check if Signature.bind() is too slow in the kernel call; perhaps we will have to rewrite it taking into account restrictions to Parameter types we have.
+* FIX (core): clean up core code, add comments
+* FIX (core): rewrite all internal classes using ``collections.namedtuple`` factory to force their immutability.
+* ?FIX (core): need to make available only those ``ComputationArgument`` objects that are actually usable: root ones for the plan creator, and all for the user connecting transformations.
 But techically the plan creator does not know anything about connections anyway, so it is not that important.
-* DECIDE: pass ``kernel_definition`` as a positional argument to a kernel template def?
-* DECIDE: when we are connecting a transformation to an existing scalar parameter, during the leaf signature building it moves from its place, which may seem a bit surprising. Should we attempt to keep it at the same place? Like, keep all parameters with default values at the end (thus breaking the "depth first" order, of course)?
-* DECIDE: misleading use of the word "dependencies" on CLUDA level and on Computation level: in the latter they are rather "decorrelations" and can exist, say, between two input nodes.
+* FIX (core): When we connect a transformation, difference in strides between arrays in the connection can be ignored (and probably the transformation's signature changed too; at least we need to decide which strides to use in the exposed node)
 
 0.3.1
 =====
 
-* TODO: use modules in ``CBRNG``
-* DECIDE: add ability to manually override inferred dependencies?
-* DECIDE: move all "raw" computations to their own submodule?
-* TODO: run coverage tests and see if some functionality has to be tested,
+* FIX (computations): use modules in ``CBRNG``
+* ?API (computations): move all "raw" computations to their own submodule?
+* TESTS: run coverage tests and see if some functionality has to be tested,
   and check existing testcases for redundancy (fft and vsizes in particular)
-* TODO: run pylint
-* TODO: create "fallback" when if _build_plan() does not catch OutOfResources,
+* TESTS: run pylint
+* FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
   it is called again with reduced local size
-* TODO: add special optimized kernel for matrix-vector multiplication in MatrixMul.
+* FEATURE (computations): add special optimized kernel for matrix-vector multiplication in MatrixMul.
   Or create specific matrix-vector and vector-vector computations?
-* TODO: add ``Thread.fork()`` which creates another Thread with the same context and device but different queue.
+* FEATURE (CLUDA): add ``Thread.fork()`` which creates another Thread with the same context and device but different queue.
   Also, how do we create a ``Thread`` with the same context, but different device?
   Or how do we create and use a ``Thread`` with several devices?
-* TODO: reduction with multiple predicates on a single (or multiple too?) array.
+* FEATURE (computations): reduction with multiple predicates on a single (or multiple too?) array.
   Basically, the first stage has to be modified to store results in several arrays and then several separate reductions can be performed.
-* TODO: implement custom structures as types (will also require updating the strides-to-flat-index algorithm)
-* DECIDE: do something about the inconsistency of array shapes (row-major) and global sizes (column-major). Special get_id() functions maybe?
-* DECIDE: add ``load_flat``/``store_flat`` to argobjects?
-* TODO: use Graph class in cluda.temparray
-* DECIDE: when passing scalar to plan.kernel_call(), there's no typecheck (and the only check that happens is during execution). Need to somehow query the kernel about type of its parameters.
+* FEATURE (CLUDA, core): implement custom structures as types (will also require updating the strides-to-flat-index algorithm)
+* ?API (CLUDA, core): do something about the inconsistency of array shapes (row-major) and global sizes (column-major). Special get_id() functions maybe?
+* ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
+* ?FEATURE (core): when passing scalar to plan.kernel_call(), there's no typecheck (and the only check that happens is during execution). Need to somehow query the kernel about type of its parameters.
 
 
 1.0.0 (production-quality version... hopefully)
