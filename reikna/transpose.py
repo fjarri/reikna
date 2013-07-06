@@ -95,7 +95,7 @@ class Transpose(Computation):
         self._axes = tuple(axes)
 
         output_shape = transpose_shape(arr.shape, self._axes)
-        output_arr = ArgType(arr.dtype, output_shape)
+        output_arr = Type(arr.dtype, output_shape)
 
         Computation.__init__(self, [
             Parameter('output', Annotation(output_arr, 'o')),

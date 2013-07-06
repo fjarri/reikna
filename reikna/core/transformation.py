@@ -3,16 +3,16 @@ import weakref
 from reikna.helpers import template_for, template_def, Graph
 import reikna.cluda.dtypes as dtypes
 from reikna.cluda import Module, Snippet
-from reikna.core.signature import Signature, ArgType, Parameter
+from reikna.core.signature import Signature, Type, Parameter
 
 
 TEMPLATE = template_for(__file__)
 
 
-class TransformationParameter(ArgType):
+class TransformationParameter(Type):
 
     def __init__(self, tr, name, type_):
-        ArgType.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
+        Type.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
         self._tr = weakref.ref(tr)
         self.name = name
 

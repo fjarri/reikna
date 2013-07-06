@@ -5,7 +5,7 @@ import reikna.cluda.dtypes as dtypes
 from reikna.helpers import wrap_in_tuple, product
 
 
-class ArgType:
+class Type:
 
     def __init__(self, dtype, shape=None, strides=None):
         self.shape = tuple() if shape is None else wrap_in_tuple(shape)
@@ -25,7 +25,7 @@ class ArgType:
 
     @classmethod
     def from_value(cls, val):
-        if isinstance(val, ArgType):
+        if isinstance(val, Type):
             return val
         elif numpy.issctype(val):
             return cls(val)
@@ -42,7 +42,7 @@ class ArgType:
 class Annotation:
 
     def __init__(self, type_, role=None):
-        self.type = ArgType.from_value(type_)
+        self.type = Type.from_value(type_)
 
         if role is None:
             role = 's' if len(self.type.shape) == 0 else 'io'

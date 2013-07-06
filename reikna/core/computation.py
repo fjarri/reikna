@@ -1,14 +1,14 @@
 import weakref
 
 from reikna.helpers import Graph
-from reikna.core.signature import Parameter, Annotation, ArgType
+from reikna.core.signature import Parameter, Annotation, Type
 from reikna.core.transformation import TransformationTree, TransformationParameter
 
 
-class ComputationParameter(ArgType):
+class ComputationParameter(Type):
 
     def __init__(self, computation, name, type_):
-        ArgType.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
+        Type.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
         self._computation = weakref.ref(computation)
         self.name = name
 
@@ -132,7 +132,7 @@ class ComputationPlan:
     def temp_array(self, shape, dtype, strides=None):
         name = self._translator(self._temp_array_idgen())
         self._internal_params[name] = Parameter(
-            name, Annotation(ArgType(dtype, shape=shape, strides=strides), 'io'))
+            name, Annotation(Type(dtype, shape=shape, strides=strides), 'io'))
         self._temp_arrays.add(name)
         return name
 

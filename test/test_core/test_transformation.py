@@ -2,7 +2,7 @@ import numpy
 import pytest
 
 from reikna.core import Parameter, Annotation
-from reikna.core.signature import ArgType
+from reikna.core.signature import Type
 from reikna.cluda import functions
 from reikna import Transformation
 
@@ -63,7 +63,7 @@ def test_signature_correctness():
 
     N = 200
     coeff_dtype = numpy.float32
-    arr_type = ArgType(numpy.complex64, (N, N))
+    arr_type = Type(numpy.complex64, (N, N))
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
 
@@ -107,7 +107,7 @@ def test_same_shape(thr):
     D_param = 4
 
     coeff_dtype = numpy.float32
-    arr_type = ArgType(numpy.complex64, (N, N))
+    arr_type = Type(numpy.complex64, (N, N))
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
 
@@ -157,7 +157,7 @@ def test_connection_to_base(thr):
     coeff = 2
 
     coeff_dtype = numpy.float32
-    arr_type = ArgType(numpy.complex64, (N, N))
+    arr_type = Type(numpy.complex64, (N, N))
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
 
@@ -193,7 +193,7 @@ def test_nested_same_shape(thr):
     D_param = 4
 
     coeff_dtype = numpy.float32
-    arr_type = ArgType(numpy.complex64, (N, N))
+    arr_type = Type(numpy.complex64, (N, N))
 
     d = DummyNested(arr_type, arr_type, coeff_dtype, second_coeff, same_A_B=True)
 
