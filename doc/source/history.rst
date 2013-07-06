@@ -79,7 +79,7 @@ Release history
 
 * CHANGED: all templates created with :py:func:`~reikna.helpers.template_for` are now rendered with ``from __future__ import division``.
 
-* CHANGED: signature of :py:meth:`~reikna.core.operation.OperationRecorder.add_kernel` takes a renderable instead of a full template.
+* CHANGED: signature of ``OperationRecorder.add_kernel`` takes a renderable instead of a full template.
 
 * CHANGED: :py:meth:`~reikna.cluda.api.Thread.compile_static` now takes a template instead of a source.
 

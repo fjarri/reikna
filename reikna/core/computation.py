@@ -6,8 +6,21 @@ from reikna.core.transformation import TransformationTree, TransformationParamet
 
 
 class ComputationParameter(Type):
+    """
+    Bases: :py:class:`reikna.core.Type`
+
+    Represents a typed computation parameter.
+    Can be used as a substitute of an array for functions
+    which are only interested in array metadata.
+
+    .. py:attribute:: name
+
+        Parameter name.
+    """
 
     def __init__(self, computation, name, type_):
+        """__init__()""" # hide the signature from Sphinx
+
         Type.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
         self._computation = weakref.ref(computation)
         self.name = name
@@ -16,6 +29,10 @@ class ComputationParameter(Type):
         return self._computation() is comp
 
     def connect(self, tr, tr_connector, **connections):
+        """
+        Shortcut for :py:meth:`~reikna.core.Computation.connect`
+        with this parameter's name as a first argument.
+        """
         return self._computation().connect(self.name, tr, tr_connector, **connections)
 
 
@@ -36,6 +53,33 @@ class Translator:
 
 
 class Computation:
+    """
+    A base class for computations, intended to be subclassed.
+
+    :param root_params: a list of :py:class:`~reikna.core.Parameter` objects.
+
+    .. py:method:: _build_plan(plan_factory, device_params)
+
+        Derived classes override this method.
+        It is called by :py:meth:`compile` and
+        supposed to return a :py:class:`~reikna.core.computation.ComputationPlan` object.
+
+        :param plan_factory: a callable returning a new
+            :py:class:`~reikna.core.computation.ComputationPlan` object.
+        :param device_params: a :py:class:`~reikna.cluda.api.DeviceParameters` object corresponding
+            to the thread the computation is being compiled for.
+
+    .. py:attribute:: signature
+
+        A :py:class:`~reikna.core.Signature` object representing current computation signature
+        (taking into account connected transformations).
+
+    .. py:attribute:: param_name
+
+        A :py:class:`~reikna.core.computation.ComputationParameter` object
+        for the parameter ``param_name``.
+        Note that even parameters hidden by connected transformations are visible this way.
+    """
 
     def __init__(self, root_params):
         self._tr_tree = TransformationTree(root_params)
@@ -51,6 +95,22 @@ class Computation:
         return self._tr_tree.get_leaf_signature()
 
     def connect(self, param, tr, tr_param, **param_connections):
+        """
+        Connect a transformation to the computation.
+
+        :param param: connection target ---
+            a :py:class:`~reikna.core.computation.ComputationParameter` object
+            beloning to this computation object, or a string with its name.
+        :param tr: a :py:class:`~reikna.core.Transformation` object.
+        :param tr_param: connector on the side of the transformation ---
+            a :py:class:`~reikna.core.computation.TransformationParameter` object
+            beloning to ``tr``, or a string with its name.
+        :param param_connections: a dictionary with the names of new or old
+            computation parameters as keys, and
+            :py:class:`~reikna.core.computation.TransformationParameter` objects
+            (or their names) as values.
+        :returns: this computation object (modified).
+        """
 
         if isinstance(param, ComputationParameter):
             if not param.belongs_to(self):
@@ -84,6 +144,10 @@ class Computation:
         return self._build_plan(plan_factory, thread.device_params)
 
     def compile(self, thread):
+        """
+        Compiles the computation with given ``thread`` and returns
+        a :py:class:`~reikna.core.computation.ComputationCallable` object.
+        """
         translator = Translator([], [])
         return self._get_plan(self._tr_tree, translator, thread).finalize()
 
@@ -100,8 +164,13 @@ class IdGen:
 
 
 class ComputationPlan:
+    """
+    Computation plan recorder.
+    """
 
     def __init__(self, tr_tree, translator, thread):
+        """__init__()""" # hide the signature from Sphinx
+
         self._thread = thread
         self._tr_tree = tr_tree
         self._translator = translator
@@ -124,12 +193,21 @@ class ComputationPlan:
         return name
 
     def persistent_array(self, arr):
+        """
+        Adds a persistent GPU array to the plan, and returns its identifier.
+        """
         name = self._translator(self._persistent_value_idgen())
         self._internal_params[name] = Parameter(name, Annotation(arr, 'io'))
         self._persistent_values[name] = self._thread.to_device(arr)
         return name
 
     def temp_array(self, shape, dtype, strides=None):
+        """
+        Adds a temporary GPU array to the planm, and returns its identifier.
+        Temporary arrays can share physical memory and are only guaranteed
+        not to be overwritten by writes to other temporary arrays which are explicitly
+        marked as dependent in :py:meth:`kernel_call`.
+        """
         name = self._translator(self._temp_array_idgen())
         self._internal_params[name] = Parameter(
             name, Annotation(Type(dtype, shape=shape, strides=strides), 'io'))
@@ -137,6 +215,10 @@ class ComputationPlan:
         return name
 
     def temp_array_like(self, arr):
+        """
+        Same as :py:meth:`temp_array`, taking the array properties
+        from array or array-like object ``arr``.
+        """
         return self.temp_array(arr.shape, arr.dtype, strides=arr.strides)
 
     def _process_user_arg(self, arg, known_annotation=None):
@@ -152,6 +234,22 @@ class ComputationPlan:
 
     def kernel_call(self, template_def, args, global_size,
             local_size=None, render_kwds=None, dependencies=None):
+        """
+        Adds a kernel call to the plan.
+
+        :param template_def: Mako template def for the kernel.
+        :param args: a list of computation's
+            :py:class:`~reikna.core.computation.ComputationParameter` objects,
+            their names, identifiers returned by :py:meth:`temp_array`
+            or :py:meth:`persistent_array`, or scalar values
+            that are going to be passed to the kernel during execution.
+        :param global_size: global size to use for the call.
+        :param local_size: local size to use for the call.
+            If ``None``, the local size will be picked automatically.
+        :param render_kwds: dictionary with additional values used to render the template.
+        :param dependencies: list of pairs of array arguments uncorrelated with each other
+            (see :ref:`access-correlations` for details).
+        """
 
         argnames = [self._process_user_arg(arg) for arg in args]
         params = []
@@ -182,9 +280,14 @@ class ComputationPlan:
         self._dependencies.add_graph(dependencies)
         self._kernels.append(PlannedKernelCall(kernel, leaf_argnames))
 
-    def computation_call(self, comp, *args, **kwds):
+    def computation_call(self, computation, *args, **kwds):
+        """
+        Adds a nested computation call.
+        The ``computation`` value must be a :py:class:`~reikna.core.Computation` object.
+        ``args`` and ``kwds`` are values to be passed to the computation.
+        """
 
-        sig = comp.signature
+        sig = computation.signature
         ba = sig.bind_with_defaults(args, kwds, cast=False)
 
         argnames = [
@@ -193,10 +296,10 @@ class ComputationPlan:
 
         translator = self._translator.get_nested(
             sig.parameters, argnames, self._nested_comp_idgen())
-        tr_tree = comp._tr_tree.translate(translator)
+        tr_tree = computation._tr_tree.translate(translator)
         tr_tree.reconnect(self._tr_tree)
 
-        self._append_plan(comp._get_plan(tr_tree, translator, self._thread))
+        self._append_plan(computation._get_plan(tr_tree, translator, self._thread))
 
     def _append_plan(self, plan):
         self._kernels += plan._kernels
@@ -379,6 +482,14 @@ class PlannedKernelCall:
 
 
 class ComputationCallable:
+    """
+    A result of calling :py:meth:`~reikna.core.Computation.compile` on a computation.
+    Represents a callable opaque GPGPU computation.
+
+    .. py:attribute:: signature
+
+        A :py:class:`~reikna.core.Signature` object.
+    """
 
     def __init__(self, signature, kernel_calls, internal_args):
         self.signature = signature
@@ -386,6 +497,9 @@ class ComputationCallable:
         self._internal_args = internal_args
 
     def __call__(self, *args, **kwds):
+        """
+        Execute the computation.
+        """
         ba = self.signature.bind_with_defaults(args, kwds, cast=True)
         for kernel_call in self._kernel_calls:
             kernel_call(ba.arguments)

@@ -6,6 +6,26 @@ from reikna.helpers import wrap_in_tuple, product
 
 
 class Type:
+    """
+    Represents an array or, as a degenerate case, scalar type of a computation parameter.
+
+    .. py:attribute:: shape
+
+        A tuple of integers.
+        Scalars are represented by an empty tuple.
+
+    .. py:attribute:: dtype
+
+        A ``numpy.dtype`` instance.
+
+    .. py:attribute:: ctype
+
+        A string with the name of C type corresponding to :py:attr:`dtype`.
+
+    .. py:attribute:: strides
+
+        Tuple of bytes to step in each dimension when traversing an array.
+    """
 
     def __init__(self, dtype, shape=None, strides=None):
         self.shape = tuple() if shape is None else wrap_in_tuple(shape)
@@ -25,6 +45,9 @@ class Type:
 
     @classmethod
     def from_value(cls, val):
+        """
+        Creates a :py:class:`Type` object corresponding to the given value.
+        """
         if isinstance(val, Type):
             return val
         elif numpy.issctype(val):
@@ -36,10 +59,22 @@ class Type:
             return cls(dtypes.detect_type(val))
 
     def __call__(self, val):
+        """
+        Casts the given value to this type.
+        """
         return self._cast(val)
 
 
 class Annotation:
+    """
+    Computation parameter annotation,
+    in the same sense as it is used for functions in the standard library.
+
+    :param type_: a :py:class:`~reikna.core.Type` object.
+    :param role: any of ``'i'`` (input), ``'o'`` (output),
+        ``'io'`` (input/output), ``'s'`` (scalar).
+        Defaults to ``'s'`` for scalars and ``'io'`` for arrays.
+    """
 
     def __init__(self, type_, role=None):
         self.type = Type.from_value(type_)
@@ -63,9 +98,15 @@ class Annotation:
 
 
 class Parameter(funcsigs.Parameter):
-    # - names are mandatory
-    # - array parameters do not have defaults
-    # - technically, all objects have kind funcsigs.Parameter.POSITIONAL_OR_KEYWORD
+    """
+    Computation parameter,
+    in the same sense as it is used for functions in the standard library.
+    In its terms, all computation parameters have kind ``POSITIONAL_OR_KEYWORD``.
+
+    :param name: parameter name.
+    :param annotation: an :py:class:`~reikna.core.Annotation` object.
+    :param default: default value for the parameter, can only be specified for scalars.
+    """
 
     def __init__(self, name, annotation, default=funcsigs.Parameter.empty):
 
@@ -81,6 +122,10 @@ class Parameter(funcsigs.Parameter):
             default=default)
 
     def rename(self, new_name):
+        """
+        Creates a new :py:class:`Parameter` object with the new name
+        and the same annotation and default value.
+        """
         return Parameter(new_name, self.annotation, default=self.default)
 
     def __eq__(self, other):
@@ -89,6 +134,16 @@ class Parameter(funcsigs.Parameter):
 
 
 class Signature(funcsigs.Signature):
+    """
+    Computation signature,
+    in the same sense as it is used for functions in the standard library.
+
+    :param parameters: a list of :py:class:`~reikna.core.Parameter` objects.
+
+    .. py:attribute:: parameters
+
+        An ``OrderedDict`` with :py:class:`~reikna.core.Parameter` objects indexed by their names.
+    """
 
     def __init__(self, parameters):
         # HACK: Signature constructor is not documented.
@@ -96,6 +151,10 @@ class Signature(funcsigs.Signature):
         funcsigs.Signature.__init__(self, parameters)
 
     def bind_with_defaults(self, args, kwds, cast=False):
+        """
+        Binds passed positional and keyword arguments to parameters in the signature and
+        returns the resulting ``BoundArguments`` object.
+        """
         ba = self.bind(*args, **kwds)
         for param in self.parameters.values():
             if param.name not in ba.arguments:

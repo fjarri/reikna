@@ -25,41 +25,53 @@ Writing a transformation
 
 Some common transformations are already available from :py:mod:`~reikna.transformations` module.
 But you can create a custom one if you need to.
-Transformations are based on the class :py:class:`~reikna.core.Transformation`.
-Its constructor has three major groups of parameters.
+Transformations are based on the class :py:class:`~reikna.core.Transformation`, and are very similar to :py:class:`~reikna.pureparallel.PureParallel` instances, with some additional limitations.
 
-First, ``outputs``, ``inputs`` and ``scalars`` contain lists of names for corresponding transformation arguments.
-Alternatively, you may just pass integers; in that case the names will be generated to be ``i1``, ``i2``, ..., ``o1``, ``o2``, ..., ``s1``, ``s2``, ...
-
-Second, ``derive_o_from_is`` and ``derive_i_from_os`` options take functions that perform type derivation.
-This happens when ``prepare_for`` is called; first function will be used to propagate types from leaf inputs to base inputs, and the second one to propagate type from leaf outputs to base outputs.
-If the transformation has more than one output or more than one input, and, therefore, cannot be connected to the output or input argument, respectively, the corresponding function should not be supplied.
-On the other hand, if the function is not supplied, but is required, the fallback is the :py:func:`~reikna.cluda.dtypes.result_type`.
-
-The format of required functions is the following (here ``iN``, ``oN`` and ``sN`` are ``numpy.dtype`` objects):
-
-* ``derive_o_from_is(i1, ..., s1, ...)``, returns the ``numpy.dtype`` for ``o1``.
-* ``derive_i_from_os(o1, ..., s1, ...)``, returns the ``numpy.dtype`` for ``i1``.
-
-The last part of the constructor is a ``code`` parameter.
-It is a string with the Mako template which describes the transformation.
-Variables ``i1``, ..., ``o1``, ..., ``s1``, ... are available in the template and help specify load and store actions for inputs, outputs and parameters, and also to obtain their data types.
-Each of these variables has attributes ``dtype`` (contains the ``numpy.dtype``), ``ctype`` (contains a string with corresponding C type) and either one of ``load`` (for inputs), ``store`` (for outputs) and ``__str__`` (for scalar parameters).
-``${i1.load}`` can be used as a variable, and ``${o1.store}(val)`` as a function that takes one variable.
-Also the ``dtypes`` variable is available in the template, providing access :py:mod:`~reikna.cluda.dtypes` module, and ``func`` is a module-like object containing generalizations of arithmetic functions (see :ref:`cluda-kernel-toolbox` for details).
-
-For example, for a scaling transformation with one input, one output and one parameter the code may look like:
+Let us consider a (not very useful, but quite involved) example:
 
 ::
 
-    ${o1.store}(${func.mul(i1.dtype, s1.dtype, out=o1.dtype)}(${i1.load}, ${s1}));
+    tr = Transformation(
+        [
+            Parameter('out1', Annotation(Type(numpy.float32, shape=100), 'o')),
+            Parameter('out2', Annotation(Type(numpy.float32, shape=80), 'o')),
+            Parameter('in1', Annotation(Type(numpy.float32, shape=100), 'i')),
+            Parameter('in2', Annotation(Type(numpy.float32, shape=100), 'i')),
+            Parameter('param', Annotation(Type(numpy.float32))),
+        ],
+        """
+        int idx = ${idxs[0]};
+        float i1 = ${in1.load_same};
+        float i2 = ${in2.load_idx}(100 - idx) * ${param};
+        ${out1.store_same}(i1);
+        if (idx < 80)
+            ${out2.store_idx}(idx, i2);
+        """,
+        connectors=['in1', 'out1'],
+        dependencies=[('i1', 'i2'), ('o1', 'i2'), ('o2', 'i2')])
 
-There is a lot of stuff going on in this single line.
-First, notice that the input is loaded as ``${i1.load}``, and the parameter as ``${s1}``.
-Second, since any of the ``i1`` and ``s1`` can be complex, we had to use the generic multiplication template from the ``func`` quasi-module.
-The result is passed to the output by calling ``${o1.store}``.
-If the transformation has several outputs, it will have several ``store`` statements.
-Since the ``code`` parameter will be inserted into a function, you can safely create temporary variables if you need to.
+*Connectors.*
+A transformation gets activated when the main computation attempts to load some value from some index in global memory, or store one to some index.
+This index is passed to the transformation attached to the corresponding parameter, and used to invoke loads/stores either without changes (to perform strictly elementwise operations), or, possibly, with some changes (as the example illustrates).
+
+If some parameter is only queried once, and only using ``load_same`` or ``store_same``, it is called a *connector*, which means that it can be used to attach the transformation to a computation.
+Currently connectors cannot be detected automatically, so it is the responsibility of the user to provide a list of them to the constructor.
+By default all parameters are considered to be connectors.
+
+*Shape changing.*
+Parameters in transformations are typed, and it is possible to change data type or shape of a parameter the transformation is attached to.
+In our example ``out2`` has length 80, so the current index is checked before the output to make sure there is no out of bounds access.
+
+*Dependencies.*
+Any two non-scalar transformation parameters which use uncorrelated indices may end up causing load and store events to happen in the leaf transformations, such that in two different threads, one of them performing load, and the other performing store, these are made with the same array index.
+Then, if these two parameters are assigned the same array, it may cause race condition and undefined behavior.
+Since ``reikna`` automatically packs temporary arrays in computations, such that sometimes different arrays point to the same physical memory, it is important to provide such dependency information, so that the temporary array allocator was aware of it.
+
+In our case, indices that ``in2`` uses are uncorrelated with other parameters, that's why we specify three dependency pairs in the constructor.
+
+*Argument objects.*
+The transformation example above has some hardcoded stuff, for example the type of parameters (``float``), or their shapes (``100`` and ``80``).
+These can be accessed from argument objects ``out1``, ``in1`` etc; they all have the type :py:class:`~reikna.core.transformation.ArrayArgument`.
 
 
 .. _tutorial-advanced-computation:
@@ -67,7 +79,7 @@ Since the ``code`` parameter will be inserted into a function, you can safely cr
 Writing a computation
 =====================
 
-A computation must derive :py:class:`~reikna.core.Computation` class and implement several methods.
+A computation must derive :py:class:`~reikna.core.Computation`.
 As an example, let us create a computation which calculates ``output = input1 + input2 * param``.
 
 Defining a class:
@@ -81,92 +93,72 @@ Defining a class:
 
     class TestComputation(Computation):
 
-Each computation class has to define the following methods:
+Each computation class has to define the constructor, and the plan building callback.
 
-#.  First, we have to specify :py:meth:`~reikna.core.Computation._get_argnames` which returns argument names for the computation.
-    The arguments are split into three groups: outputs, inputs and scalar arguments.
+*Constructor.*
+:py:class:`~reikna.core.Computation` constructor takes a list of computation parameters, which the deriving class constructor has to create according to arguments passed to it.
+You will often need :py:class:`~reikna.core.Type` objects, which can be extracted from arrays, scalars or other :py:class:`~reikna.core.Type` objects with the help of :py:meth:`~reikna.core.Type.from_value` (or they can be passed straight to :py:class:`~reikna.core.Annotation`) which does the same thing.
 
-    ::
+::
 
-        def _get_argnames(self):
-            return ('output',), ('input1', 'input2'), ('param',)
+    def __init__(self, arr, coeff):
+        Computation.__init__(self, [
+            Parameter('output', Annotation(arr, 'o')),
+            Parameter('input1', Annotation(arr, 'i')),
+            Parameter('input2', Annotation(arr, 'i')),
+            Parameter('param', Annotation(coeff))])
 
-    If you do not implement this method, you will need to implement a method that calls :py:meth:`~reikna.core.Computation._set_argnames`, which will finish initialization.
-    When the computation object is created, this method has to be called prior to any calls to ``connect`` or ``prepare_for``.
-    This is only necessary if your computation class can have different number of arguments depending on some parameters.
-    For an example, see the implementation of :py:class:reikna.elementwise.Elementwise`.
+In addition to that, the constructor can create some internal state which will be used by the plan builder.
 
-#.  Then you need to think about what values will constitute a basis for the computation.
-    Basis should contain all the information necessary to specify kernels, allocations and all other computation details.
-    In our case, we will force all the variables to have the same data type (although it is not necessary).
-    In addition we will need to add the array shape to the basis.
-    The method :py:meth:`~reikna.core.Computation._get_basis_for`, gets executed when the user calls ``prepare_for`` and creates a basis based on the arguments and keywords passed to it.
+*Plan builder.*
+The second method is called when the computation is being compiled, and has to fill and return the computation plan --- a sequence of kernel calls, plus maybe some temporary or persistent internal allocations kernels use.
+In addition, the plan can include calls to nested computations.
 
-    ::
+The method takes two parameters: ``plan_factory`` is a callable that creates a new :py:class:`~reikna.core.computation.ComputationPlan` object (in some cases you may want to recreate the plan, for example, if the workgroup size you were using turned out to be too big), and ``device_params`` is a :py:class:`~reikna.cluda.api.DeviceParameters` object, which is used to optimize the computation for the specific device.
+It must return a filled :py:class:`~reikna.core.computation.ComputationPlan` object.
 
-        def _get_basis_for(self, output, input1, input2, param):
-            assert output.dtype == input1.dtype == input2.dtype == param.dtype
-            assert output.shape == input1.shape == input2.shape
-            return dict(shape=output.shape, dtype=output.dtype)
+For our example we only need one action, which is the execution of an elementwise kernel:
 
-    The keywords from ``prepare_for`` are passed directly to :py:meth:`~reikna.core.Computation._get_basis_for`, but positional arguments may not be the same because of attached transformations.
-    Therefore :py:meth:`~reikna.core.Computation._get_basis_for` gets instances of :py:class:`~reikna.core.ArrayValue` and :py:class:`~reikna.core.ScalarValue` as positional arguments.
-    At this stage we do not care about the actual data, only its properties, like shape and data type.
+::
 
-#.  Next method tells what arguments (array/scalar, data types and shapes) the prepared computation expects to get.
-    This method is used in some internal algorithms.
+    def _build_plan(self, plan_factory, device_params):
+        plan = plan_factory()
 
-    ::
+        template = template_from(
+            """
+            <%def name='testcomp(k_output, k_input1, k_input2, k_param)'>
+            ${kernel_definition}
+            {
+                VIRTUAL_SKIP_THREADS;
+                int idx = virtual_global_id(0);
+                ${k_output.ctype} result =
+                    ${k_input1.load_idx}(idx) +
+                    ${mul}(${k_input2.load}(idx), ${k_param});
+                ${k_output.store_idx}(idx, result);
+            }
+            </%def>
+            """)
 
-        def _get_argvalues(self, basis):
-            return dict(
-                output=ArrayValue(basis.shape, basis.dtype),
-                input1=ArrayValue(basis.shape, basis.dtype),
-                input2=ArrayValue(basis.shape, basis.dtype),
-                param=ScalarValue(basis.dtype))
+        plan.kernel_call(
+            template.get_def('testcomp'),
+            ['output', 'input1', 'input2', 'param'],
+            global_size=basis.shape,
+            render_kwds=dict(mul=functions.mul(self.input2.dtype, self.param.dtype)))
 
-#.  The last method actually specifies the actions to be done by the computation.
-    These include kernel calls, allocations and calls to nested computations.
-    The method takes two parameters: ``basis`` is a basis created by :py:meth:`~reikna.core.Computation._get_basis_for`, and ``device_params`` is a :py:class:`~reikna.cluda.api.DeviceParameters` object, which is used to optimize the computation for the specific device.
-    It must return a filled :py:class:`~reikna.core.operation.OperationRecorder` object.
+        return plan
 
-    For our example we only need one action, which is the execution of an elementwise kernel:
+Every kernel call is based on the separate ``Mako`` template def.
+The template can be specified as a string using :py:func:`~reikna.helpers.template_def`, or loaded as a separate file.
+Usual pattern in this case is to call the template file same as the file where the computation class is defined (for example, ``testcomp.mako`` for ``testcomp.py``), and store it in some variable on module load using :py:func:`~reikna.helpers.template_for` as ``TEMPLATE = template_for(__file__)``.
 
-    ::
+The template function should take the same number of positional arguments as the kernel; you can view ``<%def ... >`` part as an actual kernel definition, but with the arguments being :py:class:`~reikna.core.transformation.ArrayArgument` objects containing parameter metadata.
+Outside the template parameters can be accessed as attributes of the computation object itself, and have the type :py:class:`~reikna.core.computation.ComputationParameter`.
 
-        def _construct_operations(self, basis, device_params):
-            operations = self._get_operation_recorder()
-            template = template_from(
-                """
-                <%def name='testcomp(k_output, k_input1, k_input2, k_param)'>
-                ${kernel_definition}
-                {
-                    VIRTUAL_SKIP_THREADS;
-                    int idx = virtual_global_flat_id();
-                    ${k_output.ctype} result = ${k_input1.load}(idx) +
-                        ${func.mul(k_input2.dtype, k_param.dtype)}(
-                            ${k_input2.load}(idx), ${k_param});
-                    ${k_output.store}(idx, result);
-                }
-                </%def>
-                """)
+Also, depending on whether the corresponding argument is an output array, an input array or a scalar parameter, the object can be used as ``${obj.store_idx}(index, val)``, ``${obj.load_idx}(index)`` or ``${obj}``.
+This will produce the corresponding request to the global memory or kernel arguments.
 
-            operations.add_kernel(template.get_def('testcomp'),
-                ['output', 'input1', 'input2', 'param'],
-                global_size=basis.shape)
-            return operations
+If you need additional device functions, they have to be specified between ``<%def ... >`` and ``${kernel_definition}`` (the latter is where the actual kernel signature will be rendered).
+Obviously, these functions can still use ``dtype`` and ``ctype`` object properties, although ``store_idx`` and ``load_idx`` will most likely result in compilation error (since they are rendered as macros using main kernel arguments).
 
-    Every kernel call is based on the separate ``Mako`` template function.
-    The template can be specified as a string using :py:func:`~reikna.helpers.template_def`, or loaded as a separate file.
-    Usual pattern in this case is to call the template file same as the file where the computation class is defined (for example, ``testcomp.mako`` for ``testcomp.py``), and store it in some variable on module load using :py:func:`~reikna.helpers.template_for` as ``TEMPLATE = template_for(__file__)``.
-
-    The template function should take the same number of positional arguments as the kernel; you can view ``<%def ... >`` part as an actual kernel definition, but with the arguments being python objects containing variable metadata.
-    Namely, every such object has attributes ``dtype`` and ``ctype``, which contain ``numpy.dtype`` object and C type string for the corresponding argument.
-    Also, depending on whether the corresponding argument is an output array, an input array or a scalar parameter, the object can be used as ``${obj.store}(val, index)``, ``${obj.load}(index)`` or ``${obj}``.
-    This will produce corresponding request to the global memory or kernel arguments.
-
-    If you need additional device functions, they have to be specified between ``<%def ... >`` and ``${kernel_definition}`` (the latter is where the actual kernel signature will be rendered).
-    Obviously, these functions can still use ``dtype`` and ``ctype`` object properties, although ``store`` and ``load`` will lead to unpredictable results (since they are rendered as macros using main kernel arguments).
-
-    Since kernel call parameters (``global_size`` and ``local_size``) are specified on creation, all kernel calls are rendered as CLUDA static kernels (see :py:meth:`~reikna.cluda.api.Thread.compile_static`) and therefore can use all the corresponding macros and functions (like :c:func:`virtual_global_flat_id` in our kernel).
-    Also, they must have :c:macro:`VIRTUAL_SKIP_THREADS` at the beginning of the kernel.
+Since kernel call parameters (``global_size`` and ``local_size``) are specified on creation, all kernel calls are rendered as CLUDA static kernels (see :py:meth:`~reikna.cluda.api.Thread.compile_static`) and therefore can use all the corresponding macros and functions (like :c:func:`virtual_global_flat_id` in our kernel).
+Also, they must have :c:macro:`VIRTUAL_SKIP_THREADS` at the beginning of the kernel.
