@@ -10,6 +10,10 @@ To merge the new API branch:
 After merging:
 
 * DOC: write correlations tutorial
+* DOC: since ``store_same`` is translated to ``return`` in the input transformations, it is necessary to emphasize in docs that it should be the last instruction in the code.
+  Or, alternatively, replace it with something like ``ctype _temp = ...; <rest of the code> return _temp;``?
+* TEST (core): Need to test connections to ``'io'`` parameters, and also the behavior of transformations with ``'io'`` parameters (including their use in ``PureParallel``).
+  I expect there will be quite a few bugs.
 * ?API (computations): move some of the functionality to the top level of ``reikna`` module?
 * ?API (core): pass ``kernel_definition`` as a positional argument to a kernel template def?
 * ?API (core): when we are connecting a transformation to an existing scalar parameter, during the leaf signature building it moves from its place, which may seem a bit surprising. Should we attempt to keep it at the same place? Like, keep all parameters with default values at the end (thus breaking the "depth first" order, of course)?
@@ -78,7 +82,7 @@ Core:
 Computations:
 
 * CHECK: need to find a balance between creating more workgroups or making loops inside kernels
-  (can be applied in elementwise kernels)
+  (can be applied in pure parallel kernels)
 * TODO: add bitonic sort
 * TODO: add filter
 * TODO: add better block width finder for small matrices in matrixmul
@@ -94,7 +98,7 @@ CLUDA:
 
 Core:
 
-* DECIDE: Some mechanism to merge together two successive Computation calls. Will require an API to tell reikna that certain computations are executed together, plus some way to determine if the computation is local and elementwise (otherwise the connection will require the change of code).
+* DECIDE: Some mechanism to merge together two successive Computation calls. Will require an API to tell reikna that certain computations are executed together, plus some way to determine if the computation is local and pure parallel (otherwise the connection will require the change of code).
 
 * DECIDE: Some mechanism to detect when two transformations are reading from the same node at the same index, and only read the global memory once. This can be done by storing node results in kernel-global variables instead of chaining functions like it's done now. The problem is that we have to be able to distinguish between several loads from the same node at different indices.
 
