@@ -9,6 +9,7 @@ To merge the new API branch:
 
 After merging:
 
+* DOC: write correlations tutorial
 * ?API (computations): move some of the functionality to the top level of ``reikna`` module?
 * ?API (core): pass ``kernel_definition`` as a positional argument to a kernel template def?
 * ?API (core): when we are connecting a transformation to an existing scalar parameter, during the leaf signature building it moves from its place, which may seem a bit surprising. Should we attempt to keep it at the same place? Like, keep all parameters with default values at the end (thus breaking the "depth first" order, of course)?
