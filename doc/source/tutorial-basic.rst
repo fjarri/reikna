@@ -9,8 +9,8 @@ Usage of computations
 
 All ``reikna`` computation classes are derived from the :py:class:`~reikna.core.Computation` class and therefore share the same API and behavior.
 A computation object is an opaque typed function-like object containing all the information necessary to generate GPU kernels that implement some algorithm, along with necessary internal temporary and persistent memory buffers.
-Before use it needs to be compiled by calling :py:meth:`~reikna.core.Computation.compile` for a given :py:class:`~reikna.cluda.Thread` (thus using its associated device and queue).
-This method returns a :py:class:`~reikna.core.ComputationCallable` object which takes GPU arrays and scalar parameters and calls its internal kernels.
+Before use it needs to be compiled by calling :py:meth:`~reikna.core.Computation.compile` for a given :py:class:`~reikna.cluda.api.Thread` (thus using its associated device and queue).
+This method returns a :py:class:`~reikna.core.computation.ComputationCallable` object which takes GPU arrays and scalar parameters and calls its internal kernels.
 
 
 Computations and transformations
@@ -26,14 +26,14 @@ Transformation tree
 ===================
 
 Before talking about transformations themselves, we need to take a closer look at the computation signatures.
-Every :py:class:`~reikna.core.Computation` object has a :py:attr:`~reikna.core.Computation.signature` attribute containing :py:class:`funcsigs.Signature` object.
-It is the same signature object as can be exctracted from any Python function using :py:func:`funcsigs.signature` function (or :py:func:`inspect.signature` from the standard library for Python >= 3.3).
+Every :py:class:`~reikna.core.Computation` object has a :py:attr:`~reikna.core.Computation.signature` attribute containing ``funcsigs.Signature`` object.
+It is the same signature object as can be exctracted from any Python function using ``funcsigs.signature`` function (or ``inspect.signature`` from the standard library for Python >= 3.3).
 When the computation object is compiled, the resulting callable will have this exact signature.
 
 The base signature for any computation can be found in its documentation (and, sometimes, can depend on the arguments passed to its constructor --- see, for example, :py:class:`~reikna.pureparallel.PureParallel`).
 The signature can change if a user connects transformations to some parameter via :py:meth:`~reikna.core.Computation.connect`; in this case the :py:attr:`~reikna.core.Computation.signature` attribute will change accordingly.
 
-All attached transformations form a tree with roots being the base parameters computation has right after creation, and leaves forming the user-visible signature, which the compiled :py:class:`~reikna.core.ComputationCallable` will have.
+All attached transformations form a tree with roots being the base parameters computation has right after creation, and leaves forming the user-visible signature, which the compiled :py:class:`~reikna.core.computation.ComputationCallable` will have.
 
 As an example, let us consider an elementwise computation object with one output, two inputs and a scalar parameter, which performs the calculation ``out = in1 + in2 + param``:
 

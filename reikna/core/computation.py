@@ -103,11 +103,11 @@ class Computation:
             beloning to this computation object, or a string with its name.
         :param tr: a :py:class:`~reikna.core.Transformation` object.
         :param tr_param: connector on the side of the transformation ---
-            a :py:class:`~reikna.core.computation.TransformationParameter` object
+            a :py:class:`~reikna.core.transformation.TransformationParameter` object
             beloning to ``tr``, or a string with its name.
         :param param_connections: a dictionary with the names of new or old
             computation parameters as keys, and
-            :py:class:`~reikna.core.computation.TransformationParameter` objects
+            :py:class:`~reikna.core.transformation.TransformationParameter` objects
             (or their names) as values.
         :returns: this computation object (modified).
         """

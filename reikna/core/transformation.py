@@ -10,6 +10,17 @@ TEMPLATE = template_for(__file__)
 
 
 class TransformationParameter(Type):
+    """
+    Bases: :py:class:`reikna.core.Type`
+
+    Represents a typed transformation parameter.
+    Can be used as a substitute of an array for functions
+    which are only interested in array metadata.
+
+    .. py:attribute:: name
+
+        Parameter name.
+    """
 
     def __init__(self, tr, name, type_):
         Type.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
@@ -229,10 +240,12 @@ class TransformationTree:
             if connection_name == ntr.connector_node_name:
                 if ntr.output:
                     load_same = TEMPLATE.get_def(connector_def).render()
-                    tr_args.append(ArrayArgument(param, load_same=load_same))
+                    tr_args.append(KernelArgument(
+                        param.name, param.annotation.type, load_same=load_same))
                 else:
                     store_same = TEMPLATE.get_def(connector_def).render()
-                    tr_args.append(ArrayArgument(param, store_same=store_same))
+                    tr_args.append(KernelArgument(
+                        param.name, param.annotation.type, store_same=store_same))
             else:
                 tr_args.append(self._get_argobject(connection_name))
 
@@ -257,7 +270,7 @@ class TransformationTree:
         param = node.param
 
         if not param.annotation.array:
-            return ScalarArgument(param)
+            return KernelArgument(param.name, param.annotation.type)
 
         load_idx = None
         store_idx = None
@@ -312,8 +325,8 @@ class TransformationTree:
                 render_kwds=dict(param=param, leaf_name=leaf_name, store_idx=store_idx,
                     subtree_params=subtree_params))
 
-        return ArrayArgument(
-            param,
+        return KernelArgument(
+            param.name, param.annotation.type,
             load_idx=load_idx,
             store_idx=store_idx,
             load_same=load_same,
@@ -330,27 +343,66 @@ def leaf_name(name):
     return "_leaf_" + name
 
 
-class ScalarArgument:
+class KernelArgument(Type):
+    """
+    Bases: :py:class:`reikna.core.Type`
 
-    def __init__(self, param):
-        self.type = param.annotation.type
-        self.ctype = dtypes.ctype(self.type.dtype)
-        self.name = param.name
-        self._leaf_name = leaf_name(param.name)
+    Providing an interface for accessing kernel arguments in a template.
+    Depending on the parameter type, and whether it is used
+    inside a computation or a transformation template,
+    can have different load/store attributes available.
 
-    def __str__(self):
-        return self._leaf_name
+    .. py:attribute:: name
 
+        Parameter name
 
-class ArrayArgument:
+    .. py:method:: __str__()
 
-    def __init__(self, param, load_idx=None, store_idx=None, load_same=None, store_same=None,
+        Returns the C kernel parameter name corresponding to this parameter.
+        It is the only method available for scalar parameters.
+
+    .. py:method:: load_idx()
+
+        A module providing a macro with the signature ``(idx0, idx1, ...)``,
+        returning the corresponding element of the array.
+
+    .. py:method:: store_idx()
+
+        A module providing a macro with the signature ``(idx0, idx1, ..., val)``,
+        saving ``val`` into the specified position.
+
+    .. py:method:: load_combined_idx(slices)
+
+        A module providing a macro with the signature ``(cidx0, cidx1, ...)``,
+        returning the element of the array corresponding to the new slicing of indices
+        (e.g. an array with shape ``(2, 3, 4, 5, 6)`` sliced as ``slices=(2, 2, 1)``
+        is indexed as an array with shape ``(6, 20, 6)``).
+
+    .. py:method:: store_combined_idx(slices)
+
+        A module providing a macro with the signature ``(cidx0, cidx1, ..., val)``,
+        saving ``val`` into the specified position
+        corresponding to the new slicing of indices.
+
+    .. py:method:: load_same()
+
+        A module providing a macro that returns the element of the array
+        corresponding to the indices used by the caller of the transformation.
+
+    .. py:method:: store_same()
+
+        A module providing a macro with the signature ``(val)`` that stores ``val``
+        using the indices used by the caller of the transformation.
+    """
+
+    def __init__(self, name, type_, load_idx=None, store_idx=None, load_same=None, store_same=None,
             load_combined_idx=None, store_combined_idx=None):
+        """__init__()""" # hide the signature from Sphinx
 
-        self._param = param
-        self.name = param.name
-        self.type = param.annotation.type
-        self.ctype = dtypes.ctype(self.type.dtype)
+        Type.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
+
+        self._leaf_name = leaf_name(name)
+        self.name = name
 
         if load_idx is not None: self.load_idx = load_idx
         if store_idx is not None: self.store_idx = store_idx
@@ -368,7 +420,10 @@ class ArrayArgument:
             if hasattr(self, attr):
                 kwds[attr] = process(getattr(self, attr))
 
-        return ArrayArgument(self._param, **kwds)
+        return KernelArgument(self.name, self, **kwds)
 
     def __repr__(self):
-        return "ArrayArgument("+ self.name + ")"
+        return "KernelArgument("+ self.name + ")"
+
+    def __str__(self):
+        return self._leaf_name

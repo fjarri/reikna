@@ -122,7 +122,7 @@ Computations
 Now it's time for the main part of the functionality.
 ``reikna`` provides GPGPU algorithms in the form of :py:class:`~reikna.core.Computation`-based cores and :py:class:`~reikna.core.Transformation`-based plug-ins.
 Computations contain the algorithm itself; examples are matrix multiplication, reduction, sorting and so on.
-Transformations are elementwise operations on inputs or outputs of computations, used for scaling, typecast and other auxiliary purposes.
+Transformations are parallel operations on inputs or outputs of computations, used for scaling, typecast and other auxiliary purposes.
 Transformations are compiled into the main computation kernel and are therefore quite cheap in terms of performance.
 
 As an example, we will consider the matrix multiplication.
@@ -159,17 +159,9 @@ As an example, we will consider the matrix multiplication.
     True
 
 Most of the code above should be already familiar, with the exception of the creation of :py:class:`~reikna.matrixmul.MatrixMul` object.
-As any other class derived from :py:class:`~reikna.core.Computation`, it requires a :py:class:`~reikna.cluda.api.Thread` as a constructor argument.
-The thread serves as a source of data about the target API and device, and provides an execution queue.
-
-Before usage the object has to be prepared.
-It does not happen in the constructor, since the transformations may be connected after that, and they would invalidate previous preparation.
-The preparation consists of passing to the :py:meth:`~reikna.core.Computation.prepare_for` array and scalar arguments we will use to call the computation (or stub :py:class:`~reikna.core.ArrayValue` and :py:class:`~reikna.core.ScalarValue` objects, if real arrays are not available at preparation time), along with some optional keyword arguments.
-The list of required positional and keyword arguments for any computation is specified in its documentation; for :py:class:`~reikna.matrixmul.MatrixMul` it is :py:class:`MatrixMul.prepare_for() <reikna.matrixmul.MatrixMul.prepare_for>`.
-
-From the documentation we know that we need three array parameters, and we ask :py:class:`~reikna.matrixmul.MatrixMul` to prepare itself to handle arrays ``res_dev``, ``a_dev`` and ``b_dev`` when they are passed to it.
-
-After the preparation we can use the object as a callable, passing it arrays and scalars with the same data types and shapes we used to prepare the computation.
+The computation constructor takes two array-like objects, representing arrays that will participate in the computation.
+After that the computation object has to be compiled.
+The :py:meth:`~reikna.core.Computation.compile` method requires a :py:class:`~reikna.cluda.api.Thread` object, which serves as a source of data about the target API and device, and provides an execution queue.
 
 
 Transformations
@@ -222,7 +214,7 @@ Let us change the previous example and connect transformations to it.
 We have used a pre-created transformation :py:func:`~reikna.transformations.combine_complex` from :py:mod:`reikna.transformations` for simplicity; developing a custom transformation is also possible and described in :ref:`tutorial-advanced-transformation`.
 From the documentation we know that it transforms two inputs into one output; therefore we need to attach it to one of the inputs of ``dot`` (identified by its name), and provide names for two new inputs.
 
-Names to attach to are obtained from the documentation for the particular computation. By convention they are the same as the names of positional arguments to :py:meth:`~reikna.core.Computation.prepare_for`; for :py:class:`~reikna.matrixmul.MatrixMul` these are ``out``, ``a`` and ``b``.
+Names to attach to are obtained from the documentation for the particular computation; for :py:class:`~reikna.matrixmul.MatrixMul` these are ``out``, ``a`` and ``b``.
 
 In the current example we have attached the transformations to both inputs.
-Note that ``prepare_for`` has a new signature now, and the resulting ``dot`` object now works with split complex numbers.
+Note that the computation has a new signature now, and the compiled ``dot`` object now works with split complex numbers.

@@ -1,10 +1,9 @@
 import numpy
 import pytest
 
-from reikna.core import Parameter, Annotation
+from reikna.core import Parameter, Annotation, Transformation
 from reikna.core.signature import Type
 from reikna.cluda import functions
-from reikna import Transformation
 
 from helpers import *
 from test_core.dummy import *
