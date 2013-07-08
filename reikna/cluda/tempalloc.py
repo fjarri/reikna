@@ -78,8 +78,8 @@ class TemporaryManager:
     def update_buffer(self, id):
         array = self._arrays[id]()
         buf = self._get_buffer(id)
-        if hasattr(array, 'data'):
-            array.data = buf
+        if hasattr(array, 'base_data'):
+            array.base_data = buf
         else:
             array.gpudata = buf
 

@@ -141,6 +141,10 @@ if __name__ == '__main__':
         provides=['reikna'],
         requires=requires,
         install_requires=install_requires,
+        extras_require=dict(
+            pyopencl=["pyopencl>=2013.1"],
+            pycuda=["pycuda>=2013.2"],
+            test=["pytest>=2.3", "pytest-cov"]),
         package_data={'reikna': ['*.mako'],
                       'reikna/core': ['*.mako'],
                       'reikna/cluda': ['*.mako']},
