@@ -31,6 +31,9 @@ But techically the plan creator does not know anything about connections anyway,
 =====
 
 * FIX (computations): use modules in ``CBRNG``
+* FIX (cluda): when ``None`` is passed as a local size for a static kernel, and the global size is small, it sets large values for local size (e.g. for gs=13 it sets ls=480, gs=480).
+  It's not critical, just confusing; large global sizes seem to have much less unused threads.
+  Also, in general, cluda/vsize code is a mess.
 * ?API (computations): move all "raw" computations to their own submodule?
 * TESTS: run coverage tests and see if some functionality has to be tested,
   and check existing testcases for redundancy (fft and vsizes in particular)
