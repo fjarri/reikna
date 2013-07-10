@@ -143,21 +143,21 @@ def test_dtype_support(thr, dtype):
 
 
 def test_find_local_size(thr_and_global_size):
-    thr, global_size = thr_and_global_size
-
     """
     Check that if None is passed as local_size, kernel can find some local_size to run with
     (not necessarily optimal).
     """
 
+    thr, global_size = thr_and_global_size
+
     program = thr.compile(
     """
     KERNEL void test(GLOBAL_MEM int *dest)
     {
-      const int i = get_global_id(0) +
-        get_global_id(1) * get_global_size(0) +
-        get_global_id(2) * get_global_size(1) * get_global_size(0);
-      dest[i] = i;
+        const int i = get_global_id(0) +
+            get_global_id(1) * get_global_size(0) +
+            get_global_id(2) * get_global_size(1) * get_global_size(0);
+        dest[i] = i;
     }
     """)
     test = program.test
