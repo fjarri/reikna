@@ -52,9 +52,9 @@ def pytest_generate_tests(metafunc):
             (13,), (35,), (31*31*4,),
             (13, 15), (35, 13),
             (13, 15, 17), (75, 33, 5)]
-        local_sizes = [(4,), (4, 4), (4, 4, 4)]
+        local_sizes = [None, (4,), (4, 4), (4, 4, 4)]
         gl_sizes = [(g, l) for g, l in itertools.product(grid_sizes, local_sizes)
-            if len(g) == len(l)]
+            if l is None or len(g) == len(l)]
         metafunc.parametrize('gl_size', gl_sizes, ids=[str(x) for x in gl_sizes])
     if 'incorrect_gl_size' in metafunc.funcargnames:
         grid_sizes = [
@@ -67,14 +67,19 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize('incorrect_gl_size', gl_sizes, ids=[str(x) for x in gl_sizes])
 
 
+def get_global_size(grid_size, local_size, gs_is_multiple=True):
+    if local_size is None:
+        local_size = tuple([1 for g in grid_size])
+    global_size = [g * l for g, l in zip(grid_size, local_size)]
+    if not gs_is_multiple:
+        global_size = [g - 1 for g in global_size]
+    return tuple(global_size), local_size
+
+
 class ReferenceIds:
 
-    def __init__(self, grid_size, local_size, gs_is_multiple=True):
-        global_size = [g * l for g, l in zip(grid_size, local_size)]
-        if not gs_is_multiple:
-            global_size = [g - 1 for g in global_size]
-
-        self.global_size = tuple(global_size)
+    def __init__(self, global_size, local_size):
+        self.global_size = global_size
         self.local_size = local_size
         self.np_global_size = list(reversed(global_size))
         self.np_local_size = list(reversed(local_size))
@@ -138,7 +143,8 @@ def test_ids(thr_with_gs_limits, gl_size, gs_is_multiple):
     if product(grid_size) > product(thr.device_params.max_num_groups):
         pytest.skip()
 
-    ref = ReferenceIds(grid_size, local_size, gs_is_multiple)
+    global_size, ls = get_global_size(grid_size, local_size, gs_is_multiple=gs_is_multiple)
+    ref = ReferenceIds(global_size, ls)
 
     get_ids = thr.compile_static("""
     KERNEL void get_ids(GLOBAL_MEM int *fid,
@@ -159,7 +165,7 @@ def test_ids(thr_with_gs_limits, gl_size, gs_is_multiple):
         gly[i] = virtual_global_id(1);
         glz[i] = virtual_global_id(2);
     }
-    """, 'get_ids', ref.global_size, local_size=ref.local_size)
+    """, 'get_ids', global_size, local_size=local_size)
 
     fid = thr.array(product(ref.np_global_size), numpy.int32)
     lx = thr.array(ref.np_global_size, numpy.int32)
@@ -175,12 +181,13 @@ def test_ids(thr_with_gs_limits, gl_size, gs_is_multiple):
     get_ids(fid, lx, ly, lz, gx, gy, gz, glx, gly, glz)
 
     assert diff_is_negligible(fid.get(), ref.predict_global_flat_ids())
-    assert diff_is_negligible(lx.get(), ref.predict_local_ids(0))
-    assert diff_is_negligible(ly.get(), ref.predict_local_ids(1))
-    assert diff_is_negligible(lz.get(), ref.predict_local_ids(2))
-    assert diff_is_negligible(gx.get(), ref.predict_group_ids(0))
-    assert diff_is_negligible(gy.get(), ref.predict_group_ids(1))
-    assert diff_is_negligible(gz.get(), ref.predict_group_ids(2))
+    if local_size is not None:
+        assert diff_is_negligible(lx.get(), ref.predict_local_ids(0))
+        assert diff_is_negligible(ly.get(), ref.predict_local_ids(1))
+        assert diff_is_negligible(lz.get(), ref.predict_local_ids(2))
+        assert diff_is_negligible(gx.get(), ref.predict_group_ids(0))
+        assert diff_is_negligible(gy.get(), ref.predict_group_ids(1))
+        assert diff_is_negligible(gz.get(), ref.predict_group_ids(2))
     assert diff_is_negligible(glx.get(), ref.predict_global_ids(0))
     assert diff_is_negligible(gly.get(), ref.predict_global_ids(1))
     assert diff_is_negligible(glz.get(), ref.predict_global_ids(2))
@@ -196,7 +203,8 @@ def test_sizes(thr_with_gs_limits, gl_size, gs_is_multiple):
     if product(grid_size) > product(thr.device_params.max_num_groups):
         pytest.skip()
 
-    ref = ReferenceIds(grid_size, local_size, gs_is_multiple)
+    global_size, ls = get_global_size(grid_size, local_size, gs_is_multiple=gs_is_multiple)
+    ref = ReferenceIds(global_size, ls)
 
     get_sizes = thr.compile_static("""
     KERNEL void get_sizes(GLOBAL_MEM int *sizes)
@@ -211,17 +219,26 @@ def test_sizes(thr_with_gs_limits, gl_size, gs_is_multiple):
         }
         sizes[9] = virtual_global_flat_size();
     }
-    """, 'get_sizes', ref.global_size, local_size=ref.local_size)
+    """, 'get_sizes', global_size, local_size=local_size)
 
     sizes = thr.array(10, numpy.int32)
     get_sizes(sizes)
 
-    gls = list(ref.global_size) + [1] * (3 - len(ref.global_size))
-    ls = list(ref.local_size) + [1] * (3 - len(ref.local_size))
-    gs = [min_blocks(g, l) for g, l in zip(gls, ls)]
+    sizes = sizes.get()
+    ls = sizes[0:3]
+    gs = sizes[3:6]
+    gls = sizes[6:9]
+    flat_size = sizes[9]
 
-    ref_sizes = numpy.array(ls + gs + gls + [product(gls)]).astype(numpy.int32)
-    assert diff_is_negligible(sizes.get(), ref_sizes)
+    gls_ref = numpy.array(list(ref.global_size) + [1] * (3 - len(ref.global_size)), numpy.int32)
+    assert diff_is_negligible(gls, gls_ref)
+    assert flat_size == product(gls_ref)
+
+    if local_size is not None:
+        ls_ref = numpy.array(list(ref.local_size) + [1] * (3 - len(ref.local_size)), numpy.int32)
+        gs_ref = numpy.array([min_blocks(g, l) for g, l in zip(gls_ref, ls_ref)], numpy.int32)
+        assert diff_is_negligible(ls, ls_ref)
+        assert diff_is_negligible(gs, gs_ref)
 
 
 def test_incorrect_sizes(thr_with_gs_limits, incorrect_gl_size):
