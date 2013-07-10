@@ -5,7 +5,6 @@ To merge the new API branch:
 
 * DOCS: add docstrings for main core classes and check that doctests pass
 * FIX: update existing Computations and Transformations to a new API
-* API (computations): change the misleading name Elementwise to PureParallel (or something)
 
 After merging:
 
