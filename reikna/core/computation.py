@@ -7,7 +7,7 @@ from reikna.core.transformation import TransformationTree, TransformationParamet
 
 class ComputationParameter(Type):
     """
-    Bases: :py:class:`reikna.core.Type`
+    Bases: :py:class:`~reikna.core.Type`
 
     Represents a typed computation parameter.
     Can be used as a substitute of an array for functions

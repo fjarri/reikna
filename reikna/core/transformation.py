@@ -11,7 +11,7 @@ TEMPLATE = template_for(__file__)
 
 class TransformationParameter(Type):
     """
-    Bases: :py:class:`reikna.core.Type`
+    Bases: :py:class:`~reikna.core.Type`
 
     Represents a typed transformation parameter.
     Can be used as a substitute of an array for functions
@@ -345,7 +345,7 @@ def leaf_name(name):
 
 class KernelArgument(Type):
     """
-    Bases: :py:class:`reikna.core.Type`
+    Bases: :py:class:`~reikna.core.Type`
 
     Providing an interface for accessing kernel arguments in a template.
     Depending on the parameter type, and whether it is used
