@@ -168,7 +168,7 @@ Transformations
 ===============
 
 Now imagine that you want to multiply complex matrices, but real and imaginary parts of your data are kept in separate arrays.
-You could create elementwise kernels that would join your data into arrays of complex values, but this would require additional storage and additional calls to GPU.
+You could create additional kernels that would join your data into arrays of complex values, but this would require additional storage and additional calls to GPU.
 Transformation API allows you to connect these transformations to the core computation --- matrix multiplication --- effectively adding the code into the main computation kernel and changing its signature.
 
 Let us change the previous example and connect transformations to it.

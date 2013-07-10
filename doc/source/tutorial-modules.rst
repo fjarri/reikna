@@ -13,7 +13,7 @@ Snippets
 ========
 
 Snippets are ``Mako`` template defs (essentially functions returning rendered text) with the associated dictionary of render keywords.
-Some computations which are parametrized by custom code (for example, :py:class:`~reikna.elementwise.Elementwise`) require this code to be provided in form of a snippet with a certain call signature.
+Some computations which are parametrized by custom code (for example, :py:class:`~reikna.pureparallel.PureParallel`) require this code to be provided in form of a snippet with a certain call signature.
 When a snippet is used in a template, the result is quite straightworward: its template function is called, rendering and returning its contents, just as a normal ``Mako`` def.
 
 Let us demonstrate it with a simple example.
@@ -203,7 +203,7 @@ Nontrivial example
 ==================
 
 Modules were introduced to help split big kernels into small reusable pieces which in ``CUDA`` or ``OpenCL`` program would be put into different source or header files.
-For example, a random number generator may be assembled from a function generating random integers, a function transforming these integers into random numbers with a certain distribution, and an :py:class:`reikna.elementwise.Elementwise` computation calling these functions and saving results to global memory.
+For example, a random number generator may be assembled from a function generating random integers, a function transforming these integers into random numbers with a certain distribution, and a :py:class:`reikna.pureparallel.PureParallel` computation calling these functions and saving results to global memory.
 These two functions can be extracted into separate modules, so that a user could call them from some custom kernel if he does not need to store the intermediate results.
 
 Going further with this example, one notices that functions that produce randoms with sophisticated distributions are often based on simpler distributions.
@@ -216,7 +216,7 @@ The final render tree may look like:
 ::
 
     Snippet(
-        Elementwise,
+        PureParallel,
         render_kwds = {
           base_rng -> Snippet(...)
           gamma -> Snippet(

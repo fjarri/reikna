@@ -35,7 +35,7 @@ The signature can change if a user connects transformations to some parameter vi
 
 All attached transformations form a tree with roots being the base parameters computation has right after creation, and leaves forming the user-visible signature, which the compiled :py:class:`~reikna.core.computation.ComputationCallable` will have.
 
-As an example, let us consider an elementwise computation object with one output, two inputs and a scalar parameter, which performs the calculation ``out = in1 + in2 + param``:
+As an example, let us consider a pure parallel computation object with one output, two inputs and a scalar parameter, which performs the calculation ``out = in1 + in2 + param``:
 
 .. testcode:: transformation_example
 

@@ -33,14 +33,24 @@ class TransformationParameter(Type):
 
 class Transformation:
     """
-    # A transformantion is a TypedKernel that:
-    # - can't use local memory
-    # - can't use thread/block id getters
-    # - can't have 'io' arguments (not really necessary, but makes things simpler)
-    # - has at least one argument that uses load_conn/store_conn, and does it only once
-    #   (these are called connectors)
-    #   (technically, 'load_conn' can be called several times, but it is not necessary)
-    # Which of those can be statically checked?
+    A class containing a pure parallel transformation of arrays.
+
+    A transformantion:
+
+    * can't use local memory;
+    * can't use global/local id getters (and depends only on externally passed indices);
+    * can't have 'io' arguments (not really necessary, but makes things simpler)
+    * has at least one argument that uses
+      :py:attr:`~reikna.core.transformation.KernelArgument.load_same` or
+      :py:attr:`~reikna.core.transformation.KernelArgument.store_same`, and does it only once.
+
+    :param parameters: a list of :py:class:`~reikna.core.Parameter` objects.
+    :param code: a source template for the transformation.
+        Will be wrapped in a template def with positional arguments with the names of
+        objects in ``parameters``.
+    :param render_kwds: a dictionary with render keywords that will be passed to the snippet.
+    :param connectors: a list of parameter names suitable for connection.
+    :param dependencies: a list of pairs of parameter names; see :ref:`access-correlations`.
     """
     def __init__(self, parameters, code, render_kwds=None, connectors=None, dependencies=None):
         self.signature = Signature(parameters)
@@ -361,12 +371,12 @@ class KernelArgument(Type):
         Returns the C kernel parameter name corresponding to this parameter.
         It is the only method available for scalar parameters.
 
-    .. py:method:: load_idx()
+    .. py:attribute:: load_idx
 
         A module providing a macro with the signature ``(idx0, idx1, ...)``,
         returning the corresponding element of the array.
 
-    .. py:method:: store_idx()
+    .. py:attribute:: store_idx
 
         A module providing a macro with the signature ``(idx0, idx1, ..., val)``,
         saving ``val`` into the specified position.
@@ -384,12 +394,12 @@ class KernelArgument(Type):
         saving ``val`` into the specified position
         corresponding to the new slicing of indices.
 
-    .. py:method:: load_same()
+    .. py:attribute:: load_same
 
         A module providing a macro that returns the element of the array
         corresponding to the indices used by the caller of the transformation.
 
-    .. py:method:: store_same()
+    .. py:attribute:: store_same
 
         A module providing a macro with the signature ``(val)`` that stores ``val``
         using the indices used by the caller of the transformation.
