@@ -25,6 +25,9 @@ After merging:
 * ?FIX (core): need to make available only those ``ComputationArgument`` objects that are actually usable: root ones for the plan creator, and all for the user connecting transformations.
 But techically the plan creator does not know anything about connections anyway, so it is not that important.
 * FIX (core): When we connect a transformation, difference in strides between arrays in the connection can be ignored (and probably the transformation's signature changed too; at least we need to decide which strides to use in the exposed node)
+* FIX (cluda): rewrite vsizes to just use a 1D global size and get any-D virtual sizes through modular division (shouldn't be that slow, but need to test; or maybe just fall back to modular division if the requested dimensionality is too big).
+* ?FIX (computations): PureParallel can be either rewritten using stub kernel and Transformation (to use load/store_combined_idx) (downside: order of parameters messes up in this case), or using the new any-D static kernels from CLUDA (if the above fix is implemented).
+* FEATURE (computations): processing several indices per thread in PureParallel may result in a performance boost, need to check that.
 
 0.3.1
 =====
