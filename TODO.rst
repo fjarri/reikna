@@ -55,6 +55,9 @@ But techically the plan creator does not know anything about connections anyway,
 * ?API (CLUDA, core): do something about the inconsistency of array shapes (row-major) and global sizes (column-major). Special get_id() functions maybe?
 * ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
 * ?FEATURE (core): when passing scalar to plan.kernel_call(), there's no typecheck (and the only check that happens is during execution). Need to somehow query the kernel about type of its parameters.
+* FEATURE (computations): allow non-sequential axes in Reduce
+* ?API (computations): can we improve how Predicates for Reduce are defined?
+* FEATURE (computations): return Type-like objects from plan.temp_array/persistent_array
 
 
 1.0.0 (production-quality version... hopefully)
