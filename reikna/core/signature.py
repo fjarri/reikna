@@ -64,6 +64,13 @@ class Type:
         """
         return self._cast(val)
 
+    def __repr__(self):
+        if len(self.shape) > 0:
+            return "Type({dtype}, shape={shape}, stides={strides})".format(
+                dtype=self.dtype, shape=self.shape, strides=self.strides)
+        else:
+            return "Type({dtype})".format(dtype=self.dtype)
+
 
 class Annotation:
     """
@@ -95,6 +102,13 @@ class Annotation:
 
     def __eq__(self, other):
         return self.type == other.type and self.role == other.role
+
+    def __repr__(self):
+        if self.array:
+            return "Annotation({type_}, role={role})".format(
+                type_=self.type, role=repr(self.role))
+        else:
+            return "Annotation({dtype})".format(dtype=self.type.dtype)
 
 
 class Parameter(funcsigs.Parameter):
