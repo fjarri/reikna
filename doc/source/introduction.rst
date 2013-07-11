@@ -146,8 +146,9 @@ As an example, we will consider the matrix multiplication.
     b_dev = thr.to_device(b)
     res_dev = thr.array((shape1[0], shape2[1]), dtype=numpy.float32)
 
-    dot = MatrixMul(thr).prepare_for(res_dev, a_dev, b_dev)
-    dot(res_dev, a_dev, b_dev)
+    dot = MatrixMul(a_dev, b_dev, out_arr=res_dev)
+    dotc = dot.compile(thr)
+    dotc(res_dev, a_dev, b_dev)
 
     res_reference = numpy.dot(a, b)
 
