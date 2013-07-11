@@ -1,4 +1,4 @@
-<%def name="matrixmul(out, a, b)">
+<%def name="matrixmul(output, a, b)">
 
 ${kernel_definition}
 {
@@ -16,49 +16,33 @@ ${kernel_definition}
     int by = virtual_group_id(1);
     int tx = virtual_local_id(0);
     int ty = virtual_local_id(1);
+    int matrix_num = virtual_global_id(2);
 
-    int matrix_num = by / ${blocks_per_matrix};
-    by -= ${blocks_per_matrix} * matrix_num;
-
-    int A_shift = 0;
-    int B_shift = 0;
-    int C_shift = 0;
-
-    %if basis.batched_a:
-        A_shift += matrix_num * ${basis.a_height} * ${basis.a_width};
+    %if batched_a:
+    int A_num = matrix_num;
+    %else:
+    int A_num = 0;
     %endif
-    %if basis.batched_b:
-        B_shift += matrix_num * ${basis.a_width} * ${basis.b_width};
+
+    %if batched_b:
+    int B_num = matrix_num;
+    %else:
+    int B_num = 0;
     %endif
-    C_shift += matrix_num * ${basis.a_height} * ${basis.b_width};
 
-    // Index of the first sub-matrix of A processed by the block
-    int aBegin = ${basis.a_width * block_width} * by;
-
-    // Index of the last sub-matrix of A processed by the block
-    int aEnd = aBegin + ${basis.a_width} - 1;
-
-    // Step size used to iterate through the sub-matrices of A
-    int aStep = ${block_width};
-
-    // Index of the first sub-matrix of B processed by the block
-    int bBegin = ${block_width} * bx;
-
-    // Step size used to iterate through the sub-matrices of B
-    int bStep = ${block_width} * ${basis.b_width};
+    int C_num = matrix_num;
 
     // Csub is used to store the element of the block sub-matrix
     // that is computed by the thread
-    ${out.ctype} Csub = ${dtypes.zero_ctr(out.dtype)};
+    ${output.ctype} Csub = ${dtypes.zero_ctr(output.dtype)};
 
     int c_x = ${block_width} * bx + tx;
     int c_y = ${block_width} * by + ty;
-    bool in_c = (c_y < ${basis.a_height} && c_x < ${basis.b_width});
+    bool in_c = (c_y < ${a_height} && c_x < ${b_width});
 
     // Loop over all the sub-matrices of A and B
     // required to compute the block sub-matrix
-    for (int a_idx = aBegin, b_idx = bBegin, step = 0; a_idx <= aEnd;
-        a_idx += aStep, b_idx += bStep, step++)
+    for (int step = 0; step < ${num_steps}; step++)
     {
         // Load the matrices from device memory
         // to shared memory; each thread loads
@@ -68,10 +52,10 @@ ${kernel_definition}
         int b_x = bx * ${block_width} + tx;
         int b_y = step * ${block_width} + ty;
 
-        As[ty * ${block_width} + tx] = (a_x < ${basis.a_width} && a_y < ${basis.a_height})
-            ? ${a.load}(a_idx + A_shift + ${basis.a_width} * ty + tx) : ${dtypes.zero_ctr(a.dtype)};
-        Bs[ty * ${block_width} + tx] = (b_x < ${basis.b_width} && b_y < ${basis.a_width})
-            ? ${b.load}(b_idx + B_shift + ${basis.b_width} * ty + tx) : ${dtypes.zero_ctr(b.dtype)};
+        As[ty * ${block_width} + tx] = (a_x < ${a_width} && a_y < ${a_height})
+            ? ${a.load_combined_idx(a_slices)}(A_num, a_y, a_x) : ${dtypes.zero_ctr(a.dtype)};
+        Bs[ty * ${block_width} + tx] = (b_x < ${b_width} && b_y < ${a_width})
+            ? ${b.load_combined_idx(b_slices)}(B_num, b_y, b_x) : ${dtypes.zero_ctr(b.dtype)};
 
         LOCAL_BARRIER;
 
@@ -90,7 +74,7 @@ ${kernel_definition}
     // Write the block sub-matrix to device memory;
     // each thread writes one element
     if(in_c)
-        ${out.store}(C_shift + ${basis.b_width} * c_y + c_x, Csub);
+        ${output.store_combined_idx(output_slices)}(C_num, c_y, c_x, Csub);
 }
 
 </%def>
