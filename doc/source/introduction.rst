@@ -179,6 +179,7 @@ Let us change the previous example and connect transformations to it.
     import numpy
     from numpy.linalg import norm
     import reikna.cluda as cluda
+    from reikna.core import Type
     from reikna.matrixmul import MatrixMul
     from reikna.transformations import combine_complex
 
@@ -194,14 +195,20 @@ Let us change the previous example and connect transformations to it.
     b_im = numpy.random.randn(*shape2).astype(numpy.float32)
     a_re_dev, a_im_dev, b_re_dev, b_im_dev = [thr.to_device(x) for x in [a_re, a_im, b_re, b_im]]
 
+    a_type = Type(numpy.complex64, shape=shape1)
+    b_type = Type(numpy.complex64, shape=shape2)
     res_dev = thr.array((shape1[0], shape2[1]), dtype=numpy.complex64)
 
-    dot = MatrixMul(thr)
-    dot.connect(combine_complex(), 'a', ['a_re', 'a_im'])
-    dot.connect(combine_complex(), 'b', ['b_re', 'b_im'])
-    dot.prepare_for(res_dev, a_re_dev, a_im_dev, b_re_dev, b_im_dev)
+    dot = MatrixMul(a_type, b_type, out_arr=res_dev)
+    combine_a = combine_complex(a_type)
+    combine_b = combine_complex(b_type)
 
-    dot(res_dev, a_re_dev, a_im_dev, b_re_dev, b_im_dev)
+    dot.a.connect(combine_a, combine_a.output, a_re=combine_a.real, a_im=combine_a.imag)
+    dot.b.connect(combine_b, combine_b.output, b_re=combine_b.real, b_im=combine_b.imag)
+
+    dotc = dot.compile(thr)
+
+    dotc(res_dev, a_re_dev, a_im_dev, b_re_dev, b_im_dev)
 
     res_reference = numpy.dot(a_re + 1j * a_im, b_re + 1j * b_im)
 

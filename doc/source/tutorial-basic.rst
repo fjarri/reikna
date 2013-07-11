@@ -42,26 +42,23 @@ As an example, let us consider a pure parallel computation object with one outpu
     import numpy
     from reikna import cluda
     from reikna.cluda import Snippet
-    from reikna.core import Transformation
+    from reikna.core import Transformation, Type, Annotation, Parameter
     from reikna.pureparallel import PureParallel
     import reikna.transformations as transformations
 
-    arr_t = Type(128, numpy.float32)
-    carr_t = Type(128, numpy.complex64)
+    arr_t = Type(numpy.float32, shape=128)
+    carr_t = Type(numpy.complex64, shape=128)
 
-    parameters = [
-        Parameter('out', Annotation(carr_t, 'o')),
+    comp = PureParallel(
+        [Parameter('out', Annotation(carr_t, 'o')),
         Parameter('in1', Annotation(carr_t, 'i')),
         Parameter('in2', Annotation(carr_t, 'i')),
-        Parameter('param', Annotation(numpy.float32)),]
-
-    code = Snippet.create(
-        lambda out, in1, in2, param:
-            """
-            ${out.store_idx}(idx, ${in1.load_idx}(idx) + ${in2.load_idx}(idx) + ${param});
-            """)
-
-    comp = PureParallel(parameters, code)
+        Parameter('param', Annotation(numpy.float32))],
+        """
+        int idx = ${idxs[0]};
+        ${out.store_idx}(
+            idx, ${in1.load_idx}(idx) + ${in2.load_idx}(idx) + ${param});
+        """)
 
 The details of creating the computation itself are not important for this example; they are provided here just for the sake of completeness.
 The initial transformation tree of ``comp`` object looks like:
@@ -78,8 +75,12 @@ The computation signature is:
 
 .. doctest:: transformation_example
 
-    >>> comp.signature
-    '(array) out, (array) in1, (array) in2, (scalar) param'
+    >>> for param in comp.signature.parameters.values():
+    ...     print param.name + ":" + repr(param.annotation)
+    out:Annotation(Type(complex64, shape=(128,), stides=(8,)), role='o')
+    in1:Annotation(Type(complex64, shape=(128,), stides=(8,)), role='i')
+    in2:Annotation(Type(complex64, shape=(128,), stides=(8,)), role='i')
+    param:Annotation(float32)
 
 Now let us attach the transformation to the output which will split it into two halves: ``out1 = out / 2``, ``out2 = out / 2``:
 
@@ -96,7 +97,7 @@ To achieve this, we connect the scaling transformation to it:
 .. testcode:: transformation_example
 
     tr = transformations.scale_param(comp.in2, numpy.float32)
-    comp.in2.connect(tr, tr.input, in2_prime=tr.output, param2=tr.coeff)
+    comp.in2.connect(tr, tr.output, in2_prime=tr.input, param2=tr.coeff)
 
 The transformation tree now looks like:
 
@@ -114,8 +115,14 @@ But user-supplied parameters (``>>``) have changed, which can be also seen in th
 
 .. doctest:: transformation_example
 
-    >>> comp.signature
-    '(array) out1, (array) out2, (array) in1, (array) in2_prime, (scalar) param, (scalar) param2'
+    >>> for param in comp.signature.parameters.values():
+    ...     print param.name + ":" + repr(param.annotation)
+    out1:Annotation(Type(float32, shape=(128,), stides=(4,)), role='o')
+    out2:Annotation(Type(float32, shape=(128,), stides=(4,)), role='o')
+    in1:Annotation(Type(complex64, shape=(128,), stides=(8,)), role='i')
+    in2_prime:Annotation(Type(complex64, shape=(128,), stides=(8,)), role='i')
+    param2:Annotation(float32)
+    param:Annotation(float32)
 
 Notice that the order of the final signature is obtained by traversing the transformation tree depth-first, starting from the base parameters.
 
@@ -128,10 +135,10 @@ When ``prepare_for`` is called, the data types and shapes of the given arguments
     api = cluda.ocl_api()
     thr = api.Thread.create()
 
-    out1 = thr.empty_lile(comp.out1)
+    out1 = thr.empty_like(comp.out1)
     out2 = thr.empty_like(comp.out2)
-    in1 = thr.to_device(numpy.ones_like(comp.in1))
-    in2_prime = thr.to_device(numpy.ones_like(comp.in2_prime))
+    in1 = thr.to_device(numpy.ones(comp.in1.shape, comp.in1.dtype))
+    in2_prime = thr.to_device(numpy.ones(comp.in2_prime.shape, comp.in2_prime.dtype))
 
     c_comp = comp.compile(thr)
     c_comp(out1, out2, in1, in2_prime, 4, 3)
