@@ -7,61 +7,73 @@ import reikna.cluda.functions as functions
 from reikna.core import *
 
 
-def identity():
+def identity(arr_t):
     """
-    Returns an identity transformation (1 output, 1 input): ``output1 = input1``.
+    Returns an identity transformation (1 output, 1 input): ``output = input``.
     """
     return Transformation(
-        inputs=1, outputs=1,
-        snippet="${o1.store}(${i1.load});")
+        [Parameter('output', Annotation(arr_t, 'o')),
+        Parameter('input', Annotation(arr_t, 'i'))],
+        "${output.store_same}(${input.load_same});")
 
 
-def scale_param():
+def scale_param(arr_t, coeff_dtype):
     """
     Returns a scaling transformation with dynamic parameter (1 output, 1 input, 1 scalar):
-    ``output1 = input1 * scalar1``.
+    ``output = input * coeff``.
     """
     return Transformation(
-        inputs=1, outputs=1, scalars=1,
-        snippet="${o1.store}(${mul}(${i1.load}, ${s1}));",
-        derive_render_kwds=lambda o1, i1, s1: dict(
-            mul=functions.mul(i1, s1, out_dtype=o1)))
+        [Parameter('output', Annotation(arr_t, 'o')),
+        Parameter('input', Annotation(arr_t, 'i')),
+        Parameter('coeff', Annotation(coeff_dtype))],
+        "${output.store_same}(${mul}(${input.load_same}, ${coeff}));",
+        render_kwds=dict(mul=functions.mul(arr_t.dtype, coeff_dtype, out_dtype=arr_t.dtype)))
 
 
-def scale_const(multiplier):
+def scale_const(arr_t, coeff):
     """
     Returns a scaling transformation with fixed parameter (1 output, 1 input):
-    ``output1 = input1 * <multiplier>``.
+    ``output = input * <coeff>``.
     """
-    dtype = dtypes.detect_type(multiplier)
+    coeff_dtype = dtypes.detect_type(coeff)
     return Transformation(
-        inputs=1, outputs=1,
-        snippet="${o1.store}(${mul}(${i1.load}, ${coeff}));",
-        derive_render_kwds=lambda o1, i1: dict(
-            mul=functions.mul(i1, dtype, out_dtype=o1),
-            coeff=dtypes.c_constant(multiplier, dtype=dtype)))
+        [Parameter('output', Annotation(arr_t, 'o')),
+        Parameter('input', Annotation(arr_t, 'i'))],
+        "${output.store_same}(${mul}(${input.load_same}, ${coeff}));",
+        render_kwds=dict(
+            mul=functions.mul(arr_t.dtype, coeff_dtype, out_dtype=arr_t.dtype),
+            coeff=dtypes.c_constant(coeff, dtype=coeff_dtype)))
 
 
-def split_complex():
+def split_complex(input_arr_t):
     """
     Returns a transformation which splits complex input into two real outputs
-    (2 outputs, 1 input): ``out_re = Re(in), out_im = Im(in)``.
+    (2 outputs, 1 input): ``real = Re(input), imag = Im(input)``.
     """
+    output_t = Type(dtypes.real_for(input_arr_t.dtype), shape=input_arr_t.shape)
     return Transformation(
-        inputs=['in_c'], outputs=['out_re', 'out_im'],
-        derive_i_from_os=lambda out_re, out_im: dtypes.complex_for(out_re),
-        snippet="""
-            ${out_re.store}(${in_c.load}.x);
-            ${out_im.store}(${in_c.load}.y);
+        [Parameter('real', Annotation(output_t, 'o')),
+        Parameter('imag', Annotation(output_t, 'o')),
+        Parameter('input', Annotation(input_arr_t, 'i'))],
+        """
+            ${real.store_same}(${input.load_same}.x);
+            ${imag.store_same}(${input.load_same}.y);
         """)
 
 
-def combine_complex():
+def combine_complex(output_arr_t):
     """
     Returns a transformation which joins two real inputs into complex output
-    (1 output, 2 inputs): ``out = in_re + 1j * in_im``.
+    (1 output, 2 inputs): ``output = real + 1j * imag``.
     """
+    input_t = Type(dtypes.real_for(output_arr_t.dtype), shape=output_arr_t.shape)
     return Transformation(
-        inputs=['in_re', 'in_im'], outputs=['out_c'],
-        derive_o_from_is=lambda in_re, in_im: dtypes.complex_for(in_re),
-        snippet="${out_c.store}(COMPLEX_CTR(${out_c.ctype})(${in_re.load}, ${in_im.load}));")
+        [Parameter('output', Annotation(output_arr_t, 'o')),
+        Parameter('real', Annotation(input_t, 'i')),
+        Parameter('imag', Annotation(input_t, 'i'))],
+        """
+        ${output.store_same}(
+            COMPLEX_CTR(${output.ctype})(
+                ${real.load_same},
+                ${imag.load_same}));
+        """)

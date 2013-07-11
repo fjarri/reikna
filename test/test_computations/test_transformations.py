@@ -4,8 +4,9 @@ Test standard transformations
 import pytest
 
 from reikna.cluda import Snippet
-from reikna.elementwise import Elementwise, specialize_elementwise
+from reikna.pureparallel import PureParallel
 import reikna.transformations as tr
+from reikna.core import Parameter, Annotation, Type
 
 from helpers import *
 
@@ -20,10 +21,11 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize('any_dtype', dtypes, ids=[str(x) for x in dtypes])
 
 
-identity = lambda output_dtype, input_dtype: Snippet.create(
-    lambda output, input: "${output.store}(idx, ${input.load}(idx));")
-
-TestComputation = specialize_elementwise('output', 'input', None, identity)
+def get_test_computation(arr_t):
+    return PureParallel(
+        [Parameter('output', Annotation(arr_t, 'o')),
+        Parameter('input', Annotation(arr_t, 'i'))],
+        "${output.store_idx}(${idxs[0]}, ${input.load_idx}(${idxs[0]}));")
 
 
 def test_identity(some_thr, any_dtype):
@@ -32,45 +34,55 @@ def test_identity(some_thr, any_dtype):
     input_dev = some_thr.to_device(input)
     output_dev = some_thr.empty_like(input_dev)
 
-    test = TestComputation(some_thr)
-    test.connect(tr.identity(), 'input', ['input_prime'])
-    test.connect(tr.identity(), 'output', ['output_prime'])
-    test.prepare_for(output_dev, input_dev)
+    test = get_test_computation(input_dev)
+    identity = tr.identity(input_dev)
 
-    test(output_dev, input_dev)
+    test.input.connect(identity, identity.output, input_prime=identity.input)
+    test.output.connect(identity, identity.input, output_prime=identity.output)
+    testc = test.compile(some_thr)
+
+    testc(output_dev, input_dev)
     assert diff_is_negligible(output_dev.get(), input)
 
 
 def test_scale_param(some_thr, any_dtype):
 
     input = get_test_array((1000,), any_dtype)
-    p1 = get_test_array((1,), any_dtype)
-    p2 = get_test_array((1,), any_dtype)
+    p1 = get_test_array((1,), any_dtype)[0]
+    p2 = get_test_array((1,), any_dtype)[0]
     input_dev = some_thr.to_device(input)
     output_dev = some_thr.empty_like(input_dev)
 
-    test = TestComputation(some_thr)
-    test.connect(tr.scale_param(), 'input', ['input_prime'], ['p1'])
-    test.connect(tr.scale_param(), 'output', ['output_prime'], ['p2'])
-    test.prepare_for(output_dev, input_dev, p1[0], p2[0])
+    test = get_test_computation(input_dev)
+    scale = tr.scale_param(input_dev, any_dtype)
 
-    test(output_dev, input_dev, p1[0], p2[0])
-    assert diff_is_negligible(output_dev.get(), input * p1[0] * p2[0])
+    test.input.connect(scale, scale.output, input_prime=scale.input, p1=scale.coeff)
+    test.output.connect(scale, scale.input, output_prime=scale.output, p2=scale.coeff)
+    testc = test.compile(some_thr)
+
+    testc(output_dev, p1, input_dev, p2)
+    assert diff_is_negligible(output_dev.get(), input * p1 * p2)
 
 
 def test_scale_const(some_thr, any_dtype):
 
     input = get_test_array((1000,), any_dtype)
-    p = get_test_array((1,), any_dtype)
+    p1 = get_test_array((1,), any_dtype)[0]
+    p2 = get_test_array((1,), any_dtype)[0]
     input_dev = some_thr.to_device(input)
     output_dev = some_thr.empty_like(input_dev)
 
-    test = TestComputation(some_thr)
-    test.connect(tr.scale_const(p[0]), 'input', ['input_prime'])
-    test.prepare_for(output_dev, input_dev)
+    test = get_test_computation(input_dev)
+    scale1 = tr.scale_const(input_dev, p1)
+    scale2 = tr.scale_const(input_dev, p2)
 
-    test(output_dev, input_dev)
-    assert diff_is_negligible(output_dev.get(), input * p[0])
+    test.input.connect(scale1, scale1.output, input_prime=scale1.input)
+    test.output.connect(scale2, scale2.input, output_prime=scale2.output)
+    testc = test.compile(some_thr)
+
+    testc(output_dev, input_dev)
+    assert diff_is_negligible(output_dev.get(), input * p1 * p2)
+
 
 def test_split_combine_complex(some_thr):
 
@@ -81,11 +93,15 @@ def test_split_combine_complex(some_thr):
     o1_dev = some_thr.empty_like(i1)
     o2_dev = some_thr.empty_like(i2)
 
-    test = TestComputation(some_thr)
-    test.connect(tr.combine_complex(), 'input', ['i1', 'i2'])
-    test.connect(tr.split_complex(), 'output', ['o1', 'o2'])
-    test.prepare_for(o1_dev, o2_dev, i1_dev, i2_dev)
+    base_t = Type(numpy.complex64, shape=1000)
+    test = get_test_computation(base_t)
+    combine = tr.combine_complex(base_t)
+    split = tr.split_complex(base_t)
 
-    test(o1_dev, o2_dev, i1_dev, i2_dev)
+    test.input.connect(combine, combine.output, i_real=combine.real, i_imag=combine.imag)
+    test.output.connect(split, split.input, o_real=split.real, o_imag=split.imag)
+    testc = test.compile(some_thr)
+
+    testc(o1_dev, o2_dev, i1_dev, i2_dev)
     assert diff_is_negligible(o1_dev.get(), i1)
     assert diff_is_negligible(o2_dev.get(), i2)
