@@ -8,7 +8,11 @@ To merge the new API branch:
 
 After merging:
 
-* DOC: write correlations tutorial
+* API: in ``connect``, parameter names in ``**connections`` can conflict with positional arguments of ``connect`` with the same names (e.g. ``param``).
+  Possible fixes: prefix parameter names of ``connect`` with underscores, or pass connections as dict (like ``render_kwds``).
+* DOC: write correlations tutorial.
+  Warning: if we read and write from the same temp array using same indices, but different strides,
+  correlation if violated!
 * DOC: since ``store_same`` is translated to ``return`` in the input transformations, it is necessary to emphasize in docs that it should be the last instruction in the code.
   Or, alternatively, replace it with something like ``ctype _temp = ...; <rest of the code> return _temp;``?
 * TEST (core): Need to test connections to ``'io'`` parameters, and also the behavior of transformations with ``'io'`` parameters (including their use in ``PureParallel``).
