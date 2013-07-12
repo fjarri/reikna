@@ -58,18 +58,19 @@ def test_raw(thr, name_and_params):
     size = 1000
     seed = 123
 
-    counters = create_counters(thr, size, name, distribution, params)
     dest = thr.array((params['words'], size),
         numpy.uint32 if params['bitness'] == 32 else numpy.uint64)
+    rng = CBRNG(dest, 1, seed=seed, rng=name, rng_params=params, distribution=distribution)
+    rngc = rng.compile(thr)
 
-    rng = CBRNG(thr).prepare_for(counters, dest, counters,
-        seed=seed, rng=name, rng_params=params, distribution=distribution)
+    counters = create_counters(size, name, distribution, params)
+    counters_dev = thr.to_device(counters)
 
-    rng(counters, dest, counters)
+    rngc(counters_dev, dest, counters_dev)
     dest_ref = rng_ref(0, size, name, seed, **params)
     assert diff_is_negligible(dest.get(), dest_ref)
 
-    rng(counters, dest, counters)
+    rngc(counters_dev, dest, counters_dev)
     dest_ref = rng_ref(1, size, name, seed, **params)
     assert diff_is_negligible(dest.get(), dest_ref)
 
@@ -82,14 +83,16 @@ def check_distribution(thr, rng_name, rng_params,
     batch = 100
     seed = 456
 
-    counters = create_counters(thr, size, rng_name, distribution, rng_params)
-    dest = thr.array((batch, size), dtype)
-
-    rng = CBRNG(thr).prepare_for(counters, dest, counters,
-        seed=seed, rng=rng_name, rng_params=rng_params,
+    dest_dev = thr.array((batch, size), dtype)
+    rng = CBRNG(dest_dev, 1, seed=seed, rng=rng_name, rng_params=rng_params,
         distribution=distribution, distribution_params=distribution_params)
-    rng(counters, dest, counters)
-    dest = dest.get()
+    rngc = rng.compile(thr)
+
+    counters = create_counters(size, rng_name, distribution, rng_params)
+    counters_dev = thr.to_device(counters)
+
+    rngc(counters_dev, dest_dev, counters_dev)
+    dest = dest_dev.get()
 
     extent = reference.get('extent', None)
     mean = reference.get('mean', None)

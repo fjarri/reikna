@@ -173,7 +173,7 @@ WITHIN_KERNEL INLINE ${ctype} mulhilo(${ctype} *hip, ${ctype} a, ${ctype} b)
 {
 %if W == 32:
 <%
-    d_ctype = "ulong"
+    d_ctype = dtypes.ctype(numpy.uint64)
 %>
     ${d_ctype} product = ((${d_ctype})a)*((${d_ctype})b);
     *hip = product >> ${W};
@@ -371,15 +371,15 @@ WITHIN_KERNEL ${ctype} distribution_gamma(LOCAL_STATE *state)
 <%
     uint32 = dtypes.ctype(numpy.uint32)
     uint64 = dtypes.ctype(numpy.uint64)
-    rng_dtype = numpy.uint32 if basis.rng_params.bitness == 32 else numpy.uint64
+    rng_dtype = numpy.uint32 if rng_params.bitness == 32 else numpy.uint64
     rng_ctype = dtypes.ctype(rng_dtype)
-    output_len = basis.rng_params.words
-    output_len_words = output_len * (1 if basis.rng_params.bitness == 32 else 2)
+    output_len = rng_params.words
+    output_len_words = output_len * (1 if rng_params.bitness == 32 else 2)
 
-    rng_func_name = 'rng_' + basis.rng
+    rng_func_name = 'rng_' + rng
     rng_func_body = getattr(local, rng_func_name)
 
-    distr_func_name = 'distribution_' + basis.distribution
+    distr_func_name = 'distribution_' + distribution
     distr_func_body = getattr(local, distr_func_name)
 
     randoms_per_call = dict(
@@ -387,9 +387,7 @@ WITHIN_KERNEL ${ctype} distribution_gamma(LOCAL_STATE *state)
         uniform_float=1,
         normal_bm=2,
         gamma=1,
-        )[basis.distribution]
-
-    size = basis.size
+        )[distribution]
 %>
 
 typedef struct _CBRNG_ARGUMENT
@@ -407,7 +405,7 @@ typedef struct _LOCAL_STATE
     int buffer_word_cursor;
 } LOCAL_STATE;
 
-${rng_func_body(basis.rng_params)}
+${rng_func_body(rng_params)}
 
 
 WITHIN_KERNEL void bump_counter(LOCAL_STATE *state)
@@ -454,7 +452,7 @@ WITHIN_KERNEL ${uint64} get_raw_uint64(LOCAL_STATE *state)
 
     int cur = state->buffer_word_cursor;
     state->buffer_word_cursor += 2;
-    %if basis.rng_params.bitness == 64:
+    %if rng_params.bitness == 64:
     return state->buffer.v[cur / 2];
     %else:
     ${uint32} hi = state->buffer_word[cur];
@@ -463,7 +461,7 @@ WITHIN_KERNEL ${uint64} get_raw_uint64(LOCAL_STATE *state)
     %endif
 }
 
-${distr_func_body(basis.dtype, basis.distribution_params)}
+${distr_func_body(randoms.dtype, distribution_params)}
 
 
 ${kernel_definition}
@@ -474,34 +472,36 @@ ${kernel_definition}
 
     LOCAL_STATE local_state;
     %for i in range(output_len):
-    local_state.counter.v[${i}] = ${old_counters.load}(${output_len} * idx + ${i});
+    local_state.counter.v[${i}] = ${old_counters.load_combined_idx(counters_slices)}(idx, ${i});
     %endfor
     refill_buffer(&local_state);
 
     %if randoms_per_call == 1 and dtypes.is_complex(randoms.dtype):
-    for (int i = 0; i < ${basis.batch}; i++)
+    for (int i = 0; i < ${batch}; i++)
     {
-        ${randoms.store}(${size} * i + idx,
+        ${randoms.store_combined_idx(randoms_slices)}(
+            i, idx,
             COMPLEX_CTR(${randoms.ctype})(
-                ${distribution_func}(&local_state),
-                ${distribution_func}(&local_state)));
+                ${distr_func_name}(&local_state),
+                ${distr_func_name}(&local_state)));
     }
     %elif randoms_per_call == 1 or (randoms_per_call == 2 and dtypes.is_complex(randoms.dtype)):
-    for (int i = 0; i < ${basis.batch}; i++)
+    for (int i = 0; i < ${batch}; i++)
     {
-        ${randoms.store}(${basis.size} * i + idx, ${distr_func_name}(&local_state));
+        ${randoms.store_combined_idx(randoms_slices)}(
+            i, idx, ${distr_func_name}(&local_state));
     }
     %elif randoms_per_call == 2:
-    for (int i = 0; i < ${basis.batch // 2}; i++)
+    for (int i = 0; i < ${batch // 2}; i++)
     {
         ${randoms.ctype}2 r = ${distr_func_name}(&local_state);
-        ${randoms.store}(${size} * (i * 2) + idx, r.x);
-        ${randoms.store}(${size} * (i * 2 + 1) + idx, r.y);
+        ${randoms.store_combined_idx(randoms_slices)}(i * 2, idx, r.x);
+        ${randoms.store_combined_idx(randoms_slices)}(i * 2 + 1, idx, r.y);
     }
     %elif batch % 2 != 0:
     {
-        ${random.ctype}2 r = ${distr_func_name}(&local_state);
-        ${randoms.store}(${size} * (i * 2) + idx, r.x);
+        ${randoms.ctype}2 r = ${distr_func_name}(&local_state);
+        ${randoms.store_combined_idx(randoms_slices)}(i * 2, idx, r.x);
     }
     %else:
     <%
@@ -513,7 +513,7 @@ ${kernel_definition}
         bump_counter(&local_state);
 
     %for i in range(output_len):
-    ${new_counters.store}(${output_len} * idx + ${i}, local_state.counter.v[${i}]);
+    ${new_counters.store_combined_idx(counters_slices)}(idx, ${i}, local_state.counter.v[${i}]);
     %endfor
 }
 </%def>
