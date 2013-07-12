@@ -6,6 +6,21 @@ Release history
 0.3.0 (current development version)
 ===================================
 
+Major core API change:
+
+* Computations have function-like signatures with the standard ``Signature`` interface; no more separation of inputs/outputs/scalars.
+
+* Generic transformations were ditched; all the transformations have static types now.
+
+* Transformations can now change array shapes, and load/store from/to external arrays in output/input transformations.
+
+* No flat array access in kernels; all access goes through indices.
+  This opens the road for correct and automatic stride support (not fully implemented yet).
+
+* Computations and accompanying classes are stateless, and their creation is more straightforward.
+
+Other stuff:
+
 * Bumped Python requirements to >=2.6 or >=3.2, and added a dependency on ``funcsig``.
 
 * ADDED: more tests for cluda.functions.

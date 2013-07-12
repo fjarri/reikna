@@ -1,13 +1,9 @@
 0.3.0 (Core API change)
 ========================
 
-To merge the new API branch:
-
-* DOCS: add docstrings for main core classes and check that doctests pass
-* FIX: update existing Computations and Transformations to a new API
-
 After merging:
 
+* DOC: clean up docs.
 * API: in ``connect``, parameter names in ``**connections`` can conflict with positional arguments of ``connect`` with the same names (e.g. ``param``).
   Possible fixes: prefix parameter names of ``connect`` with underscores, or pass connections as dict (like ``render_kwds``).
 * DOC: write correlations tutorial.
