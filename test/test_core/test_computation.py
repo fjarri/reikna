@@ -28,7 +28,7 @@ def test_dummy(thr):
 
 def test_nested_dummy(thr):
 
-    N = 200
+    N = 2000
     coeff = 2
     second_coeff = 3
     A = get_test_array((N, N), numpy.complex64)
