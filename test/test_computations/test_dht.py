@@ -125,7 +125,7 @@ def check_errors_first_order(thr, mshape, batch, add_points=None, dtype=numpy.co
     xs = [get_spatial_grid(n, 1, add_points=ap) for n, ap in zip(mshape, add_points)]
 
     mdata_dev = thr.array((batch,) + mshape, dtype)
-    axes = range(1, len(mshape)+1)
+    axes = list(range(1, len(mshape)+1))
 
     dht_fw = DHT(mdata_dev, inverse=False, axes=axes, add_points=[0] + add_points)
     dht_inv = DHT(mdata_dev, inverse=True, axes=axes, add_points=[0] + add_points)
@@ -160,7 +160,7 @@ def test_first_order_errors(thr, fo_shape, fo_batch, fo_add_points):
     elif fo_add_points == '1':
         add_points = [1] * len(fo_shape)
     else:
-        add_points = range(1, len(fo_shape) + 1)
+        add_points = list(range(1, len(fo_shape) + 1))
 
     check_errors_first_order(thr, fo_shape, fo_batch,
         add_points=add_points, dtype=numpy.complex64)
