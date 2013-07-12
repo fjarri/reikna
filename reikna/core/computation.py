@@ -225,6 +225,10 @@ class ComputationPlan:
         if isinstance(arg, ComputationParameter):
             return self._translator(arg.name)
         elif isinstance(arg, str):
+            # FIXME: not prefixing this one, because it is a result of plan.temp_array() call
+            # All computation parameters should be passes as ComputationParameter objects.
+            # This should be changes when we start returning objects from temp_array()
+            # instead of strings.
             return arg
         else:
             if known_annotation is not None:
