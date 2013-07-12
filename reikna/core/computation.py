@@ -197,7 +197,7 @@ class ComputationPlan:
         Adds a persistent GPU array to the plan, and returns its identifier.
         """
         name = self._translator(self._persistent_value_idgen())
-        self._internal_params[name] = Parameter(name, Annotation(arr, 'io'))
+        self._internal_params[name] = Parameter(name, Annotation(arr, 'i'))
         self._persistent_values[name] = self._thread.to_device(arr)
         return name
 
