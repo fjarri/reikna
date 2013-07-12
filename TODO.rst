@@ -36,6 +36,8 @@ But techically the plan creator does not know anything about connections anyway,
 * FEATURE (computations): add a helper function that transforms a transformation into a ParallelComputation with the same arguments.
 * API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
 * API (computations): make helpers functions in dht methods of DHT class.
+  Same for CBRNG.
+* FIX: get rid of AttrDict and replace it by classes/named tuples.
 
 0.3.1
 =====
