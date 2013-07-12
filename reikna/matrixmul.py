@@ -2,6 +2,7 @@ import numpy
 
 from reikna.helpers import *
 from reikna.core import *
+import reikna.cluda.dtypes as dtypes
 from reikna.cluda import OutOfResourcesError
 from reikna.cluda import functions
 
@@ -19,19 +20,18 @@ class MatrixMul(Computation):
     def __init__(self, a_arr, b_arr, out_arr=None, block_width_override=None):
 
         if len(a_arr.shape) == 1:
-            a_arr = Type(a.dtype, shape=(1,) + a.shape)
+            a_arr = Type(a_arr.dtype, shape=(1,) + a_arr.shape)
 
         if len(b_arr.shape) == 1:
-            b_arr = Type(b.dtype, shape=b.shape + (1,))
+            b_arr = Type(b_arr.dtype, shape=b_arr.shape + (1,))
 
         if out_arr is None:
             out_dtype = dtypes.result_type(a_arr.dtype, b_arr.dtype)
 
             a_batch = product(a_arr.shape[:-2])
             out_shape = (
-                b_shape[:-2] if a_batch == 1 else a_shape[:-2],
-                a_shape[-2],
-                b_shape[-1])
+                (b_arr.shape[:-2] if a_batch == 1 else a_arr.shape[:-2]) +
+                (a_arr.shape[-2], b_arr.shape[-1]))
 
             out_arr = Type(out_dtype, shape=out_shape)
 
