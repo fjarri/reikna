@@ -456,7 +456,7 @@ class TypedStaticKernel:
         for name1, name2 in self.dependencies.pairs():
             p1 = params[name1]
             p2 = params[name2]
-            if not (p1.annotation.input and p2.annotation.input):
+            if p1.annotation.output or p2.annotation.output:
                 new_pairs.append((name1, name2))
 
         new_deps = Graph(new_pairs)
