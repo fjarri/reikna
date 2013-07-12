@@ -6,7 +6,7 @@ from reikna.cluda import Snippet
 from reikna.cluda import functions
 import reikna.cluda.dtypes as dtypes
 from reikna.cluda import OutOfResourcesError
-from reikna.elementwise import specialize_elementwise
+from reikna.pureparallel import PureParallel
 
 TEMPLATE = template_for(__file__)
 
@@ -205,7 +205,7 @@ def get_kweights(size_real, size_bound):
         numpy.arange(size_bound - size_real +1),
         numpy.arange(size_real - 1, 0, -1)])
 
-    return numpy.concatenate([
+    return numpy.vstack([
         numpy.fft.fft(numpy.exp(args(n_v))),
         numpy.fft.ifft(numpy.exp(-args(n_v))) * size_bound / size_real])
 
@@ -213,8 +213,8 @@ def get_kweights(size_real, size_bound):
 class _FFTKernel:
     """Base class for FFT kernels. Handles compilation and execution."""
 
-    def __init__(self, basis, device_params):
-        self._basis = basis
+    def __init__(self, dtype, device_params):
+        self._dtype = dtype
         self._device_params = device_params
         self._normalize = False
         self.kweights = None
@@ -224,14 +224,17 @@ class _FFTKernel:
 
     def prepare_for(self, max_local_size):
         local_size, workgroups_num, kwds = self._generate(max_local_size)
-        basis = self._basis
+        dtype = self._dtype
 
         kwds.update(dict(
-            min_mem_coalesce_width=self._device_params.min_mem_coalesce_width[basis.dtype.itemsize],
+            dtype=dtype,
+            input_slices=self.input_slices,
+            output_slices=self.output_slices,
+            min_mem_coalesce_width=self._device_params.min_mem_coalesce_width[dtype.itemsize],
             local_mem_banks=self._device_params.local_mem_banks,
             get_padding=get_padding,
             normalize=self._normalize,
-            wrap_const=lambda x: dtypes.c_constant(x, dtypes.real_for(basis.dtype)),
+            wrap_const=lambda x: dtypes.c_constant(x, dtypes.real_for(dtype)),
             min_blocks=min_blocks,
             takes_kweights=(self.kweights is not None),
             pad_in=(self._fft_size != self._fft_size_real and self._pass_num == 0
@@ -239,9 +242,9 @@ class _FFTKernel:
             unpad_out=(self._fft_size != self._fft_size_real and self._last_pass
                 and self._reverse_direction),
             reverse_direction=self._reverse_direction,
-            mul=functions.mul(basis.dtype, basis.dtype),
-            polar=functions.polar(dtypes.real_for(basis.dtype)),
-            cdivs=functions.div(basis.dtype, dtypes.real_for(basis.dtype))))
+            mul=functions.mul(dtype, dtype),
+            polar=functions.polar(dtypes.real_for(dtype)),
+            cdivs=functions.div(dtype, dtypes.real_for(dtype))))
 
         local_size = local_size
         global_size = local_size * workgroups_num
@@ -252,11 +255,11 @@ class _FFTKernel:
 class LocalFFTKernel(_FFTKernel):
     """Generator for 'local' FFT in shared memory"""
 
-    def __init__(self, basis, device_params, outer_batch, fft_size, fft_size_real,
-            reverse_direction):
-        _FFTKernel.__init__(self, basis, device_params)
+    def __init__(self, dtype, device_params, outer_shape, fft_size, fft_size_real,
+            inner_shape, reverse_direction):
+        _FFTKernel.__init__(self, dtype, device_params)
         self._fft_size = fft_size
-        self._outer_batch = outer_batch
+        self._outer_batch = product(outer_shape)
         self.name = "fft_local"
         self.inplace_possible = True
         self._reverse_direction = reverse_direction
@@ -266,9 +269,11 @@ class LocalFFTKernel(_FFTKernel):
         self._last_pass = True
 
         if reverse_direction:
-            self.output_shape = (outer_batch, fft_size_real)
+            self.output_shape = outer_shape + (fft_size_real,)
         else:
-            self.output_shape = (outer_batch, fft_size)
+            self.output_shape = outer_shape + (fft_size,)
+        self.input_slices = (len(outer_shape), 1, len(inner_shape))
+        self.output_slices = (len(outer_shape), 1, len(inner_shape))
 
         if fft_size_real != fft_size and reverse_direction:
             self.kweights = get_kweights(fft_size_real, fft_size)
@@ -292,9 +297,9 @@ class LocalFFTKernel(_FFTKernel):
         lmem_size = get_local_memory_size(
             fft_size, radix_array, threads_per_xform, xforms_per_workgroup,
             self._device_params.local_mem_banks,
-            self._device_params.min_mem_coalesce_width[self._basis.dtype.itemsize])
+            self._device_params.min_mem_coalesce_width[self._dtype.itemsize])
 
-        if lmem_size * self._basis.dtype.itemsize // 2 > self._device_params.local_mem_size:
+        if lmem_size * self._dtype.itemsize // 2 > self._device_params.local_mem_size:
             raise OutOfResourcesError
 
         kwds = dict(
@@ -309,14 +314,14 @@ class LocalFFTKernel(_FFTKernel):
 class GlobalFFTKernel(_FFTKernel):
     """Generator for 'global' FFT kernel chain."""
 
-    def __init__(self, basis, device_params, outer_batch, fft_size, curr_size,
-            fft_size_real, inner_batch, pass_num, reverse_direction):
+    def __init__(self, dtype, device_params, outer_shape, fft_size, curr_size,
+            fft_size_real, inner_shape, pass_num, reverse_direction):
 
-        _FFTKernel.__init__(self, basis, device_params)
+        _FFTKernel.__init__(self, dtype, device_params)
         self._fft_size = fft_size
         self._curr_size = curr_size
-        self._inner_batch = inner_batch
-        self._outer_batch = outer_batch
+        self._inner_batch = product(inner_shape)
+        self._outer_batch = product(outer_shape)
         self._pass_num = pass_num
         self.name = 'fft_global'
 
@@ -334,9 +339,11 @@ class GlobalFFTKernel(_FFTKernel):
 
         self._last_pass = (pass_num == num_passes - 1)
         if pass_num == num_passes - 1 and reverse_direction:
-            self.output_shape = (outer_batch, fft_size_real, inner_batch)
+            self.output_shape = outer_shape + (fft_size_real,) + inner_shape
         else:
-            self.output_shape = (outer_batch, fft_size, inner_batch)
+            self.output_shape = outer_shape + (fft_size,) + inner_shape
+        self.input_slices = (len(outer_shape), 1, len(inner_shape))
+        self.output_slices = (len(outer_shape), 1, len(inner_shape))
 
     def _generate(self, max_local_size):
 
@@ -353,7 +360,7 @@ class GlobalFFTKernel(_FFTKernel):
 
         threads_per_xform = radix2
 
-        coalesce_width = self._device_params.min_mem_coalesce_width[self._basis.dtype.itemsize]
+        coalesce_width = self._device_params.min_mem_coalesce_width[self._dtype.itemsize]
         local_batch = max_local_size if radix2 == 1 else coalesce_width
         local_batch = min(local_batch, stride_in)
         local_size = min(local_batch * threads_per_xform, max_local_size)
@@ -369,7 +376,7 @@ class GlobalFFTKernel(_FFTKernel):
             else:
                 lmem_size = local_size * radix1
 
-        if lmem_size * self._basis.dtype.itemsize // 2 > self._device_params.local_mem_size:
+        if lmem_size * self._dtype.itemsize // 2 > self._device_params.local_mem_size:
             raise OutOfResourcesError
 
         kwds = dict(
@@ -385,7 +392,7 @@ class GlobalFFTKernel(_FFTKernel):
         return local_size, workgroups_num, kwds
 
     @staticmethod
-    def createChain(basis, device_params, outer_batch, fft_size, fft_size_real, inner_batch,
+    def createChain(dtype, device_params, outer_shape, fft_size, fft_size_real, inner_shape,
             reverse_direction):
 
         radix_arr, _, _ = get_global_radix_info(fft_size)
@@ -394,8 +401,8 @@ class GlobalFFTKernel(_FFTKernel):
         kernels = []
         for pass_num in range(len(radix_arr)):
             kernels.append(GlobalFFTKernel(
-                basis, device_params, outer_batch, fft_size,
-                curr_size, fft_size_real, inner_batch, pass_num,
+                dtype, device_params, outer_shape, fft_size,
+                curr_size, fft_size_real, inner_shape, pass_num,
                 reverse_direction))
             curr_size //= radix_arr[pass_num]
 
@@ -404,7 +411,7 @@ class GlobalFFTKernel(_FFTKernel):
         return kernels
 
 
-def get_fft_1d_kernels(basis, device_params, outer_batch, fft_size, inner_batch,
+def get_fft_1d_kernels(dtype, device_params, outer_shape, fft_size, inner_shape,
         local_kernel_limit, reverse_direction=False, fft_size_real=None):
     """Create and compile kernels for one of the dimensions"""
 
@@ -413,24 +420,24 @@ def get_fft_1d_kernels(basis, device_params, outer_batch, fft_size, inner_batch,
     if fft_size_real is None:
         fft_size_real = fft_size
 
-    if (inner_batch == 1 and fft_size // MAX_RADIX <= local_kernel_limit):
+    if (product(inner_shape) == 1 and fft_size // MAX_RADIX <= local_kernel_limit):
         kernels.append(LocalFFTKernel(
-            basis, device_params, outer_batch, fft_size, fft_size_real,
-            reverse_direction))
+            dtype, device_params, outer_shape, fft_size, fft_size_real,
+            inner_shape, reverse_direction))
     else:
         kernels.extend(GlobalFFTKernel.createChain(
-            basis, device_params, outer_batch, fft_size, fft_size_real,
-            inner_batch, reverse_direction))
+            dtype, device_params, outer_shape, fft_size, fft_size_real,
+            inner_shape, reverse_direction))
 
     return kernels
 
 
-def get_fft_kernels(basis, device_params, local_kernel_limit):
+def get_fft_kernels(input_shape, dtype, axes, device_params, local_kernel_limit):
     kernels = []
-    for i, axis in enumerate(reversed(basis.axes)):
-        outer_batch = product(basis.shape[:axis])
-        fft_size = basis.shape[axis]
-        inner_batch = product(basis.shape[axis+1:])
+    for i, axis in enumerate(reversed(axes)):
+        outer_shape = input_shape[:axis]
+        fft_size = input_shape[axis]
+        inner_shape = input_shape[axis+1:]
 
         if fft_size == 1:
             continue
@@ -439,13 +446,13 @@ def get_fft_kernels(basis, device_params, local_kernel_limit):
 
         if bounding_size == fft_size:
             kernels.extend(get_fft_1d_kernels(
-                basis, device_params, outer_batch, fft_size,
-                inner_batch, local_kernel_limit))
+                dtype, device_params, outer_shape, fft_size,
+                inner_shape, local_kernel_limit))
         else:
             # padding FFT for the chirp-z transform
             fft_size_padded = 2 * bounding_size
-            args = (basis, device_params, outer_batch, fft_size_padded,
-                inner_batch, local_kernel_limit)
+            args = (dtype, device_params, outer_shape, fft_size_padded,
+                inner_shape, local_kernel_limit)
 
             new_kernels = []
             new_kernels.extend(get_fft_1d_kernels(
@@ -469,13 +476,11 @@ class FFT(Computation):
     The interface is similar to ``numpy.fft.fftn``.
     The inverse transform is normalized so that ``IFFT(FFT(X)) = X``.
 
-    .. py:method:: prepare_for(output, input, direction, axes=None)
-
-        :param output: output array.
-        :param input: input array (with the same size as ``output``).
-        :param direction: ``-1`` for forward transform, ``1`` for inverse transform.
-        :param axes: a tuple with axes over which to perform the transform.
-            If not given, the transform is performed over all the axes.
+    :param output: output array.
+    :param input: input array (with the same size as ``output``).
+    :param direction: ``-1`` for forward transform, ``1`` for inverse transform.
+    :param axes: a tuple with axes over which to perform the transform.
+        If not given, the transform is performed over all the axes.
 
     .. note::
         Current algorithm works most effectively with array dimensions being power of 2
@@ -484,50 +489,35 @@ class FFT(Computation):
         which effectively halves the performance.
     """
 
-    def _get_argnames(self):
-        return ('output',), ('input',), ('direction',)
-
-    def _get_basis_for(self, output, input, direction, axes=None):
-        bs = AttrDict()
-
-        assert output.shape == input.shape
-        assert output.dtype == input.dtype
+    def __init__(self, arr_t, axes=None):
+        Computation.__init__(self, [
+            Parameter('output', Annotation(arr_t, 'o')),
+            Parameter('input', Annotation(arr_t, 'i')),
+            Parameter('inverse', Annotation(numpy.int32), default=0)])
 
         if axes is None:
-            axes = tuple(range(len(output.shape)))
+            axes = tuple(range(len(arr_t.shape)))
         else:
             axes = tuple(axes)
+        self._axes = axes
 
-        bs.axes = axes
-        bs.shape = output.shape
-        bs.dtype = output.dtype
+    def _build_plan(self, plan_factory, device_params):
 
-        return bs
-
-    def _get_argvalues(self, basis):
-        return dict(
-            output=ArrayValue(basis.shape, basis.dtype),
-            input=ArrayValue(basis.shape, basis.dtype),
-            direction=ScalarValue(numpy.int32))
-
-    def _construct_operations(self, basis, device_params):
-
-        if product([basis.shape[i] for i in basis.axes]) == 1:
+        if product([self.input.shape[i] for i in self._axes]) == 1:
             # Trivial problem. Need to add a dummy kernel
             # because we still have to run transformations.
-            operations = self._get_operation_recorder()
-
-            code = lambda output, input: Snippet(
-                template_def(
-                    ['output', 'input'],
-                    """
-                    ${output.store}(idx, ${input.load}(idx));
-                    """))
-
-            identity = self.get_nested_computation(
-                specialize_elementwise('output', 'input', None, code))
-            operations.add_computation(identity, 'output', 'input')
-            return operations
+            plan = plan_factory()
+            identity = PureParallel(
+                [Parameter('output', Annotation(self.output, 'o')),
+                Parameter('input', Annotation(self.input, 'i'))],
+                """
+                <%
+                    idxs_list = ", ".join(idxs)
+                %>
+                ${output.store_idx}(${idxs_list}, ${input.load_idx}(${idxs_list}));
+                """)
+            plan.computation_call(identity, self.output, self.input)
+            return plan
 
         # While resource consumption of GlobalFFTKernel can be made lower by passing
         # lower value to prepare_for(), LocalFFTKernel may have to be split into several kernels.
@@ -539,33 +529,33 @@ class FFT(Computation):
 
         while local_kernel_limit >= 1:
             # Starting from scratch.
-            operations = self._get_operation_recorder()
-            kernels = get_fft_kernels(basis, device_params, local_kernel_limit)
+            plan = plan_factory()
+            kernels = get_fft_kernels(
+                self.input.shape, self.input.dtype, self._axes, device_params, local_kernel_limit)
 
             for i, kernel in enumerate(kernels):
 
-                mem_in = 'input' if i == 0 else mem_out
+                mem_in = self.input if i == 0 else mem_out
                 if i == len(kernels) - 1:
-                    mem_out = 'output'
+                    mem_out = self.output
                 else:
-                    mem_out = operations.add_allocation(kernel.output_shape, basis.dtype)
+                    mem_out = plan.temp_array(kernel.output_shape, self.output.dtype)
 
                 if kernel.kweights is not None:
-                    kweights = operations.add_const_allocation(
-                        kernel.kweights.astype(basis.dtype))
+                    kweights = plan.persistent_array(kernel.kweights.astype(self.output.dtype))
                     kweights_arg = [kweights]
                 else:
                     kweights_arg = []
 
-                argnames = [mem_out, mem_in] + kweights_arg + ['direction']
+                argnames = [mem_out, mem_in] + kweights_arg + [self.inverse]
 
                 # Try to find local size for each of the kernels
                 local_size = device_params.max_work_group_size
                 local_kernel_fail = False # marks the event when LocalFFTKernel is out of resources
                 while local_size >= 1 and not local_kernel_fail:
                     try:
-                        gs, ls, kwds = kernel.prepare_for(local_size)
-                        operations.add_kernel(
+                        gs, ls, kwds = kernel.prepare_for(local_size, )
+                        plan.kernel_call(
                             TEMPLATE.get_def(kernel.name), argnames,
                             global_size=gs, local_size=ls, render_kwds=kwds,
                             dependencies=([] if kernel.inplace_possible else [(mem_in, mem_out)]))
@@ -586,7 +576,7 @@ class FFT(Computation):
                     break
             else:
                 # everything went well, returning list of calls
-                return operations
+                return plan
 
             # The cycle above received 'break', meaning that LocalFFTKernel was out of resources.
             # Reduce the limit and try to create operations from scratch again.
