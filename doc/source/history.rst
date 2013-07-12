@@ -16,6 +16,8 @@ Release history
 
 * ADDED: modules can now take positional arguments on instantiation, same as snippets.
 
+* CHANGED: ``Elementwise`` becomes :py:class:`~reikna.pureparallel.PureParallel` (as it is not always elementwise).
+
 * FIXED: incorrect behavior of functions.norm() for non-complex arguments.
 
 * FIXED: undefined variable in functions.exp() template (reported by Thibault North).
@@ -67,7 +69,7 @@ Release history
 
 * ADDED: counter-based random number generator :py:class:`~reikna.cbrng.CBRNG`.
 
-* ADDED: :py:class:`~reikna.elementwise.Elementwise` now supports argument dependencies.
+* ADDED: ``reikna.elementwise.Elementwise`` now supports argument dependencies.
 
 * ADDED: Module support in CLUDA; see :ref:`tutorial-modules` for details.
 
@@ -79,11 +81,11 @@ Release history
 
 * CHANGED: all templates created with :py:func:`~reikna.helpers.template_for` are now rendered with ``from __future__ import division``.
 
-* CHANGED: signature of :py:meth:`~reikna.core.operation.OperationRecorder.add_kernel` takes a renderable instead of a full template.
+* CHANGED: signature of ``OperationRecorder.add_kernel`` takes a renderable instead of a full template.
 
 * CHANGED: :py:meth:`~reikna.cluda.api.Thread.compile_static` now takes a template instead of a source.
 
-* CHANGED: :py:class:`~reikna.elementwise.Elementwise` now uses modules.
+* CHANGED: ``reikna.elementwise.Elementwise`` now uses modules.
 
 * FIXED: potential problem with local size finidng in static kernels (first approximation for the maximum workgroup size was not that good)
 

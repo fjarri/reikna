@@ -8,69 +8,59 @@ Usage of computations
 =====================
 
 All ``reikna`` computation classes are derived from the :py:class:`~reikna.core.Computation` class and therefore share the same API and behavior.
-Each computation is parametrized by a dictionary called **basis** (which is hidden from the user), and, sometimes, by the names and positions of its arguments (when they can vary, for example, in :py:class:`~reikna.elementwise.Elementwise`).
-
-Before use a computation has to be fully prepared by means of calling :py:meth:`~reikna.core.Computation.prepare_for`.
-This method derives the basis from a set of positional arguments and optional keyword arguments.
-The positional arguments should be either the same arrays and scalars you are going to pass to the computation call (which means the same shapes and data types), or their replacements in the form of :py:class:`~reikna.core.ArrayValue` and :py:class:`~reikna.core.ScalarValue` objects:
-
-::
-
-    input = thr.array((100, 200), dtype=numpy.float32)
-    output = thr.array((200, 100), dtype=numpy.float32)
-    tr = Transpose(thr).prepare_for(output, input)
-    tr(output, input)
-
-Consequently, API of each computation class is fully defined by the documentation for its ``prepare_for`` method.
-In particular, ``__call__`` has the same positional arguments as ``prepare_for``, and base computation argument names (used to attach transformations) are the names of these positional arguments.
+A computation object is an opaque typed function-like object containing all the information necessary to generate GPU kernels that implement some algorithm, along with necessary internal temporary and persistent memory buffers.
+Before use it needs to be compiled by calling :py:meth:`~reikna.core.Computation.compile` for a given :py:class:`~reikna.cluda.api.Thread` (thus using its associated device and queue).
+This method returns a :py:class:`~reikna.core.computation.ComputationCallable` object which takes GPU arrays and scalar parameters and calls its internal kernels.
 
 
 Computations and transformations
 ================================
 
 One often needs to perform some simple processing of the input or output values of a computation.
-This can be scaling, splitting complex values into components, and so on.
+This can be scaling, splitting complex values into components, padding, and so on.
 Some of these operations require additional memory to store intermediate results, and all of them involve additional overhead of calling the kernel, and passing values to and from the device memory.
-``Reikna`` porvides an API to define such transformations and attach them to "core" computations, effectively compiling the transformation code into the main kernel, thus avoiding all these drawbacks.
+``Reikna`` porvides an API to define such transformations and attach them to "core" computations, effectively compiling the transformation code into the main kernel(s), thus avoiding all these drawbacks.
+
 
 Transformation tree
 ===================
 
 Before talking about transformations themselves, we need to take a closer look at the computation signatures.
-Positional arguments of any ``__call__`` method of a class derived from :py:meth:`~reikna.core.Computation` are output arrays, input arrays, and scalar arguments, in this order.
-All these values are eventually passed to the computation kernel.
+Every :py:class:`~reikna.core.Computation` object has a :py:attr:`~reikna.core.Computation.signature` attribute containing ``funcsigs.Signature`` object.
+It is the same signature object as can be exctracted from any Python function using ``funcsigs.signature`` function (or ``inspect.signature`` from the standard library for Python >= 3.3).
+When the computation object is compiled, the resulting callable will have this exact signature.
 
-All the positional arguments have an identifier which is unique for the given computation object.
-Identifiers for the base computation (without any connected transformation) are, by convention, the names of the positional arguments to ``prepare_for`` for the computation.
-These identifiers serve as connection points, where the user can attach transformations.
+The base signature for any computation can be found in its documentation (and, sometimes, can depend on the arguments passed to its constructor --- see, for example, :py:class:`~reikna.pureparallel.PureParallel`).
+The signature can change if a user connects transformations to some parameter via :py:meth:`~reikna.core.Computation.connect`; in this case the :py:attr:`~reikna.core.Computation.signature` attribute will change accordingly.
 
-All attached transformations form a tree with roots being these base connection points, and leaves forming defining the positional arguments to ``prepare_for`` and ``__call__`` methods visible to the user.
-As an example, let us consider an elementwise computation object with one output, two inputs and a scalar parameter, which performs the calculation ``out = in1 + in2 + param``:
+All attached transformations form a tree with roots being the base parameters computation has right after creation, and leaves forming the user-visible signature, which the compiled :py:class:`~reikna.core.computation.ComputationCallable` will have.
+
+As an example, let us consider a pure parallel computation object with one output, two inputs and a scalar parameter, which performs the calculation ``out = in1 + in2 + param``:
 
 .. testcode:: transformation_example
 
     import numpy
     from reikna import cluda
     from reikna.cluda import Snippet
-    from reikna.core import Transformation
-    from reikna.elementwise import specialize_elementwise
+    from reikna.core import Transformation, Type, Annotation, Parameter
+    from reikna.pureparallel import PureParallel
     import reikna.transformations as transformations
 
-    api = cluda.ocl_api()
-    thr = api.Thread.create()
+    arr_t = Type(numpy.float32, shape=128)
+    carr_t = Type(numpy.complex64, shape=128)
 
-    code = lambda out_dtype, in1_dtype, in2_dtype, param_dtype: Snippet.create(
-        lambda out, in1, in2, param:
-            """
-            ${out.store}(idx, ${in1.load}(idx) + ${in2.load}(idx) + ${param});
-            """)
+    comp = PureParallel(
+        [Parameter('out', Annotation(carr_t, 'o')),
+        Parameter('in1', Annotation(carr_t, 'i')),
+        Parameter('in2', Annotation(carr_t, 'i')),
+        Parameter('param', Annotation(numpy.float32))],
+        """
+        int idx = ${idxs[0]};
+        ${out.store_idx}(
+            idx, ${in1.load_idx}(idx) + ${in2.load_idx}(idx) + ${param});
+        """)
 
-    TestComputation = specialize_elementwise(
-        'out', ['in1', 'in2'], 'param', code)
-
-    comp = TestComputation(thr)
-
-The details of creating the ``TestComputation`` class are not important for this example; they are provided here just for the sake of completeness.
+The details of creating the computation itself are not important for this example; they are provided here just for the sake of completeness.
 The initial transformation tree of ``comp`` object looks like:
 
 ::
@@ -80,19 +70,24 @@ The initial transformation tree of ``comp`` object looks like:
     >> | in2   |
     >> | param |
 
-Here ``||`` denote the base computation (the one defined by the developer), and ``>>`` denote inputs and outputs specified by the user.
+Here the insides of ``||`` are the base computation (the one defined by the developer), and ``>>`` denote inputs and outputs provided by the user.
 The computation signature is:
 
 .. doctest:: transformation_example
 
-    >>> comp.signature_str()
-    '(array) out, (array) in1, (array) in2, (scalar) param'
+    >>> for param in comp.signature.parameters.values():
+    ...     print param.name + ":" + repr(param.annotation)
+    out:Annotation(Type(complex64, shape=(128,), stides=(8,)), role='o')
+    in1:Annotation(Type(complex64, shape=(128,), stides=(8,)), role='i')
+    in2:Annotation(Type(complex64, shape=(128,), stides=(8,)), role='i')
+    param:Annotation(float32)
 
 Now let us attach the transformation to the output which will split it into two halves: ``out1 = out / 2``, ``out2 = out / 2``:
 
 .. testcode:: transformation_example
 
-    comp.connect(transformations.split_complex(), 'out', ['out1', 'out2'])
+    tr = transformations.split_complex(comp.out)
+    comp.out.connect(tr, tr.input, out1=tr.real, out2=tr.imag)
 
 We have used the pre-created transformation here for simplicity; writing custom transformations is described in :ref:`tutorial-advanced-transformation`.
 
@@ -101,7 +96,8 @@ To achieve this, we connect the scaling transformation to it:
 
 .. testcode:: transformation_example
 
-    comp.connect(transformations.scale_param(), 'in2', ['in2_prime'], ['param2'])
+    tr = transformations.scale_param(comp.in2, numpy.float32)
+    comp.in2.connect(tr, tr.output, in2_prime=tr.input, param2=tr.coeff)
 
 The transformation tree now looks like:
 
@@ -111,36 +107,41 @@ The transformation tree now looks like:
                          |       |   \-> out2 >>
                       >> | in1   |
     >> in2_prime ------> | in2   |
-                   /  >> | param |
-    >> param2 ----/
+    >> param2 ----/      |       |
+                         | param |
 
 As can be seen, nothing has changed from the base computation's point of view: it still gets the same inputs and outputs to the same array.
-But user-supplied parameters (``>>``) have changed, which can be also seen in the result of the :py:meth:`~reikna.core.Computation.signature_str`:
+But user-supplied parameters (``>>``) have changed, which can be also seen in the value of the :py:attr:`~reikna.core.Computation.signature`:
 
 .. doctest:: transformation_example
 
-    >>> comp.signature_str()
-    '(array) out1, (array) out2, (array) in1, (array) in2_prime, (scalar) param, (scalar) param2'
+    >>> for param in comp.signature.parameters.values():
+    ...     print param.name + ":" + repr(param.annotation)
+    out1:Annotation(Type(float32, shape=(128,), stides=(4,)), role='o')
+    out2:Annotation(Type(float32, shape=(128,), stides=(4,)), role='o')
+    in1:Annotation(Type(complex64, shape=(128,), stides=(8,)), role='i')
+    in2_prime:Annotation(Type(complex64, shape=(128,), stides=(8,)), role='i')
+    param2:Annotation(float32)
+    param:Annotation(float32)
 
-Notice that ``param2`` was moved to the end of the signature.
-This was done in order to keep outputs, inputs and scalar parameters grouped.
-Except for that, the order of the final signature is obtained by traversing the transformation tree depth-first.
+Notice that the order of the final signature is obtained by traversing the transformation tree depth-first, starting from the base parameters.
 
 The resulting computation returns the value ``in1 + (in2_prime * param2) + param`` split in half.
-In order to run it, we have to prepare it first.
+In order to run it, we have to compile it first.
 When ``prepare_for`` is called, the data types and shapes of the given arguments will be propagated to the roots and used to prepare the original computation.
 
 .. testcode:: transformation_example
 
-    N = 128
-    out1 = thr.array(N, numpy.float32)
-    out2 = thr.array(N, numpy.float32)
-    in1 = thr.to_device(numpy.ones(N, numpy.float32))
-    in2_prime = thr.to_device(numpy.ones(N, numpy.float32))
-    param = 3
-    param2 = 4
-    comp.prepare_for(out1, out2, in1, in2_prime, param, param2)
-    comp(out1, out2, in1, in2_prime, param, param2)
+    api = cluda.ocl_api()
+    thr = api.Thread.create()
+
+    out1 = thr.empty_like(comp.out1)
+    out2 = thr.empty_like(comp.out2)
+    in1 = thr.to_device(numpy.ones(comp.in1.shape, comp.in1.dtype))
+    in2_prime = thr.to_device(numpy.ones(comp.in2_prime.shape, comp.in2_prime.dtype))
+
+    c_comp = comp.compile(thr)
+    c_comp(out1, out2, in1, in2_prime, 4, 3)
 
 
 Transformation restrictions
@@ -148,10 +149,10 @@ Transformation restrictions
 
 There are some limitations of the transformation mechanics:
 
-#. Transformations are strictly elementwise.
-   It means that you cannot specify the index to read from or to write to in the transformation code --- it stays the same as the one used to read the value in the main kernel.
-#. Transformations connected to the input nodes must have only one output, and transformations connected to the output nodes must have only one input.
-   This restriction is, in fact, enforced by the signature of :py:meth:`~reikna.core.Computation.connect`.
+#. Transformations are purely parallel, that is they cannot use local memory.
+   In fact, they are very much like :py:class:`~reikna.pureparallel.PureParallel` computations,
+   except that the indices they use are defined by the main computation,
+   and not set by the GPU driver.
 #. External endpoints of the output transformations cannot point to existing nodes in the transformation tree.
-   This is the direct consequence of the strict elementwiseness --- it would unavoidably create races between memory writes from different branches.
-   On the other hand, input transformations can be safely connected to existing nodes, including base nodes.
+   This is the direct consequence of the first limitation --- it would unavoidably create races between memory writes from different branches.
+   On the other hand, input transformations can be safely connected to existing nodes, including base nodes (although note that inputs are not cached; so even if you load twice from the same index of the same input node, the global memory will be queried twice).

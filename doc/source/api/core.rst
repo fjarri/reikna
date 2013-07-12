@@ -1,20 +1,20 @@
-Core classes
-============
+Core functionality
+==================
 
-Computations and transformations are based on two classes, which provide the user-side interface of computation objects.
+Classes necessary to create computations and transformations are exposed from the :py:mod:`~reikna.core` module.
 
-.. autoclass:: reikna.core.Computation
+.. automodule:: reikna.core
+    :members:
+    :imported-members:
+    :special-members: __call__
+
+Some other classes whose instances are encountered by a user:
+
+.. automodule:: reikna.core.computation
+    :exclude-members: Computation
     :members:
     :special-members: __call__
 
-.. autoclass:: reikna.core.Transformation
-    :members:
-
-.. autoclass:: reikna.core.operation.OperationRecorder
-    :members:
-
-.. autoclass:: reikna.core.ArrayValue
-    :members:
-
-.. autoclass:: reikna.core.ScalarValue
+.. automodule:: reikna.core.transformation
+    :exclude-members: Transformation
     :members:

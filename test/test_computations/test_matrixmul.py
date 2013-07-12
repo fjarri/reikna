@@ -97,10 +97,11 @@ def test_errors(thr_and_double, shapes, arg_dtypes):
     b_dev = thr.to_device(b)
     res_dev = thr.empty_like(res_ref)
 
-    dot = MatrixMul(thr).prepare_for(res_dev, a_dev, b_dev)
-    dot(res_dev, a_dev, b_dev)
+    dot = MatrixMul(a_dev, b_dev, out_arr=res_dev)
+    dotc = dot.compile(thr)
+    dotc(res_dev, a_dev, b_dev)
 
-    assert diff_is_negligible(thr.from_device(res_dev), res_ref)
+    assert diff_is_negligible(res_dev.get(), res_ref)
 
 
 def check_performance(thr_and_double, shape1, shape2, bwo):
@@ -116,15 +117,17 @@ def check_performance(thr_and_double, shape1, shape2, bwo):
     res_ref = ref_dot(a, b)
     res_dev = thr.array(res_ref.shape, dtype=dtype)
 
+    dot = MatrixMul(a_dev, b_dev, out_arr=res_dev, block_width_override=bwo)
+
     try:
-        dot = MatrixMul(thr).prepare_for(res_dev, a_dev, b_dev, block_width_override=bwo)
+        dotc = dot.compile(thr)
     except ValueError:
         pytest.skip()
 
     attempts = 10
     t1 = time.time()
     for i in range(attempts):
-        dot(res_dev, a_dev, b_dev)
+        dotc(res_dev, a_dev, b_dev)
     thr.synchronize()
     t2 = time.time()
 

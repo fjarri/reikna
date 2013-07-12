@@ -7,6 +7,7 @@ This implementation favors simplicity over speed and therefore
 is not for use in production.
 It only guarantees to produce the same results as the original Random123.
 """
+from __future__ import print_function
 
 import numpy
 
@@ -255,11 +256,11 @@ def test(name):
 
             ctr = numpy.zeros(N).astype(dtype)
 
-            print name, ": W =", W, "N =", N
+            print(name, ": W =", W, "N =", N)
             for i in range(5):
                 ctr[0] = i
                 res = func(W, N, ctr, key, Nrounds=rounds)
-                print "ctr " + str(i) + ": " + " ".join([myhex(i) for i in res])
+                print("ctr " + str(i) + ": " + " ".join([myhex(i) for i in res]))
 
 
 if __name__ == '__main__':

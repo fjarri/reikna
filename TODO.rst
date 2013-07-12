@@ -1,40 +1,71 @@
 0.3.0 (Core API change)
 ========================
 
-* TODO: change the misleading name Elementwise to PureParallel (or something)
-* TODO: take not only CLUDA Thread as a parameter for computation constructor, but also CommandQueue, opencl Context, CUDA Stream and so on.
-* TODO: move some of the functionality to the top level of ``reikna`` module?
-* TODO: check if Signature.bind() is too slow in the kernel call; perhaps we will have to rewrite it taking into account restrictions to Parameter types we have.
-* TODO: rewrite all internal classes using ``collections.namedtuple`` factory to force their immutability.
-* DECIDE: need to make available only those ``ComputationArgument`` objects that are actually usable: root ones for the plan creator, and all for the user connecting transformations.
+To merge the new API branch:
+
+* DOCS: add docstrings for main core classes and check that doctests pass
+* FIX: update existing Computations and Transformations to a new API
+
+After merging:
+
+* API: in ``connect``, parameter names in ``**connections`` can conflict with positional arguments of ``connect`` with the same names (e.g. ``param``).
+  Possible fixes: prefix parameter names of ``connect`` with underscores, or pass connections as dict (like ``render_kwds``).
+* DOC: write correlations tutorial.
+  Warning: if we read and write from the same temp array using same indices, but different strides,
+  correlation if violated!
+* DOC: since ``store_same`` is translated to ``return`` in the input transformations, it is necessary to emphasize in docs that it should be the last instruction in the code.
+  Or, alternatively, replace it with something like ``ctype _temp = ...; <rest of the code> return _temp;``?
+* TEST (core): Need to test connections to ``'io'`` parameters, and also the behavior of transformations with ``'io'`` parameters (including their use in ``PureParallel``).
+  I expect there will be quite a few bugs.
+* ?API (computations): move some of the functionality to the top level of ``reikna`` module?
+* ?API (core): pass ``kernel_definition`` as a positional argument to a kernel template def?
+* ?API (core): when we are connecting a transformation to an existing scalar parameter, during the leaf signature building it moves from its place, which may seem a bit surprising. Should we attempt to keep it at the same place? Like, keep all parameters with default values at the end (thus breaking the "depth first" order, of course)?
+* ?API (core): misleading use of the word "dependencies" on CLUDA level and on Computation level: in the latter they are rather "decorrelations" and can exist, say, between two input nodes.
+  Perhaps it is worth adding a special section with their strict definition to the docs
+* FEATURE (core): take not only CLUDA Thread as a parameter for computation ``compile``, but also CommandQueue, opencl Context, CUDA Stream and so on.
+* ?FIX (core): check if Signature.bind() is too slow in the kernel call; perhaps we will have to rewrite it taking into account restrictions to Parameter types we have.
+* FIX (core): clean up core code, add comments
+* FIX (core): rewrite all internal classes using ``collections.namedtuple`` factory to force their immutability.
+* ?FIX (core): need to make available only those ``ComputationArgument`` objects that are actually usable: root ones for the plan creator, and all for the user connecting transformations.
 But techically the plan creator does not know anything about connections anyway, so it is not that important.
-* DECIDE: pass ``kernel_definition`` as a positional argument to a kernel template def?
-* DECIDE: when we are connecting a transformation to an existing scalar parameter, during the leaf signature building it moves from its place, which may seem a bit surprising. Should we attempt to keep it at the same place? Like, keep all parameters with default values at the end (thus breaking the "depth first" order, of course)?
-* DECIDE: misleading use of the word "dependencies" on CLUDA level and on Computation level: in the latter they are rather "decorrelations" and can exist, say, between two input nodes.
+* FIX (core): When we connect a transformation, difference in strides between arrays in the connection can be ignored (and probably the transformation's signature changed too; at least we need to decide which strides to use in the exposed node).
+  Idea: strides can be passes to compile() (in form of actual arrays, as a dictionary).
+* FIX (cluda): rewrite vsizes to just use a 1D global size and get any-D virtual sizes through modular division (shouldn't be that slow, but need to test; or maybe just fall back to modular division if the requested dimensionality is too big).
+* ?FIX (computations): PureParallel can be either rewritten using stub kernel and Transformation (to use load/store_combined_idx) (downside: order of parameters messes up in this case; upside: can use store_same/load_same), or using the new any-D static kernels from CLUDA (if the above fix is implemented).
+* FEATURE (computations): processing several indices per thread in PureParallel may result in a performance boost, need to check that.
+* FEATURE (computations): add a helper function that transforms a transformation into a ParallelComputation with the same arguments.
+* API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
+* API (computations): make helpers functions in dht methods of DHT class.
+  Same for CBRNG.
+* FIX: get rid of AttrDict and replace it by classes/named tuples.
 
 0.3.1
 =====
 
-* TODO: use modules in ``CBRNG``
-* DECIDE: add ability to manually override inferred dependencies?
-* DECIDE: move all "raw" computations to their own submodule?
-* TODO: run coverage tests and see if some functionality has to be tested,
+* FIX (computations): use modules in ``CBRNG``
+* FIX (cluda): when ``None`` is passed as a local size for a static kernel, and the global size is small, it sets large values for local size (e.g. for gs=13 it sets ls=480, gs=480).
+  It's not critical, just confusing; large global sizes seem to have much less unused threads.
+  Also, in general, cluda/vsize code is a mess.
+* ?API (computations): move all "raw" computations to their own submodule?
+* TESTS: run coverage tests and see if some functionality has to be tested,
   and check existing testcases for redundancy (fft and vsizes in particular)
-* TODO: run pylint
-* TODO: create "fallback" when if _build_plan() does not catch OutOfResources,
+* TESTS: run pylint
+* FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
   it is called again with reduced local size
-* TODO: add special optimized kernel for matrix-vector multiplication in MatrixMul.
+* FEATURE (computations): add special optimized kernel for matrix-vector multiplication in MatrixMul.
   Or create specific matrix-vector and vector-vector computations?
-* TODO: add ``Thread.fork()`` which creates another Thread with the same context and device but different queue.
+* FEATURE (CLUDA): add ``Thread.fork()`` which creates another Thread with the same context and device but different queue.
   Also, how do we create a ``Thread`` with the same context, but different device?
   Or how do we create and use a ``Thread`` with several devices?
-* TODO: reduction with multiple predicates on a single (or multiple too?) array.
+* FEATURE (computations): reduction with multiple predicates on a single (or multiple too?) array.
   Basically, the first stage has to be modified to store results in several arrays and then several separate reductions can be performed.
-* TODO: implement custom structures as types (will also require updating the strides-to-flat-index algorithm)
-* DECIDE: do something about the inconsistency of array shapes (row-major) and global sizes (column-major). Special get_id() functions maybe?
-* DECIDE: add ``load_flat``/``store_flat`` to argobjects?
-* TODO: use Graph class in cluda.temparray
-* DECIDE: when passing scalar to plan.kernel_call(), there's no typecheck (and the only check that happens is during execution). Need to somehow query the kernel about type of its parameters.
+* FEATURE (CLUDA, core): implement custom structures as types (will also require updating the strides-to-flat-index algorithm)
+* ?API (CLUDA, core): do something about the inconsistency of array shapes (row-major) and global sizes (column-major). Special get_id() functions maybe?
+* ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
+* ?FEATURE (core): when passing scalar to plan.kernel_call(), there's no typecheck (and the only check that happens is during execution). Need to somehow query the kernel about type of its parameters.
+* FEATURE (computations): allow non-sequential axes in Reduce
+* ?API (computations): can we improve how Predicates for Reduce are defined?
+* FEATURE (computations): return Type-like objects from plan.temp_array/persistent_array
 
 
 1.0.0 (production-quality version... hopefully)
@@ -69,7 +100,7 @@ Core:
 Computations:
 
 * CHECK: need to find a balance between creating more workgroups or making loops inside kernels
-  (can be applied in elementwise kernels)
+  (can be applied in pure parallel kernels)
 * TODO: add bitonic sort
 * TODO: add filter
 * TODO: add better block width finder for small matrices in matrixmul
@@ -85,7 +116,7 @@ CLUDA:
 
 Core:
 
-* DECIDE: Some mechanism to merge together two successive Computation calls. Will require an API to tell reikna that certain computations are executed together, plus some way to determine if the computation is local and elementwise (otherwise the connection will require the change of code).
+* DECIDE: Some mechanism to merge together two successive Computation calls. Will require an API to tell reikna that certain computations are executed together, plus some way to determine if the computation is local and pure parallel (otherwise the connection will require the change of code).
 
 * DECIDE: Some mechanism to detect when two transformations are reading from the same node at the same index, and only read the global memory once. This can be done by storing node results in kernel-global variables instead of chaining functions like it's done now. The problem is that we have to be able to distinguish between several loads from the same node at different indices.
 
