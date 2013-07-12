@@ -141,9 +141,9 @@ class Transpose(Computation):
 
             batch_shape, height_shape, width_shape = tr
 
-            mem_in = 'input' if i == 0 else mem_out
+            mem_in = self.input if i == 0 else mem_out
             if i == len(transposes) - 1:
-                mem_out = 'output'
+                mem_out = self.output
             else:
                 mem_out = plan.temp_array(
                     batch_shape + width_shape + height_shape, self.output.dtype)
