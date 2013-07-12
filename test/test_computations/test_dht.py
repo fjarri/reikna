@@ -124,20 +124,23 @@ def check_errors_first_order(thr, mshape, batch, add_points=None, dtype=numpy.co
         add_points = [0] * len(mshape)
     xs = [get_spatial_grid(n, 1, add_points=ap) for n, ap in zip(mshape, add_points)]
 
-    xdata = test_func(*xs)
-    xdata_dev = thr.to_device(xdata)
     mdata_dev = thr.array((batch,) + mshape, dtype)
     axes = range(1, len(mshape)+1)
 
-    dht_fw = DHT(thr).prepare_for(mdata_dev, xdata_dev, inverse=False, axes=axes)
-    dht_inv = DHT(thr).prepare_for(xdata_dev, mdata_dev, inverse=True, axes=axes)
+    dht_fw = DHT(mdata_dev, inverse=False, axes=axes, add_points=[0] + add_points)
+    dht_inv = DHT(mdata_dev, inverse=True, axes=axes, add_points=[0] + add_points)
+    dht_fw_c = dht_fw.compile(thr)
+    dht_inv_c = dht_inv.compile(thr)
+
+    xdata = test_func(*xs)
+    xdata_dev = thr.to_device(xdata)
 
     # forward transform
-    dht_fw(mdata_dev, xdata_dev)
+    dht_fw_c(mdata_dev, xdata_dev)
     assert diff_is_negligible(mdata_dev.get(), test_func.mdata)
 
     # inverse transform
-    dht_inv(xdata_dev, mdata_dev)
+    dht_inv_c(xdata_dev, mdata_dev)
     assert diff_is_negligible(xdata_dev.get(), xdata)
 
 
@@ -189,11 +192,13 @@ def test_high_order_forward(thr, ho_order, ho_shape):
     mdata1_dev = thr.array(ho_shape, dtype)
     mdata2_dev = thr.array(ho_shape + 1, dtype)
 
-    dht_fw1 = DHT(thr).prepare_for(mdata1_dev, xdata1_dev, inverse=False, order=ho_order)
-    dht_fw2 = DHT(thr).prepare_for(mdata2_dev, xdata2_dev, inverse=False, order=ho_order)
+    dht_fw1 = DHT(mdata1_dev, inverse=False, order=ho_order)
+    dht_fw2 = DHT(mdata2_dev, inverse=False, order=ho_order)
+    dht_fw1_c = dht_fw1.compile(thr)
+    dht_fw2_c = dht_fw2.compile(thr)
 
-    dht_fw1(mdata1_dev, xdata1_dev)
-    dht_fw2(mdata2_dev, xdata2_dev)
+    dht_fw1_c(mdata1_dev, xdata1_dev)
+    dht_fw2_c(mdata2_dev, xdata2_dev)
 
     mdata1 = mdata1_dev.get()
     mdata2 = mdata2_dev.get()

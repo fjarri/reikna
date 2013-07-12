@@ -180,79 +180,69 @@ class DHT(Computation):
     For the detailed description of the algorithm, see Dion & Cances,
     `PRE 67(4) 046706 (2003) <http://dx.doi.org/10.1103/PhysRevE.67.046706>`_
 
-    .. py:method:: prepare_for(output, input, inverse=False, order=1, axes=None)
-
-        :param output: output array.
-            If ``inverse=False``, its shape is used to define the mode space size.
-        :param input: input array.
-            If ``inverse=True``, its shape is used to define the mode space size.
-        :param inverse: ``False`` for forward (coordinate space -> mode space) transform,
-            ``True`` for inverse (mode space -> coordinate space) transform.
-        :param axes: a tuple with axes over which to perform the transform.
-            If not given, the transform is performed over all the axes.
-        :param order: if ``F`` is a function in mode space, the number of spatial points
-            is chosen so that the transformation ``DHT[(DHT^{-1}[F])^order]`` could be performed.
+    :param output: output array.
+        If ``inverse=False``, its shape is used to define the mode space size.
+    :param input: input array.
+        If ``inverse=True``, its shape is used to define the mode space size.
+    :param inverse: ``False`` for forward (coordinate space -> mode space) transform,
+        ``True`` for inverse (mode space -> coordinate space) transform.
+    :param axes: a tuple with axes over which to perform the transform.
+        If not given, the transform is performed over all the axes.
+    :param order: if ``F`` is a function in mode space, the number of spatial points
+        is chosen so that the transformation ``DHT[(DHT^{-1}[F])^order]`` could be performed.
     """
 
-    def _get_argnames(self):
-        return ('output',), ('input',), tuple()
+    def __init__(self, mode_arr, add_points=None, inverse=False, order=1, axes=None):
 
-    def _get_basis_for(self, output, input, inverse=False, order=1, axes=None):
-        bs = AttrDict()
-
-        assert output.dtype == input.dtype
-
-        if not inverse:
-            coord_arr = input
-            mode_arr = output
-        else:
-            coord_arr = output
-            mode_arr = input
-
-        assert len(output.shape) == len(input.shape)
         if axes is None:
-            axes = tuple(range(len(output.shape)))
+            axes = tuple(range(len(mode_arr.shape)))
         else:
             axes = tuple(axes)
+        self._axes = list(sorted(axes))
 
-        bs.add_points = {}
-        for axis in axes:
-            modes = mode_arr.shape[axis]
-            points = coord_arr.shape[axis]
-            add_points = points - get_spatial_points(modes, order)
-            assert add_points >= 0, "Not enough spatial points in the axis " + str(axis) + \
-                " to perform precise transformation"
-            bs.add_points[axis] = add_points
+        if add_points is None:
+            add_points = [0] * len(mode_arr.shape)
+        else:
+            add_points = list(add_points)
+        self._add_points = add_points
 
-        bs.axes = list(sorted(axes))
-        bs.input_shape = input.shape
-        bs.output_shape = output.shape
-        bs.dtype = output.dtype
-        bs.inverse = inverse
-        bs.order = order
+        coord_shape = list(mode_arr.shape)
+        for axis in range(len(mode_arr.shape)):
+            if axis in axes:
+                coord_shape[axis] = get_spatial_points(
+                    mode_arr.shape[axis], order, add_points=add_points[axis])
+        coord_arr = Type(mode_arr.dtype, shape=coord_shape)
 
-        return bs
+        if not inverse:
+            output_arr = mode_arr
+            input_arr = coord_arr
+        else:
+            output_arr = coord_arr
+            input_arr = mode_arr
 
-    def _get_argvalues(self, basis):
-        return dict(
-            output=ArrayValue(basis.output_shape, basis.dtype),
-            input=ArrayValue(basis.input_shape, basis.dtype))
+        self._inverse = inverse
+        self._order = order
 
-    def _construct_operations(self, basis, device_params):
+        Computation.__init__(self, [
+            Parameter('output', Annotation(output_arr, 'o')),
+            Parameter('input', Annotation(input_arr, 'i'))])
 
-        operations = self._get_operation_recorder()
-        plan = []
+    def _build_plan(self, plan_factory, device_params):
 
-        coord_shape = basis.output_shape if basis.inverse else basis.input_shape
-        mode_shape = basis.input_shape if basis.inverse else basis.output_shape
+        plan = plan_factory()
 
-        p_dtype = dtypes.real_for(basis.dtype) if dtypes.is_complex(basis.dtype) else basis.dtype
+        dtype = self.input.dtype
+        coord_shape = self.output.shape if self._inverse else self.input.shape
+        mode_shape = self.input.shape if self._inverse else self.output.shape
 
-        current_mem = 'input'
-        current_shape = list(basis.input_shape)
-        current_axes = range(len(basis.output_shape))
+        p_dtype = dtypes.real_for(dtype) if dtypes.is_complex(dtype) else dtype
 
-        for i, axis in enumerate(basis.axes):
+        current_mem = self.input
+        current_shape = list(self.input.shape)
+        seq_axes = list(range(len(self.input.shape)))
+        current_axes = list(range(len(self.input.shape)))
+
+        for i, axis in enumerate(self._axes):
 
             # Transpose the current array so that the ``axis`` is in the end of axes list
 
@@ -261,16 +251,15 @@ class DHT(Computation):
 
                 # We can move the target axis to the end in different ways,
                 # but this one will require only one transpose kernel.
-                def optimal_transpose(seq):
-                    return seq[:cur_pos] + seq[cur_pos+1:] + [seq[cur_pos]]
+                optimal_transpose = lambda seq: seq[:cur_pos] + seq[cur_pos+1:] + [seq[cur_pos]]
 
-                tr_axes = optimal_transpose(range(len(basis.output_shape)))
+                tr_axes = optimal_transpose(seq_axes)
                 new_axes = optimal_transpose(current_axes)
                 new_shape = optimal_transpose(current_shape)
 
-                tr_output = operations.add_allocation(new_shape, basis.dtype)
-                transpose = self.get_nested_computation(Transpose)
-                operations.add_computation(transpose, tr_output, current_mem, axes=tr_axes)
+                tr_output = plan.temp_array(new_shape, dtype)
+                transpose = Transpose(Type(dtype, shape=current_shape), axes=tr_axes)
+                plan.computation_call(transpose, tr_output, current_mem)
 
                 current_mem = tr_output
                 current_shape = new_shape
@@ -278,28 +267,28 @@ class DHT(Computation):
 
             # Prepare the transformation matrix
 
-            p = get_transformation_matrix(mode_shape[axis], basis.order, basis.add_points[axis])
+            p = get_transformation_matrix(mode_shape[axis], self._order, self._add_points[axis])
             p = p.astype(p_dtype)
-            if not basis.inverse:
-                w = get_spatial_weights(mode_shape[axis], basis.order, basis.add_points[axis])
+            if not self._inverse:
+                w = get_spatial_weights(mode_shape[axis], self._order, self._add_points[axis])
                 ww = numpy.tile(w.reshape(w.size, 1).astype(p_dtype), (1, mode_shape[axis]))
                 p = p.transpose() * ww
-            tr_matrix = operations.add_const_allocation(p)
+            tr_matrix = plan.persistent_array(p)
 
             # Add the matrix multiplication
 
             new_shape = list(current_shape)
             new_shape[-1] = p.shape[1]
 
-            if i == len(basis.axes) - 1 and current_axes == range(len(basis.input_shape)):
-                dot_output = 'output'
+            if i == len(self._axes) - 1 and current_axes == seq_axes:
+                dot_output = self.output
             else:
                 # Cannot write to output if it is not the last transform,
                 # or if we need to return to the initial axes order
-                dot_output = operations.add_allocation(new_shape, basis.dtype)
+                dot_output = plan.temp_array(new_shape, dtype)
 
-            dot = self.get_nested_computation(MatrixMul)
-            operations.add_computation(dot, dot_output, current_mem, tr_matrix)
+            dot = MatrixMul(Type(dtype, shape=current_shape), p)
+            plan.computation_call(dot, dot_output, current_mem, tr_matrix)
 
             current_shape = new_shape
             current_mem = dot_output
@@ -307,9 +296,9 @@ class DHT(Computation):
         # If we ended up with the wrong order of axes,
         # return to the original order.
 
-        if current_axes != range(len(basis.input_shape)):
+        if current_axes != seq_axes:
             tr_axes = [current_axes.index(i) for i in range(len(current_axes))]
-            transpose = self.get_nested_computation(Transpose)
-            operations.add_computation(transpose, 'output', current_mem, axes=tr_axes)
+            transpose = Transpose(Type(dtype, shape=current_shape), axes=tr_axes)
+            plan.add_computation(transpose, self.output, current_mem)
 
-        return operations
+        return plan
