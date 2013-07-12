@@ -32,11 +32,6 @@ ${kernel_definition}
 	unsigned int index_block = lid_y * (${block_width} + 1) + lid_x;
 	unsigned int index_transpose = lid_x * (${block_width} + 1) + lid_y;
 
-	//unsigned int index_in = ${input_width} * yIndex + xIndex +
-	//	batch_num * ${input_width * input_height};
-	//unsigned int index_out = ${input_height} * (xBlock + lid_y) + yBlock + lid_x +
-	//	batch_num * ${input_width * input_height};
-
 	if(xIndex < ${input_width} && yIndex < ${input_height})
 		block[index_block] = ${input.load_combined_idx(input_slices)}(
 			batch_num, yIndex, xIndex);
