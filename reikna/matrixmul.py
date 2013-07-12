@@ -92,7 +92,7 @@ class MatrixMul(Computation):
                         batch),
                     local_size=(block_width, block_width, 1),
                     render_kwds=render_kwds,
-                    dependencies=[('output', 'a'), ('output', 'b')])
+                    dependencies=[(self.output, self.a), (self.output, self.b)])
             except OutOfResourcesError:
                 continue
 
