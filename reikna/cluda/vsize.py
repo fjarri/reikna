@@ -18,7 +18,7 @@ def find_local_size(device_params, max_workgroup_size, dims):
     max_dims = device_params.max_work_item_sizes
 
     sizes = [1]
-    for i in xrange(1, min_blocks(max_workgroup_size, unit)):
+    for i in range(1, min_blocks(max_workgroup_size, unit)):
         if i * unit <= max_workgroup_size:
             sizes.append(i * unit)
 

@@ -46,7 +46,7 @@ def h_roots(n):
 
     z = 0
 
-    for i in xrange(m):
+    for i in range(m):
         if i == 0: # Initial guess for the largest root.
             z = numpy.sqrt(float(2 * n + 1)) - 1.85575 * float(2 * n + 1) ** (-0.16667)
         elif i == 1:
@@ -58,11 +58,11 @@ def h_roots(n):
         else:
             z = 2.0 * z + x[i - 2]
 
-        for its in xrange(MAXIT):
+        for its in range(MAXIT):
             p1 = PIM4
             p2 = 0.0
             p3 = 0.0
-            for j in xrange(n):
+            for j in range(n):
                 p3 = p2
                 p2 = p1
                 p1 = z * numpy.sqrt(2.0 / (j + 1)) * p2 - numpy.sqrt(float(j) / (j + 1)) * p3

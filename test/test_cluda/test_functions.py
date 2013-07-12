@@ -14,8 +14,8 @@ from helpers import *
 def get_func_kernel(thr, func_module, out_dtype, in_dtypes):
     src = """
     <%
-        argnames = ["a" + str(i + 1) for i in xrange(len(in_dtypes))]
-        in_ctypes = map(dtypes.ctype, in_dtypes)
+        argnames = ["a" + str(i + 1) for i in range(len(in_dtypes))]
+        in_ctypes = list(map(dtypes.ctype, in_dtypes))
         out_ctype = dtypes.ctype(out_dtype)
     %>
     KERNEL void test(
@@ -43,7 +43,7 @@ def get_func_kernel(thr, func_module, out_dtype, in_dtypes):
 
 def generate_dtypes(out_code, in_codes):
     test_dtype = lambda idx: dict(i=numpy.int32, f=numpy.float32, c=numpy.complex64)[idx]
-    in_dtypes = map(test_dtype, in_codes)
+    in_dtypes = list(map(test_dtype, in_codes))
     out_dtype = dtypes.result_type(*in_dtypes) if out_code == 'auto' else test_dtype(out_code)
 
     if not any(map(dtypes.is_double, in_dtypes)):

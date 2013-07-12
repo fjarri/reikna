@@ -49,7 +49,7 @@ class MatrixMul(Computation):
             block_widths = [bwo]
         else:
             nbanks = device_params.local_mem_banks
-            block_widths = [2 ** n for n in xrange(log2(nbanks), -1, -1)]
+            block_widths = [2 ** n for n in range(log2(nbanks), -1, -1)]
 
         a_height = self.a.shape[-2]
         a_width = self.a.shape[-1]

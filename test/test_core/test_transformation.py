@@ -67,7 +67,7 @@ def test_signature_correctness():
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
 
     # Root signature
-    assert d.signature.parameters.values() == [
+    assert list(d.signature.parameters.values()) == [
         Parameter('C', Annotation(arr_type, 'o')),
         Parameter('D', Annotation(arr_type, 'o')),
         Parameter('A', Annotation(arr_type, 'i')),
@@ -87,7 +87,7 @@ def test_signature_correctness():
     d.C_half1.connect(trivial, trivial.i1, C_new_half1=trivial.o1)
     d.D.connect(scale, scale.i1, D_prime=scale.o1, D_param=scale.s1)
 
-    assert d.signature.parameters.values() == [
+    assert list(d.signature.parameters.values()) == [
         Parameter('C_new_half1', Annotation(arr_type, 'o')),
         Parameter('C_half2', Annotation(arr_type, 'o')),
         Parameter('D_prime', Annotation(arr_type, 'o')),

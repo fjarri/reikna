@@ -17,7 +17,7 @@ WITHIN_KERNEL ${dtypes.ctype(out_dtype)} ${prefix}(${dtypes.ctype(in_dtype)} x)
 
 <%def name="mul(prefix)">
 <%
-    argnames = ["a" + str(i + 1) for i in xrange(len(in_dtypes))]
+    argnames = ["a" + str(i + 1) for i in range(len(in_dtypes))]
 %>
 WITHIN_KERNEL ${dtypes.ctype(out_dtype)} ${prefix}(
     ${", ".join(dtypes.ctype(dt) + " " + name for name, dt in zip(argnames, in_dtypes))})
@@ -26,7 +26,7 @@ WITHIN_KERNEL ${dtypes.ctype(out_dtype)} ${prefix}(
     last_result = argnames[-1]
     last_dtype = in_dtypes[-1]
 %>
-    %for i in xrange(len(in_dtypes) - 2, -1, -1):
+    %for i in range(len(in_dtypes) - 2, -1, -1):
     <%
         dt = in_dtypes[i]
 
