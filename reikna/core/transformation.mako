@@ -153,7 +153,7 @@ INLINE WITHIN_KERNEL ${connector_ctype} ${prefix}func(
     q_combined_indices = ", ".join(['int ' + ind for ind in combined_indices])
     nq_combined_indices = ", ".join(combined_indices)
 %>
-INLINE WITHIN_KERNEL ${connector_ctype} ${prefix}func(
+INLINE WITHIN_KERNEL void ${prefix}func(
     ${q_params},
     ${q_combined_indices},
     ${connector_ctype} ${VALUE_NAME})
