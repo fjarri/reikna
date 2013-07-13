@@ -5,18 +5,22 @@
 * FIX (core): rewrite all internal classes using ``collections.namedtuple`` factory to force their immutability.
 * API: in ``connect``, parameter names in ``**connections`` can conflict with positional arguments of ``connect`` with the same names (e.g. ``param``).
   Possible fixes: prefix parameter names of ``connect`` with underscores, or pass connections as dict (like ``render_kwds``).
-* ?API (core): misleading use of the word "dependencies" on CLUDA level and on Computation level: in the latter they are rather "decorrelations" and can exist, say, between two input nodes.
-  Perhaps it is worth adding a special section with their strict definition to the docs
 * DOC: clean up docs.
-* DOC: write correlations tutorial.
+* ?FIX (core): need to make available only those ``ComputationParameter`` objects that are actually usable: root ones for the plan creator, and all for the user connecting transformations.
+But techically the plan creator does not know anything about connections anyway, so it is not that important.
+  Variant: make root parameters available from their own subattribute (``computation.root`` or something), and make them of separate type (so that they do not have ``connect()``).
+* FEATURE (computations): return Type-like objects from plan.temp_array/persistent_array
+
+* TEST (core): write tests for different incorrect usage cases
 * DOC: since ``store_same`` is translated to ``return`` in the input transformations, it is necessary to emphasize in docs that it should be the last instruction in the code.
   Or, alternatively, replace it with something like ``ctype _temp = ...; <rest of the code> return _temp;``?
-* ?FIX (core): if we read and write from the same temp array using same indices, but different strides (or different dtypes), correlation if violated!
 * ?FIX (core): 'io' parameters do not seem very useful. They only complicate internal logic, and we can always pass the same array as input and output.
-* TEST (core): write tests for different incorrect usage cases
-* ?FIX (core): need to make available only those ``ComputationArgument`` objects that are actually usable: root ones for the plan creator, and all for the user connecting transformations.
-But techically the plan creator does not know anything about connections anyway, so it is not that important.
-* FEATURE (computations): return Type-like objects from plan.temp_array/persistent_array
+
+* ?API (core): misleading use of the word "dependencies" on CLUDA level and on Computation level: in the latter they are rather "decorrelations" and can exist, say, between two input nodes.
+  Perhaps it is worth adding a special section with their strict definition to the docs
+* DOC: write correlations tutorial.
+* ?FIX (core): if we read and write from the same temp array using same indices, but different strides (or different dtypes), correlation if violated!
+  Maybe it's better to assume decorrelation by default, and only mark parameters as correlated when the user says that explicitly.
 
 0.3.1
 =====
