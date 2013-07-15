@@ -149,8 +149,8 @@ class DeviceParameters:
 
         self.max_num_groups = [
             device.max_grid_dim_x,
-            device.max_grid_dim_y] + \
-            ([device.max_grid_dim_z] if device.max_grid_dim_z > 1 else [])
+            device.max_grid_dim_y,
+            device.max_grid_dim_z]
 
         # there is no corresponding constant in the API at the moment
         self.local_mem_banks = 16 if device.compute_capability()[0] < 2 else 32

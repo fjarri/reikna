@@ -37,6 +37,8 @@ Other stuff:
 
 * FIXED: undefined variable in functions.exp() template (reported by Thibault North).
 
+* FIXED: inconsistent block/grid shapes in static kernels
+
 
 0.2.4 (11 May 2013)
 ===================
