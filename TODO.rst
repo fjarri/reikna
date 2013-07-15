@@ -6,9 +6,6 @@
 * API: in ``connect``, parameter names in ``**connections`` can conflict with positional arguments of ``connect`` with the same names (e.g. ``param``).
   Possible fixes: prefix parameter names of ``connect`` with underscores, or pass connections as dict (like ``render_kwds``).
 * DOC: clean up docs.
-* ?FIX (core): need to make available only those ``ComputationParameter`` objects that are actually usable: root ones for the plan creator, and all for the user connecting transformations.
-But techically the plan creator does not know anything about connections anyway, so it is not that important.
-  Variant: make root parameters available from their own subattribute (``computation.root`` or something), and make them of separate type (so that they do not have ``connect()``).
 
 * TEST (core): write tests for different incorrect usage cases
 * DOC: since ``store_same`` is translated to ``return`` in the input transformations, it is necessary to emphasize in docs that it should be the last instruction in the code.

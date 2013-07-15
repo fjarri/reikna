@@ -227,20 +227,18 @@ class DHT(Computation):
             Parameter('output', Annotation(output_arr, 'o')),
             Parameter('input', Annotation(input_arr, 'i'))])
 
-    def _build_plan(self, plan_factory, device_params):
+    def _build_plan(self, plan_factory, device_params, output, input):
 
         plan = plan_factory()
 
-        dtype = self.input.dtype
-        coord_shape = self.output.shape if self._inverse else self.input.shape
-        mode_shape = self.input.shape if self._inverse else self.output.shape
+        dtype = input.dtype
+        mode_shape = input.shape if self._inverse else output.shape
 
         p_dtype = dtypes.real_for(dtype) if dtypes.is_complex(dtype) else dtype
 
-        current_mem = self.input
-        current_shape = list(self.input.shape)
-        seq_axes = list(range(len(self.input.shape)))
-        current_axes = list(range(len(self.input.shape)))
+        current_mem = input
+        seq_axes = list(range(len(input.shape)))
+        current_axes = list(range(len(input.shape)))
 
         for i, axis in enumerate(self._axes):
 
@@ -255,14 +253,12 @@ class DHT(Computation):
 
                 tr_axes = optimal_transpose(seq_axes)
                 new_axes = optimal_transpose(current_axes)
-                new_shape = optimal_transpose(current_shape)
 
-                tr_output = plan.temp_array(new_shape, dtype)
-                transpose = Transpose(Type(dtype, shape=current_shape), axes=tr_axes)
+                transpose = Transpose(current_mem, axes=tr_axes)
+                tr_output = plan.temp_array_like(transpose.parameter.output)
                 plan.computation_call(transpose, tr_output, current_mem)
 
                 current_mem = tr_output
-                current_shape = new_shape
                 current_axes = new_axes
 
             # Prepare the transformation matrix
@@ -277,20 +273,14 @@ class DHT(Computation):
 
             # Add the matrix multiplication
 
-            new_shape = list(current_shape)
-            new_shape[-1] = p.shape[1]
-
+            dot = MatrixMul(current_mem, tr_matrix)
             if i == len(self._axes) - 1 and current_axes == seq_axes:
-                dot_output = self.output
+                dot_output = output
             else:
                 # Cannot write to output if it is not the last transform,
                 # or if we need to return to the initial axes order
-                dot_output = plan.temp_array(new_shape, dtype)
-
-            dot = MatrixMul(Type(dtype, shape=current_shape), p)
+                dot_output = plan.temp_array_like(dot.parameter.output)
             plan.computation_call(dot, dot_output, current_mem, tr_matrix)
-
-            current_shape = new_shape
             current_mem = dot_output
 
         # If we ended up with the wrong order of axes,
@@ -298,7 +288,7 @@ class DHT(Computation):
 
         if current_axes != seq_axes:
             tr_axes = [current_axes.index(i) for i in range(len(current_axes))]
-            transpose = Transpose(Type(dtype, shape=current_shape), axes=tr_axes)
-            plan.add_computation(transpose, self.output, current_mem)
+            transpose = Transpose(current_mem, axes=tr_axes)
+            plan.add_computation(transpose, output, current_mem)
 
         return plan

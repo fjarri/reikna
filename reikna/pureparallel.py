@@ -36,15 +36,16 @@ class PureParallel(Computation):
 
         self._dependencies = dependencies
 
-    def _build_plan(self, plan_factory, device_params):
+    def _build_plan(self, plan_factory, device_params, *args):
 
         plan = plan_factory()
 
-        arglist = ", ".join(self._root_parameters)
+        argnames = [arg.name for arg in args]
+        arglist = ", ".join(argnames)
         idx_names = ["_idx" + str(i) for i in range(len(self._guiding_shape))]
 
         template = template_def(
-            self._root_parameters,
+            argnames,
             """
             ${kernel_definition}
             {
@@ -64,7 +65,7 @@ class PureParallel(Computation):
             """)
 
         plan.kernel_call(
-            template, self._root_parameters,
+            template, args,
             global_size=product(self._guiding_shape),
             render_kwds=dict(
                 shape=self._guiding_shape,

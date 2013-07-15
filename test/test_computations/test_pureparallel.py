@@ -25,9 +25,9 @@ def test_guiding_input(thr):
         """,
         guiding_array='input')
 
-    a = get_test_array_like(p.input)
+    a = get_test_array_like(p.parameter.input)
     a_dev = thr.to_device(a)
-    res_dev = thr.empty_like(p.output)
+    res_dev = thr.empty_like(p.parameter.output)
 
     pc = p.compile(thr)
     pc(res_dev, a_dev)
@@ -53,9 +53,9 @@ def test_guiding_output(thr):
         """,
         guiding_array='output')
 
-    a = get_test_array_like(p.input)
+    a = get_test_array_like(p.parameter.input)
     a_dev = thr.to_device(a)
-    res_dev = thr.empty_like(p.output)
+    res_dev = thr.empty_like(p.parameter.output)
 
     pc = p.compile(thr)
     pc(res_dev, a_dev)
@@ -82,9 +82,9 @@ def test_guiding_shape(thr):
         """,
         guiding_array=(N,))
 
-    a = get_test_array_like(p.input)
+    a = get_test_array_like(p.parameter.input)
     a_dev = thr.to_device(a)
-    res_dev = thr.empty_like(p.output)
+    res_dev = thr.empty_like(p.parameter.output)
 
     pc = p.compile(thr)
     pc(res_dev, a_dev)

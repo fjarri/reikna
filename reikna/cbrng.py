@@ -176,26 +176,26 @@ class CBRNG(Computation):
             Parameter('randoms', Annotation(randoms_arr, 'o')),
             Parameter('old_counters', Annotation(counters_arr, 'i'))])
 
-    def _build_plan(self, plan_factory, device_params):
+    def _build_plan(self, plan_factory, device_params, new_counters, randoms, old_counters):
 
         plan = plan_factory()
 
         plan.kernel_call(
             TEMPLATE.get_def('cbrng'),
-            [self.new_counters, self.randoms, self.old_counters],
-            global_size=product(self.old_counters.shape[:-1]),
+            [new_counters, randoms, old_counters],
+            global_size=product(old_counters.shape[:-1]),
             dependencies=[
-                (self.new_counters, self.old_counters),
-                (self.new_counters, self.randoms)],
+                (new_counters, old_counters),
+                (new_counters, randoms)],
             render_kwds=dict(
                 rng=self._rng,
                 rng_params=self._rng_params,
                 distribution=self._distribution,
                 distribution_params=self._distribution_params,
-                batch=product(self.randoms.shape[:-self._counters_dim]),
+                batch=product(randoms.shape[:-self._counters_dim]),
                 counters_slices=[self._counters_dim, 1],
                 randoms_slices=[
-                    len(self.randoms.shape) - self._counters_dim,
+                    len(randoms.shape) - self._counters_dim,
                     self._counters_dim]))
 
         return plan

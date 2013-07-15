@@ -27,7 +27,7 @@ def test_normal(thr, shape, axis):
 
     rd = Reduce(a, predicate_sum(numpy.int64), axes=(axis,) if axis is not None else None)
 
-    b_dev = thr.empty_like(rd.output)
+    b_dev = thr.empty_like(rd.parameter.output)
 
     b_ref = a.sum(axis)
     if len(b_ref.shape) == 0:
@@ -52,7 +52,7 @@ def test_nondefault_function(thr):
 
     rd = Reduce(a_dev, predicate, axes=(0,))
 
-    b_dev = thr.empty_like(rd.output)
+    b_dev = thr.empty_like(rd.parameter.output)
 
     rdc = rd.compile(thr)
     rdc(b_dev, a_dev)

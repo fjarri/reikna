@@ -501,22 +501,22 @@ class FFT(Computation):
             axes = tuple(axes)
         self._axes = axes
 
-    def _build_plan(self, plan_factory, device_params):
+    def _build_plan(self, plan_factory, device_params, output, input, inverse):
 
-        if product([self.input.shape[i] for i in self._axes]) == 1:
+        if product([input.shape[i] for i in self._axes]) == 1:
             # Trivial problem. Need to add a dummy kernel
             # because we still have to run transformations.
             plan = plan_factory()
             identity = PureParallel(
-                [Parameter('output', Annotation(self.output, 'o')),
-                Parameter('input', Annotation(self.input, 'i'))],
+                [Parameter('output', Annotation(output, 'o')),
+                Parameter('input', Annotation(input, 'i'))],
                 """
                 <%
                     idxs_list = ", ".join(idxs)
                 %>
                 ${output.store_idx}(${idxs_list}, ${input.load_idx}(${idxs_list}));
                 """)
-            plan.computation_call(identity, self.output, self.input)
+            plan.computation_call(identity, output, input)
             return plan
 
         # While resource consumption of GlobalFFTKernel can be made lower by passing
@@ -531,23 +531,23 @@ class FFT(Computation):
             # Starting from scratch.
             plan = plan_factory()
             kernels = get_fft_kernels(
-                self.input.shape, self.input.dtype, self._axes, device_params, local_kernel_limit)
+                input.shape, input.dtype, self._axes, device_params, local_kernel_limit)
 
             for i, kernel in enumerate(kernels):
 
-                mem_in = self.input if i == 0 else mem_out
+                mem_in = input if i == 0 else mem_out
                 if i == len(kernels) - 1:
-                    mem_out = self.output
+                    mem_out = output
                 else:
-                    mem_out = plan.temp_array(kernel.output_shape, self.output.dtype)
+                    mem_out = plan.temp_array(kernel.output_shape, output.dtype)
 
                 if kernel.kweights is not None:
-                    kweights = plan.persistent_array(kernel.kweights.astype(self.output.dtype))
+                    kweights = plan.persistent_array(kernel.kweights.astype(output.dtype))
                     kweights_arg = [kweights]
                 else:
                     kweights_arg = []
 
-                argnames = [mem_out, mem_in] + kweights_arg + [self.inverse]
+                argnames = [mem_out, mem_in] + kweights_arg + [inverse]
 
                 # Try to find local size for each of the kernels
                 local_size = device_params.max_work_group_size

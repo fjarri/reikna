@@ -29,9 +29,11 @@ class MatrixMul(Computation):
             out_dtype = dtypes.result_type(a_arr.dtype, b_arr.dtype)
 
             a_batch = product(a_arr.shape[:-2])
-            out_shape = (
-                (b_arr.shape[:-2] if a_batch == 1 else a_arr.shape[:-2]) +
-                (a_arr.shape[-2], b_arr.shape[-1]))
+            batch_len = max(len(a_arr.shape[:-2]), len(b_arr.shape[:-2]))
+            batch_shape = b_arr.shape[:-2] if a_batch == 1 else a_arr.shape[:-2]
+            batch_shape = (1,) * (batch_len - len(batch_shape)) + batch_shape
+
+            out_shape = batch_shape + (a_arr.shape[-2], b_arr.shape[-1])
 
             out_arr = Type(out_dtype, shape=out_shape)
 
@@ -42,7 +44,7 @@ class MatrixMul(Computation):
 
         self._block_width_override = block_width_override
 
-    def _build_plan(self, plan_factory, device_params):
+    def _build_plan(self, plan_factory, device_params, output, a, b):
         bwo = self._block_width_override
 
         if bwo is not None:
@@ -51,11 +53,11 @@ class MatrixMul(Computation):
             nbanks = device_params.local_mem_banks
             block_widths = [2 ** n for n in range(log2(nbanks), -1, -1)]
 
-        a_height = self.a.shape[-2]
-        a_width = self.a.shape[-1]
-        b_width = self.b.shape[-1]
-        a_batch = product(self.a.shape[:-2])
-        b_batch = product(self.b.shape[:-2])
+        a_height = a.shape[-2]
+        a_width = a.shape[-1]
+        b_width = b.shape[-1]
+        a_batch = product(a.shape[:-2])
+        b_batch = product(b.shape[:-2])
         batch = max(a_batch, b_batch)
 
         for block_width in block_widths:
@@ -76,23 +78,23 @@ class MatrixMul(Computation):
                 b_width=b_width,
                 a_width=a_width,
                 num_steps=num_steps,
-                a_slices=(len(self.a.shape) - 2, 1, 1),
-                b_slices=(len(self.b.shape) - 2, 1, 1),
-                output_slices=(len(self.output.shape) - 2, 1, 1),
+                a_slices=(len(a.shape) - 2, 1, 1),
+                b_slices=(len(b.shape) - 2, 1, 1),
+                output_slices=(len(output.shape) - 2, 1, 1),
                 block_width=block_width,
-                mul=functions.mul(self.a.dtype, self.b.dtype, out_dtype=self.output.dtype))
+                mul=functions.mul(a.dtype, b.dtype, out_dtype=output.dtype))
 
             try:
                 plan.kernel_call(
                     TEMPLATE.get_def('matrixmul'),
-                    [self.output, self.a, self.b],
+                    [output, a, b],
                     global_size=(
                         grid_width * block_width,
                         blocks_per_matrix * block_width,
                         batch),
                     local_size=(block_width, block_width, 1),
                     render_kwds=render_kwds,
-                    dependencies=[(self.output, self.a), (self.output, self.b)])
+                    dependencies=[(output, a), (output, b)])
             except OutOfResourcesError:
                 continue
 

@@ -1,4 +1,5 @@
 import weakref
+from collections import namedtuple
 
 from reikna.helpers import Graph
 from reikna.core.signature import Parameter, Annotation, Type
@@ -56,7 +57,7 @@ class Computation:
     """
     A base class for computations, intended to be subclassed.
 
-    :param root_params: a list of :py:class:`~reikna.core.Parameter` objects.
+    :param root_parameters: a list of :py:class:`~reikna.core.Parameter` objects.
 
     .. py:method:: _build_plan(plan_factory, device_params)
 
@@ -74,21 +75,23 @@ class Computation:
         A :py:class:`~reikna.core.Signature` object representing current computation signature
         (taking into account connected transformations).
 
-    .. py:attribute:: param_name
+    .. py:attribute:: parameter
 
-        A :py:class:`~reikna.core.computation.ComputationParameter` object
-        for the parameter ``param_name``.
-        Note that even parameters hidden by connected transformations are visible this way.
+        A named tuple of :py:class:`~reikna.core.computation.ComputationParameter` objects
+        corresponding to parameters from the :py:attr:`signature`.
     """
 
-    def __init__(self, root_params):
-        self._tr_tree = TransformationTree(root_params)
-        self._update_attributes()
+    def __init__(self, root_parameters):
+        self._tr_tree = TransformationTree(root_parameters)
+        self._update_parameters()
 
-    def _update_attributes(self):
-        params = self._tr_tree.get_node_parameters()
-        for param in params:
-            setattr(self, param.name, ComputationParameter(self, param.name, param.annotation.type))
+    def _update_parameters(self):
+        params = self.signature.parameters.values()
+        params_container = namedtuple('ComputationParameters', [param.name for param in params])
+        param_objs = [
+            ComputationParameter(self, param.name, param.annotation.type)
+            for param in params]
+        self.parameter = params_container(*param_objs)
 
     @property
     def signature(self):
@@ -135,13 +138,18 @@ class Computation:
             processed_connections[comp_connection_name] = tr_connection_name
 
         self._tr_tree.connect(param_name, tr, processed_connections)
-        self._update_attributes()
+        self._update_parameters()
         return self
 
     def _get_plan(self, tr_tree, translator, thread):
         def plan_factory():
             return ComputationPlan(tr_tree, translator, thread)
-        return self._build_plan(plan_factory, thread.device_params)
+
+        args = [
+            KernelArgument(param.name, param.annotation.type)
+            for param in tr_tree.root_signature.parameters.values()]
+
+        return self._build_plan(plan_factory, thread.device_params, *args)
 
     def compile(self, thread):
         """
@@ -238,9 +246,7 @@ class ComputationPlan:
         return self.temp_array(arr.shape, arr.dtype, strides=arr.strides)
 
     def _process_user_arg(self, arg, known_annotation=None):
-        if isinstance(arg, ComputationParameter):
-            return self._translator(arg.name)
-        elif isinstance(arg, KernelArgument):
+        if isinstance(arg, KernelArgument):
             return arg.name
         elif isinstance(arg, str):
             # FIXME: not prefixing this one, because it is a result of plan.temp_array() call

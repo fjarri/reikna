@@ -74,18 +74,18 @@ def test_signature_correctness():
         Parameter('B', Annotation(arr_type, 'i')),
         Parameter('coeff', Annotation(coeff_dtype))]
 
-    trivial = tr_trivial(d.A)
-    join = tr_2_to_1(d.A, d.coeff)
-    split = tr_1_to_2(d.A)
-    scale = tr_scale(d.A, d.coeff)
+    trivial = tr_trivial(d.parameter.A)
+    join = tr_2_to_1(d.parameter.A, d.parameter.coeff)
+    split = tr_1_to_2(d.parameter.A)
+    scale = tr_scale(d.parameter.A, d.parameter.coeff)
 
     # Connect some transformations
-    d.A.connect(trivial, trivial.o1, A_prime=trivial.i1)
-    d.B.connect(join, join.o1, A_prime=join.i1, B_prime=join.i2, B_param=join.s1)
-    d.B_prime.connect(trivial, trivial.o1, B_new_prime=trivial.i1)
-    d.C.connect(split, split.i1, C_half1=split.o1, C_half2=split.o2)
-    d.C_half1.connect(trivial, trivial.i1, C_new_half1=trivial.o1)
-    d.D.connect(scale, scale.i1, D_prime=scale.o1, D_param=scale.s1)
+    d.parameter.A.connect(trivial, trivial.o1, A_prime=trivial.i1)
+    d.parameter.B.connect(join, join.o1, A_prime=join.i1, B_prime=join.i2, B_param=join.s1)
+    d.parameter.B_prime.connect(trivial, trivial.o1, B_new_prime=trivial.i1)
+    d.parameter.C.connect(split, split.i1, C_half1=split.o1, C_half2=split.o2)
+    d.parameter.C_half1.connect(trivial, trivial.i1, C_new_half1=trivial.o1)
+    d.parameter.D.connect(scale, scale.i1, D_prime=scale.o1, D_param=scale.s1)
 
     assert list(d.signature.parameters.values()) == [
         Parameter('C_new_half1', Annotation(arr_type, 'o')),
@@ -110,27 +110,27 @@ def test_same_shape(thr):
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
 
-    trivial = tr_trivial(d.A)
-    join = tr_2_to_1(d.A, d.coeff)
-    split = tr_1_to_2(d.A)
-    scale = tr_scale(d.A, d.coeff)
+    trivial = tr_trivial(d.parameter.A)
+    join = tr_2_to_1(d.parameter.A, d.parameter.coeff)
+    split = tr_1_to_2(d.parameter.A)
+    scale = tr_scale(d.parameter.A, d.parameter.coeff)
 
-    d.A.connect(trivial, trivial.o1, A_prime=trivial.i1)
-    d.B.connect(join, join.o1, A_prime=join.i1, B_prime=join.i2, B_param=join.s1)
-    d.B_prime.connect(trivial, trivial.o1, B_new_prime=trivial.i1)
-    d.C.connect(split, split.i1, C_half1=split.o1, C_half2=split.o2)
-    d.C_half1.connect(trivial, trivial.i1, C_new_half1=trivial.o1)
-    d.D.connect(scale, scale.i1, D_prime=scale.o1, D_param=scale.s1)
+    d.parameter.A.connect(trivial, trivial.o1, A_prime=trivial.i1)
+    d.parameter.B.connect(join, join.o1, A_prime=join.i1, B_prime=join.i2, B_param=join.s1)
+    d.parameter.B_prime.connect(trivial, trivial.o1, B_new_prime=trivial.i1)
+    d.parameter.C.connect(split, split.i1, C_half1=split.o1, C_half2=split.o2)
+    d.parameter.C_half1.connect(trivial, trivial.i1, C_new_half1=trivial.o1)
+    d.parameter.D.connect(scale, scale.i1, D_prime=scale.o1, D_param=scale.s1)
     dc = d.compile(thr)
 
-    A_prime = get_test_array_like(d.A_prime)
-    B_new_prime = get_test_array_like(d.B_prime)
+    A_prime = get_test_array_like(d.parameter.A_prime)
+    B_new_prime = get_test_array_like(d.parameter.B_new_prime)
 
     A_prime_dev = thr.to_device(A_prime)
     B_new_prime_dev = thr.to_device(B_new_prime)
-    C_new_half1_dev = thr.empty_like(d.A_prime)
-    C_half2_dev = thr.empty_like(d.A_prime)
-    D_prime_dev = thr.empty_like(d.A_prime)
+    C_new_half1_dev = thr.empty_like(d.parameter.A_prime)
+    C_half2_dev = thr.empty_like(d.parameter.A_prime)
+    D_prime_dev = thr.empty_like(d.parameter.A_prime)
 
     dc(
         C_new_half1_dev, C_half2_dev,
@@ -160,19 +160,19 @@ def test_connection_to_base(thr):
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
 
-    trivial = tr_trivial(d.A)
-    scale = tr_scale(d.A, d.coeff)
+    trivial = tr_trivial(d.parameter.A)
+    scale = tr_scale(d.parameter.A, d.parameter.coeff)
 
     # connect to the base array argument (effectively making B the same as A)
-    d.A.connect(trivial, trivial.o1, B=trivial.i1)
+    d.parameter.A.connect(trivial, trivial.o1, B=trivial.i1)
     # connect to the base scalar argument
-    d.C.connect(scale, scale.i1, C_prime=scale.o1, coeff=scale.s1)
+    d.parameter.C.connect(scale, scale.i1, C_prime=scale.o1, coeff=scale.s1)
     dc = d.compile(thr)
 
-    B = get_test_array_like(d.B)
+    B = get_test_array_like(d.parameter.B)
     B_dev = thr.to_device(B)
-    C_prime_dev = thr.empty_like(d.B)
-    D_dev = thr.empty_like(d.B)
+    C_prime_dev = thr.empty_like(d.parameter.B)
+    D_dev = thr.empty_like(d.parameter.B)
 
     dc(C_prime_dev, coeff, D_dev, B_dev)
 
@@ -196,27 +196,27 @@ def test_nested_same_shape(thr):
 
     d = DummyNested(arr_type, arr_type, coeff_dtype, second_coeff, same_A_B=True)
 
-    trivial = tr_trivial(d.A)
-    join = tr_2_to_1(d.A, d.coeff)
-    split = tr_1_to_2(d.A)
-    scale = tr_scale(d.A, d.coeff)
+    trivial = tr_trivial(d.parameter.A)
+    join = tr_2_to_1(d.parameter.A, d.parameter.coeff)
+    split = tr_1_to_2(d.parameter.A)
+    scale = tr_scale(d.parameter.A, d.parameter.coeff)
 
-    d.A.connect(trivial, trivial.o1, A_prime=trivial.i1)
-    d.B.connect(join, join.o1, A_prime=join.i1, B_prime=join.i2, B_param=join.s1)
-    d.B_prime.connect(trivial, trivial.o1, B_new_prime=trivial.i1)
-    d.C.connect(split, split.i1, C_half1=split.o1, C_half2=split.o2)
-    d.C_half1.connect(trivial, trivial.i1, C_new_half1=trivial.o1)
-    d.D.connect(scale, scale.i1, D_prime=scale.o1, D_param=scale.s1)
+    d.parameter.A.connect(trivial, trivial.o1, A_prime=trivial.i1)
+    d.parameter.B.connect(join, join.o1, A_prime=join.i1, B_prime=join.i2, B_param=join.s1)
+    d.parameter.B_prime.connect(trivial, trivial.o1, B_new_prime=trivial.i1)
+    d.parameter.C.connect(split, split.i1, C_half1=split.o1, C_half2=split.o2)
+    d.parameter.C_half1.connect(trivial, trivial.i1, C_new_half1=trivial.o1)
+    d.parameter.D.connect(scale, scale.i1, D_prime=scale.o1, D_param=scale.s1)
     dc = d.compile(thr)
 
-    A_prime = get_test_array_like(d.A_prime)
-    B_new_prime = get_test_array_like(d.B_prime)
+    A_prime = get_test_array_like(d.parameter.A_prime)
+    B_new_prime = get_test_array_like(d.parameter.B_new_prime)
 
     A_prime_dev = thr.to_device(A_prime)
     B_new_prime_dev = thr.to_device(B_new_prime)
-    C_new_half1_dev = thr.empty_like(d.A_prime)
-    C_half2_dev = thr.empty_like(d.A_prime)
-    D_prime_dev = thr.empty_like(d.A_prime)
+    C_new_half1_dev = thr.empty_like(d.parameter.A_prime)
+    C_half2_dev = thr.empty_like(d.parameter.A_prime)
+    D_prime_dev = thr.empty_like(d.parameter.A_prime)
 
     dc(
         C_new_half1_dev, C_half2_dev,

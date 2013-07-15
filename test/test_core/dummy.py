@@ -30,11 +30,11 @@ class Dummy(Computation):
             Parameter('B', Annotation(arr2, 'i')),
             Parameter('coeff', Annotation(coeff))])
 
-    def _build_plan(self, plan_factory, device_params):
+    def _build_plan(self, plan_factory, device_params, C, D, A, B, coeff):
         plan = plan_factory()
 
-        arr_dtype = self.A.dtype
-        coeff_dtype = self.coeff.dtype
+        arr_dtype = C.dtype
+        coeff_dtype = coeff.dtype
 
         mul = functions.mul(arr_dtype, coeff_dtype)
         div = functions.div(arr_dtype, coeff_dtype)
@@ -95,23 +95,23 @@ class Dummy(Computation):
 
         block_size = 16
 
-        C_temp = plan.temp_array_like(self.C)
-        D_temp = plan.temp_array_like(self.D)
+        C_temp = plan.temp_array_like(C)
+        D_temp = plan.temp_array_like(D)
         arr = plan.persistent_array(self._persistent_array)
 
         plan.kernel_call(
             template.get_def('dummy'),
-            [C_temp, D_temp, self.A, self.B, self.coeff],
-            global_size=self.A.shape,
+            [C_temp, D_temp, A, B, coeff],
+            global_size=A.shape,
             local_size=(block_size, block_size),
             render_kwds=dict(mul=mul, div=div, same_A_B=self._same_A_B),
-            dependencies=[(C_temp, D_temp), (C_temp, self.A)])
+            dependencies=[(C_temp, D_temp), (C_temp, A)])
         plan.kernel_call(
             template.get_def('dummy2'),
-            [self.C, self.D, C_temp, D_temp, arr, numpy.float32(10)],
-            global_size=self.A.shape,
+            [C, D, C_temp, D_temp, arr, numpy.float32(10)],
+            global_size=A.shape,
             local_size=(block_size, block_size),
-            dependencies=[(self.C, self.D)],
+            dependencies=[(C, D)],
             render_kwds=dict(mul=mul, same_A_B=self._same_A_B))
 
         return plan
@@ -137,14 +137,14 @@ class DummyNested(Computation):
             Parameter('B', Annotation(arr2, 'i')),
             Parameter('coeff', Annotation(coeff))])
 
-    def _build_plan(self, plan_factory, device_params):
+    def _build_plan(self, plan_factory, device_params, C, D, A, B, coeff):
         plan = plan_factory()
-        nested = Dummy(self.A, self.B, self.coeff, same_A_B=self._same_A_B)
+        nested = Dummy(A, B, coeff, same_A_B=self._same_A_B)
 
-        C_temp = plan.temp_array_like(self.C)
-        D_temp = plan.temp_array_like(self.D)
+        C_temp = plan.temp_array_like(C)
+        D_temp = plan.temp_array_like(D)
 
-        plan.computation_call(nested, C_temp, D_temp, self.A, self.B, self.coeff)
-        plan.computation_call(nested, self.C, self.D, C_temp, D_temp, self._second_coeff)
+        plan.computation_call(nested, C_temp, D_temp, A, B, coeff)
+        plan.computation_call(nested, C, D, C_temp, D_temp, self._second_coeff)
 
         return plan

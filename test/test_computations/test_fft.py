@@ -171,7 +171,7 @@ def test_trivial(some_thr):
 
     fft = FFT(data_dev, axes=axes)
     scale = scale_param(data_dev, numpy.int32)
-    fft.input.connect(scale, scale.output, input_prime=scale.input, coeff=scale.coeff)
+    fft.parameter.input.connect(scale, scale.output, input_prime=scale.input, coeff=scale.coeff)
 
     fftc = fft.compile(some_thr)
     fftc(res_dev, data_dev, param)

@@ -35,7 +35,7 @@ def test_errors(thr, shape_and_axes):
     res_ref = numpy.transpose(a, axes)
 
     tr = Transpose(a, axes=axes)
-    res_dev = thr.empty_like(tr.output)
+    res_dev = thr.empty_like(tr.parameter.output)
 
     tr = tr.compile(thr)
     tr(res_dev, a_dev)

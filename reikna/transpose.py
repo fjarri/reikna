@@ -133,20 +133,20 @@ class Transpose(Computation):
             render_kwds=render_kwds,
             dependencies=[(output_name, input_name)])
 
-    def _build_plan(self, plan_factory, device_params):
+    def _build_plan(self, plan_factory, device_params, output, input):
         plan = plan_factory()
-        transposes = get_transposes(self.input.shape, self._axes)
+        transposes = get_transposes(input.shape, self._axes)
 
         for i, tr in enumerate(transposes):
 
             batch_shape, height_shape, width_shape = tr
 
-            mem_in = self.input if i == 0 else mem_out
+            mem_in = input if i == 0 else mem_out
             if i == len(transposes) - 1:
-                mem_out = self.output
+                mem_out = output
             else:
                 mem_out = plan.temp_array(
-                    batch_shape + width_shape + height_shape, self.output.dtype)
+                    batch_shape + width_shape + height_shape, output.dtype)
 
             self._add_transpose(plan, device_params,
                 mem_out, mem_in, batch_shape, height_shape, width_shape)

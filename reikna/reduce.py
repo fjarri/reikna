@@ -49,7 +49,7 @@ class Reduce(Computation):
             Parameter('output', Annotation(Type(arr_t.dtype, shape=output_shape), 'o')),
             Parameter('input', Annotation(arr_t, 'i'))])
 
-    def _build_plan(self, plan_factory, device_params):
+    def _build_plan(self, plan_factory, device_params, output, input):
 
         plan = plan_factory()
 
@@ -59,32 +59,28 @@ class Reduce(Computation):
         axis_start = self._axis_start
         axis_end = self._axis_end
 
-        if axis_end == len(self.input.shape) - 1:
+        if axis_end == len(input.shape) - 1:
             # normal reduction
-            input = self.input
-            input_shape = self.input.shape
+            cur_input = input
         else:
-            initial_axes = tuple(range(len(self.input.shape)))
+            initial_axes = tuple(range(len(input.shape)))
             tr_axes = (
                 initial_axes[:axis_start] +
                 initial_axes[axis_end+1:] +
                 initial_axes[axis_start:axis_end+1])
 
-            transpose = Transpose(self.input, axes=tr_axes)
+            transpose = Transpose(input, axes=tr_axes)
+            tr_output = plan.temp_array_like(transpose.parameter.output)
+            plan.computation_call(transpose, tr_output, input)
 
-            tr_output = plan.temp_array_like(transpose.output)
-            plan.computation_call(transpose, tr_output, self.input)
-
-            input_shape = transpose.output.shape
-
-            input = tr_output
-            axis_start = len(self.input.shape) - 1 - (axis_end - axis_start)
-            axis_end = len(self.input.shape) - 1
+            cur_input = tr_output
+            axis_start = len(input.shape) - 1 - (axis_end - axis_start)
+            axis_end = len(input.shape) - 1
 
         input_slices = (axis_start, axis_end - axis_start + 1)
 
-        external_shape = input_shape[:axis_start]
-        part_size = product(input_shape[axis_start:])
+        external_shape = cur_input.shape[:axis_start]
+        part_size = product(cur_input.shape[axis_start:])
         final_size = product(external_shape)
 
         while part_size > 1:
@@ -92,14 +88,14 @@ class Reduce(Computation):
             if part_size >= max_reduce_power:
                 block_size = max_reduce_power
                 blocks_per_part = min_blocks(part_size, block_size)
-                output = plan.temp_array(
-                    (final_size, blocks_per_part), self.input.dtype)
+                cur_output = plan.temp_array(
+                    (final_size, blocks_per_part), input.dtype)
                 output_slices = (1, 1)
             else:
                 block_size = bounding_power_of_2(part_size)
                 blocks_per_part = 1
-                output = self.output
-                output_slices = (len(self.output.shape), 0)
+                cur_output = output
+                output_slices = (len(cur_output.shape), 0)
 
             if part_size % block_size != 0:
                 last_block_size = part_size % block_size
@@ -117,14 +113,14 @@ class Reduce(Computation):
 
             plan.kernel_call(
                 TEMPLATE.get_def('reduce'),
-                [output, input],
+                [cur_output, cur_input],
                 global_size=(blocks_per_part * block_size, final_size),
                 local_size=(block_size, 1),
                 render_kwds=render_kwds,
-                dependencies=[(input, output)])
+                dependencies=[(cur_input, cur_output)])
 
             part_size = blocks_per_part
-            input = output
+            cur_input = cur_output
             input_slices = output_slices
 
         return plan
