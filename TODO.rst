@@ -3,8 +3,6 @@
 
 * FIX (core): clean up core code, add comments
 * FIX (core): rewrite all internal classes using ``collections.namedtuple`` factory to force their immutability.
-* API: in ``connect``, parameter names in ``**connections`` can conflict with positional arguments of ``connect`` with the same names (e.g. ``param``).
-  Possible fixes: prefix parameter names of ``connect`` with underscores, or pass connections as dict (like ``render_kwds``).
 * DOC: clean up docs.
 
 * TEST (core): write tests for different incorrect usage cases

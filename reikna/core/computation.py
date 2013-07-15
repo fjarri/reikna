@@ -29,12 +29,12 @@ class ComputationParameter(Type):
     def belongs_to(self, comp):
         return self._computation() is comp
 
-    def connect(self, tr, tr_connector, **connections):
+    def connect(self, _tr, _tr_connector, **connections):
         """
         Shortcut for :py:meth:`~reikna.core.Computation.connect`
-        with this parameter's name as a first argument.
+        with this parameter as a first argument.
         """
-        return self._computation().connect(self.name, tr, tr_connector, **connections)
+        return self._computation().connect(self.name, _tr, _tr_connector, **connections)
 
 
 class Translator:
@@ -97,15 +97,17 @@ class Computation:
     def signature(self):
         return self._tr_tree.get_leaf_signature()
 
-    def connect(self, param, tr, tr_param, **param_connections):
+    # The names are underscored to avoid name conflicts with ``connections`` keys
+    # (where the user can introduce new parameter names)
+    def connect(self, _param, _tr, _tr_param, **param_connections):
         """
         Connect a transformation to the computation.
 
-        :param param: connection target ---
+        :param _param: connection target ---
             a :py:class:`~reikna.core.computation.ComputationParameter` object
             beloning to this computation object, or a string with its name.
-        :param tr: a :py:class:`~reikna.core.Transformation` object.
-        :param tr_param: connector on the side of the transformation ---
+        :param _tr: a :py:class:`~reikna.core.Transformation` object.
+        :param _tr_param: connector on the side of the transformation ---
             a :py:class:`~reikna.core.transformation.TransformationParameter` object
             beloning to ``tr``, or a string with its name.
         :param param_connections: a dictionary with the names of new or old
@@ -115,20 +117,20 @@ class Computation:
         :returns: this computation object (modified).
         """
 
-        if isinstance(param, ComputationParameter):
-            if not param.belongs_to(self):
+        if isinstance(_param, ComputationParameter):
+            if not _param.belongs_to(self):
                 raise ValueError("")
-            param_name = param.name
-        elif isinstance(param, str):
-            param_name = param
+            param_name = _param.name
+        elif isinstance(_param, str):
+            param_name = _param
         else:
             raise ValueError("")
 
-        param_connections[param_name] = tr_param
+        param_connections[param_name] = _tr_param
         processed_connections = {}
         for comp_connection_name, tr_connection in param_connections.items():
             if isinstance(tr_connection, TransformationParameter):
-                if not tr_connection.belongs_to(tr):
+                if not tr_connection.belongs_to(_tr):
                     raise ValueError("")
                 tr_connection_name = tr_connection.name
             elif isinstance(tr_connection, str):
@@ -137,7 +139,7 @@ class Computation:
                 raise ValueError("")
             processed_connections[comp_connection_name] = tr_connection_name
 
-        self._tr_tree.connect(param_name, tr, processed_connections)
+        self._tr_tree.connect(param_name, _tr, processed_connections)
         self._update_parameters()
         return self
 
