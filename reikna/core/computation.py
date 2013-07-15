@@ -163,6 +163,20 @@ class IdGen:
         return self._prefix + str(self._counter)
 
 
+class KernelArgument(Type):
+    """
+    Bases: :py:class:`~reikna.core.Type`
+
+    Represents an argument suitable to pass to planned kernel or computation call.
+    """
+
+    def __init__(self, name, type_):
+        """__init__()""" # hide the signature from Sphinx
+
+        Type.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
+        self.name = name
+
+
 class ComputationPlan:
     """
     Computation plan recorder.
@@ -190,29 +204,31 @@ class ComputationPlan:
         annotation = Annotation(val)
         self._internal_params[name] = Parameter(name, annotation)
         self._persistent_values[name] = annotation.type(val)
-        return name
+        return KernelArgument(name, annotation.type)
 
     def persistent_array(self, arr):
         """
         Adds a persistent GPU array to the plan, and returns its identifier.
         """
         name = self._translator(self._persistent_value_idgen())
-        self._internal_params[name] = Parameter(name, Annotation(arr, 'i'))
+        parameter = Parameter(name, Annotation(arr, 'i'))
+        self._internal_params[name] = parameter
         self._persistent_values[name] = self._thread.to_device(arr)
-        return name
+        return KernelArgument(name, parameter.annotation.type)
 
     def temp_array(self, shape, dtype, strides=None):
         """
-        Adds a temporary GPU array to the planm, and returns its identifier.
+        Adds a temporary GPU array to the plan, and returns its identifier.
         Temporary arrays can share physical memory and are only guaranteed
         not to be overwritten by writes to other temporary arrays which are explicitly
         marked as dependent in :py:meth:`kernel_call`.
         """
         name = self._translator(self._temp_array_idgen())
-        self._internal_params[name] = Parameter(
+        parameter = Parameter(
             name, Annotation(Type(dtype, shape=shape, strides=strides), 'io'))
+        self._internal_params[name] = parameter
         self._temp_arrays.add(name)
-        return name
+        return KernelArgument(name, parameter.annotation.type)
 
     def temp_array_like(self, arr):
         """
@@ -224,17 +240,20 @@ class ComputationPlan:
     def _process_user_arg(self, arg, known_annotation=None):
         if isinstance(arg, ComputationParameter):
             return self._translator(arg.name)
+        elif isinstance(arg, KernelArgument):
+            return arg.name
         elif isinstance(arg, str):
             # FIXME: not prefixing this one, because it is a result of plan.temp_array() call
             # All computation parameters should be passes as ComputationParameter objects.
             # This should be changes when we start returning objects from temp_array()
             # instead of strings.
-            return arg
+            return self._translator(arg)
         else:
             if known_annotation is not None:
                 assert not known_annotation.array
                 arg = known_annotation.type(arg)
-            return self._scalar(arg)
+            karg = self._scalar(arg)
+            return karg.name
 
     def kernel_call(self, template_def, args, global_size,
             local_size=None, render_kwds=None, dependencies=None):
