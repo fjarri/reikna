@@ -17,6 +17,7 @@
 * DOC: write correlations tutorial.
 * ?FIX (core): if we read and write from the same temp array using same indices, but different strides (or different dtypes), correlation if violated!
   Maybe it's better to assume decorrelation by default, and only mark parameters as correlated when the user says that explicitly.
+* FEATURE (core): expose leaf ComputationParameters from the ComputationCallable in the same way it's done for the Computation.
 
 0.3.1
 =====
