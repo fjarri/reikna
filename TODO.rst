@@ -6,8 +6,6 @@
 * DOC: clean up docs.
 
 * TEST (core): write tests for different incorrect usage cases
-* DOC: since ``store_same`` is translated to ``return`` in the input transformations, it is necessary to emphasize in docs that it should be the last instruction in the code.
-  Or, alternatively, replace it with something like ``ctype _temp = ...; <rest of the code> return _temp;``?
 * ?FIX (core): 'io' parameters do not seem very useful. They only complicate internal logic, and we can always pass the same array as input and output.
 
 * ?API (core): misleading use of the word "dependencies" on CLUDA level and on Computation level: in the latter they are rather "decorrelations" and can exist, say, between two input nodes.

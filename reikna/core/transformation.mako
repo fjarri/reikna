@@ -62,8 +62,9 @@ KERNEL void ${kernel_name}(${param_cnames_str(params, qualified=True)})
 
 
 <%def name="node_input_connector()">
-return \
+${VALUE_NAME} =
 </%def>
+
 
 <%def name="node_output_connector()">
 ${VALUE_NAME}\
@@ -83,7 +84,11 @@ INLINE WITHIN_KERNEL ${connector_ctype} ${prefix}func(
     ${q_params},
     ${q_indices})
 {
+    ${connector_ctype} ${VALUE_NAME};
+
     ${tr_snippet(*tr_args)}
+
+    return ${VALUE_NAME};
 }
 #define ${prefix}(${nq_indices}) ${prefix}func(${nq_params}, ${nq_indices})
 </%def>
