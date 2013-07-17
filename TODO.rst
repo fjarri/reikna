@@ -1,19 +1,15 @@
 0.3.0 (Core API change)
 ========================
 
+* ?FIX (core): 'io' parameters do not seem very useful. They only complicate internal logic, and we can always pass the same array as input and output.
+* FEATURE (core): expose leaf ComputationParameters from the ComputationCallable in the same way it's done for the Computation.
+* DOC: write correlations tutorial.
+
 * FIX (core): clean up core code, add comments
 * FIX (core): rewrite all internal classes using ``collections.namedtuple`` factory to force their immutability.
 * DOC: clean up docs.
-
 * TEST (core): write tests for different incorrect usage cases
-* ?FIX (core): 'io' parameters do not seem very useful. They only complicate internal logic, and we can always pass the same array as input and output.
 
-* ?API (core): misleading use of the word "dependencies" on CLUDA level and on Computation level: in the latter they are rather "decorrelations" and can exist, say, between two input nodes.
-  Perhaps it is worth adding a special section with their strict definition to the docs
-* DOC: write correlations tutorial.
-* ?FIX (core): if we read and write from the same temp array using same indices, but different strides (or different dtypes), correlation if violated!
-  Maybe it's better to assume decorrelation by default, and only mark parameters as correlated when the user says that explicitly.
-* FEATURE (core): expose leaf ComputationParameters from the ComputationCallable in the same way it's done for the Computation.
 
 0.3.1
 =====
@@ -23,6 +19,9 @@
 * ?FIX (core): check if Signature.bind() is too slow in the kernel call; perhaps we will have to rewrite it taking into account restrictions to Parameter types we have.
 * FIX (core): When we connect a transformation, difference in strides between arrays in the connection can be ignored (and probably the transformation's signature changed too; at least we need to decide which strides to use in the exposed node).
   Idea: strides can be passes to compile() (in form of actual arrays, as a dictionary).
+* FIX (core): even if access to indices of two arrays is correlated, and dtypes are the same,
+  different strides can still destroy correlation.
+  Need to add a check for it.
 * FIX (cluda): rewrite vsizes to just use a 1D global size and get any-D virtual sizes through modular division (shouldn't be that slow, but need to test; or maybe just fall back to modular division if the requested dimensionality is too big).
 * ?FIX (computations): PureParallel can be either rewritten using stub kernel and Transformation (to use load/store_combined_idx) (downside: order of parameters messes up in this case; upside: can use store_same/load_same), or using the new any-D static kernels from CLUDA (if the above fix is implemented).
 * FIX: get rid of AttrDict and replace it by classes/named tuples.

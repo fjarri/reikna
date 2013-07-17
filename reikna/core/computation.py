@@ -1,4 +1,5 @@
 import weakref
+import itertools
 from collections import namedtuple
 
 from reikna.helpers import Graph
@@ -264,7 +265,8 @@ class ComputationPlan:
             return karg.name
 
     def kernel_call(self, template_def, args, global_size,
-            local_size=None, render_kwds=None, dependencies=None):
+            local_size=None, render_kwds=None,
+            correlations=None, decorrelations=None):
         """
         Adds a kernel call to the plan.
 
@@ -278,8 +280,19 @@ class ComputationPlan:
         :param local_size: local size to use for the call.
             If ``None``, the local size will be picked automatically.
         :param render_kwds: dictionary with additional values used to render the template.
-        :param dependencies: list of pairs of array arguments uncorrelated with each other
-            (see :ref:`access-correlations` for details).
+        :param correlations: list of pairs of array arguments with correlated access
+            (see :ref:`access-correlations` for details);
+            the rest will be considered to be decorrelated.
+            Can't be used in conjunction with ``decorrelations``.
+        :param decorrelations: list of pairs of array arguments with decorrelated access
+            (see :ref:`access-correlations` for details);
+            the rest will be considered to be correlated.
+            Can't be used in conjunction with ``correlations``.
+
+        .. note::
+
+            If both ``correlations`` and ``decorrelations`` is None,
+            all access is assumed to be decorrelated.
         """
 
         argnames = [self._process_user_arg(arg) for arg in args]
@@ -290,25 +303,41 @@ class ComputationPlan:
             else:
                 params.append(self._internal_params[argname])
 
-        dep_pairs = []
-        if dependencies is not None:
-            for mem1, mem2 in dependencies:
+        if correlations is not None and decorrelations is not None:
+            raise ValueError("Only one of 'correlations' or 'decorrelations' can be specified.")
+
+        corrs = Graph()
+
+        if correlations is not None:
+            for mem1, mem2 in correlations:
                 mem1 = self._process_user_arg(mem1)
                 mem2 = self._process_user_arg(mem2)
                 if mem1 not in self._persistent_values and mem2 not in self._persistent_values:
-                    dep_pairs.append((mem1, mem2))
+                    corrs.add_edge(mem1, mem2)
+
+        elif decorrelations is not None:
+            mems = [
+                name for name in argnames
+                if name not in self._persistent_values]
+            corrs.add_cluster(mems)
+
+            for mem1, mem2 in decorrelations:
+                mem1 = self._process_user_arg(mem1)
+                mem2 = self._process_user_arg(mem2)
+                if mem1 not in self._persistent_values and mem2 not in self._persistent_values:
+                    corrs.remove_edge(mem1, mem2)
 
         ts_kernel = TypedStaticKernel(
             params, template_def, global_size,
             local_size=local_size, render_kwds=render_kwds,
-            dependencies=dep_pairs)
+            correlations=corrs)
         ts_kernel.reconnect(self._tr_tree)
 
         kernel = ts_kernel.compile(self._thread)
         leaf_argnames = ts_kernel.get_leaf_argnames()
         dependencies = ts_kernel.get_dependencies()
 
-        self._dependencies.add_graph(dependencies)
+        self._dependencies.add_edges(dependencies)
         self._kernels.append(PlannedKernelCall(kernel, leaf_argnames))
 
     def computation_call(self, computation, *args, **kwds):
@@ -395,36 +424,23 @@ class ComputationPlan:
 class TypedStaticKernel:
 
     def __init__(self, params, template_def, global_size, local_size=None,
-            render_kwds=None, dependencies=None):
+            render_kwds=None, correlations=None):
 
         self.template_def = template_def
         self.tr_tree = TransformationTree(params)
         self.global_size = global_size
         self.local_size = local_size
         self.render_kwds = render_kwds
+        self.correlations = Graph(correlations.pairs() if correlations is not None else None)
 
-        self.dependencies = Graph(dependencies)
+    def _propagate_correlations(self, ntr):
 
-        # If a kernel has multiple outputs, they are considered to be mutually dependent
-        # (not sure if there's actually a case when they aren't).
-        outputs = [param.name for param in params if param.annotation.output]
-        self.dependencies.add_cluster(outputs)
-
-    def _propagate_dependencies(self, ntr):
-        # FIXME: this algorithm of combining a kernel with dependencies
-        # and a transformation with dependencies requires a formal proof.
-        # Currently it may be a bit pessimistic:
-        # it assumes that if there's a dependency between two kernel parameters,
-        # and a transformation is attached to one of them,
-        # all of the new parameters introduced by the transformation
-        # now depend on the other kernel parameters.
-
-        tr_graph = ntr.get_node_dependencies()
+        tr_graph = ntr.get_node_correlations()
 
         conn_name = ntr.connector_node_name
 
-        kernel_deps = self.dependencies[conn_name]
-        tr_deps = tr_graph[conn_name]
+        kernel_corrs = self.correlations[conn_name]
+        tr_corrs = tr_graph[conn_name]
 
         kernel_params = self.tr_tree.get_leaf_signature().parameters
         tr_params = {
@@ -433,23 +449,23 @@ class TypedStaticKernel:
 
         pairs = []
 
-        for kernel_dep in kernel_deps:
-            for tr_param in tr_params.values():
-                pairs.append((kernel_dep, tr_param.name))
-        for tr_dep in tr_deps:
-            for kernel_param in kernel_params.values():
-                pairs.append((kernel_param.name, tr_dep))
+        for kernel_corr in kernel_corrs:
+            for tr_corr in tr_corrs:
+                if tr_corr != kernel_corr:
+                # The equality can happen if we are connecting on of the transformation's inputs
+                # to an existing input parameter.
+                    pairs.append((kernel_corr, tr_corr))
 
-        self.dependencies.add_graph(tr_graph)
-        self.dependencies.add_edges(pairs)
+        self.correlations.add_graph(tr_graph)
+        self.correlations.add_edges(pairs)
 
     def reconnect(self, other_tree):
         for ntr in other_tree.connections():
             if ntr.connector_node_name in self.tr_tree.nodes:
-                self._propagate_dependencies(ntr)
+                self._propagate_correlations(ntr)
                 self.tr_tree._connect(ntr)
                 if ntr.connector_node_name not in self.tr_tree.get_leaf_signature().parameters:
-                    self.dependencies.remove_node(ntr.connector_node_name)
+                    self.correlations.remove_node(ntr.connector_node_name)
 
     def compile(self, thread):
         kernel_name = '_kernel_func'
@@ -473,24 +489,30 @@ class TypedStaticKernel:
         return [param.name for param in self.tr_tree.get_leaf_signature().parameters.values()]
 
     def get_dependencies(self):
-        # Up to this point we were keeping dependencies between input parameters,
+        # Up to this point we were keeping correlations between parameters
+        # regardless of whether they are input or output,
         # because we did not know what transformation may be attached in future;
-        # time to get rid of them.
+        # time to get rid of correlations between two inputs.
         # On the other hand, we need to add dependencies between all of the outputs,
         # because they shouldn't overwrite each other.
         params = self.tr_tree.get_leaf_signature().parameters
-        new_pairs = []
-        for name1, name2 in self.dependencies.pairs():
+        array_names = [param.name for param in params.values() if param.annotation.array]
+
+        dep_pairs = []
+        for name1, name2 in itertools.combinations(array_names, 2):
             p1 = params[name1]
             p2 = params[name2]
-            if p1.annotation.output or p2.annotation.output:
-                new_pairs.append((name1, name2))
+            if (
+                (p1.annotation.output and p2.annotation.output) or
+                (
+                    (p1.annotation.output or p2.annotation.output) and
+                    (
+                        (name1, name2) not in self.correlations.pairs() or
+                        # FIXME: need to compare strides too, as different strides break correlation
+                        p1.annotation.type.dtype != p2.annotation.type.dtype))):
+                dep_pairs.append((name1, name2))
 
-        new_deps = Graph(new_pairs)
-
-        outputs = [p.name for p in params.values() if p.annotation.output]
-        new_deps.add_cluster(outputs)
-        return new_deps
+        return dep_pairs
 
 
 class PlannedKernelCall:

@@ -50,11 +50,25 @@ class Transformation:
         objects in ``parameters``.
     :param render_kwds: a dictionary with render keywords that will be passed to the snippet.
     :param connectors: a list of parameter names suitable for connection.
-    :param dependencies: a list of pairs of parameter names; see :ref:`access-correlations`.
+    :param correlations: same as in :py:meth:`~reikna.core.computation.ComputationPlan.kernel_call`.
+    :param decorrelations: same as in
+        :py:meth:`~reikna.core.computation.ComputationPlan.kernel_call`.
     """
-    def __init__(self, parameters, code, render_kwds=None, connectors=None, dependencies=None):
+    def __init__(self, parameters, code, render_kwds=None, connectors=None,
+            correlations=None, decorrelations=None):
+
         self.signature = Signature(parameters)
-        self.dependencies = Graph(dependencies)
+
+        if correlations is not None and decorrelations is not None:
+            raise ValueError("Only one of 'correlations' or 'decorrelations' can be specified.")
+        if correlations is not None:
+            self.correlations = Graph(correlations)
+        elif decorrelations is not None:
+            self.correlations = Graph()
+            self.correlations.add_cluster(
+                [param.name for param in parameters if param.annotation.array])
+            for mem1, mem2 in decorrelations:
+                self.correlations.remove_edge(mem1, mem2)
 
         for param in self.signature.parameters.values():
             setattr(
@@ -119,8 +133,8 @@ class NodeTransformation:
             tr_names,
             output=self.output)
 
-    def get_node_dependencies(self):
-        return self.tr.dependencies.translate(lambda x: self.node_from_tr[x])
+    def get_node_correlations(self):
+        return self.tr.correlations.translate(lambda x: self.node_from_tr[x])
 
 
 class TransformationTree:

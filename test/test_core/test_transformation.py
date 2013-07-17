@@ -16,7 +16,8 @@ def tr_trivial(arr):
     return Transformation(
         [Parameter('o1', Annotation(arr, 'o')),
         Parameter('i1', Annotation(arr, 'i'))],
-        "${o1.store_same}(${i1.load_same});")
+        "${o1.store_same}(${i1.load_same});",
+        decorrelations=[])
 
 # Output = Input1 * Parameter1 + Input 2
 def tr_2_to_1(arr, scalar):
@@ -29,6 +30,7 @@ def tr_2_to_1(arr, scalar):
         ${o1.ctype} t = ${mul}(${cast}(${s1}), ${i1.load_same});
         ${o1.store_same}(t + ${i2.load_same});
         """,
+        decorrelations=[],
         render_kwds= dict(
             mul=functions.mul(arr.dtype, arr.dtype),
             cast=functions.cast(arr.dtype, scalar.dtype)))
@@ -44,6 +46,7 @@ def tr_1_to_2(arr):
         ${o1.store_same}(t);
         ${o2.store_same}(t);
         """,
+        decorrelations=[],
         render_kwds=dict(
             mul=functions.mul(arr.dtype, numpy.float32)))
 
@@ -54,6 +57,7 @@ def tr_scale(arr, coeff):
         Parameter('i1', Annotation(arr, 'i')),
         Parameter('s1', Annotation(coeff.dtype))],
         "${o1.store_same}(${mul}(${i1.load_same}, ${s1}));",
+        decorrelations=[],
         render_kwds=dict(
             mul=functions.mul(arr.dtype, coeff.dtype, out_dtype=arr.dtype)))
 
@@ -185,7 +189,7 @@ def test_connection_to_base(thr):
 
 def test_nested_same_shape(thr):
 
-    N = 200
+    N = 2000
     coeff = 2
     second_coeff = 7
     B_param = 3

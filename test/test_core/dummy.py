@@ -105,13 +105,12 @@ class Dummy(Computation):
             global_size=A.shape,
             local_size=(block_size, block_size),
             render_kwds=dict(mul=mul, div=div, same_A_B=self._same_A_B),
-            dependencies=[(C_temp, D_temp), (C_temp, A)])
+            decorrelations=[(C_temp, A)])
         plan.kernel_call(
             template.get_def('dummy2'),
             [C, D, C_temp, D_temp, arr, numpy.float32(10)],
             global_size=A.shape,
             local_size=(block_size, block_size),
-            dependencies=[(C, D)],
             render_kwds=dict(mul=mul, same_A_B=self._same_A_B))
 
         return plan
