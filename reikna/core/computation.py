@@ -437,6 +437,11 @@ class ComputationCallable:
     .. py:attribute:: signature
 
         A :py:class:`~reikna.core.Signature` object.
+
+    .. py:attribute:: parameter
+
+        A named tuple of :py:class:`~reikna.core.Type` objects corresponding
+        to the callable's parameters.
     """
 
     def __init__(self, signature, kernel_calls, internal_args, temp_buffers):
@@ -444,6 +449,12 @@ class ComputationCallable:
         self._kernel_calls = [kernel_call.finalize(internal_args) for kernel_call in kernel_calls]
         self._internal_args = internal_args
         self.__tempalloc__ = temp_buffers
+
+        params = signature.parameters.values()
+        params_container = namedtuple(
+            'ComputationCallableParameters', [param.name for param in params])
+        param_objs = [param.annotation.type for param in params]
+        self.parameter = params_container(*param_objs)
 
     def __call__(self, *args, **kwds):
         """

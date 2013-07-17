@@ -3,7 +3,6 @@
 
 * FEATURE (core): allow "joining" new input and output parameters of two transformations into one "io" parameter.
   This will help conserve the "io" property by connecting one actual transformation and one identity.
-* FEATURE (core): expose leaf ComputationParameters from the ComputationCallable in the same way it's done for the Computation.
 * FIX (core): clean up core code, add comments
 * FIX (core): rewrite all internal classes using ``collections.namedtuple`` factory to force their immutability.
 * DOC: clean up docs.
