@@ -68,6 +68,18 @@ class Graph:
             self._pairs.remove(tuple(sorted((node, dep))))
         del self._nodes[node]
 
+    def remove_edge(self, node1, node2):
+        assert node1 != node2
+        self._pairs.remove(tuple(sorted((node1, node2))))
+
+        self._nodes[node1].remove(node2)
+        if len(self._nodes[node1]) == 0:
+            del self._nodes[node1]
+
+        self._nodes[node2].remove(node1)
+        if len(self._nodes[node2]) == 0:
+            del self._nodes[node2]
+
     def __getitem__(self, node):
         return self._nodes[node]
 
