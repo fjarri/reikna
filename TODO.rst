@@ -1,9 +1,9 @@
 0.3.0 (Core API change)
 ========================
 
-* ?FIX (core): 'io' parameters do not seem very useful. They only complicate internal logic, and we can always pass the same array as input and output.
+* FEATURE (core): allow "joining" new input and output parameters of two transformations into one "io" parameter.
+  This will help conserve the "io" property by connecting one actual transformation and one identity.
 * FEATURE (core): expose leaf ComputationParameters from the ComputationCallable in the same way it's done for the Computation.
-
 * FIX (core): clean up core code, add comments
 * FIX (core): rewrite all internal classes using ``collections.namedtuple`` factory to force their immutability.
 * DOC: clean up docs.
@@ -135,6 +135,7 @@ In practice there are all sorts of problems:
 * ... does it depend on the order and type of access (read/write)?
 * how is end user supposed to take advantage of this knowledge?
   It is doubtful that a user will call some methods of the computation to check whether he can use it inplace; he will rather look into documentation.
+  Variant: it may be used for error checking; i.e. to test that same array was not passed to decorrelated parameters.
 * we cannot use it to pack temporary arrays, because even identically typed arrays are not guaranteed to start at the same physical memory, therefore "inplace" is meaningless for them
 
 So for now I'm ditching this feature.
