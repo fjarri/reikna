@@ -3,25 +3,22 @@
 
 * ?FIX (core): 'io' parameters do not seem very useful. They only complicate internal logic, and we can always pass the same array as input and output.
 * FEATURE (core): expose leaf ComputationParameters from the ComputationCallable in the same way it's done for the Computation.
-* DOC: write correlations tutorial.
 
 * FIX (core): clean up core code, add comments
 * FIX (core): rewrite all internal classes using ``collections.namedtuple`` factory to force their immutability.
 * DOC: clean up docs.
 * TEST (core): write tests for different incorrect usage cases
-
+* FIX (core): prohibit output other than to the connector in input transformations
 
 0.3.1
 =====
 
+* FEATURE (computations): add ``inplace`` parameter to FFT and DHT, which will produce computations that are guaranteed to work inplace.
 * ?API (core): pass ``kernel_definition`` as a positional argument to a kernel template def?
 * ?API (core): when we are connecting a transformation to an existing scalar parameter, during the leaf signature building it moves from its place, which may seem a bit surprising. Should we attempt to keep it at the same place? Like, keep all parameters with default values at the end (thus breaking the "depth first" order, of course)?
 * ?FIX (core): check if Signature.bind() is too slow in the kernel call; perhaps we will have to rewrite it taking into account restrictions to Parameter types we have.
 * FIX (core): When we connect a transformation, difference in strides between arrays in the connection can be ignored (and probably the transformation's signature changed too; at least we need to decide which strides to use in the exposed node).
   Idea: strides can be passes to compile() (in form of actual arrays, as a dictionary).
-* FIX (core): even if access to indices of two arrays is correlated, and dtypes are the same,
-  different strides can still destroy correlation.
-  Need to add a check for it.
 * FIX (cluda): rewrite vsizes to just use a 1D global size and get any-D virtual sizes through modular division (shouldn't be that slow, but need to test; or maybe just fall back to modular division if the requested dimensionality is too big).
 * ?FIX (computations): PureParallel can be either rewritten using stub kernel and Transformation (to use load/store_combined_idx) (downside: order of parameters messes up in this case; upside: can use store_same/load_same), or using the new any-D static kernels from CLUDA (if the above fix is implemented).
 * FIX: get rid of AttrDict and replace it by classes/named tuples.
@@ -92,6 +89,57 @@
 
 2.*
 ===
+
+
+Correlations
+------------
+
+It is possible to define for any kernel and transformation which pairs of arrays are accessed in a correlated manner, i.e. something like:
+
+\begin{definition}
+Data-independent computation (DIC) is a function $F :: ThreadId -> [(MemId, Operation, Index)]$,
+where $ThreadId = Int$, $MemId = Int$, $Index = Int$, $Operation = Input | Output$.
+\end{definition}
+
+\begin{definition}
+DIC is said to have a decorrelation for buffers $m, n \in MemId$ and block size $b$, if
+$\exists t_1, t_2 \in ThreadID, i \in Index |
+    block(t_1) \ne block(t_2),
+    (m, Input or Output, i) \in F(t_1) and (n, Output, i) \in F(t_2)$.
+\end{definition}
+
+\begin{theorem}
+If, and only if a DIC has a dependency for buffers $m, n$,
+then there exists an index $i$ such that
+the order of operations accessing it in buffers $m, n$ is undefined,
+and at least one of these operations is $Output$.
+\end{theorem}
+
+\begin{definition}
+DIC is said to have a writing inconsistency for buffers $m, n$, if
+$\exists i \in Index, t1, t2 \in ThreadId |
+    (m, Output, i) \in F(t) and (n, Output, i) \in F(t)$.
+In other words, it does not rewrite the data.
+\end{definition}
+
+Simply put, if input and output are correlated, one can supply the same array for both parameters.
+Then, when transformations are connected to kernels, we can propagate correlations (i.e. if A and B are correlated, and transformation B->B' is correlated, then A->B' are correlated) and derive correlations for the resulting kernel.
+This is the correlation of access, and only depends on array shapes.
+
+In practice there are all sorts of problems:
+
+* correlation does not allow inplace operation if two arrays have different strides
+* one needs to formally justify the propagation through attached transformation
+* ... including cases when, say, output transformation reads from another array
+* ... or if an array is padded and then unpadded - does the correlation still work? does it work for other arrays involved in this transformation?
+* ... does it depend on the order and type of access (read/write)?
+* how is end user supposed to take advantage of this knowledge?
+  It is doubtful that a user will call some methods of the computation to check whether he can use it inplace; he will rather look into documentation.
+* we cannot use it to pack temporary arrays, because even identically typed arrays are not guaranteed to start at the same physical memory, therefore "inplace" is meaningless for them
+
+So for now I'm ditching this feature.
+Temporary memory is still packed, but only taking into account its appearance in kernel arguments.
+
 
 Computation provider
 --------------------

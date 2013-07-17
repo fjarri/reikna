@@ -184,9 +184,6 @@ class CBRNG(Computation):
             TEMPLATE.get_def('cbrng'),
             [new_counters, randoms, old_counters],
             global_size=product(old_counters.shape[:-1]),
-            dependencies=[
-                (new_counters, old_counters),
-                (new_counters, randoms)],
             render_kwds=dict(
                 rng=self._rng,
                 rng_params=self._rng_params,

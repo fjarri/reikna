@@ -130,8 +130,7 @@ class Transpose(Computation):
             TEMPLATE.get_def('transpose'), [output_name, input_name],
             global_size=(grid_width * block_width, blocks_per_matrix * block_width, batch),
             local_size=(block_width, block_width, 1),
-            render_kwds=render_kwds,
-            dependencies=[(output_name, input_name)])
+            render_kwds=render_kwds)
 
     def _build_plan(self, plan_factory, device_params, output, input):
         plan = plan_factory()

@@ -24,7 +24,6 @@ Contents
    tutorial-modules
    tutorial-basic
    tutorial-advanced
-   correlations
    api/index
    history
 

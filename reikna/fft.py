@@ -538,6 +538,8 @@ class FFT(Computation):
                 mem_in = input if i == 0 else mem_out
                 if i == len(kernels) - 1:
                     mem_out = output
+                elif kernel.inplace_possible:
+                    mem_out = mem_in
                 else:
                     mem_out = plan.temp_array(kernel.output_shape, output.dtype)
 
@@ -557,8 +559,7 @@ class FFT(Computation):
                         gs, ls, kwds = kernel.prepare_for(local_size, )
                         plan.kernel_call(
                             TEMPLATE.get_def(kernel.name), argnames,
-                            global_size=gs, local_size=ls, render_kwds=kwds,
-                            dependencies=([] if kernel.inplace_possible else [(mem_in, mem_out)]))
+                            global_size=gs, local_size=ls, render_kwds=kwds)
                     except OutOfResourcesError:
                         if isinstance(kernel, GlobalFFTKernel):
                             local_size //= 2

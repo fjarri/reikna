@@ -206,7 +206,6 @@ class ComputationPlan:
 
         self._persistent_values = {}
         self._temp_arrays = set()
-        self._dependencies = Graph()
         self._internal_params = {}
         self._kernels = []
 
@@ -265,8 +264,7 @@ class ComputationPlan:
             return karg.name
 
     def kernel_call(self, template_def, args, global_size,
-            local_size=None, render_kwds=None,
-            correlations=None, decorrelations=None):
+            local_size=None, render_kwds=None):
         """
         Adds a kernel call to the plan.
 
@@ -280,19 +278,6 @@ class ComputationPlan:
         :param local_size: local size to use for the call.
             If ``None``, the local size will be picked automatically.
         :param render_kwds: dictionary with additional values used to render the template.
-        :param correlations: list of pairs of array arguments with correlated access
-            (see :ref:`access-correlations` for details);
-            the rest will be considered to be decorrelated.
-            Can't be used in conjunction with ``decorrelations``.
-        :param decorrelations: list of pairs of array arguments with decorrelated access
-            (see :ref:`access-correlations` for details);
-            the rest will be considered to be correlated.
-            Can't be used in conjunction with ``correlations``.
-
-        .. note::
-
-            If both ``correlations`` and ``decorrelations`` is None,
-            all access is assumed to be decorrelated.
         """
 
         argnames = [self._process_user_arg(arg) for arg in args]
@@ -303,41 +288,14 @@ class ComputationPlan:
             else:
                 params.append(self._internal_params[argname])
 
-        if correlations is not None and decorrelations is not None:
-            raise ValueError("Only one of 'correlations' or 'decorrelations' can be specified.")
-
-        corrs = Graph()
-
-        if correlations is not None:
-            for mem1, mem2 in correlations:
-                mem1 = self._process_user_arg(mem1)
-                mem2 = self._process_user_arg(mem2)
-                if mem1 not in self._persistent_values and mem2 not in self._persistent_values:
-                    corrs.add_edge(mem1, mem2)
-
-        elif decorrelations is not None:
-            mems = [
-                name for name in argnames
-                if name not in self._persistent_values]
-            corrs.add_cluster(mems)
-
-            for mem1, mem2 in decorrelations:
-                mem1 = self._process_user_arg(mem1)
-                mem2 = self._process_user_arg(mem2)
-                if mem1 not in self._persistent_values and mem2 not in self._persistent_values:
-                    corrs.remove_edge(mem1, mem2)
-
         ts_kernel = TypedStaticKernel(
             params, template_def, global_size,
-            local_size=local_size, render_kwds=render_kwds,
-            correlations=corrs)
+            local_size=local_size, render_kwds=render_kwds)
         ts_kernel.reconnect(self._tr_tree)
 
         kernel = ts_kernel.compile(self._thread)
         leaf_argnames = ts_kernel.get_leaf_argnames()
-        dependencies = ts_kernel.get_dependencies()
 
-        self._dependencies.add_edges(dependencies)
         self._kernels.append(PlannedKernelCall(kernel, leaf_argnames))
 
     def computation_call(self, computation, *args, **kwds):
@@ -366,106 +324,69 @@ class ComputationPlan:
         self._persistent_values.update(plan._persistent_values)
         self._temp_arrays.update(plan._temp_arrays)
         self._internal_params.update(plan._internal_params)
-        self._dependencies.add_graph(plan._dependencies)
 
     def finalize(self):
 
-        # The user specified dependencies between external arguments,
-        # and dependencies for the arguments of each kernels.
-        # Now we need to add inferred dependencies.
+        # We need to add inferred dependencies between temporary buffers.
         # Basically, we assume that if some buffer X was used first in kernel M
         # and last in kernel N, all buffers in kernels from M+1 till N-1 depend on it
         # (in other words, data in X has to persist from call M till call N)
         usage = {}
 
-        # We are interested in: 1) temporary allocations and 2) external array arguments
-        watchlist = set(self._temp_arrays)
-        watchlist.update(
-            param.name for param in self._tr_tree.get_leaf_signature().parameters.values()
-            if param.annotation.array)
-
         for i, kernel in enumerate(self._kernels):
             for argname in kernel.argnames:
-                if argname not in watchlist:
+                if argname not in self._temp_arrays:
                     continue
                 if argname in usage:
                     usage[argname][1] = i
                 else:
                     usage[argname] = [i, i]
 
+        dependencies = Graph()
         for name, pair in usage.items():
             start, end = pair
-            if end - start < 2:
-                continue
-            for i in range(start + 1, end):
+            for i in range(start, end + 1):
                 for other_name in self._kernels[i].argnames:
-                    if other_name not in watchlist or other_name == name:
+                    if other_name not in self._temp_arrays or other_name == name:
                         continue
-                    self._dependencies.add_edge(name, other_name)
+                    dependencies.add_edge(name, other_name)
 
         internal_args = dict(self._persistent_values)
 
         # Allocate buffers specifying the dependencies
+        all_buffers = []
         for name in self._temp_arrays:
-            dependencies = []
-            for dep in self._dependencies[name]:
+            dependent_buffers = []
+            for dep in dependencies[name]:
                 if dep in internal_args:
-                    dependencies.append(internal_args[dep])
+                    dependent_buffers.append(internal_args[dep])
+
             type_ = self._internal_params[name].annotation.type
-            internal_args[name] = self._thread.temp_array(
-                type_.shape, type_.dtype, strides=type_.strides, dependencies=dependencies)
+            new_buf = self._thread.temp_array(
+                type_.shape, type_.dtype, strides=type_.strides, dependencies=dependent_buffers)
+            internal_args[name] = new_buf
+            all_buffers.append(new_buf)
 
         return ComputationCallable(
             self._tr_tree.get_leaf_signature(),
             self._kernels,
-            internal_args)
+            internal_args,
+            all_buffers)
 
 
 class TypedStaticKernel:
 
-    def __init__(self, params, template_def, global_size, local_size=None,
-            render_kwds=None, correlations=None):
-
+    def __init__(self, params, template_def, global_size, local_size=None, render_kwds=None):
         self.template_def = template_def
         self.tr_tree = TransformationTree(params)
         self.global_size = global_size
         self.local_size = local_size
         self.render_kwds = render_kwds
-        self.correlations = Graph(correlations.pairs() if correlations is not None else None)
-
-    def _propagate_correlations(self, ntr):
-
-        tr_graph = ntr.get_node_correlations()
-
-        conn_name = ntr.connector_node_name
-
-        kernel_corrs = self.correlations[conn_name]
-        tr_corrs = tr_graph[conn_name]
-
-        kernel_params = self.tr_tree.get_leaf_signature().parameters
-        tr_params = {
-            node_name:ntr.tr.signature.parameters[tr_name].rename(node_name)
-            for tr_name, node_name in ntr.node_from_tr.items()}
-
-        pairs = []
-
-        for kernel_corr in kernel_corrs:
-            for tr_corr in tr_corrs:
-                if tr_corr != kernel_corr:
-                # The equality can happen if we are connecting on of the transformation's inputs
-                # to an existing input parameter.
-                    pairs.append((kernel_corr, tr_corr))
-
-        self.correlations.add_graph(tr_graph)
-        self.correlations.add_edges(pairs)
 
     def reconnect(self, other_tree):
         for ntr in other_tree.connections():
             if ntr.connector_node_name in self.tr_tree.nodes:
-                self._propagate_correlations(ntr)
                 self.tr_tree._connect(ntr)
-                if ntr.connector_node_name not in self.tr_tree.get_leaf_signature().parameters:
-                    self.correlations.remove_node(ntr.connector_node_name)
 
     def compile(self, thread):
         kernel_name = '_kernel_func'
@@ -487,32 +408,6 @@ class TypedStaticKernel:
 
     def get_leaf_argnames(self):
         return [param.name for param in self.tr_tree.get_leaf_signature().parameters.values()]
-
-    def get_dependencies(self):
-        # Up to this point we were keeping correlations between parameters
-        # regardless of whether they are input or output,
-        # because we did not know what transformation may be attached in future;
-        # time to get rid of correlations between two inputs.
-        # On the other hand, we need to add dependencies between all of the outputs,
-        # because they shouldn't overwrite each other.
-        params = self.tr_tree.get_leaf_signature().parameters
-        array_names = [param.name for param in params.values() if param.annotation.array]
-
-        dep_pairs = []
-        for name1, name2 in itertools.combinations(array_names, 2):
-            p1 = params[name1]
-            p2 = params[name2]
-            if (
-                (p1.annotation.output and p2.annotation.output) or
-                (
-                    (p1.annotation.output or p2.annotation.output) and
-                    (
-                        (name1, name2) not in self.correlations.pairs() or
-                        # FIXME: need to compare strides too, as different strides break correlation
-                        p1.annotation.type.dtype != p2.annotation.type.dtype))):
-                dep_pairs.append((name1, name2))
-
-        return dep_pairs
 
 
 class PlannedKernelCall:
@@ -544,10 +439,11 @@ class ComputationCallable:
         A :py:class:`~reikna.core.Signature` object.
     """
 
-    def __init__(self, signature, kernel_calls, internal_args):
+    def __init__(self, signature, kernel_calls, internal_args, temp_buffers):
         self.signature = signature
         self._kernel_calls = [kernel_call.finalize(internal_args) for kernel_call in kernel_calls]
         self._internal_args = internal_args
+        self.__tempalloc__ = temp_buffers
 
     def __call__(self, *args, **kwds):
         """

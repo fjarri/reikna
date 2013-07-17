@@ -116,8 +116,7 @@ class Reduce(Computation):
                 [cur_output, cur_input],
                 global_size=(blocks_per_part * block_size, final_size),
                 local_size=(block_size, 1),
-                render_kwds=render_kwds,
-                dependencies=[(cur_input, cur_output)])
+                render_kwds=render_kwds)
 
             part_size = blocks_per_part
             cur_input = cur_output

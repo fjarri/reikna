@@ -104,8 +104,7 @@ class Dummy(Computation):
             [C_temp, D_temp, A, B, coeff],
             global_size=A.shape,
             local_size=(block_size, block_size),
-            render_kwds=dict(mul=mul, div=div, same_A_B=self._same_A_B),
-            decorrelations=[(C_temp, A)])
+            render_kwds=dict(mul=mul, div=div, same_A_B=self._same_A_B))
         plan.kernel_call(
             template.get_def('dummy2'),
             [C, D, C_temp, D_temp, arr, numpy.float32(10)],

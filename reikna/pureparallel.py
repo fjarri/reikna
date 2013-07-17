@@ -16,10 +16,9 @@ class PureParallel(Computation):
     :param guiding_array: an tuple with the array shape, or the name of one of ``parameters``.
         By default, the first parameter is chosen.
     :param render_kwds: a dictionary with render keywords for the ``code``.
-    :param dependencies: a list of dependency pairs.
     """
 
-    def __init__(self, parameters, code, guiding_array=None, render_kwds=None, dependencies=None):
+    def __init__(self, parameters, code, guiding_array=None, render_kwds=None):
 
         Computation.__init__(self, parameters)
         self._root_parameters = list(self.signature.parameters.keys())
@@ -33,8 +32,6 @@ class PureParallel(Computation):
             self._guiding_shape = self.signature.parameters[guiding_array].annotation.type.shape
         else:
             self._guiding_shape = guiding_array
-
-        self._dependencies = dependencies
 
     def _build_plan(self, plan_factory, device_params, *args):
 
@@ -71,7 +68,6 @@ class PureParallel(Computation):
                 shape=self._guiding_shape,
                 idx_names=idx_names,
                 product=product,
-                snippet=self._snippet),
-            dependencies=self._dependencies)
+                snippet=self._snippet))
 
         return plan

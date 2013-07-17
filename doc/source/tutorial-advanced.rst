@@ -45,10 +45,9 @@ Let us consider a (not very useful, but quite involved) example:
         float i2 = ${in2.load_idx}(100 - idx) * ${param};
         ${out1.store_same}(i1);
         if (idx < 80)
-            ${out2.store_idx}(idx, i2);
+            ${out2.store_same}(i2);
         """,
-        connectors=['in1', 'out1'],
-        dependencies=[('i1', 'i2'), ('o1', 'i2'), ('o2', 'i2')])
+        connectors=['in1', 'out1'])
 
 *Connectors.*
 A transformation gets activated when the main computation attempts to load some value from some index in global memory, or store one to some index.
@@ -61,13 +60,6 @@ By default all parameters are considered to be connectors.
 *Shape changing.*
 Parameters in transformations are typed, and it is possible to change data type or shape of a parameter the transformation is attached to.
 In our example ``out2`` has length 80, so the current index is checked before the output to make sure there is no out of bounds access.
-
-*Dependencies.*
-Any two non-scalar transformation parameters which use uncorrelated indices may end up causing load and store events to happen in the leaf transformations, such that in two different threads, one of them performing load, and the other performing store, these are made with the same array index.
-Then, if these two parameters are assigned the same array, it may cause race condition and undefined behavior.
-Since ``reikna`` automatically packs temporary arrays in computations, such that sometimes different arrays point to the same physical memory, it is important to provide such dependency information, so that the temporary array allocator was aware of it.
-
-In our case, indices that ``in2`` uses are uncorrelated with other parameters, that's why we specify three dependency pairs in the constructor.
 
 *Argument objects.*
 The transformation example above has some hardcoded stuff, for example the type of parameters (``float``), or their shapes (``100`` and ``80``).

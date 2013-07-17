@@ -93,8 +93,7 @@ class MatrixMul(Computation):
                         blocks_per_matrix * block_width,
                         batch),
                     local_size=(block_width, block_width, 1),
-                    render_kwds=render_kwds,
-                    dependencies=[(output, a), (output, b)])
+                    render_kwds=render_kwds)
             except OutOfResourcesError:
                 continue
 
