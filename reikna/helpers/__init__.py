@@ -59,10 +59,7 @@ class Graph:
             self.add_edge(node1, node2)
 
     def add_cluster(self, nodes):
-        self.add_edges([
-            (node1, node2) for node1, node2
-            in itertools.product(nodes, nodes)
-            if node1 != node2])
+        self.add_edges(itertools.combinations(nodes, 2))
 
     def remove_node(self, node):
         deps = self._nodes[node]
