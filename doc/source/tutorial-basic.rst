@@ -39,7 +39,9 @@ As an example, let us consider a pure parallel computation object with one outpu
 
 .. testcode:: transformation_example
 
+    from __future__ import print_function
     import numpy
+
     from reikna import cluda
     from reikna.cluda import Snippet
     from reikna.core import Transformation, Type, Annotation, Parameter
@@ -76,7 +78,7 @@ The computation signature is:
 .. doctest:: transformation_example
 
     >>> for param in comp.signature.parameters.values():
-    ...     print param.name + ":" + repr(param.annotation)
+    ...     print(param.name + ":" + repr(param.annotation))
     out:Annotation(Type(complex64, shape=(128,), stides=(8,)), role='o')
     in1:Annotation(Type(complex64, shape=(128,), stides=(8,)), role='i')
     in2:Annotation(Type(complex64, shape=(128,), stides=(8,)), role='i')
@@ -116,7 +118,7 @@ But user-supplied parameters (``>>``) have changed, which can be also seen in th
 .. doctest:: transformation_example
 
     >>> for param in comp.signature.parameters.values():
-    ...     print param.name + ":" + repr(param.annotation)
+    ...     print(param.name + ":" + repr(param.annotation))
     out1:Annotation(Type(float32, shape=(128,), stides=(4,)), role='o')
     out2:Annotation(Type(float32, shape=(128,), stides=(4,)), role='o')
     in1:Annotation(Type(complex64, shape=(128,), stides=(8,)), role='i')
