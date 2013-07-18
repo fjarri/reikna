@@ -88,8 +88,8 @@ Now let us attach the transformation to the output which will split it into two 
 
 .. testcode:: transformation_example
 
-    tr = transformations.split_complex(comp.out)
-    comp.out.connect(tr, tr.input, out1=tr.real, out2=tr.imag)
+    tr = transformations.split_complex(comp.parameter.out)
+    comp.parameter.out.connect(tr, tr.input, out1=tr.real, out2=tr.imag)
 
 We have used the pre-created transformation here for simplicity; writing custom transformations is described in :ref:`tutorial-advanced-transformation`.
 
@@ -98,8 +98,8 @@ To achieve this, we connect the scaling transformation to it:
 
 .. testcode:: transformation_example
 
-    tr = transformations.scale_param(comp.in2, numpy.float32)
-    comp.in2.connect(tr, tr.output, in2_prime=tr.input, param2=tr.coeff)
+    tr = transformations.scale_param(comp.parameter.in2, numpy.float32)
+    comp.parameter.in2.connect(tr, tr.output, in2_prime=tr.input, param2=tr.coeff)
 
 The transformation tree now looks like:
 
@@ -137,10 +137,13 @@ When ``prepare_for`` is called, the data types and shapes of the given arguments
     api = cluda.ocl_api()
     thr = api.Thread.create()
 
-    out1 = thr.empty_like(comp.out1)
-    out2 = thr.empty_like(comp.out2)
-    in1 = thr.to_device(numpy.ones(comp.in1.shape, comp.in1.dtype))
-    in2_prime = thr.to_device(numpy.ones(comp.in2_prime.shape, comp.in2_prime.dtype))
+    in1_t = comp.parameter.in1
+    in2p_t = comp.parameter.in2_prime
+
+    out1 = thr.empty_like(comp.parameter.out1)
+    out2 = thr.empty_like(comp.parameter.out2)
+    in1 = thr.to_device(numpy.ones(in1_t.shape, in1_t.dtype))
+    in2_prime = thr.to_device(numpy.ones(in2p_t.shape, in2p_t.dtype))
 
     c_comp = comp.compile(thr)
     c_comp(out1, out2, in1, in2_prime, 4, 3)

@@ -193,7 +193,9 @@ Let us change the previous example and connect transformations to it.
     a_im = numpy.random.randn(*shape1).astype(numpy.float32)
     b_re = numpy.random.randn(*shape2).astype(numpy.float32)
     b_im = numpy.random.randn(*shape2).astype(numpy.float32)
-    a_re_dev, a_im_dev, b_re_dev, b_im_dev = [thr.to_device(x) for x in [a_re, a_im, b_re, b_im]]
+
+    arrays = [thr.to_device(x) for x in [a_re, a_im, b_re, b_im]]
+    a_re_dev, a_im_dev, b_re_dev, b_im_dev = arrays
 
     a_type = Type(numpy.complex64, shape=shape1)
     b_type = Type(numpy.complex64, shape=shape2)
@@ -203,8 +205,10 @@ Let us change the previous example and connect transformations to it.
     combine_a = combine_complex(a_type)
     combine_b = combine_complex(b_type)
 
-    dot.a.connect(combine_a, combine_a.output, a_re=combine_a.real, a_im=combine_a.imag)
-    dot.b.connect(combine_b, combine_b.output, b_re=combine_b.real, b_im=combine_b.imag)
+    dot.parameter.a.connect(
+        combine_a, combine_a.output, a_re=combine_a.real, a_im=combine_a.imag)
+    dot.parameter.b.connect(
+        combine_b, combine_b.output, b_re=combine_b.real, b_im=combine_b.imag)
 
     dotc = dot.compile(thr)
 
