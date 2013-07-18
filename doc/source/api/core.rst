@@ -3,12 +3,38 @@ Core functionality
 
 Classes necessary to create computations and transformations are exposed from the :py:mod:`~reikna.core` module.
 
-.. automodule:: reikna.core
+.. module:: reikna.core
+
+
+Computation signatures
+----------------------
+
+.. autoclass:: reikna.core.Type
     :members:
-    :imported-members:
     :special-members: __call__
 
-Some other classes whose instances are encountered by a user:
+.. autoclass:: reikna.core.Annotation
+    :members:
+
+.. autoclass:: reikna.core.Parameter
+    :members:
+
+.. autoclass:: reikna.core.Signature
+    :members:
+
+
+Core classes
+------------
+
+.. autoclass:: reikna.core.Computation
+    :members:
+
+.. autoclass:: reikna.core.Transformation
+    :members:
+
+
+Result and attribute classes
+----------------------------
 
 .. automodule:: reikna.core.computation
     :exclude-members: Computation
