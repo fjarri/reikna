@@ -37,10 +37,8 @@ Result and attribute classes
 ----------------------------
 
 .. automodule:: reikna.core.computation
-    :exclude-members: Computation
-    :members:
+    :members: ComputationCallable, ComputationParameter, KernelArgument, ComputationPlan
     :special-members: __call__
 
 .. automodule:: reikna.core.transformation
-    :exclude-members: Transformation
-    :members:
+    :members: TransformationParameter, KernelParameter
