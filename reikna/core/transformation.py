@@ -41,8 +41,8 @@ class Transformation:
     * can't use global/local id getters (and depends only on externally passed indices);
     * can't have 'io' arguments (not really necessary, but makes things simpler)
     * has at least one argument that uses
-      :py:attr:`~reikna.core.transformation.KernelArgument.load_same` or
-      :py:attr:`~reikna.core.transformation.KernelArgument.store_same`, and does it only once.
+      :py:attr:`~reikna.core.transformation.KernelParameter.load_same` or
+      :py:attr:`~reikna.core.transformation.KernelParameter.store_same`, and does it only once.
 
     :param parameters: a list of :py:class:`~reikna.core.Parameter` objects.
     :param code: a source template for the transformation.
@@ -246,11 +246,11 @@ class TransformationTree:
             if connection_name == ntr.connector_node_name:
                 if ntr.output:
                     load_same = TEMPLATE.get_def(connector_def).render()
-                    tr_args.append(KernelArgument(
+                    tr_args.append(KernelParameter(
                         param.name, param.annotation.type, load_same=load_same))
                 else:
                     store_same = TEMPLATE.get_def(connector_def).render()
-                    tr_args.append(KernelArgument(
+                    tr_args.append(KernelParameter(
                         param.name, param.annotation.type, store_same=store_same))
             else:
                 tr_args.append(self._get_argobject(connection_name))
@@ -276,7 +276,7 @@ class TransformationTree:
         param = node.param
 
         if not param.annotation.array:
-            return KernelArgument(param.name, param.annotation.type)
+            return KernelParameter(param.name, param.annotation.type)
 
         load_idx = None
         store_idx = None
@@ -331,7 +331,7 @@ class TransformationTree:
                 render_kwds=dict(param=param, leaf_name=leaf_name, store_idx=store_idx,
                     subtree_params=subtree_params))
 
-        return KernelArgument(
+        return KernelParameter(
             param.name, param.annotation.type,
             load_idx=load_idx,
             store_idx=store_idx,
@@ -349,7 +349,7 @@ def leaf_name(name):
     return "_leaf_" + name
 
 
-class KernelArgument(Type):
+class KernelParameter(Type):
     """
     Bases: :py:class:`~reikna.core.Type`
 
@@ -426,10 +426,10 @@ class KernelArgument(Type):
             if hasattr(self, attr):
                 kwds[attr] = process(getattr(self, attr))
 
-        return KernelArgument(self.name, self, **kwds)
+        return KernelParameter(self.name, self, **kwds)
 
     def __repr__(self):
-        return "KernelArgument("+ self.name + ")"
+        return "KernelParameter("+ self.name + ")"
 
     def __str__(self):
         return self._leaf_name

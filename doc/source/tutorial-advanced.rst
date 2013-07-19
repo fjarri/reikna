@@ -63,7 +63,7 @@ In our example ``out2`` has length 80, so the current index is checked before th
 
 *Argument objects.*
 The transformation example above has some hardcoded stuff, for example the type of parameters (``float``), or their shapes (``100`` and ``80``).
-These can be accessed from argument objects ``out1``, ``in1`` etc; they all have the type :py:class:`~reikna.core.transformation.KernelArgument`.
+These can be accessed from argument objects ``out1``, ``in1`` etc; they all have the type :py:class:`~reikna.core.transformation.KernelParameter`.
 
 
 .. _tutorial-advanced-computation:
@@ -143,7 +143,7 @@ Every kernel call is based on the separate ``Mako`` template def.
 The template can be specified as a string using :py:func:`~reikna.helpers.template_def`, or loaded as a separate file.
 Usual pattern in this case is to call the template file same as the file where the computation class is defined (for example, ``testcomp.mako`` for ``testcomp.py``), and store it in some variable on module load using :py:func:`~reikna.helpers.template_for` as ``TEMPLATE = template_for(__file__)``.
 
-The template function should take the same number of positional arguments as the kernel; you can view ``<%def ... >`` part as an actual kernel definition, but with the arguments being :py:class:`~reikna.core.transformation.KernelArgument` objects containing parameter metadata.
+The template function should take the same number of positional arguments as the kernel; you can view ``<%def ... >`` part as an actual kernel definition, but with the arguments being :py:class:`~reikna.core.transformation.KernelParameter` objects containing parameter metadata.
 Outside the template parameters can be accessed as attributes of the computation object itself, and have the type :py:class:`~reikna.core.computation.ComputationParameter`.
 
 Also, depending on whether the corresponding argument is an output array, an input array or a scalar parameter, the object can be used as ``${obj.store_idx}(index, val)``, ``${obj.load_idx}(index)`` or ``${obj}``.
