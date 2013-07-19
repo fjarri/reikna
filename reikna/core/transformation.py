@@ -35,11 +35,11 @@ class Transformation:
     """
     A class containing a pure parallel transformation of arrays.
 
-    A transformantion:
+    A transformation:
 
-    * can't use local memory;
-    * can't use global/local id getters (and depends only on externally passed indices);
-    * can't have 'io' arguments (not really necessary, but makes things simpler)
+    * cannot use local memory;
+    * cannot use global/local id getters (and depends only on externally passed indices);
+    * cannot have 'io' arguments;
     * has at least one argument that uses
       :py:attr:`~reikna.core.transformation.KernelParameter.load_same` or
       :py:attr:`~reikna.core.transformation.KernelParameter.store_same`, and does it only once.
