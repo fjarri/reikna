@@ -39,8 +39,12 @@ class ComputationParameter(Type):
 
 
 class Translator:
+    """
+    A callable that translates strings from the known list, and prefixes unknown ones.
+    Used to introduce parameter names from a nested computation to the parent namespace.
+    """
 
-    def __init__(self, known_old, known_new, prefix=""):
+    def __init__(self, known_old, known_new, prefix):
         self._mapping = {old:new for old, new in zip(known_old, known_new)}
         self._prefix = prefix
 
@@ -48,10 +52,26 @@ class Translator:
         if name in self._mapping:
             return self._mapping[name]
         else:
-            return self._prefix + name
+            return self._prefix + '_' + name
 
     def get_nested(self, known_old, known_new, prefix):
-        return Translator(known_old, known_new, prefix=(prefix + self._prefix))
+        """Returns a new ``Translator`` with an extended prefix."""
+        return Translator(known_old, known_new, prefix + self._prefix)
+
+    @classmethod
+    def identity(cls):
+        return cls([], [], "")
+
+
+def check_external_parameter_name(name):
+    """
+    Checks that a user-supplied parameter name meets the special criteria.
+    Basically, we do not want such names start with underscores
+    to prevent them from conflicting with internal names.
+    """
+    # Raising errors here so we can provide better explanation for the user
+    if name.startswith('_'):
+        raise ValueError("External parameter name cannot start with the underscore.")
 
 
 class Computation:
@@ -60,7 +80,7 @@ class Computation:
 
     :param root_parameters: a list of :py:class:`~reikna.core.Parameter` objects.
 
-    .. py:method:: _build_plan(plan_factory, device_params)
+    .. py:method:: _build_plan(plan_factory, device_params, *args)
 
         Derived classes override this method.
         It is called by :py:meth:`compile` and
@@ -70,6 +90,9 @@ class Computation:
             :py:class:`~reikna.core.computation.ComputationPlan` object.
         :param device_params: a :py:class:`~reikna.cluda.api.DeviceParameters` object corresponding
             to the thread the computation is being compiled for.
+        :param args: :py:class:`~reikna.core.computation.KernelArgument` objects,
+            corresponding to ``parameters`` specified during the creation
+            of this computation object.
 
     .. py:attribute:: signature
 
@@ -79,10 +102,12 @@ class Computation:
     .. py:attribute:: parameter
 
         A named tuple of :py:class:`~reikna.core.computation.ComputationParameter` objects
-        corresponding to parameters from the :py:attr:`signature`.
+        corresponding to parameters from the current :py:attr:`signature`.
     """
 
     def __init__(self, root_parameters):
+        for param in root_parameters:
+            check_external_parameter_name(param.name)
         self._tr_tree = TransformationTree(root_parameters)
         self._update_parameters()
 
@@ -118,26 +143,33 @@ class Computation:
         :returns: this computation object (modified).
         """
 
+        # Extract connector name
         if isinstance(_param, ComputationParameter):
             if not _param.belongs_to(self):
-                raise ValueError("")
+                raise ValueError("The connection target must belong to this computation.")
             param_name = _param.name
         elif isinstance(_param, str):
             param_name = _param
         else:
-            raise ValueError("")
+            raise TypeError("Unknown type of the connection target: " + repr(_param))
 
+        if param_name not in self.signature.parameters:
+            raise ValueError("Parameter " + param_name + " is not a part of the signature.")
+
+        # Extract transformation parameters names
         param_connections[param_name] = _tr_param
         processed_connections = {}
         for comp_connection_name, tr_connection in param_connections.items():
+            check_external_parameter_name(comp_connection_name)
             if isinstance(tr_connection, TransformationParameter):
                 if not tr_connection.belongs_to(_tr):
-                    raise ValueError("")
+                    raise ValueError(
+                        "The transformation parameter must belong to the provided transformation")
                 tr_connection_name = tr_connection.name
             elif isinstance(tr_connection, str):
                 tr_connection_name = tr_connection
             else:
-                raise ValueError("")
+                raise TypeError("Unknown transformation parameter type: " + repr(tr_connection))
             processed_connections[comp_connection_name] = tr_connection_name
 
         self._tr_tree.connect(param_name, _tr, processed_connections)
@@ -156,14 +188,17 @@ class Computation:
 
     def compile(self, thread):
         """
-        Compiles the computation with given ``thread`` and returns
-        a :py:class:`~reikna.core.computation.ComputationCallable` object.
+        Compiles the computation with the given :py:class:`~reikna.cluda.api.Thread` object
+        and returns a :py:class:`~reikna.core.computation.ComputationCallable` object.
         """
-        translator = Translator([], [])
+        translator = Translator.identity()
         return self._get_plan(self._tr_tree, translator, thread).finalize()
 
 
 class IdGen:
+    """
+    Encapsulates a simple ID generator.
+    """
 
     def __init__(self, prefix):
         self._counter = 0
