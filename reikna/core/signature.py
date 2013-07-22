@@ -103,6 +103,18 @@ class Annotation:
     def __eq__(self, other):
         return self.type == other.type and self.role == other.role
 
+    def can_be_argument_for(self, annotation):
+        if self.type != annotation.type:
+            return False
+
+        if self.role == annotation.role:
+            return True
+
+        if self.role == 'io' and annotation.array:
+            return True
+
+        return False
+
     def __repr__(self):
         if self.array:
             return "Annotation({type_}, role={role})".format(
