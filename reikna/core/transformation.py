@@ -429,7 +429,15 @@ class KernelParameter(Type):
         return KernelParameter(self.name, self, **kwds)
 
     def __repr__(self):
-        return "KernelParameter("+ self.name + ")"
+        attrs = dict(
+            load_idx='li', store_idx='si', load_same='ls', store_same='ss',
+            load_combined_idx='lci', store_combined_idx='sci')
+
+        attr_str = ", ".join([abbr for name, abbr in attrs.items() if hasattr(self, name)])
+        if len(attr_str) > 0:
+            attr_str = ", " + attr_str
+
+        return "KernelParameter("+ self.name + attr_str + ")"
 
     def __str__(self):
         return self._leaf_name
