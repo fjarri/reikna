@@ -11,7 +11,11 @@ class Dummy(Computation):
     Used to perform core and transformation tests.
     """
 
-    def __init__(self, arr1, arr2, coeff, same_A_B=False):
+    def __init__(self, arr1, arr2, coeff, same_A_B=False,
+            test_incorrect_parameter_name=False,
+            test_untyped_scalar=False,
+            test_kernel_adhoc_array=False):
+
         assert len(arr1.shape) == 2
         assert len(arr2.shape) == (2 if same_A_B else 1)
         assert arr1.dtype == arr2.dtype
@@ -23,8 +27,11 @@ class Dummy(Computation):
         self._same_A_B = same_A_B
         self._persistent_array = numpy.arange(arr2.size).reshape(arr2.shape).astype(arr2.dtype)
 
+        self._test_untyped_scalar = test_untyped_scalar
+        self._test_kernel_adhoc_array = test_kernel_adhoc_array
+
         Computation.__init__(self, [
-            Parameter('C', Annotation(arr1, 'o')),
+            Parameter(('_C' if test_incorrect_parameter_name else 'C'), Annotation(arr1, 'o')),
             Parameter('D', Annotation(arr2, 'o')),
             Parameter('A', Annotation(arr1, 'i')),
             Parameter('B', Annotation(arr2, 'i')),
@@ -105,9 +112,12 @@ class Dummy(Computation):
             global_size=A.shape,
             local_size=(block_size, block_size),
             render_kwds=dict(mul=mul, div=div, same_A_B=self._same_A_B))
+
         plan.kernel_call(
             template.get_def('dummy2'),
-            [C, D, C_temp, D_temp, arr, numpy.float32(10)],
+            [C, D, C_temp, D_temp,
+                (self._persistent_array if self._test_kernel_adhoc_array else arr),
+                (10 if self._test_untyped_scalar else numpy.float32(10))],
             global_size=A.shape,
             local_size=(block_size, block_size),
             render_kwds=dict(mul=mul, same_A_B=self._same_A_B))
@@ -125,9 +135,18 @@ class DummyNested(Computation):
     Dummy computation class with a nested computation inside.
     """
 
-    def __init__(self, arr1, arr2, coeff, second_coeff, same_A_B=False):
+    def __init__(self, arr1, arr2, coeff, second_coeff, same_A_B=False,
+            test_computation_adhoc_array=False,
+            test_computation_incorrect_role=False,
+            test_computation_incorrect_type=False):
+
         self._second_coeff = second_coeff
         self._same_A_B = same_A_B
+
+        self._test_computation_adhoc_array = test_computation_adhoc_array
+        self._test_computation_incorrect_role = test_computation_incorrect_role
+        self._test_computation_incorrect_type = test_computation_incorrect_type
+
         Computation.__init__(self, [
             Parameter('C', Annotation(arr1, 'o')),
             Parameter('D', Annotation(arr2, 'o')),
@@ -142,7 +161,12 @@ class DummyNested(Computation):
         C_temp = plan.temp_array_like(C)
         D_temp = plan.temp_array_like(D)
 
-        plan.computation_call(nested, C_temp, D_temp, A, B, coeff)
+        plan.computation_call(
+            nested,
+            (numpy.empty_like(C_temp) if self._test_computation_adhoc_array else C_temp),
+            (B if self._test_computation_incorrect_role else D_temp),
+            (B if self._test_computation_incorrect_type else A),
+            B, coeff)
         plan.computation_call(nested, C, D, C_temp, D_temp, self._second_coeff)
 
         return plan
