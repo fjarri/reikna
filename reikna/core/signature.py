@@ -137,7 +137,8 @@ class Parameter(funcsigs.Parameter):
     def __init__(self, name, annotation, default=funcsigs.Parameter.empty):
 
         if default is not funcsigs.Parameter.empty:
-            assert not annotation.array
+            if not annotation.array:
+                raise ValueError("Array parameters cannot have default values")
             default = annotation.type(default)
 
         # HACK: Parameter constructor is not documented.
