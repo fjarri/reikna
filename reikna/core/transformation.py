@@ -122,8 +122,16 @@ class NodeTransformation:
 class TransformationTree:
 
     def __init__(self, root_params):
-        self.root_signature = Signature(root_params)
-        self.nodes = {param.name:Node(param) for param in root_params}
+        # Preserve order of initial root parameters.
+        # These can repeat.
+        self.root_names = [param.name for param in root_params]
+
+        self.roots = list(set(self.root_names))
+
+        self.nodes = {}
+        for param in root_params:
+            if param.name not in self.nodes:
+                self.nodes[param.name] = Node(param)
 
     def _get_subtree_names(self, names, visited, leaves_only=False):
 
@@ -147,15 +155,15 @@ class TransformationTree:
     def get_subtree_names(self, root_names, leaves_only=False):
         return self._get_subtree_names(root_names, set(), leaves_only=leaves_only)
 
-    def get_leaf_signature(self):
-        root_names = [param.name for param in self.root_signature.parameters.values()]
-        leaf_names = self.get_subtree_names(root_names, leaves_only=True)
-        return Signature([self.nodes[name].param for name in leaf_names])
+    def get_root_annotations(self):
+        return {name:self.nodes[name].param.annotation for name in self.roots}
 
-    def get_node_parameters(self):
-        root_names = [param.name for param in self.root_signature.parameters.values()]
-        node_names = self.get_subtree_names(root_names, leaves_only=False)
-        return [self.nodes[name].param for name in node_names]
+    def get_root_parameters(self):
+        return [self.nodes[name].param for name in self.root_names]
+
+    def get_leaf_parameters(self):
+        leaf_names = self.get_subtree_names(self.root_names, leaves_only=True)
+        return [self.nodes[name].param for name in leaf_names]
 
     def _connect(self, ntr):
 
@@ -193,33 +201,39 @@ class TransformationTree:
                 self._connect(ntr)
 
     def connections(self):
-        root_names = [param.name for param in self.root_signature.parameters.values()]
-        node_names = self.get_subtree_names(root_names, leaves_only=False)
+        node_names = self.get_subtree_names(self.roots, leaves_only=False)
         for name in node_names:
             node = self.nodes[name]
             for ntr in node.get_connections():
                 yield ntr
 
     def translate(self, translator):
-        root_params = self.root_signature.parameters.values()
+        root_params = self.get_root_parameters()
         new_root_params = [param.rename(translator(param.name)) for param in root_params]
         new_tree = TransformationTree(new_root_params)
         new_tree.reconnect(self, translator=translator)
-
         return new_tree
 
-    def get_subtree(self, argnames, parameters):
-        new_params = [
-            self.nodes[name].param if name in self.nodes else parameters[name]
-            for name in argnames]
-        new_tree = TransformationTree(new_params)
+    def get_subtree(self, parameters):
+        # If the user was not messing with undocumented fields, parameters with the same names
+        # should have the same annotations.
+        # But if they do not, we better catch it here.
+        for param in parameters:
+            if param.name in self.nodes:
+                assert self.nodes[param.name].param.annotation == param.annotation
+
+        new_tree = TransformationTree(parameters)
         new_tree.reconnect(self)
         return new_tree
 
     def get_kernel_definition(self, kernel_name):
-        leaf_params = self.get_leaf_signature().parameters.values()
-        return TEMPLATE.get_def('kernel_definition').render(
+        leaf_params = self.get_leaf_parameters()
+
+        kernel_definition = TEMPLATE.get_def('kernel_definition').render(
             kernel_name, leaf_params, leaf_name=leaf_name)
+        leaf_names = [param.name for param in leaf_params]
+
+        return kernel_definition, leaf_names
 
     def _get_transformation_module(self, ntr):
 
@@ -341,8 +355,7 @@ class TransformationTree:
             store_combined_idx=store_combined_idx)
 
     def get_argobjects(self):
-        return [self._get_argobject(param.name, base=True)
-            for param in self.root_signature.parameters.values()]
+        return [self._get_argobject(name, base=True) for name in self.root_names]
 
 
 def leaf_name(name):
