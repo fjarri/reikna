@@ -12,7 +12,7 @@ from test_core.dummy import *
 # Some transformations to use by tests
 
 # Identity transformation: Output = Input
-def tr_trivial(arr):
+def tr_identity(arr):
     return Transformation(
         [Parameter('o1', Annotation(arr, 'o')),
         Parameter('i1', Annotation(arr, 'i'))],
@@ -71,17 +71,17 @@ def test_signature_correctness():
         Parameter('B', Annotation(arr_type, 'i')),
         Parameter('coeff', Annotation(coeff_dtype))]
 
-    trivial = tr_trivial(d.parameter.A)
+    identity = tr_identity(d.parameter.A)
     join = tr_2_to_1(d.parameter.A, d.parameter.coeff)
     split = tr_1_to_2(d.parameter.A)
     scale = tr_scale(d.parameter.A, d.parameter.coeff.dtype)
 
     # Connect some transformations
-    d.parameter.A.connect(trivial, trivial.o1, A_prime=trivial.i1)
+    d.parameter.A.connect(identity, identity.o1, A_prime=identity.i1)
     d.parameter.B.connect(join, join.o1, A_prime=join.i1, B_prime=join.i2, B_param=join.s1)
-    d.parameter.B_prime.connect(trivial, trivial.o1, B_new_prime=trivial.i1)
+    d.parameter.B_prime.connect(identity, identity.o1, B_new_prime=identity.i1)
     d.parameter.C.connect(split, split.i1, C_half1=split.o1, C_half2=split.o2)
-    d.parameter.C_half1.connect(trivial, trivial.i1, C_new_half1=trivial.o1)
+    d.parameter.C_half1.connect(identity, identity.i1, C_new_half1=identity.o1)
     d.parameter.D.connect(scale, scale.i1, D_prime=scale.o1, D_param=scale.s1)
 
     assert list(d.signature.parameters.values()) == [
@@ -107,16 +107,16 @@ def test_same_shape(thr):
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
 
-    trivial = tr_trivial(d.parameter.A)
+    identity = tr_identity(d.parameter.A)
     join = tr_2_to_1(d.parameter.A, d.parameter.coeff)
     split = tr_1_to_2(d.parameter.A)
     scale = tr_scale(d.parameter.A, d.parameter.coeff.dtype)
 
-    d.parameter.A.connect(trivial, trivial.o1, A_prime=trivial.i1)
+    d.parameter.A.connect(identity, identity.o1, A_prime=identity.i1)
     d.parameter.B.connect(join, join.o1, A_prime=join.i1, B_prime=join.i2, B_param=join.s1)
-    d.parameter.B_prime.connect(trivial, trivial.o1, B_new_prime=trivial.i1)
+    d.parameter.B_prime.connect(identity, identity.o1, B_new_prime=identity.i1)
     d.parameter.C.connect(split, split.i1, C_half1=split.o1, C_half2=split.o2)
-    d.parameter.C_half1.connect(trivial, trivial.i1, C_new_half1=trivial.o1)
+    d.parameter.C_half1.connect(identity, identity.i1, C_new_half1=identity.o1)
     d.parameter.D.connect(scale, scale.i1, D_prime=scale.o1, D_param=scale.s1)
     dc = d.compile(thr)
 
@@ -157,11 +157,11 @@ def test_connection_to_base(thr):
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
 
-    trivial = tr_trivial(d.parameter.A)
+    identity = tr_identity(d.parameter.A)
     scale = tr_scale(d.parameter.A, d.parameter.coeff.dtype)
 
     # connect to the base array argument (effectively making B the same as A)
-    d.parameter.A.connect(trivial, trivial.o1, B=trivial.i1)
+    d.parameter.A.connect(identity, identity.o1, B=identity.i1)
     # connect to the base scalar argument
     d.parameter.C.connect(scale, scale.i1, C_prime=scale.o1, coeff=scale.s1)
     dc = d.compile(thr)
@@ -193,16 +193,16 @@ def test_nested_same_shape(thr):
 
     d = DummyNested(arr_type, arr_type, coeff_dtype, second_coeff, same_A_B=True)
 
-    trivial = tr_trivial(d.parameter.A)
+    identity = tr_identity(d.parameter.A)
     join = tr_2_to_1(d.parameter.A, d.parameter.coeff)
     split = tr_1_to_2(d.parameter.A)
     scale = tr_scale(d.parameter.A, d.parameter.coeff.dtype)
 
-    d.parameter.A.connect(trivial, trivial.o1, A_prime=trivial.i1)
+    d.parameter.A.connect(identity, identity.o1, A_prime=identity.i1)
     d.parameter.B.connect(join, join.o1, A_prime=join.i1, B_prime=join.i2, B_param=join.s1)
-    d.parameter.B_prime.connect(trivial, trivial.o1, B_new_prime=trivial.i1)
+    d.parameter.B_prime.connect(identity, identity.o1, B_new_prime=identity.i1)
     d.parameter.C.connect(split, split.i1, C_half1=split.o1, C_half2=split.o2)
-    d.parameter.C_half1.connect(trivial, trivial.i1, C_new_half1=trivial.o1)
+    d.parameter.C_half1.connect(identity, identity.i1, C_new_half1=identity.o1)
     d.parameter.D.connect(scale, scale.i1, D_prime=scale.o1, D_param=scale.s1)
     dc = d.compile(thr)
 
@@ -244,9 +244,9 @@ def test_strings_as_parameters():
     arr_type = Type(numpy.complex64, (N, N))
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
-    trivial = tr_trivial(d.parameter.A)
+    identity = tr_identity(d.parameter.A)
 
-    d.connect('A', trivial, 'o1', A_prime='i1')
+    d.connect('A', identity, 'o1', A_prime='i1')
 
     assert list(d.signature.parameters.values()) == [
         Parameter('C', Annotation(arr_type, 'o')),
@@ -268,17 +268,17 @@ def test_alien_parameters():
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
     d2 = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
-    trivial = tr_trivial(d.parameter.A)
-    trivial2 = tr_trivial(d.parameter.A)
+    identity = tr_identity(d.parameter.A)
+    identity2 = tr_identity(d.parameter.A)
 
     with pytest.raises(ValueError):
-        d.connect(d2.parameter.A, trivial, 'o1', A_prime='i1')
+        d.connect(d2.parameter.A, identity, 'o1', A_prime='i1')
 
     with pytest.raises(ValueError):
-        d.connect(d.parameter.A, trivial, trivial2.o1, A_prime='i1')
+        d.connect(d.parameter.A, identity, identity2.o1, A_prime='i1')
 
     with pytest.raises(ValueError):
-        d.parameter.A.connect(trivial, trivial.o1, A_prime=trivial2.i1)
+        d.parameter.A.connect(identity, identity.o1, A_prime=identity2.i1)
 
 
 def test_connector_repetition():
@@ -289,10 +289,10 @@ def test_connector_repetition():
     arr_type = Type(numpy.complex64, (N, N))
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
-    trivial = tr_trivial(d.parameter.A)
+    identity = tr_identity(d.parameter.A)
 
     with pytest.raises(ValueError):
-        d.parameter.A.connect(trivial, trivial.o1, A=trivial.o1, A_prime=trivial.i1)
+        d.parameter.A.connect(identity, identity.o1, A=identity.o1, A_prime=identity.i1)
 
 
 def test_wrong_connector():
@@ -303,18 +303,18 @@ def test_wrong_connector():
     arr_type = Type(numpy.complex64, (N, N))
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
-    trivial = tr_trivial(d.parameter.A)
+    identity = tr_identity(d.parameter.A)
 
-    d.parameter.A.connect(trivial, trivial.o1, A_prime=trivial.i1)
+    d.parameter.A.connect(identity, identity.o1, A_prime=identity.i1)
 
     # Connector is missing
     with pytest.raises(ValueError):
-        d.connect('AA', trivial, trivial.o1, A_pp=trivial.i1)
+        d.connect('AA', identity, identity.o1, A_pp=identity.i1)
 
     # Node 'A' exists, but it is not a part of the signature
     # (hidden by previously connected transformation).
     with pytest.raises(ValueError):
-        d.connect('B', trivial, trivial.o1, A=trivial.i1)
+        d.connect('B', identity, identity.o1, A=identity.i1)
 
 
 def test_type_mismatch():
@@ -325,10 +325,10 @@ def test_type_mismatch():
     arr_type = Type(numpy.complex64, (N, N))
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
-    trivial = tr_trivial(Type(numpy.complex64, (N, N + 1)))
+    identity = tr_identity(Type(numpy.complex64, (N, N + 1)))
 
     with pytest.raises(ValueError):
-        d.connect('A', trivial, trivial.o1, A_prime=trivial.i1)
+        d.connect('A', identity, identity.o1, A_prime=identity.i1)
 
 
 def test_wrong_data_path():
@@ -343,10 +343,10 @@ def test_wrong_data_path():
     arr_type = Type(numpy.complex64, (N, N))
 
     d = DummyAdvanced(arr_type, coeff_dtype)
-    trivial = tr_trivial(d.parameter.C)
+    identity = tr_identity(d.parameter.C)
 
-    d.parameter.C.connect(trivial, trivial.o1, C_in=trivial.i1)
-    d.parameter.D.connect(trivial, trivial.i1, D_out=trivial.o1)
+    d.parameter.C.connect(identity, identity.o1, C_in=identity.i1)
+    d.parameter.D.connect(identity, identity.i1, D_out=identity.o1)
     assert list(d.signature.parameters.values()) == [
         Parameter('C', Annotation(arr_type, 'o')),
         Parameter('C_in', Annotation(arr_type, 'i')),
@@ -357,18 +357,18 @@ def test_wrong_data_path():
 
     # Now input to C is hidden by the previously connected transformation
     with pytest.raises(ValueError):
-        d.parameter.C.connect(trivial, trivial.o1, C_in_prime=trivial.i1)
+        d.parameter.C.connect(identity, identity.o1, C_in_prime=identity.i1)
 
     # Same goes for D
     with pytest.raises(ValueError):
-        d.parameter.D.connect(trivial, trivial.i1, D_out_prime=trivial.o1)
+        d.parameter.D.connect(identity, identity.i1, D_out_prime=identity.o1)
 
     # Also we cannot make one of the transformation outputs an existing output parameter
     with pytest.raises(ValueError):
-        d.parameter.C_in.connect(trivial, trivial.i1, D_out=trivial.o1)
+        d.parameter.C_in.connect(identity, identity.i1, D_out=identity.o1)
 
     # Output of C is still available though
-    d.parameter.C.connect(trivial, trivial.i1, C_out=trivial.o1)
+    d.parameter.C.connect(identity, identity.i1, C_out=identity.o1)
     assert list(d.signature.parameters.values()) == [
         Parameter('C_out', Annotation(arr_type, 'o')),
         Parameter('C_in', Annotation(arr_type, 'i')),
@@ -389,12 +389,12 @@ def test_wrong_transformation_parameters():
     arr_type = Type(numpy.complex64, (N, N))
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
-    trivial = tr_trivial(d.parameter.A)
+    identity = tr_identity(d.parameter.A)
 
-    # ``trivial`` does not have ``input`` parameter
+    # ``identity`` does not have ``input`` parameter
     with pytest.raises(ValueError):
-        d.parameter.A.connect(trivial, trivial.o1, A_prime='input')
+        d.parameter.A.connect(identity, identity.o1, A_prime='input')
 
-    # ``trivial`` does not have ``i2`` parameter
+    # ``identity`` does not have ``i2`` parameter
     with pytest.raises(ValueError):
-        d.parameter.A.connect(trivial, trivial.o1, A_prime=trivial.i1, A2='i2')
+        d.parameter.A.connect(identity, identity.o1, A_prime=identity.i1, A2='i2')
