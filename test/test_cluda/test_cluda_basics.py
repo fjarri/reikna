@@ -1,5 +1,4 @@
 import itertools
-from warnings import catch_warnings, filterwarnings
 
 import pytest
 
@@ -143,85 +142,22 @@ def test_dtype_support(thr, dtype):
     assert diff_is_negligible(thr.from_device(dest_dev), a)
 
 
-@pytest.mark.parametrize('in_dtypes', ["ii", "ff", "cc", "cfi", "ifccfi"])
-@pytest.mark.parametrize('out_dtype', ["auto", "i", "f", "c"])
-def test_multiarg_mul(thr, out_dtype, in_dtypes):
-    """
-    Checks multi-argument mul() with a variety of data types.
-    """
-
-    N = 256
-    test_dtype = lambda idx: dict(i=numpy.int32, f=numpy.float32, c=numpy.complex64)[idx]
-    in_dtypes = map(test_dtype, in_dtypes)
-    out_dtype = dtypes.result_type(*in_dtypes) if out_dtype == 'auto' else test_dtype(out_dtype)
-    if dtypes.is_double(out_dtype):
-        # numpy thinks that int32 * float32 == float64,
-        # but we still need to run this test on older videocards
-        out_dtype = numpy.complex64 if dtypes.is_complex(out_dtype) else numpy.float32
-
-    def reference_func(*args):
-        res = product(args)
-        if not dtypes.is_complex(out_dtype) and dtypes.is_complex(res.dtype):
-            res = res.real
-        return res.astype(out_dtype)
-
-    src = """
-    <%
-        argnames = ["a" + str(i + 1) for i in xrange(len(in_dtypes))]
-        in_ctypes = map(dtypes.ctype, in_dtypes)
-        out_ctype = dtypes.ctype(out_dtype)
-    %>
-    KERNEL void test(
-        GLOBAL_MEM ${out_ctype} *dest
-        %for arg, ctype in zip(argnames, in_ctypes):
-        , GLOBAL_MEM ${ctype} *${arg}
-        %endfor
-        )
-    {
-        const int i = get_global_id(0);
-        %for arg, ctype in zip(argnames, in_ctypes):
-        ${ctype} ${arg}_load = ${arg}[i];
-        %endfor
-
-        dest[i] = ${mul}(${", ".join([arg + "_load" for arg in argnames])});
-    }
-    """
-
-    # Temporarily catching imaginary part truncation warnings
-    with catch_warnings():
-        filterwarnings("ignore", "", numpy.ComplexWarning)
-        mul = functions.mul(*in_dtypes, out_dtype=out_dtype)
-
-    program = thr.compile(src,
-        render_kwds=dict(in_dtypes=in_dtypes, out_dtype=out_dtype, mul=mul))
-
-    test = program.test
-
-    # we need results to fit even in unsigned char
-    arrays = [get_test_array(N, dt, no_zeros=True) for dt in in_dtypes]
-    arrays_dev = map(thr.to_device, arrays)
-    dest_dev = thr.array(N, out_dtype)
-
-    test(dest_dev, *arrays_dev, global_size=N)
-    assert diff_is_negligible(thr.from_device(dest_dev), reference_func(*arrays))
-
-
 def test_find_local_size(thr_and_global_size):
-    thr, global_size = thr_and_global_size
-
     """
     Check that if None is passed as local_size, kernel can find some local_size to run with
     (not necessarily optimal).
     """
 
+    thr, global_size = thr_and_global_size
+
     program = thr.compile(
     """
     KERNEL void test(GLOBAL_MEM int *dest)
     {
-      const int i = get_global_id(0) +
-        get_global_id(1) * get_global_size(0) +
-        get_global_id(2) * get_global_size(1) * get_global_size(0);
-      dest[i] = i;
+        const int i = get_global_id(0) +
+            get_global_id(1) * get_global_size(0) +
+            get_global_id(2) * get_global_size(1) * get_global_size(0);
+        dest[i] = i;
     }
     """)
     test = program.test

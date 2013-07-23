@@ -5,10 +5,12 @@ This module contains various auxiliary functions which are used throughout the l
 from __future__ import division
 
 import functools
+import itertools
 import collections
 import os.path
 import warnings
 import inspect
+import funcsigs
 
 from mako.template import Template
 
@@ -26,9 +28,69 @@ class AttrDict(dict):
     def __setattr__(self, attr, value):
         self[attr] = value
 
+    def __process_modules__(self, process):
+        return AttrDict({k:process(v) for k, v in self.items()})
+
     def __repr__(self):
         return "AttrDict(" + \
             ", ".join((key + "=" + repr(value)) for key, value in self.items()) + ")"
+
+
+class Graph:
+
+    def __init__(self, pairs=None):
+        self._pairs = set()
+        self._nodes = collections.defaultdict(lambda: set())
+        if pairs is not None:
+            self.add_edges(pairs)
+
+    def add_edge(self, node1, node2):
+        assert node1 != node2
+        self._nodes[node1].add(node2)
+        self._nodes[node2].add(node1)
+        self._pairs.add(tuple(sorted((node1, node2))))
+
+    def add_edges(self, pairs):
+        for node1, node2 in pairs:
+            self.add_edge(node1, node2)
+
+    def add_graph(self, graph):
+        for node1, node2 in graph.pairs():
+            self.add_edge(node1, node2)
+
+    def add_cluster(self, nodes):
+        self.add_edges(itertools.combinations(nodes, 2))
+
+    def remove_node(self, node):
+        deps = self._nodes[node]
+        for dep in deps:
+            self._nodes[dep].remove(node)
+            self._pairs.remove(tuple(sorted((node, dep))))
+        del self._nodes[node]
+
+    def remove_edge(self, node1, node2):
+        assert node1 != node2
+        self._pairs.remove(tuple(sorted((node1, node2))))
+
+        self._nodes[node1].remove(node2)
+        if len(self._nodes[node1]) == 0:
+            del self._nodes[node1]
+
+        self._nodes[node2].remove(node1)
+        if len(self._nodes[node2]) == 0:
+            del self._nodes[node2]
+
+    def __getitem__(self, node):
+        return self._nodes[node]
+
+    def pairs(self):
+        return self._pairs
+
+    def translate(self, translator):
+        pairs = []
+        for node1, node2 in self._pairs:
+            pairs.append(tuple(sorted((translator(node1), translator(node2)))))
+        return Graph(pairs)
 
 
 def product(seq):
@@ -36,6 +98,24 @@ def product(seq):
     Returns the product of elements in the iterable ``seq``.
     """
     return functools.reduce(lambda x1, x2: x1 * x2, seq, 1)
+
+
+def make_template(template, filename=False):
+    # Can't import submodules from reikna itself here, because it creates circular dependencies
+    # (computation modules have template_for() calls at the root level,
+    # so they get activated on import).
+    kwds = dict(
+        future_imports=['division'],
+        strict_undefined=True,
+        imports=['import numpy'])
+
+    # Creating a template from a filename results in more comprehensible stack traces,
+    # so we are taking advantage of this if possible.
+    if filename:
+        kwds['filename'] = template
+        return Template(**kwds)
+    else:
+        return Template(template, **kwds)
 
 
 def template_from(template):
@@ -46,35 +126,41 @@ def template_from(template):
     if hasattr(template, 'render'):
         return template
     else:
-        return Template(template, future_imports=['division'])
+        return make_template(template)
 
 
-def extract_argspec_and_value(argspec_func):
-    if not inspect.isfunction(argspec_func):
-        raise ValueError("A function is required")
+def extract_signature_and_value(func_or_str, default_parameters=None):
+    if not inspect.isfunction(func_or_str):
+        if default_parameters is None:
+            parameters = []
+        else:
+            kind = funcsigs.Parameter.POSITIONAL_OR_KEYWORD
+            parameters = [funcsigs.Parameter(name, kind=kind) for name in default_parameters]
 
-    argspec = inspect.getargspec(argspec_func)
+        return funcsigs.Signature(parameters), func_or_str
+
+    signature = funcsigs.signature(func_or_str)
 
     # pass mock values to extract the value
-    args = [None] * len(argspec.args) if argspec.args is not None else []
-    kwds = {k:None for k in argspec.keywords} if argspec.keywords is not None else {}
-    return argspec, argspec_func(*args, **kwds)
+    args = [None] * len(signature.parameters)
+    return signature, func_or_str(*args)
 
 
-def template_def(argspec, code):
+def template_def(signature, code):
     """
-    Constructs a ``Mako`` template def.
+    Returns a ``Mako`` template with the given ``signature``.
 
-    :param argspec: a list of postitional argument names, or a named tuple ``ArgSpec``
-        (returned from Python's standard :py:func:``inspect.getargspec``,
-        see the documentation for ``inspect`` module for details).
+    :param signature: a list of postitional argument names,
+        or a ``Signature`` object from ``funcsigs`` module.
     :code: a body of the template.
     """
-    if isinstance(argspec, inspect.ArgSpec):
-        argspec = inspect.formatargspec(*argspec)
-    else:
-        argspec = "(" + ", ".join(argspec) + ")"
-    template_src = "<%def name='_func" + argspec + "'>\n" + code + "\n</%def>"
+    if not isinstance(signature, funcsigs.Signature):
+        # treating ``signature`` as a list of positional arguments
+        # HACK: Signature or Parameter constructors are not documented.
+        kind = funcsigs.Parameter.POSITIONAL_OR_KEYWORD
+        signature = funcsigs.Signature([funcsigs.Parameter(name, kind=kind) for name in signature])
+
+    template_src = "<%def name='_func" + str(signature) + "'>\n" + code + "\n</%def>"
     return template_from(template_src).get_def('_func')
 
 
@@ -85,7 +171,7 @@ def template_for(filename):
     Typically used in computation modules as ``template_for(__filename__)``.
     """
     name, ext = os.path.splitext(os.path.abspath(filename))
-    return Template(filename=name + '.mako', future_imports=['division'])
+    return make_template(name + '.mako', filename=True)
 
 
 def min_blocks(length, block):

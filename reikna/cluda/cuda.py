@@ -94,9 +94,13 @@ class Thread(api_base.Thread):
     def allocate(self, size):
         return Buffer(size)
 
-    def array(self, shape, dtype, allocator=None):
+    def array(self, shape, dtype, strides=None, allocator=None):
         # In PyCuda, the default allocator is not None, but a default alloc object
-        kwds = {} if allocator is None else dict(allocator=allocator)
+        kwds = {}
+        if strides is not None:
+            kwds['strides'] = strides
+        if allocator is not None:
+            kwds['allocator'] = allocator
         return gpuarray.GPUArray(shape, dtype, **kwds)
 
     def _copy_array(self, dest, src):
@@ -145,8 +149,8 @@ class DeviceParameters:
 
         self.max_num_groups = [
             device.max_grid_dim_x,
-            device.max_grid_dim_y] + \
-            ([device.max_grid_dim_z] if device.max_grid_dim_z > 1 else [])
+            device.max_grid_dim_y,
+            device.max_grid_dim_z]
 
         # there is no corresponding constant in the API at the moment
         self.local_mem_banks = 16 if device.compute_capability()[0] < 2 else 32

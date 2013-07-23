@@ -13,7 +13,7 @@ Snippets
 ========
 
 Snippets are ``Mako`` template defs (essentially functions returning rendered text) with the associated dictionary of render keywords.
-Some computations which are parametrized by custom code (for example, :py:class:`~reikna.elementwise.Elementwise`) require this code to be provided in form of a snippet with a certain call signature.
+Some computations which are parametrized by custom code (for example, :py:class:`~reikna.pureparallel.PureParallel`) require this code to be provided in form of a snippet with a certain call signature.
 When a snippet is used in a template, the result is quite straightworward: its template function is called, rendering and returning its contents, just as a normal ``Mako`` def.
 
 Let us demonstrate it with a simple example.
@@ -60,23 +60,23 @@ Modules
 =======
 
 Modules are quite similar to snippets in a sense that they are also ``Mako`` defs with an associated dictionary of render keywords.
-The difference lies in the way they are processed, and their def must take only one positional argument.
+The difference lies in the way they are processed.
 Consider a module containing a single function:
 
 ::
 
     add = Module("""
-    <%def name="add(prefix)">
+    <%def name="add(prefix, arg)">
     WITHIN_KERNEL int ${prefix}(int x)
     {
-        return x + ${num};
+        return x + ${num} + ${arg};
     }
     </%def>
     """,
     render_kwds=dict(num=1))
 
 Modules contain complete C entities (function, macros, structures) and get rendered in the root level of the source file.
-In order to avoid name clashes, their def gets a string which it has to use to prefix these entities' names.
+In order to avoid name clashes, their def gets a string as a first argument, which it has to use to prefix these entities' names.
 If the module contains only one entity that is supposed to be used by the parent code, it is a good idea to set its name to ``prefix`` only, to simplify its usage.
 
 Let us now create a kernel that uses this module:
@@ -88,7 +88,7 @@ Let us now create a kernel that uses this module:
     {
         int idx = get_global_id(0);
         int a = arr[idx];
-        arr[idx] = ${add}(x);
+        arr[idx] = ${add(2)}(x);
     }
     """,
     render_kwds=dict(add=add))
@@ -96,7 +96,7 @@ Let us now create a kernel that uses this module:
 Before the compilation render keywords are inspected, and if a module object is encountered, the following things happen:
 
 1. This object's ``render_kwds`` are inspected recursively and any modules there are rendered in the same way as described here, producing a source file.
-2. The module itself gets assigned a new prefix and its template function is rendered with this prefix.
+2. The module itself gets assigned a new prefix and its template function is rendered with this prefix as the first argument, with the positional arguments given following it.
    The result is attached to the source file.
 3. The corresponding value in the current ``render_kwds`` is replaced by the newly assigned prefix.
 
@@ -106,7 +106,7 @@ With the code above, the rendered module will produce the code
 
     WITHIN_KERNEL int _module0(int x)
     {
-        return x + 1;
+        return x + 1 + 2;
     }
 
 and the ``add`` keyword in the ``render_kwds`` gets its value changed to ``_module0``.
@@ -127,6 +127,7 @@ Then the main code is rendered and appended to the previously renderd parts, giv
     }
 
 which is then passed to the compiler.
+If your module's template def does not take any arguments except for ``prefix``, you can call it in the parent template just as ``${add}`` (without empty parentheses).
 
 Modules can reference snippets in their ``render_kwds``, which, in turn, can reference other modules.
 This produces a tree-like structure with the snippet made from the code passed by user at the root.
@@ -159,8 +160,9 @@ If the argument list is created dynamically, you can use :py:func:`~reikna.helpe
         template_def(argnames, "${varname} + ${num}"),
         render_kwds=dict(num=1))
 
-With modules it is a bit simpler, since their call signature is fixed.
-The shortcut constructor creates a ``Mako`` def with a single argument called ``prefix``:
+Modules have a similar shortcut constructor.
+The only difference is that by default the resulting template def has one positional argument called ``prefix``.
+If you provide your own signature, its first positional argument will receive the prefix value.
 
 ::
 
@@ -175,11 +177,34 @@ The shortcut constructor creates a ``Mako`` def with a single argument called ``
 Of course, both :py:class:`~reikna.cluda.Snippet` and :py:class:`~reikna.cluda.Module` constructors can take already created ``Mako`` defs, which is convenient if you keep templates in a separate file.
 
 
+Module and snippet discovery
+============================
+
+Sometimes you may want to pass a module or a snippet inside a template as an attribute of a custom object.
+In order for CLUDA to be able to discover and process it without modifying your original object, you need to make your object comply to a discovery protocol.
+The protocol method takes a processing function and is expected to return a **new object** of the same class with the processing function applied to all the attributes that may contain a module or a snippet.
+By default, objects of type ``tuple``, ``list``, ``dict`` and :py:class:`~reikna.helpers.AttrDict` are discoverable.
+
+For example:
+
+::
+
+    class MyClass:
+
+        def __init__(self, coeff, mul_module, div_module):
+            self.coeff = coeff
+            self.mul = mul_module
+            self.div = div_module
+
+        def __process_modules__(self, process):
+            return MyClass(self.coeff, process(self.mul), process(self.div))
+
+
 Nontrivial example
 ==================
 
 Modules were introduced to help split big kernels into small reusable pieces which in ``CUDA`` or ``OpenCL`` program would be put into different source or header files.
-For example, a random number generator may be assembled from a function generating random integers, a function transforming these integers into random numbers with a certain distribution, and an :py:class:`reikna.elementwise.Elementwise` computation calling these functions and saving results to global memory.
+For example, a random number generator may be assembled from a function generating random integers, a function transforming these integers into random numbers with a certain distribution, and a :py:class:`reikna.pureparallel.PureParallel` computation calling these functions and saving results to global memory.
 These two functions can be extracted into separate modules, so that a user could call them from some custom kernel if he does not need to store the intermediate results.
 
 Going further with this example, one notices that functions that produce randoms with sophisticated distributions are often based on simpler distributions.
@@ -192,7 +217,7 @@ The final render tree may look like:
 ::
 
     Snippet(
-        Elementwise,
+        PureParallel,
         render_kwds = {
           base_rng -> Snippet(...)
           gamma -> Snippet(

@@ -13,7 +13,7 @@
 
 INLINE WITHIN_KERNEL ${ctype} reduction_op(${ctype} input1, ${ctype} input2)
 {
-    ${basis.predicate('input1', 'input2')}
+    ${predicate.operation('input1', 'input2')}
 }
 
 ${kernel_definition}
@@ -24,15 +24,14 @@ ${kernel_definition}
 
     int tid = virtual_local_id(0);
     int bid = virtual_group_id(0);
+    int part_num = virtual_global_id(1);
 
-    int part_length = ${(blocks_per_part - 1) * block_size + last_block_size};
-    int part_num = bid / ${blocks_per_part};
-    int index_in_part = ${block_size} * (bid % ${blocks_per_part}) + tid;
+    int index_in_part = ${block_size} * bid + tid;
 
-    if(bid % ${blocks_per_part} == ${blocks_per_part} - 1 && tid >= ${last_block_size})
-        local_mem[tid] = ${dtypes.zero_ctr(basis.dtype)};
+    if(bid == ${blocks_per_part} - 1 && tid >= ${last_block_size})
+        local_mem[tid] = ${predicate.empty};
     else
-        local_mem[tid] = ${input.load}(part_length * part_num + index_in_part);
+        local_mem[tid] = ${input.load_combined_idx(input_slices)}(part_num, index_in_part);
 
     LOCAL_BARRIER;
 
@@ -68,7 +67,7 @@ ${kernel_definition}
     %endif
 
     if (tid == 0)
-        ${output.store}(bid, local_mem[0]);
+        ${output.store_combined_idx(output_slices)}(part_num, bid, local_mem[0]);
 }
 
 </%def>

@@ -5,7 +5,7 @@ from mako import exceptions
 
 import reikna.helpers as helpers
 from reikna.helpers import AttrDict, template_for, template_from, \
-    template_def, extract_argspec_and_value
+    template_def, extract_signature_and_value
 from reikna.cluda import dtypes
 
 
@@ -19,7 +19,7 @@ def render_prelude(thr):
 
 def render_template(template, *args, **kwds):
     # add some "built-ins" to the kernel
-    render_kwds = dict(dtypes=dtypes, numpy=numpy, helpers=helpers)
+    render_kwds = dict(dtypes=dtypes, helpers=helpers)
     assert set(render_kwds).isdisjoint(set(kwds))
     render_kwds.update(kwds)
 
@@ -36,14 +36,7 @@ def render_template(template, *args, **kwds):
     return src
 
 
-class BaseModule:
-    def __init__(self, template, render_kwds=None, snippet=False):
-        self.template = template_from(template)
-        self.render_kwds = {} if render_kwds is None else dict(render_kwds)
-        self.snippet = snippet
-
-
-class Snippet(BaseModule):
+class Snippet:
     """
     Contains a CLUDA snippet.
     See :ref:`tutorial-modules` for details.
@@ -56,19 +49,23 @@ class Snippet(BaseModule):
     """
 
     def __init__(self, template_src, render_kwds=None):
-        BaseModule.__init__(self, template_src, render_kwds=render_kwds, snippet=True)
+        self.template = template_from(template_src)
+        self.render_kwds = {} if render_kwds is None else dict(render_kwds)
 
     @classmethod
-    def create(cls, argspec_func, render_kwds=None):
+    def create(cls, func_or_str, render_kwds=None):
         """
-        Creates a snippet from the ``Mako`` def with the same signature as ``argspec_func``
-        and the body equal to the string it returns.
+        Creates a snippet from the ``Mako`` def:
+
+        * if ``func_or_str`` is a function, then the def has the same signature as ``func_or_str``,
+          and the body equal to the string it returns;
+        * if ``func_or_str`` is a string, then the def has empty signature.
         """
-        argspec, code = extract_argspec_and_value(argspec_func)
-        return cls(template_def(argspec, code), render_kwds=render_kwds)
+        signature, code = extract_signature_and_value(func_or_str)
+        return cls(template_def(signature, code), render_kwds=render_kwds)
 
 
-class Module(BaseModule):
+class Module:
     """
     Contains a CLUDA module.
     See :ref:`tutorial-modules` for details.
@@ -81,70 +78,91 @@ class Module(BaseModule):
     """
 
     def __init__(self, template_src, render_kwds=None):
-        BaseModule.__init__(self, template_src, render_kwds=render_kwds, snippet=False)
+        self.template = template_from(template_src)
+        self.render_kwds = {} if render_kwds is None else dict(render_kwds)
 
     @classmethod
-    def create(cls, code, render_kwds=None):
+    def create(cls, func_or_str, render_kwds=None):
         """
-        Creates a module from the ``Mako`` def with a single positional argument ``prefix``
-        and the body ``code``.
+        Creates a module from the ``Mako`` def:
+
+        * if ``func_or_str`` is a function, then the def has the same signature as ``func_or_str``
+          (prefix will be passed as the first positional parameter),
+          and the body equal to the string it returns;
+        * if ``func_or_str`` is a string, then the def has a single positional argument ``prefix``.
+          and the body ``code``.
         """
-        return cls(template_def(['prefix'], code), render_kwds=render_kwds)
+        signature, code = extract_signature_and_value(func_or_str, default_parameters=['prefix'])
+        return cls(template_def(signature, code), render_kwds=render_kwds)
 
 
-class ProcessedModule(AttrDict): pass
+class SourceCollector:
 
+    def __init__(self):
+        self.sources = []
+        self.prefix_counter = 0
 
-def traverse_data(target_cls, target_func, accum, val):
-    traverse = lambda v: traverse_data(target_cls, target_func, accum, v)
+    def add_module(self, template_def, args, render_kwds):
+        prefix = "_module" + str(self.prefix_counter) + "_"
+        self.prefix_counter += 1
 
-    if isinstance(val, target_cls):
-        return target_func(accum, traverse, val)
-    elif isinstance(val, AttrDict):
-        return AttrDict({k:traverse(v) for k, v in val.items()})
-    elif isinstance(val, dict):
-        return {k:traverse(v) for k, v in val.items()}
-    elif isinstance(val, tuple):
-        return tuple(traverse(v) for v in val)
-    elif isinstance(val, list):
-        return [traverse(v) for v in val]
-    else:
-        return val
+        src = render_template(template_def, prefix, *args, **render_kwds)
+        self.sources.append(src)
 
-
-def flatten_module(module_list, traverse, module):
-
-    processed_module = ProcessedModule(
-        template=module.template,
-        render_kwds=traverse(module.render_kwds))
-
-    if not module.snippet:
-        prefix = "_module" + str(len(module_list)) + "_"
-        module_list.append(ProcessedModule(
-            template=template_from("""\n${module(prefix)}\n"""),
-            render_kwds=dict(module=processed_module, prefix=prefix)))
         return prefix
+
+    def get_source(self):
+        return "\n\n".join(self.sources)
+
+
+class RenderableSnippet:
+
+    def __init__(self, template_def, render_kwds):
+        self.template_def = template_def
+        self.render_kwds = render_kwds
+
+    def __call__(self, *args):
+        return render_template(self.template_def, *args, **self.render_kwds)
+
+
+class RenderableModule:
+
+    def __init__(self, collector, template_def, render_kwds):
+        self.collector = collector
+        self.template_def = template_def
+        self.render_kwds = render_kwds
+        self.no_arg_prefix = None
+
+    def __call__(self, *args):
+        prefix = self.collector.add_module(self.template_def, args, self.render_kwds)
+        return prefix
+
+    def __str__(self):
+        # To avoid a lot of repeating module renders when it's called without arguments
+        # (which will be the majority of calls),
+        # we are caching the corresponding prefix.
+        if self.no_arg_prefix is None:
+            self.no_arg_prefix = self()
+        return self.no_arg_prefix
+
+
+def process(obj, collector):
+    if isinstance(obj, Snippet):
+        render_kwds = process(obj.render_kwds, collector)
+        return RenderableSnippet(obj.template, render_kwds)
+    elif isinstance(obj, Module):
+        render_kwds = process(obj.render_kwds, collector)
+        return RenderableModule(collector, obj.template, render_kwds)
+    elif hasattr(obj, '__process_modules__'):
+        return obj.__process_modules__(lambda x: process(x, collector))
+    elif isinstance(obj, dict):
+        return {k:process(v, collector) for k, v in obj.items()}
+    elif isinstance(obj, tuple):
+        return tuple(process(v, collector) for v in obj)
+    elif isinstance(obj, list):
+        return [process(v, collector) for v in obj]
     else:
-        return processed_module
-
-
-def flatten_module_tree(src, args, render_kwds):
-    main_module = Snippet(src, render_kwds=render_kwds)
-    module_list = []
-    traverse = lambda v: traverse_data(BaseModule, flatten_module, module_list, v)
-    args = traverse(args)
-    main_module = traverse(main_module)
-    module_list.append(main_module)
-    return args, module_list
-
-
-def create_renderer(_, traverse, pm):
-    pm.render_kwds = traverse(pm.render_kwds)
-    return lambda *args: render_template(pm.template, *args, **pm.render_kwds)
-
-
-def create_renderer_tree(pm):
-    return traverse_data(ProcessedModule, create_renderer, None, pm)
+        return obj
 
 
 def render_template_source(src, render_args=None, render_kwds=None):
@@ -154,9 +172,10 @@ def render_template_source(src, render_args=None, render_kwds=None):
     if render_kwds is None:
         render_kwds = {}
 
-    args, module_list = flatten_module_tree(src, render_args, render_kwds)
-    renderers = [create_renderer_tree(pm) for pm in module_list]
-    src_list = [render() for render in renderers[:-1]]
-    src_list.append(renderers[-1](*args))
+    collector = SourceCollector()
+    render_args = process(render_args, collector)
+    main_renderable = process(Snippet(src, render_kwds=render_kwds), collector)
 
-    return "\n\n".join(src_list)
+    main_src = main_renderable(*render_args)
+
+    return collector.get_source() + "\n\n" + main_src

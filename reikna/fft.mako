@@ -1,11 +1,11 @@
 <%def name="insertBaseKernels()">
 
-#define complex_ctr COMPLEX_CTR(${dtypes.ctype(basis.dtype)})
+#define complex_ctr COMPLEX_CTR(${dtypes.ctype(dtype)})
 #define conj_transp(a) complex_ctr(-(a).y, (a).x)
 #define conj_transp_and_mul(a, b) complex_ctr(-(a).y * (b), (a).x * (b))
 
-typedef ${dtypes.ctype(basis.dtype)} complex_t;
-typedef ${dtypes.ctype(dtypes.real_for(basis.dtype))} real_t;
+typedef ${dtypes.ctype(dtype)} complex_t;
+typedef ${dtypes.ctype(dtypes.real_for(dtype))} real_t;
 
 
 WITHIN_KERNEL void swap(complex_t *a, complex_t *b)
@@ -203,9 +203,11 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     %else:
     {
         const int position_in_fft = fft_position_offset + ${g_i};
-        const int idx = (fft_index + ${fft_index_offset}) * ${fft_size_real if pad_in else fft_size} + position_in_fft;
+        ##const int idx = (fft_index + ${fft_index_offset}) * ${fft_size_real if pad_in else fft_size} + position_in_fft;
 
-        a[${a_i}] = ${input.load}(idx);
+        ##a[${a_i}] = ${input.load}(idx);
+        a[${a_i}] = ${input.load_combined_idx(input_slices)}(
+            fft_index + ${fft_index_offset}, position_in_fft, 0);
 
         %if pad_in:
         a[${a_i}] = ${mul}(a[${a_i}], xweight(direction, position_in_fft));
@@ -213,7 +215,9 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 
         %if takes_kweights:
         a[${a_i}] = ${mul}(a[${a_i}],
-            ${kweights.load}(position_in_fft + ${fft_size} * (1 - direction) / 2));
+            ##${kweights.load}(position_in_fft + ${fft_size} * (1 - direction) / 2)
+            ${kweights.load_idx}((1 - direction) / 2, position_in_fft)
+            );
         %endif
     }
     %endif
@@ -225,8 +229,10 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     %for i in outer_list:
         <%
             loads = lambda indices, pad: insertGlobalLoadsNoIf(input, kweights,
-                [i * num_inner_iter + j for j in indices],
+                [(i * num_inner_iter + j) for j in indices],
                 [j * inner_step for j in indices],
+                ##i * num_inner_iter + numpy.array(indices)
+                ##inner_step * numpy.array(indices),
                 pad=pad, fft_index_offsets=[i * outer_step] * len(indices))
             border = fft_size_real // inner_step
         %>
@@ -256,13 +262,16 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     %for a_i, g_i, fft_index_offset in zip(a_indices, g_indices, fft_index_offsets):
     {
         const int position_in_fft = fft_position_offset + ${g_i};
-        const int idx = (fft_index + ${fft_index_offset}) * ${fft_size_real if unpad_out else fft_size} + position_in_fft;
+        ##const int idx = (fft_index + ${fft_index_offset}) * ${fft_size_real if unpad_out else fft_size} + position_in_fft;
 
         %if unpad_out:
         a[${a_i}] = ${mul}(a[${a_i}], xweight(-direction, position_in_fft));
         %endif
 
-        ${output.store}(idx, ${cdivs}(a[${a_i}], norm_coeff));
+        ##${output.store}(idx, ${cdivs}(a[${a_i}], norm_coeff));
+        ${output.store_combined_idx(output_slices)}(
+            fft_index + ${fft_index_offset}, position_in_fft, 0,
+            ${cdivs}(a[${a_i}], norm_coeff));
     }
     %endfor
 </%def>
@@ -271,7 +280,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     %for i in outer_list:
         <%
             stores = lambda indices: insertGlobalStoresNoIf(output, kweights,
-                [i * num_inner_iter + j for j in indices],
+                [(i * num_inner_iter + j) for j in indices],
                 [j * inner_step for j in indices],
                 fft_index_offsets=[i * outer_step] * len(indices))
             border = fft_size_real // inner_step
@@ -289,7 +298,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 </%def>
 
 
-<%def name="insertGlobalLoadsAndTranspose(input, kweights, n, threads_per_xform, xforms_per_workgroup, radix, mem_coalesce_width)">
+<%def name="insertGlobalLoadsAndTranspose(input, kweights, threads_per_xform, xforms_per_workgroup, radix, mem_coalesce_width)">
 
     <%
         local_size = threads_per_xform * xforms_per_workgroup
@@ -461,7 +470,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     %endif
 </%def>
 
-<%def name="insertGlobalStoresAndTranspose(output, kweights, n, max_radix, radix, threads_per_xform, xforms_per_workgroup, mem_coalesce_width)">
+<%def name="insertGlobalStoresAndTranspose(output, kweights, max_radix, radix, threads_per_xform, xforms_per_workgroup, mem_coalesce_width)">
 
     <%
         local_size = threads_per_xform * xforms_per_workgroup
@@ -619,7 +628,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     %endfor
 </%def>
 
-<%def name="insertLocalTranspose(num_iter, n, radix, radix_next, radix_prev, radix_curr, threads_per_xform, threads_req, offset, mid_pad, xforms_per_workgroup)">
+<%def name="insertLocalTranspose(num_iter, radix, radix_next, radix_prev, radix_curr, threads_per_xform, threads_req, offset, mid_pad, xforms_per_workgroup)">
 
     <%
         threads_req_next = fft_size // radix_next
@@ -691,7 +700,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 
 </%def>
 
-<%def name="insertVariableDefinitions(direction, lmem_size, temp_array_size)">
+<%def name="insertVariableDefinitions(inverse, lmem_size, temp_array_size)">
 
     %if lmem_size > 0:
         LOCAL_MEM real_t lmem[${lmem_size}];
@@ -710,9 +719,9 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 
     ## makes it easier to use it inside other definitions
     %if reverse_direction:
-    const int direction = -${direction};
+    const int direction = (1 - ${inverse} * 2);
     %else:
-    const int direction = ${direction};
+    const int direction = -(1 - ${inverse} * 2);
     %endif
 
     const int norm_coeff = direction == 1 ? ${fft_size if normalize else 1} : 1;
@@ -722,9 +731,9 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 
 <%
     if takes_kweights:
-        output, input, kweights, direction = args
+        output, input, kweights, inverse = args
     else:
-        output, input, direction = args
+        output, input, inverse = args
         kweights = None
 
     max_radix = radix_arr[0]
@@ -737,11 +746,11 @@ ${kernel_definition}
 {
     VIRTUAL_SKIP_THREADS;
 
-    ${insertVariableDefinitions(direction, lmem_size, max_radix)}
+    ${insertVariableDefinitions(inverse, lmem_size, max_radix)}
 
     const int num_groups = virtual_num_groups(0);
 
-    ${insertGlobalLoadsAndTranspose(input, kweights, n, threads_per_xform, xforms_per_workgroup, max_radix,
+    ${insertGlobalLoadsAndTranspose(input, kweights, threads_per_xform, xforms_per_workgroup, max_radix,
         min_mem_coalesce_width)}
 
     <%
@@ -766,7 +775,7 @@ ${kernel_definition}
                 lMemSize, offset, mid_pad = get_padding(threads_per_xform, radix_prev, threads_req,
                     xforms_per_workgroup, radix_arr[r], local_mem_banks)
             %>
-            ${insertLocalTranspose(num_iter, n, radix_arr[r], radix_arr[r+1], radix_prev, radix_curr, threads_per_xform, threads_req, offset, mid_pad, xforms_per_workgroup)}
+            ${insertLocalTranspose(num_iter, radix_arr[r], radix_arr[r+1], radix_prev, radix_curr, threads_per_xform, threads_req, offset, mid_pad, xforms_per_workgroup)}
             <%
                 radix_prev = radix_curr
                 data_len = data_len // radix_arr[r]
@@ -774,7 +783,7 @@ ${kernel_definition}
         %endif
     %endfor
 
-    ${insertGlobalStoresAndTranspose(output, kweights, n, max_radix, radix_arr[num_radix - 1], threads_per_xform,
+    ${insertGlobalStoresAndTranspose(output, kweights, max_radix, radix_arr[num_radix - 1], threads_per_xform,
         xforms_per_workgroup, min_mem_coalesce_width)}
 }
 
@@ -822,9 +831,10 @@ ${kernel_definition}
         const int stride_in_number = xform_local + ${j * radix2};
         const int position = position_in_stride_in + ${stride_in} * stride_in_number;
 
-        %if pad_in or takes_kweights:
+        ##%if pad_in or takes_kweights:
         const int position_in_fft = position / ${inner_batch};
-        %endif
+        const int position_in_inner_batch = position % ${inner_batch};
+        ##%endif
 
         %if pad_in:
         const complex_t xw = xweight(direction, position_in_fft);
@@ -833,7 +843,9 @@ ${kernel_definition}
         if (position_in_fft < ${fft_size_real})
         {
         %endif
-            a[${j}] = ${input.load}(position + ${fft_size_real if pad_in else fft_size} * xform_number);
+            ##a[${j}] = ${input.load}(position + ${fft_size_real if pad_in else fft_size} * xform_number);
+            a[${j}] = ${input.load_combined_idx(input_slices)}(
+                xform_global, position_in_fft, position_in_inner_batch);
         %if pad_in:
             a[${j}] = ${mul}(a[${j}], xw);
         }
@@ -843,7 +855,9 @@ ${kernel_definition}
 
         %if takes_kweights:
         a[${j}] = ${mul}(a[${j}],
-            ${kweights.load}(position_in_fft + ${fft_size} * (1 - direction) / 2));
+            ##${kweights.load}(position_in_fft + ${fft_size} * (1 - direction) / 2)
+            ${kweights.load_idx}((1 - direction) / 2, position_in_fft)
+            );
         %endif
     }
     %endfor
@@ -942,13 +956,18 @@ ${kernel_definition}
         {
             const int position = stride_out_number * ${stride} + ${k * local_size} +
                 position_in_stride_out + thread_id;
-            %if unpad_out:
+            ##%if unpad_out:
             const int position_in_fft = position / ${inner_batch};
+            const int position_in_inner_batch = position % ${inner_batch};
+            %if unpad_out:
             const complex_t xw = xweight(-direction, position_in_fft);
             a[${k}] = ${mul}(a[${k}], xw);
             if (position_in_fft < ${fft_size_real})
             %endif
-                ${output.store}(position + ${fft_size_real if unpad_out else fft_size} * xform_number,
+                ##${output.store}(position + ${fft_size_real if unpad_out else fft_size} * xform_number,
+                ##    ${cdivs}(a[${k}], norm_coeff));
+                ${output.store_combined_idx(output_slices)}(
+                    xform_global, position_in_fft, position_in_inner_batch,
                     ${cdivs}(a[${k}], norm_coeff));
         }
         %endfor
@@ -964,13 +983,18 @@ ${kernel_definition}
                     xform_local * ${radix1 // radix2}) +
                 position_in_stride_out;
 
-            %if unpad_out:
+            ##%if unpad_out:
             const int position_in_fft = position / ${inner_batch};
+            const int position_in_inner_batch = position % ${inner_batch};
+            %if unpad_out:
             const complex_t xw = xweight(-direction, position_in_fft);
             a[${k}] = ${mul}(a[${k}], xw);
             if (position_in_fft < ${fft_size_real})
             %endif
-                ${output.store}(position + ${fft_size_real if unpad_out else fft_size} * xform_number,
+                ##${output.store}(position + ${fft_size_real if unpad_out else fft_size} * xform_number,
+                ##    ${cdivs}(a[${k}], norm_coeff));
+                ${output.store_combined_idx(output_slices)}(
+                    xform_global, position_in_fft, position_in_inner_batch,
                     ${cdivs}(a[${k}], norm_coeff));
         }
         %endfor

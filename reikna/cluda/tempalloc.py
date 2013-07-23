@@ -1,7 +1,6 @@
 import collections
 import weakref
 
-from reikna.helpers import AttrDict
 from reikna.helpers.sortedcollection import SortedCollection
 
 
@@ -39,12 +38,13 @@ class TemporaryManager:
         self._pack_on_alloc = pack_on_alloc
         self._pack_on_free = pack_on_free
 
-    def array(self, shape, dtype, dependencies=None):
+    def array(self, shape, dtype, strides=None, dependencies=None):
         """
         Returns a temporary array.
 
         :param shape: shape of the array.
         :param dtype: data type of the array.
+        :param strides: tuple of bytes to step in each dimension when traversing an array.
         :param dependencies: can be a :py:class:`~reikna.cluda.api.Array` instance
             (the ones containing persistent allocations will be ignored),
             an iterable with valid values,
@@ -61,7 +61,7 @@ class TemporaryManager:
         self._id_counter += 1
 
         allocator = DummyAllocator()
-        array = self._thr.array(shape, dtype, allocator=allocator)
+        array = self._thr.array(shape, dtype, strides=strides, allocator=allocator)
         array.__tempalloc_id__ = new_id
 
         dependencies = extract_dependencies(dependencies)
@@ -78,8 +78,8 @@ class TemporaryManager:
     def update_buffer(self, id):
         array = self._arrays[id]()
         buf = self._get_buffer(id)
-        if hasattr(array, 'data'):
-            array.data = buf
+        if hasattr(array, 'base_data'):
+            array.base_data = buf
         else:
             array.gpudata = buf
 
@@ -136,13 +136,18 @@ class ZeroOffsetManager(TemporaryManager):
     All virtual allocations start from the beginning of real allocations.
     """
 
+    VirtualAllocation = collections.namedtuple('VirtualAllocation', ['size', 'dependencies'])
+    RealAllocation = collections.namedtuple('RealAllocation', ['buffer', 'virtual_ids'])
+    RealSize = collections.namedtuple('RealSize', ['size', 'real_id'])
+    VirtualMapping = collections.namedtuple('VirtualMapping', ['real_id', 'sub_region'])
+
     def __init__(self, *args, **kwds):
         TemporaryManager.__init__(self, *args, **kwds)
 
-        self._virtual_allocations = {} # id -> (size, set(dependencies))
-        self._real_sizes = SortedCollection(key=lambda x: x.size) # (size, real_id), sorted by size
-        self._virtual_to_real = {} # id -> (real_id, sub_region)
-        self._real_allocations = {} # real_id -> (buffer, set(id))
+        self._virtual_allocations = {} # id -> VirtualAllocation
+        self._real_sizes = SortedCollection(key=lambda x: x.size) # RealSize objects, sorted by size
+        self._virtual_to_real = {} # id -> VirtualMapping
+        self._real_allocations = {} # real_id -> RealAllocation
         self._real_id_counter = 0
 
     def _allocate(self, new_id, size, dependencies, pack):
@@ -158,7 +163,7 @@ class ZeroOffsetManager(TemporaryManager):
                 dep_set.remove(dep)
 
         # Save virtual allocation parameters
-        self._virtual_allocations[new_id] = AttrDict(size=size, dependencies=dep_set)
+        self._virtual_allocations[new_id] = self.VirtualAllocation(size, dep_set)
 
         if pack:
             # If pack is requested, we can just do full re-pack right away.
@@ -193,22 +198,20 @@ class ZeroOffsetManager(TemporaryManager):
             real_id = self._real_id_counter
             self._real_id_counter += 1
 
-            self._real_allocations[real_id] = AttrDict(buffer=buf, virtual_ids=set([new_id]))
-            self._real_sizes.insert(AttrDict(size=size, real_id=real_id))
+            self._real_allocations[real_id] = self.RealAllocation(buf, set([new_id]))
+            self._real_sizes.insert(self.RealSize(size, real_id))
 
         # Here it would be more appropriate to use buffer.get_sub_region(0, size),
         # but OpenCL does not allow several overlapping subregions to be used in a single kernel
         # for both read and write, which ruins the whole idea.
         # So we are passing full buffers and hope that overlapping Array class takes care of sizes.
-        self._virtual_to_real[new_id] = AttrDict(
-            real_id=real_id,
-            sub_region=self._real_allocations[real_id].buffer)
+        self._virtual_to_real[new_id] = self.VirtualMapping(
+            real_id, self._real_allocations[real_id].buffer)
 
     def _get_buffer(self, id):
         return self._virtual_to_real[id].sub_region
 
     def _free(self, id, pack=False):
-
         # Remove the allocation from the dependency lists of its dependencies
         dep_set = self._virtual_allocations[id].dependencies
         for dep in dep_set:
@@ -230,7 +233,7 @@ class ZeroOffsetManager(TemporaryManager):
             ra.virtual_ids.remove(id)
             if len(ra.virtual_ids) == 0:
                 del self._real_allocations[vtr.real_id]
-                self._real_sizes.remove(AttrDict(size=ra.buffer.size, real_id=vtr.real_id))
+                self._real_sizes.remove(self.RealSize(ra.buffer.size, vtr.real_id))
 
     def _pack(self):
         """
@@ -251,17 +254,18 @@ class ZeroOffsetManager(TemporaryManager):
         va = self._virtual_allocations
 
         # Sort all virtual allocations by size
-        virtual_sizes = sorted([AttrDict(size=va[id].size, id=id)
-            for id in va], key=lambda x: x.size)
+        virtual_sizes = sorted(
+            [(va[id_].size, id_) for id_ in va],
+            key=lambda x: x[0])
 
         # Application of greedy algorithm for virtual allocations starting from the largest one
         # should give the optimal distribution.
-        for vs in reversed(virtual_sizes):
-            self._fast_add(vs.id, vs.size, self._virtual_allocations[vs.id].dependencies)
+        for size, id_ in reversed(virtual_sizes):
+            self._fast_add(id_, size, self._virtual_allocations[id_].dependencies)
 
     def _statistics(self):
 
-        stats = AttrDict(
+        stats = dict(
             virtual_size_total=0,
             virtual_num=0,
             real_size_total=0,
@@ -270,16 +274,16 @@ class ZeroOffsetManager(TemporaryManager):
             real_sizes=[])
 
         for id, va in self._virtual_allocations.items():
-            stats.virtual_size_total += va.size
-            stats.virtual_num += 1
-            stats.virtual_sizes.append(va.size)
+            stats['virtual_size_total'] += va.size
+            stats['virtual_num'] += 1
+            stats['virtual_sizes'].append(va.size)
 
         for id, ra in self._real_allocations.items():
-            stats.real_size_total += ra.buffer.size
-            stats.real_num += 1
-            stats.real_sizes.append(ra.buffer.size)
+            stats['real_size_total'] += ra.buffer.size
+            stats['real_num'] += 1
+            stats['real_sizes'].append(ra.buffer.size)
 
-        stats.virtual_sizes = sorted(stats.virtual_sizes)
-        stats.real_sizes = sorted(stats.real_sizes)
+        stats['virtual_sizes'] = sorted(stats.virtual_sizes)
+        stats['real_sizes'] = sorted(stats.real_sizes)
 
         return stats

@@ -141,15 +141,16 @@ def check_errors(thr, shape_and_axes):
     data_dev = thr.to_device(data)
     res_dev = thr.empty_like(data_dev)
 
-    fft = FFT(thr).prepare_for(res_dev, data_dev, None, axes=axes)
+    fft = FFT(data_dev, axes=axes)
+    fftc = fft.compile(thr)
 
     # forward transform
-    fft(res_dev, data_dev, -1)
+    fftc(res_dev, data_dev)
     fwd_ref = numpy.fft.fftn(data, axes=axes).astype(dtype)
     assert diff_is_negligible(res_dev.get(), fwd_ref)
 
     # inverse transform
-    fft(res_dev, data_dev, 1)
+    fftc(res_dev, data_dev, inverse=True)
     inv_ref = numpy.fft.ifftn(data, axes=axes).astype(dtype)
     assert diff_is_negligible(res_dev.get(), inv_ref)
 
@@ -168,11 +169,12 @@ def test_trivial(some_thr):
     data_dev = some_thr.to_device(data)
     res_dev = some_thr.empty_like(data_dev)
 
-    fft = FFT(some_thr)
-    fft.connect(scale_param(), 'input', ['input_prime'], ['param'])
-    fft.prepare_for(res_dev, data_dev, None, param, axes=axes)
+    fft = FFT(data_dev, axes=axes)
+    scale = scale_param(data_dev, numpy.int32)
+    fft.parameter.input.connect(scale, scale.output, input_prime=scale.input, coeff=scale.coeff)
 
-    fft(res_dev, data_dev, -1, param)
+    fftc = fft.compile(some_thr)
+    fftc(res_dev, data_dev, param)
     assert diff_is_negligible(res_dev.get(), data * param)
 
 
@@ -196,12 +198,13 @@ def check_performance(thr_and_double, shape_and_axes):
     data_dev = thr.to_device(data)
     res_dev = thr.empty_like(data_dev)
 
-    fft = FFT(thr).prepare_for(res_dev, data_dev, None, axes=axes)
+    fft = FFT(data_dev, axes=axes)
+    fftc = fft.compile(thr)
 
     attempts = 10
     t1 = time.time()
     for i in range(attempts):
-        fft(res_dev, data_dev, -1)
+        fft(res_dev, data_dev)
     thr.synchronize()
     t2 = time.time()
     dev_time = (t2 - t1) / attempts

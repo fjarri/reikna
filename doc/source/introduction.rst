@@ -122,7 +122,7 @@ Computations
 Now it's time for the main part of the functionality.
 ``reikna`` provides GPGPU algorithms in the form of :py:class:`~reikna.core.Computation`-based cores and :py:class:`~reikna.core.Transformation`-based plug-ins.
 Computations contain the algorithm itself; examples are matrix multiplication, reduction, sorting and so on.
-Transformations are elementwise operations on inputs or outputs of computations, used for scaling, typecast and other auxiliary purposes.
+Transformations are parallel operations on inputs or outputs of computations, used for scaling, typecast and other auxiliary purposes.
 Transformations are compiled into the main computation kernel and are therefore quite cheap in terms of performance.
 
 As an example, we will consider the matrix multiplication.
@@ -146,8 +146,9 @@ As an example, we will consider the matrix multiplication.
     b_dev = thr.to_device(b)
     res_dev = thr.array((shape1[0], shape2[1]), dtype=numpy.float32)
 
-    dot = MatrixMul(thr).prepare_for(res_dev, a_dev, b_dev)
-    dot(res_dev, a_dev, b_dev)
+    dot = MatrixMul(a_dev, b_dev, out_arr=res_dev)
+    dotc = dot.compile(thr)
+    dotc(res_dev, a_dev, b_dev)
 
     res_reference = numpy.dot(a, b)
 
@@ -159,24 +160,16 @@ As an example, we will consider the matrix multiplication.
     True
 
 Most of the code above should be already familiar, with the exception of the creation of :py:class:`~reikna.matrixmul.MatrixMul` object.
-As any other class derived from :py:class:`~reikna.core.Computation`, it requires a :py:class:`~reikna.cluda.api.Thread` as a constructor argument.
-The thread serves as a source of data about the target API and device, and provides an execution queue.
-
-Before usage the object has to be prepared.
-It does not happen in the constructor, since the transformations may be connected after that, and they would invalidate previous preparation.
-The preparation consists of passing to the :py:meth:`~reikna.core.Computation.prepare_for` array and scalar arguments we will use to call the computation (or stub :py:class:`~reikna.core.ArrayValue` and :py:class:`~reikna.core.ScalarValue` objects, if real arrays are not available at preparation time), along with some optional keyword arguments.
-The list of required positional and keyword arguments for any computation is specified in its documentation; for :py:class:`~reikna.matrixmul.MatrixMul` it is :py:class:`MatrixMul.prepare_for() <reikna.matrixmul.MatrixMul.prepare_for>`.
-
-From the documentation we know that we need three array parameters, and we ask :py:class:`~reikna.matrixmul.MatrixMul` to prepare itself to handle arrays ``res_dev``, ``a_dev`` and ``b_dev`` when they are passed to it.
-
-After the preparation we can use the object as a callable, passing it arrays and scalars with the same data types and shapes we used to prepare the computation.
+The computation constructor takes two array-like objects, representing arrays that will participate in the computation.
+After that the computation object has to be compiled.
+The :py:meth:`~reikna.core.Computation.compile` method requires a :py:class:`~reikna.cluda.api.Thread` object, which serves as a source of data about the target API and device, and provides an execution queue.
 
 
 Transformations
 ===============
 
 Now imagine that you want to multiply complex matrices, but real and imaginary parts of your data are kept in separate arrays.
-You could create elementwise kernels that would join your data into arrays of complex values, but this would require additional storage and additional calls to GPU.
+You could create additional kernels that would join your data into arrays of complex values, but this would require additional storage and additional calls to GPU.
 Transformation API allows you to connect these transformations to the core computation --- matrix multiplication --- effectively adding the code into the main computation kernel and changing its signature.
 
 Let us change the previous example and connect transformations to it.
@@ -186,6 +179,7 @@ Let us change the previous example and connect transformations to it.
     import numpy
     from numpy.linalg import norm
     import reikna.cluda as cluda
+    from reikna.core import Type
     from reikna.matrixmul import MatrixMul
     from reikna.transformations import combine_complex
 
@@ -199,16 +193,26 @@ Let us change the previous example and connect transformations to it.
     a_im = numpy.random.randn(*shape1).astype(numpy.float32)
     b_re = numpy.random.randn(*shape2).astype(numpy.float32)
     b_im = numpy.random.randn(*shape2).astype(numpy.float32)
-    a_re_dev, a_im_dev, b_re_dev, b_im_dev = [thr.to_device(x) for x in [a_re, a_im, b_re, b_im]]
 
+    arrays = [thr.to_device(x) for x in [a_re, a_im, b_re, b_im]]
+    a_re_dev, a_im_dev, b_re_dev, b_im_dev = arrays
+
+    a_type = Type(numpy.complex64, shape=shape1)
+    b_type = Type(numpy.complex64, shape=shape2)
     res_dev = thr.array((shape1[0], shape2[1]), dtype=numpy.complex64)
 
-    dot = MatrixMul(thr)
-    dot.connect(combine_complex(), 'a', ['a_re', 'a_im'])
-    dot.connect(combine_complex(), 'b', ['b_re', 'b_im'])
-    dot.prepare_for(res_dev, a_re_dev, a_im_dev, b_re_dev, b_im_dev)
+    dot = MatrixMul(a_type, b_type, out_arr=res_dev)
+    combine_a = combine_complex(a_type)
+    combine_b = combine_complex(b_type)
 
-    dot(res_dev, a_re_dev, a_im_dev, b_re_dev, b_im_dev)
+    dot.parameter.a.connect(
+        combine_a, combine_a.output, a_re=combine_a.real, a_im=combine_a.imag)
+    dot.parameter.b.connect(
+        combine_b, combine_b.output, b_re=combine_b.real, b_im=combine_b.imag)
+
+    dotc = dot.compile(thr)
+
+    dotc(res_dev, a_re_dev, a_im_dev, b_re_dev, b_im_dev)
 
     res_reference = numpy.dot(a_re + 1j * a_im, b_re + 1j * b_im)
 
@@ -222,7 +226,7 @@ Let us change the previous example and connect transformations to it.
 We have used a pre-created transformation :py:func:`~reikna.transformations.combine_complex` from :py:mod:`reikna.transformations` for simplicity; developing a custom transformation is also possible and described in :ref:`tutorial-advanced-transformation`.
 From the documentation we know that it transforms two inputs into one output; therefore we need to attach it to one of the inputs of ``dot`` (identified by its name), and provide names for two new inputs.
 
-Names to attach to are obtained from the documentation for the particular computation. By convention they are the same as the names of positional arguments to :py:meth:`~reikna.core.Computation.prepare_for`; for :py:class:`~reikna.matrixmul.MatrixMul` these are ``out``, ``a`` and ``b``.
+Names to attach to are obtained from the documentation for the particular computation; for :py:class:`~reikna.matrixmul.MatrixMul` these are ``out``, ``a`` and ``b``.
 
 In the current example we have attached the transformations to both inputs.
-Note that ``prepare_for`` has a new signature now, and the resulting ``dot`` object now works with split complex numbers.
+Note that the computation has a new signature now, and the compiled ``dot`` object now works with split complex numbers.

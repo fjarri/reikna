@@ -1,7 +1,7 @@
 import sys
 major, minor, _, _, _ = sys.version_info
-if not ((major == 2 and minor >= 5) or major >= 3):
-    print("Python >=2.5 is required to use this module.")
+if not ((major == 2 and minor >= 6) or (major == 3 and minor >= 2)):
+    print("Python >=2.6 or >=3.2 is required to use this module.")
     sys.exit(1)
 
 try:
@@ -89,7 +89,7 @@ if not release:
     version = full_version
     '''
 
-    VERSION = (0, 2, 4)
+    VERSION = (0, 3, 0)
     RELEASED = True
 
     version_str = '%d.%d.%d' % VERSION
@@ -130,7 +130,8 @@ if __name__ == '__main__':
     # seuptool's ``install_requires`` and distutil's ``requires`` have slightly different format
     dependencies = [
         ('mako', '>= 0.8.0'),
-        ('numpy', '>= 1.6.0')]
+        ('numpy', '>= 1.6.0'),
+        ('funcsigs', '>= 0.3')]
     requires = list(map(lambda nr: nr[0] + '(' + nr[1] + ')', dependencies))
     install_requires = list(map(lambda nr: nr[0] + ' ' + nr[1], dependencies))
 
@@ -140,8 +141,11 @@ if __name__ == '__main__':
         provides=['reikna'],
         requires=requires,
         install_requires=install_requires,
+        extras_require=dict(
+            pyopencl=["pyopencl>=2013.1"],
+            pycuda=["pycuda>=2013.2"],
+            test=["pytest>=2.3", "pytest-cov"]),
         package_data={'reikna': ['*.mako'],
-                      'reikna/core': ['*.mako'],
                       'reikna/cluda': ['*.mako']},
         version=VERSION_STR,
         author='Bogdan Opanchuk',

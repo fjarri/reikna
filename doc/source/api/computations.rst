@@ -2,10 +2,10 @@ Computations
 ============
 
 
-Elementwise computations
-------------------------
+Pure parallel computations
+--------------------------
 
-.. automodule:: reikna.elementwise
+.. automodule:: reikna.pureparallel
     :members:
 
 
