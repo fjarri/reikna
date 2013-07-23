@@ -163,9 +163,6 @@ class Computation:
         else:
             raise TypeError("Unknown type of the connection target: " + repr(_param))
 
-        if param_name not in self.signature.parameters:
-            raise ValueError("Parameter " + param_name + " is not a part of the signature.")
-
         # Extract transformation parameters names
         param_connections[param_name] = _tr_param
         processed_connections = {}
