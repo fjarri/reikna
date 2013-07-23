@@ -365,7 +365,7 @@ def test_wrong_data_path():
 
     # Also we cannot make one of the transformation outputs an existing output parameter
     with pytest.raises(ValueError):
-        d.parameter.C_in.connect(identity, identity.i1, D_out=identity.o1)
+        d.parameter.C.connect(identity, identity.i1, D_out=identity.o1)
 
     # Output of C is still available though
     d.parameter.C.connect(identity, identity.i1, C_out=identity.o1)
