@@ -353,13 +353,6 @@ class TransformationTree:
         param = Parameter(ntr.connector_node_name, annotation)
         cnames = index_cnames(param)
 
-        if ntr.output:
-            connector_def = node_output_connector
-            transformation_def = node_output_transformation
-        else:
-            connector_def = node_input_connector
-            transformation_def = node_input_transformation
-
         tr_args = [cnames]
         connection_names = []
         for tr_param in ntr.tr.signature.parameters.values():
@@ -368,11 +361,11 @@ class TransformationTree:
 
             if connection_name == ntr.connector_node_name:
                 if ntr.output:
-                    load_same = connector_def()
+                    load_same = node_connector(ntr.output)
                     tr_args.append(KernelParameter(
                         param.name, param.annotation.type, load_same=load_same))
                 else:
-                    store_same = connector_def()
+                    store_same = node_connector(ntr.output)
                     tr_args.append(KernelParameter(
                         param.name, param.annotation.type, store_same=store_same))
             else:
@@ -380,7 +373,7 @@ class TransformationTree:
 
         subtree_params = self.get_leaf_parameters([ntr.connector_node_name])
 
-        return transformation_def(param, subtree_params, ntr.tr.snippet, tr_args)
+        return module_transformation(ntr.output, param, subtree_params, ntr.tr.snippet, tr_args)
 
     def _get_argobject(self, name, annotation, base=False):
         # Takes a base argument name and returns the corresponding Argument object
@@ -401,30 +394,34 @@ class TransformationTree:
         store_combined_idx = None
 
         if annotation.input:
+            output = False
+
             if node.input_ntr is None:
-                load_idx = leaf_input_macro(param)
+                load_idx = module_leaf_macro(output, param)
             else:
                 load_idx = self._get_transformation_module(annotation, node.input_ntr)
 
             subtree_params = self.get_leaf_parameters([name])
 
             if not base:
-                load_same = node_input_same_indices(param, subtree_params, load_idx)
+                load_same = module_same_indices(output, param, subtree_params, load_idx)
 
-            load_combined_idx = node_input_combined(param, subtree_params, load_idx)
+            load_combined_idx = module_combined(output, param, subtree_params, load_idx)
 
         if annotation.output:
+            output = True
+
             if node.output_ntr is None:
-                store_idx = leaf_output_macro(param)
+                store_idx = module_leaf_macro(output, param)
             else:
                 store_idx = self._get_transformation_module(annotation, node.output_ntr)
 
             subtree_params = self.get_leaf_parameters([name])
 
             if not base:
-                store_same = node_output_same_indices(param, subtree_params, store_idx)
+                store_same = module_same_indices(output, param, subtree_params, store_idx)
 
-            store_combined_idx = node_output_combined(param, subtree_params, store_idx)
+            store_combined_idx = module_combined(output, param, subtree_params, store_idx)
 
         return KernelParameter(
             param.name, param.annotation.type,
