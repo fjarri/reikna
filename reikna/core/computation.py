@@ -362,8 +362,9 @@ class ComputationPlan:
 
             if not annotation.can_be_argument_for(param.annotation):
                 raise TypeError(
-                    "Got " + str(annotation) + " for '" + param.name + "', " +
-                    "expected " + str(param.annotation))
+                    "Got {annotation} for '{name}', expected {param_annotation}".format(
+                        annotation=annotation, name=param.name,
+                        param_annotation=param.annotation))
 
             args.append(arg)
 
