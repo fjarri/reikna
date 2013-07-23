@@ -311,10 +311,10 @@ def test_wrong_connector():
     with pytest.raises(ValueError):
         d.connect('AA', trivial, trivial.o1, A_pp=trivial.i1)
 
-    # Such node exists, but it is not a part of the signature
+    # Node 'A' exists, but it is not a part of the signature
     # (hidden by previously connected transformation).
     with pytest.raises(ValueError):
-        d.connect('A', trivial, trivial.o1, A_pp=trivial.i1)
+        d.connect('B', trivial, trivial.o1, A=trivial.i1)
 
 
 def test_wrong_data_path():
