@@ -234,3 +234,64 @@ def test_nested_same_shape(thr):
     assert diff_is_negligible(C_new_half1_dev.get(), C_new_half1)
     assert diff_is_negligible(C_half2_dev.get(), C_half2)
     assert diff_is_negligible(D_prime_dev.get(), D_prime)
+
+
+def test_strings_as_parameters():
+    """
+    Check that one can connect transformations using strings as identifiers
+    for computation and transformation parameters.
+    """
+
+    N = 200
+    coeff_dtype = numpy.float32
+    arr_type = Type(numpy.complex64, (N, N))
+
+    d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
+    trivial = tr_trivial(d.parameter.A)
+
+    d.connect('A', trivial, 'o1', A_prime='i1')
+
+    assert list(d.signature.parameters.values()) == [
+        Parameter('C', Annotation(arr_type, 'o')),
+        Parameter('D', Annotation(arr_type, 'o')),
+        Parameter('A_prime', Annotation(arr_type, 'i')),
+        Parameter('B', Annotation(arr_type, 'i')),
+        Parameter('coeff', Annotation(coeff_dtype))]
+
+
+def test_alien_parameters():
+    """
+    Check that one cannot connect transformations using parameter objects from
+    other transformation/computation.
+    """
+
+    N = 200
+    coeff_dtype = numpy.float32
+    arr_type = Type(numpy.complex64, (N, N))
+
+    d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
+    d2 = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
+    trivial = tr_trivial(d.parameter.A)
+    trivial2 = tr_trivial(d.parameter.A)
+
+    with pytest.raises(ValueError):
+        d.connect(d2.parameter.A, trivial, 'o1', A_prime='i1')
+
+    with pytest.raises(ValueError):
+        d.connect(d.parameter.A, trivial, trivial2.o1, A_prime='i1')
+
+    with pytest.raises(ValueError):
+        d.parameter.A.connect(trivial, trivial.o1, A_prime=trivial2.i1)
+
+
+def test_connector_repetition():
+
+    N = 200
+    coeff_dtype = numpy.float32
+    arr_type = Type(numpy.complex64, (N, N))
+
+    d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
+    trivial = tr_trivial(d.parameter.A)
+
+    with pytest.raises(ValueError):
+        d.parameter.A.connect(trivial, trivial.o1, A=trivial.o1, A_prime=trivial.i1)
