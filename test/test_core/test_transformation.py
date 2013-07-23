@@ -398,3 +398,47 @@ def test_wrong_transformation_parameters():
     # ``identity`` does not have ``i2`` parameter
     with pytest.raises(ValueError):
         d.parameter.A.connect(identity, identity.o1, A_prime=identity.i1, A2='i2')
+
+
+def test_io_merge(some_thr):
+    """
+    Check that one can end input and output transformation in the same node
+    thus making its role 'io'.
+    """
+
+    N = 200
+    coeff1 = 3
+    coeff2 = 4
+    scale_in = 0.5
+    scale_out = 0.3
+    arr_type = Type(numpy.complex64, (N, N))
+    coeff_dtype = numpy.float32
+
+    C = get_test_array_like(arr_type)
+    D = get_test_array_like(arr_type)
+    C_dev = some_thr.to_device(C)
+    D_dev = some_thr.to_device(D)
+
+    d = DummyAdvanced(C, coeff_dtype)
+    scale = tr_scale(d.parameter.C, d.parameter.coeff1.dtype)
+    d.parameter.C.connect(scale, scale.o1, C_prime=scale.i1, scale_in=scale.s1)
+    d.parameter.C.connect(scale, scale.i1, C_prime=scale.o1, scale_out=scale.s1)
+    assert list(d.signature.parameters.values()) == [
+        Parameter('C_prime', Annotation(arr_type, 'io')),
+        Parameter('scale_out', Annotation(coeff_dtype)),
+        Parameter('scale_in', Annotation(coeff_dtype)),
+        Parameter('D', Annotation(arr_type, 'io')),
+        Parameter('coeff1', Annotation(coeff_dtype)),
+        Parameter('coeff2', Annotation(coeff_dtype))]
+
+    dc = d.compile(some_thr)
+    dc(C_dev, scale_out, scale_in, D_dev, coeff1, coeff2)
+
+    C_ref, D_ref = mock_dummy_advanced(C * scale_in, D, coeff1, coeff2)
+    C_ref *= scale_out
+
+    C = C_dev.get()
+    D = D_dev.get()
+
+    assert diff_is_negligible(C, C_ref)
+    assert diff_is_negligible(D, D_ref)

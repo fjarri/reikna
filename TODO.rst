@@ -1,12 +1,8 @@
 0.3.0 (Core API change)
 ========================
 
-* FEATURE (core): allow "joining" new input and output parameters of two transformations into one "io" parameter.
-  This will help conserve the "io" property by connecting one actual transformation and one identity.
 * FIX (core): clean up core code, add comments
 * DOC: clean up docs.
-* TEST (core): write tests for different incorrect usage cases
-* FIX (core): prohibit output other than to the connector in input transformations
 
 0.3.1
 =====

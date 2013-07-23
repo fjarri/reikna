@@ -238,7 +238,7 @@ class TransformationTree:
             else:
                 if node_name in self.leaf_annotations and self.leaf_annotations[node_name].array:
                     ann = self.leaf_annotations[node_name]
-                    if (ann.input and ntr.output) or (ann.output and ntr.input):
+                    if (ann.input and ntr.output) or (ann.output and not ntr.output):
                     # joining 'i' and 'o' paths into an 'io' leaf
                         self.leaf_annotations[node_name] = Annotation(ann.type, role='io')
                 else:
@@ -301,7 +301,15 @@ class TransformationTree:
         for ntr in other_tree.connections():
             if translator is not None:
                 ntr = ntr.translate_node_names(translator)
-            if ntr.connector_node_name in self.nodes:
+
+            if ntr.connector_node_name not in self.leaf_annotations:
+                continue
+
+            # In the nested tree this particular node may only use one data path
+            # (input or output), despite it being 'io' in the parent tree.
+            # Thus we only need to reconnect the transformation if such data path exists.
+            ann = self.leaf_annotations[ntr.connector_node_name]
+            if (ntr.output and ann.output) or (not ntr.output and ann.input):
                 self._connect(ntr)
 
     def connections(self):
