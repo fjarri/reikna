@@ -4,7 +4,6 @@
 * FEATURE (core): allow "joining" new input and output parameters of two transformations into one "io" parameter.
   This will help conserve the "io" property by connecting one actual transformation and one identity.
 * FIX (core): clean up core code, add comments
-* FIX (core): rewrite all internal classes using ``collections.namedtuple`` factory to force their immutability.
 * DOC: clean up docs.
 * TEST (core): write tests for different incorrect usage cases
 * FIX (core): prohibit output other than to the connector in input transformations
@@ -56,6 +55,9 @@
 1.0.0 (production-quality version... hopefully)
 ===============================================
 
+* ?FEATURE (core): add ability to connect several transformation parameters to one node.
+  Currently it is impossible because of the chosen interface (kwds do not allow repettitions).
+  This can be actually still achieved by connecting additional identity transformations.
 * FEATURE (docs): extend starting page (link to issue tracker, quick links to guides, list of algorithms, quick example)
 * ?FIX (cluda): does the forceful enabling of double precision in OpenCL somehow change the performance for single precision?
 * ?FIX (cluda): Is there a way to get number of shared memory banks and warp size from AMD device?
