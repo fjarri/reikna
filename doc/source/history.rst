@@ -3,8 +3,14 @@ Release history
 ***************
 
 
-0.3.0 (current development version)
+0.3.1 (current development version)
 ===================================
+
+Under construction.
+
+
+0.3.0 (23 Jul 2013)
+===================
 
 Major core API change:
 
