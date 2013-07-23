@@ -226,8 +226,7 @@ def test_nested_same_shape(thr):
 
     A = A_prime
     B = A_prime * B_param + B_new_prime
-    C, D = mock_dummy(A, B, coeff)
-    C, D = mock_dummy(C, D, second_coeff)
+    C, D = mock_dummy_nested(A, B, coeff, second_coeff)
     C_new_half1 = C / 2
     C_half2 = C / 2
     D_prime = D * D_param

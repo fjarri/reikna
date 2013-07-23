@@ -170,3 +170,8 @@ class DummyNested(Computation):
         plan.computation_call(nested, C, D, C_temp, D_temp, self._second_coeff)
 
         return plan
+
+
+def mock_dummy_nested(a, b, coeff, second_coeff):
+    c, d = mock_dummy(a, b, coeff)
+    return mock_dummy(c, d, second_coeff)

@@ -45,8 +45,7 @@ def test_nested_dummy(thr):
     C = C_dev.get()
     D = D_dev.get()
 
-    C_ref, D_ref = mock_dummy(A, B, coeff)
-    C_ref, D_ref = mock_dummy(C_ref, D_ref, second_coeff)
+    C_ref, D_ref = mock_dummy_nested(A, B, coeff, second_coeff)
 
     assert diff_is_negligible(C, C_ref)
     assert diff_is_negligible(D, D_ref)
