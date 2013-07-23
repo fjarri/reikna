@@ -1,7 +1,6 @@
 0.3.0 (Core API change)
 ========================
 
-* FIX (core): clean up core code, add comments
 * DOC: clean up docs.
 
 0.3.1

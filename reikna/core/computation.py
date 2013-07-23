@@ -385,7 +385,7 @@ class ComputationPlan:
 
         kernel_name = '_kernel_func'
         kernel_definition, kernel_leaf_names = subtree.get_kernel_definition(kernel_name)
-        kernel_argobjects = subtree.get_argobjects()
+        kernel_argobjects = subtree.get_kernel_argobjects()
 
         if render_kwds is None:
             render_kwds = {}

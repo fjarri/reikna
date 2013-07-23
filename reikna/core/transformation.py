@@ -369,62 +369,51 @@ class TransformationTree:
                     tr_args.append(KernelParameter(
                         param.name, param.annotation.type, store_same=store_same))
             else:
-                tr_args.append(self._get_argobject(connection_name, tr_param.annotation))
+                tr_args.append(self._get_kernel_argobject(connection_name, tr_param.annotation))
 
         subtree_params = self.get_leaf_parameters([ntr.connector_node_name])
 
         return module_transformation(ntr.output, param, subtree_params, ntr.tr.snippet, tr_args)
 
-    def _get_argobject(self, name, annotation, base=False):
+    def _get_connection_modules(self, output, name, annotation, base=False):
+
+        node = self.nodes[name]
+        param = Parameter(name, annotation)
+        ntr = node.output_ntr if output else node.input_ntr
+
+        m_idx = None
+        m_same = None
+        m_combined = None
+
+        if ntr is None:
+            m_idx = module_leaf_macro(output, param)
+        else:
+            m_idx = self._get_transformation_module(annotation, ntr)
+
+        subtree_params = self.get_leaf_parameters([name])
+
+        if not base:
+            m_same = module_same_indices(output, param, subtree_params, m_idx)
+
+        m_combined = module_combined(output, param, subtree_params, m_idx)
+
+        return m_idx, m_same, m_combined
+
+    def _get_kernel_argobject(self, name, annotation, base=False):
         # Takes a base argument name and returns the corresponding Argument object
         # which can be passed to the main kernel.
         # If the name is not in base, it is treated as a leaf.
 
-        node = self.nodes[name]
-        param = Parameter(name, annotation)
-
         if not annotation.array:
-            return KernelParameter(param.name, param.annotation.type)
+            return KernelParameter(name, annotation.type)
 
-        load_idx = None
-        store_idx = None
-        load_same = None
-        store_same = None
-        load_combined_idx = None
-        store_combined_idx = None
-
-        if annotation.input:
-            output = False
-
-            if node.input_ntr is None:
-                load_idx = module_leaf_macro(output, param)
-            else:
-                load_idx = self._get_transformation_module(annotation, node.input_ntr)
-
-            subtree_params = self.get_leaf_parameters([name])
-
-            if not base:
-                load_same = module_same_indices(output, param, subtree_params, load_idx)
-
-            load_combined_idx = module_combined(output, param, subtree_params, load_idx)
-
-        if annotation.output:
-            output = True
-
-            if node.output_ntr is None:
-                store_idx = module_leaf_macro(output, param)
-            else:
-                store_idx = self._get_transformation_module(annotation, node.output_ntr)
-
-            subtree_params = self.get_leaf_parameters([name])
-
-            if not base:
-                store_same = module_same_indices(output, param, subtree_params, store_idx)
-
-            store_combined_idx = module_combined(output, param, subtree_params, store_idx)
+        load_idx, load_same, load_combined_idx = self._get_connection_modules(
+            False, name, annotation, base=base)
+        store_idx, store_same, store_combined_idx = self._get_connection_modules(
+            True, name, annotation, base=base)
 
         return KernelParameter(
-            param.name, param.annotation.type,
+            name, annotation.type,
             load_idx=load_idx,
             store_idx=store_idx,
             load_same=load_same,
@@ -432,9 +421,9 @@ class TransformationTree:
             load_combined_idx=load_combined_idx,
             store_combined_idx=store_combined_idx)
 
-    def get_argobjects(self):
+    def get_kernel_argobjects(self):
         return [
-            self._get_argobject(name, self.root_annotations[name], base=True)
+            self._get_kernel_argobject(name, self.root_annotations[name], base=True)
             for name in self.root_names]
 
 
