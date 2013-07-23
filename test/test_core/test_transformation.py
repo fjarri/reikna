@@ -317,6 +317,20 @@ def test_wrong_connector():
         d.connect('B', trivial, trivial.o1, A=trivial.i1)
 
 
+def test_type_mismatch():
+    """Check that the error is thrown if the connection is made to an wrong type."""
+
+    N = 200
+    coeff_dtype = numpy.float32
+    arr_type = Type(numpy.complex64, (N, N))
+
+    d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
+    trivial = tr_trivial(Type(numpy.complex64, (N, N + 1)))
+
+    with pytest.raises(ValueError):
+        d.connect('A', trivial, trivial.o1, A_prime=trivial.i1)
+
+
 def test_wrong_data_path():
     """
     Check that the error is thrown if the connector is a part of the signature,
@@ -332,10 +346,12 @@ def test_wrong_data_path():
     trivial = tr_trivial(d.parameter.C)
 
     d.parameter.C.connect(trivial, trivial.o1, C_in=trivial.i1)
+    d.parameter.D.connect(trivial, trivial.i1, D_out=trivial.o1)
     assert list(d.signature.parameters.values()) == [
         Parameter('C', Annotation(arr_type, 'o')),
         Parameter('C_in', Annotation(arr_type, 'i')),
-        Parameter('D', Annotation(arr_type, 'io')),
+        Parameter('D_out', Annotation(arr_type, 'o')),
+        Parameter('D', Annotation(arr_type, 'i')),
         Parameter('coeff1', Annotation(coeff_dtype)),
         Parameter('coeff2', Annotation(coeff_dtype))]
 
@@ -343,12 +359,21 @@ def test_wrong_data_path():
     with pytest.raises(ValueError):
         d.parameter.C.connect(trivial, trivial.o1, C_in_prime=trivial.i1)
 
-    # Output is still available though
+    # Same goes for D
+    with pytest.raises(ValueError):
+        d.parameter.D.connect(trivial, trivial.i1, D_out_prime=trivial.o1)
+
+    # Also we cannot make one of the transformation outputs an existing output parameter
+    with pytest.raises(ValueError):
+        d.parameter.C_in.connect(trivial, trivial.i1, D_out=trivial.o1)
+
+    # Output of C is still available though
     d.parameter.C.connect(trivial, trivial.i1, C_out=trivial.o1)
     assert list(d.signature.parameters.values()) == [
         Parameter('C_out', Annotation(arr_type, 'o')),
         Parameter('C_in', Annotation(arr_type, 'i')),
-        Parameter('D', Annotation(arr_type, 'io')),
+        Parameter('D_out', Annotation(arr_type, 'o')),
+        Parameter('D', Annotation(arr_type, 'i')),
         Parameter('coeff1', Annotation(coeff_dtype)),
         Parameter('coeff2', Annotation(coeff_dtype))]
 
