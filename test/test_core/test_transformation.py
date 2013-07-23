@@ -47,16 +47,6 @@ def tr_1_to_2(arr):
         render_kwds=dict(
             mul=functions.mul(arr.dtype, numpy.float32)))
 
-# Output = Input * Parameter
-def tr_scale(arr, coeff):
-    return Transformation(
-        [Parameter('o1', Annotation(arr, 'o')),
-        Parameter('i1', Annotation(arr, 'i')),
-        Parameter('s1', Annotation(coeff.dtype))],
-        "${o1.store_same}(${mul}(${i1.load_same}, ${s1}));",
-        render_kwds=dict(
-            mul=functions.mul(arr.dtype, coeff.dtype, out_dtype=arr.dtype)))
-
 
 def test_io_parameter_in_transformation():
     with pytest.raises(ValueError):
@@ -84,7 +74,7 @@ def test_signature_correctness():
     trivial = tr_trivial(d.parameter.A)
     join = tr_2_to_1(d.parameter.A, d.parameter.coeff)
     split = tr_1_to_2(d.parameter.A)
-    scale = tr_scale(d.parameter.A, d.parameter.coeff)
+    scale = tr_scale(d.parameter.A, d.parameter.coeff.dtype)
 
     # Connect some transformations
     d.parameter.A.connect(trivial, trivial.o1, A_prime=trivial.i1)
@@ -120,7 +110,7 @@ def test_same_shape(thr):
     trivial = tr_trivial(d.parameter.A)
     join = tr_2_to_1(d.parameter.A, d.parameter.coeff)
     split = tr_1_to_2(d.parameter.A)
-    scale = tr_scale(d.parameter.A, d.parameter.coeff)
+    scale = tr_scale(d.parameter.A, d.parameter.coeff.dtype)
 
     d.parameter.A.connect(trivial, trivial.o1, A_prime=trivial.i1)
     d.parameter.B.connect(join, join.o1, A_prime=join.i1, B_prime=join.i2, B_param=join.s1)
@@ -168,7 +158,7 @@ def test_connection_to_base(thr):
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
 
     trivial = tr_trivial(d.parameter.A)
-    scale = tr_scale(d.parameter.A, d.parameter.coeff)
+    scale = tr_scale(d.parameter.A, d.parameter.coeff.dtype)
 
     # connect to the base array argument (effectively making B the same as A)
     d.parameter.A.connect(trivial, trivial.o1, B=trivial.i1)
@@ -206,7 +196,7 @@ def test_nested_same_shape(thr):
     trivial = tr_trivial(d.parameter.A)
     join = tr_2_to_1(d.parameter.A, d.parameter.coeff)
     split = tr_1_to_2(d.parameter.A)
-    scale = tr_scale(d.parameter.A, d.parameter.coeff)
+    scale = tr_scale(d.parameter.A, d.parameter.coeff.dtype)
 
     d.parameter.A.connect(trivial, trivial.o1, A_prime=trivial.i1)
     d.parameter.B.connect(join, join.o1, A_prime=join.i1, B_prime=join.i2, B_param=join.s1)

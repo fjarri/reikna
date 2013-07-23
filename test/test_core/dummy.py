@@ -2,7 +2,18 @@ import numpy
 
 from reikna.helpers import template_from, min_blocks
 import reikna.cluda.functions as functions
-from reikna.core import Computation, Parameter, Annotation
+from reikna.core import Computation, Parameter, Annotation, Transformation
+
+
+# Output = Input * Parameter
+def tr_scale(arr, coeff_t):
+    return Transformation(
+        [Parameter('o1', Annotation(arr, 'o')),
+        Parameter('i1', Annotation(arr, 'i')),
+        Parameter('s1', Annotation(coeff_t))],
+        "${o1.store_same}(${mul}(${i1.load_same}, ${s1}));",
+        render_kwds=dict(
+            mul=functions.mul(arr.dtype, coeff_t, out_dtype=arr.dtype)))
 
 
 class Dummy(Computation):
@@ -158,6 +169,9 @@ class DummyNested(Computation):
         plan = plan_factory()
         nested = Dummy(A, B, coeff, same_A_B=self._same_A_B)
 
+        scale = tr_scale(A, numpy.float32)
+        nested.parameter.A.connect(scale, scale.o1, A_prime=scale.i1, scale_coeff=scale.s1)
+
         C_temp = plan.temp_array_like(C)
         D_temp = plan.temp_array_like(D)
 
@@ -166,15 +180,15 @@ class DummyNested(Computation):
             (numpy.empty_like(C_temp) if self._test_computation_adhoc_array else C_temp),
             (B if self._test_computation_incorrect_role else D_temp),
             (B if self._test_computation_incorrect_type else A),
-            B, coeff)
-        plan.computation_call(nested, C, D, C_temp, D_temp, self._second_coeff)
+            0.4, B, coeff)
+        plan.computation_call(nested, C, D, C_temp, 0.4, D_temp, self._second_coeff)
 
         return plan
 
 
 def mock_dummy_nested(a, b, coeff, second_coeff):
-    c, d = mock_dummy(a, b, coeff)
-    return mock_dummy(c, d, second_coeff)
+    c, d = mock_dummy(0.4 * a, b, coeff)
+    return mock_dummy(0.4 * c, d, second_coeff)
 
 
 class DummyAdvanced(Computation):
