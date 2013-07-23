@@ -177,7 +177,7 @@ def module_combined(output, param, subtree_params, module_idx):
             ${q_params},
             ${q_combined_indices}
             %if output:
-            , ${connector_ctype} ${VALUE_NAME})
+            , ${connector_ctype} ${VALUE_NAME}
             %endif
             )
         {
