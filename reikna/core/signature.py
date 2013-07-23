@@ -66,7 +66,7 @@ class Type:
 
     def __repr__(self):
         if len(self.shape) > 0:
-            return "Type({dtype}, shape={shape}, stides={strides})".format(
+            return "Type({dtype}, shape={shape}, strides={strides})".format(
                 dtype=self.dtype, shape=self.shape, strides=self.strides)
         else:
             return "Type({dtype})".format(dtype=self.dtype)

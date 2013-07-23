@@ -79,9 +79,9 @@ The computation signature is:
 
     >>> for param in comp.signature.parameters.values():
     ...     print(param.name + ":" + repr(param.annotation))
-    out:Annotation(Type(complex64, shape=(128,), stides=(8,)), role='o')
-    in1:Annotation(Type(complex64, shape=(128,), stides=(8,)), role='i')
-    in2:Annotation(Type(complex64, shape=(128,), stides=(8,)), role='i')
+    out:Annotation(Type(complex64, shape=(128,), strides=(8,)), role='o')
+    in1:Annotation(Type(complex64, shape=(128,), strides=(8,)), role='i')
+    in2:Annotation(Type(complex64, shape=(128,), strides=(8,)), role='i')
     param:Annotation(float32)
 
 Now let us attach the transformation to the output which will split it into two halves: ``out1 = out / 2``, ``out2 = out / 2``:
@@ -119,10 +119,10 @@ But user-supplied parameters (``>>``) have changed, which can be also seen in th
 
     >>> for param in comp.signature.parameters.values():
     ...     print(param.name + ":" + repr(param.annotation))
-    out1:Annotation(Type(float32, shape=(128,), stides=(4,)), role='o')
-    out2:Annotation(Type(float32, shape=(128,), stides=(4,)), role='o')
-    in1:Annotation(Type(complex64, shape=(128,), stides=(8,)), role='i')
-    in2_prime:Annotation(Type(complex64, shape=(128,), stides=(8,)), role='i')
+    out1:Annotation(Type(float32, shape=(128,), strides=(4,)), role='o')
+    out2:Annotation(Type(float32, shape=(128,), strides=(4,)), role='o')
+    in1:Annotation(Type(complex64, shape=(128,), strides=(8,)), role='i')
+    in2_prime:Annotation(Type(complex64, shape=(128,), strides=(8,)), role='i')
     param2:Annotation(float32)
     param:Annotation(float32)
 
