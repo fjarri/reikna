@@ -175,3 +175,62 @@ class DummyNested(Computation):
 def mock_dummy_nested(a, b, coeff, second_coeff):
     c, d = mock_dummy(a, b, coeff)
     return mock_dummy(c, d, second_coeff)
+
+
+class DummyAdvanced(Computation):
+    """
+    Dummy computation class which uses some advanced features.
+    """
+
+    def __init__(self, arr, coeff):
+        Computation.__init__(self, [
+            Parameter('C', Annotation(arr, 'io')),
+            Parameter('D', Annotation(arr, 'io')),
+            Parameter('coeff1', Annotation(coeff)),
+            Parameter('coeff2', Annotation(coeff))])
+
+    def _build_plan(self, plan_factory, device_params, C, D, coeff1, coeff2):
+        plan = plan_factory()
+        nested = Dummy(C, D, coeff1, same_A_B=True)
+
+        C_temp = plan.temp_array_like(C)
+        D_temp = plan.temp_array_like(D)
+
+        # Testing a computation call which uses the same argument for two parameters.
+        plan.computation_call(nested, C_temp, D, C, C, coeff1)
+
+        arr_dtype = C.dtype
+        coeff_dtype = coeff2.dtype
+
+        mul = functions.mul(arr_dtype, coeff_dtype)
+        div = functions.div(arr_dtype, coeff_dtype)
+
+        template = template_from("""
+        <%def name="dummy(CC, C, D, coeff)">
+        ${kernel_definition}
+        {
+            VIRTUAL_SKIP_THREADS;
+            int idx0 = virtual_global_id(1);
+            int idx1 = virtual_global_id(0);
+
+            ${CC.store_idx}(idx0, idx1,
+                ${C.load_idx}(idx0, idx1) +
+                ${mul}(${D.load_idx}(idx0, idx1), ${coeff}));
+        }
+        </%def>
+        """)
+
+        # Testing a kernel call which uses the same argument for two parameters.
+        plan.kernel_call(
+            template.get_def('dummy'),
+            [C, C_temp, C_temp, coeff2],
+            global_size=C.shape,
+            render_kwds=dict(mul=mul))
+
+        return plan
+
+
+def mock_dummy_advanced(c, d, coeff1, coeff2):
+    ct, d = mock_dummy(c, c, coeff1)
+    c = ct + coeff2 * ct
+    return c, d
