@@ -4,9 +4,7 @@ from reikna.helpers import template_for, template_def, Graph
 import reikna.cluda.dtypes as dtypes
 from reikna.cluda import Module, Snippet
 from reikna.core.signature import Signature, Type, Parameter, Annotation
-
-
-TEMPLATE = template_for(__file__)
+from reikna.core.transformation_modules import *
 
 
 class TransformationParameter(Type):
@@ -341,11 +339,10 @@ class TransformationTree:
     def get_kernel_definition(self, kernel_name):
         leaf_params = self.get_leaf_parameters()
 
-        kernel_definition = TEMPLATE.get_def('kernel_definition').render(
-            kernel_name, leaf_params, leaf_name=leaf_name)
+        kernel_def = kernel_definition(kernel_name, leaf_params)
         leaf_names = [param.name for param in leaf_params]
 
-        return kernel_definition, leaf_names
+        return kernel_def, leaf_names
 
     def _get_transformation_module(self, annotation, ntr):
 
@@ -354,16 +351,16 @@ class TransformationTree:
         # index variable in one place, and the template is the best choice
         # (because they are mostly used there).
         param = Parameter(ntr.connector_node_name, annotation)
-        index_cnames = TEMPLATE.module.index_cnames(param)
+        cnames = index_cnames(param)
 
         if ntr.output:
-            connector_def = "node_output_connector"
-            transformation_def = "node_output_transformation"
+            connector_def = node_output_connector
+            transformation_def = node_output_transformation
         else:
-            connector_def = "node_input_connector"
-            transformation_def = "node_input_transformation"
+            connector_def = node_input_connector
+            transformation_def = node_input_transformation
 
-        tr_args = [index_cnames]
+        tr_args = [cnames]
         connection_names = []
         for tr_param in ntr.tr.signature.parameters.values():
             connection_name = ntr.node_from_tr[tr_param.name]
@@ -371,11 +368,11 @@ class TransformationTree:
 
             if connection_name == ntr.connector_node_name:
                 if ntr.output:
-                    load_same = TEMPLATE.get_def(connector_def).render()
+                    load_same = connector_def()
                     tr_args.append(KernelParameter(
                         param.name, param.annotation.type, load_same=load_same))
                 else:
-                    store_same = TEMPLATE.get_def(connector_def).render()
+                    store_same = connector_def()
                     tr_args.append(KernelParameter(
                         param.name, param.annotation.type, store_same=store_same))
             else:
@@ -383,14 +380,7 @@ class TransformationTree:
 
         subtree_params = self.get_leaf_parameters([ntr.connector_node_name])
 
-        return Module(
-            TEMPLATE.get_def(transformation_def),
-            render_kwds=dict(
-                tr_snippet=ntr.tr.snippet,
-                tr_args=tr_args,
-                param=param,
-                subtree_params=subtree_params,
-                leaf_name=leaf_name))
+        return transformation_def(param, subtree_params, ntr.tr.snippet, tr_args)
 
     def _get_argobject(self, name, annotation, base=False):
         # Takes a base argument name and returns the corresponding Argument object
@@ -412,47 +402,29 @@ class TransformationTree:
 
         if annotation.input:
             if node.input_ntr is None:
-                load_idx = Module(
-                    TEMPLATE.get_def('leaf_input_macro'),
-                    render_kwds=dict(param=param, leaf_name=leaf_name))
+                load_idx = leaf_input_macro(param)
             else:
                 load_idx = self._get_transformation_module(annotation, node.input_ntr)
 
             subtree_params = self.get_leaf_parameters([name])
 
             if not base:
-                load_same = Module(
-                    TEMPLATE.get_def('node_input_same_indices'),
-                    render_kwds=dict(
-                        param=param, load_idx=load_idx, leaf_name=leaf_name,
-                        subtree_params=subtree_params))
+                load_same = node_input_same_indices(param, subtree_params, load_idx)
 
-            load_combined_idx = Module(
-                TEMPLATE.get_def('node_input_combined'),
-                render_kwds=dict(param=param, leaf_name=leaf_name, load_idx=load_idx,
-                    subtree_params=subtree_params))
+            load_combined_idx = node_input_combined(param, subtree_params, load_idx)
 
         if annotation.output:
             if node.output_ntr is None:
-                store_idx = Module(
-                    TEMPLATE.get_def('leaf_output_macro'),
-                    render_kwds=dict(param=param, leaf_name=leaf_name))
+                store_idx = leaf_output_macro(param)
             else:
                 store_idx = self._get_transformation_module(annotation, node.output_ntr)
 
             subtree_params = self.get_leaf_parameters([name])
 
             if not base:
-                store_same = Module(
-                    TEMPLATE.get_def('node_output_same_indices'),
-                    render_kwds=dict(
-                        param=param, store_idx=store_idx, leaf_name=leaf_name,
-                        subtree_params=subtree_params))
+                store_same = node_output_same_indices(param, subtree_params, store_idx)
 
-            store_combined_idx = Module(
-                TEMPLATE.get_def('node_output_combined'),
-                render_kwds=dict(param=param, leaf_name=leaf_name, store_idx=store_idx,
-                    subtree_params=subtree_params))
+            store_combined_idx = node_output_combined(param, subtree_params, store_idx)
 
         return KernelParameter(
             param.name, param.annotation.type,
@@ -467,10 +439,6 @@ class TransformationTree:
         return [
             self._get_argobject(name, self.root_annotations[name], base=True)
             for name in self.root_names]
-
-
-def leaf_name(name):
-    return "_leaf_" + name
 
 
 class KernelParameter(Type):
