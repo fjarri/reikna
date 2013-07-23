@@ -351,3 +351,25 @@ def test_wrong_data_path():
         Parameter('D', Annotation(arr_type, 'io')),
         Parameter('coeff1', Annotation(coeff_dtype)),
         Parameter('coeff2', Annotation(coeff_dtype))]
+
+
+def test_wrong_transformation_parameters():
+    """
+    Check that the error is thrown if the list of transformation parameter names
+    does not coincide with actual names.
+    """
+
+    N = 200
+    coeff_dtype = numpy.float32
+    arr_type = Type(numpy.complex64, (N, N))
+
+    d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
+    trivial = tr_trivial(d.parameter.A)
+
+    # ``trivial`` does not have ``input`` parameter
+    with pytest.raises(ValueError):
+        d.parameter.A.connect(trivial, trivial.o1, A_prime='input')
+
+    # ``trivial`` does not have ``i2`` parameter
+    with pytest.raises(ValueError):
+        d.parameter.A.connect(trivial, trivial.o1, A_prime=trivial.i1, A2='i2')
