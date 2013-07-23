@@ -16,19 +16,18 @@ class TransformationParameter(Type):
     Represents a typed transformation parameter.
     Can be used as a substitute of an array for functions
     which are only interested in array metadata.
-
-    .. py:attribute:: name
-
-        Parameter name.
     """
 
     def __init__(self, tr, name, type_):
         Type.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
         self._tr = weakref.ref(tr)
-        self.name = name
+        self._name = name
 
     def belongs_to(self, tr):
         return self._tr() is tr
+
+    def __str__(self):
+        return self._name
 
 
 class Transformation:

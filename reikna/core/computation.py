@@ -15,10 +15,6 @@ class ComputationParameter(Type):
     Represents a typed computation parameter.
     Can be used as a substitute of an array for functions
     which are only interested in array metadata.
-
-    .. py:attribute:: name
-
-        Parameter name.
     """
 
     def __init__(self, computation, name, type_):
@@ -26,7 +22,7 @@ class ComputationParameter(Type):
 
         Type.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
         self._computation = weakref.ref(computation)
-        self.name = name
+        self._name = name
 
     def belongs_to(self, comp):
         return self._computation() is comp
@@ -36,7 +32,10 @@ class ComputationParameter(Type):
         Shortcut for :py:meth:`~reikna.core.Computation.connect`
         with this parameter as a first argument.
         """
-        return self._computation().connect(self.name, _tr, _tr_connector, **connections)
+        return self._computation().connect(self._name, _tr, _tr_connector, **connections)
+
+    def __str__(self):
+        return self._name
 
 
 class Translator:
@@ -157,11 +156,7 @@ class Computation:
         if isinstance(_param, ComputationParameter):
             if not _param.belongs_to(self):
                 raise ValueError("The connection target must belong to this computation.")
-            param_name = _param.name
-        elif isinstance(_param, str):
-            param_name = _param
-        else:
-            raise TypeError("Unknown type of the connection target: " + repr(_param))
+        param_name = str(_param)
 
         # Extract transformation parameters names
 
@@ -178,11 +173,7 @@ class Computation:
                 if not tr_connection.belongs_to(_tr):
                     raise ValueError(
                         "The transformation parameter must belong to the provided transformation")
-                tr_connection_name = tr_connection.name
-            elif isinstance(tr_connection, str):
-                tr_connection_name = tr_connection
-            else:
-                raise TypeError("Unknown transformation parameter type: " + repr(tr_connection))
+            tr_connection_name = str(tr_connection)
             processed_connections[comp_connection_name] = tr_connection_name
 
         self._tr_tree.connect(param_name, _tr, processed_connections)
