@@ -103,11 +103,10 @@ class NodeTransformation:
     (an edge of the transformation tree).
     """
 
-    def __init__(self, connector_node_name, tr, param_connections):
+    def __init__(self, connector_node_name, tr, node_from_tr):
         self.tr = tr
         self.connector_node_name = connector_node_name
-        self.node_from_tr = {
-            tr_param_name:param_name for param_name, tr_param_name in param_connections.items()}
+        self.node_from_tr = dict(node_from_tr)
 
         # Check that all transformation parameter names are represented,
         # and each of them is only mentioned once.
@@ -123,8 +122,13 @@ class NodeTransformation:
         # (which is enforced by Computation.connect()),
         # we would have to make the same check for them as well.
 
+        tr_connectors = list(filter(lambda x: node_from_tr[x] == connector_node_name, node_from_tr))
+        # There should be only one transformation parameter corresponding to the connector node
+        # Not sure under which circumstances it is not true...
+        assert len(tr_connectors) == 1
+        tr_connector = tr_connectors[0]
+
         # Taking into account that 'io' parameters are not allowed for transformations.
-        tr_connector = param_connections[connector_node_name]
         self.output = tr.signature.parameters[tr_connector].annotation.input
 
     def get_child_names(self):
@@ -137,13 +141,11 @@ class NodeTransformation:
         return names
 
     def translate_node_names(self, translator):
-        tr_names, node_names = zip(*list(self.node_from_tr.items()))
-        return NodeTransformation(
-            translator(self.connector_node_name),
-            self.tr,
-            list(map(translator, node_names)),
-            tr_names,
-            output=self.output)
+        connector_node_name = translator(self.connector_node_name)
+        node_from_tr = {
+            tr_name:translator(node_name)
+            for tr_name, node_name in self.node_from_tr.items()}
+        return NodeTransformation(connector_node_name, self.tr, node_from_tr)
 
 
 class TransformationTree:
@@ -247,16 +249,16 @@ class TransformationTree:
 
         self.nodes[ntr.connector_node_name] = self.nodes[ntr.connector_node_name].connect(ntr)
 
-    def connect(self, comp_connector, tr, param_connections):
+    def connect(self, comp_connector, tr, comp_from_tr):
 
-        ntr = NodeTransformation(comp_connector, tr, param_connections)
+        ntr = NodeTransformation(comp_connector, tr, comp_from_tr)
 
         # Check that the target actually exists
         if comp_connector not in self.leaf_annotations:
             raise ValueError("Parameter '" + comp_connector + "' is not a part of the signature.")
 
         # Check that the types of connections are correct
-        for node_name, tr_name in param_connections.items():
+        for tr_name, node_name in comp_from_tr.items():
             if node_name not in self.leaf_annotations:
                 if node_name == comp_connector:
                     raise ValueError(
