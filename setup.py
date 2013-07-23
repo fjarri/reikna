@@ -146,7 +146,6 @@ if __name__ == '__main__':
             pycuda=["pycuda>=2013.2"],
             test=["pytest>=2.3", "pytest-cov"]),
         package_data={'reikna': ['*.mako'],
-                      'reikna/core': ['*.mako'],
                       'reikna/cluda': ['*.mako']},
         version=VERSION_STR,
         author='Bogdan Opanchuk',
