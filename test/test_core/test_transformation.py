@@ -58,6 +58,13 @@ def tr_scale(arr, coeff):
             mul=functions.mul(arr.dtype, coeff.dtype, out_dtype=arr.dtype)))
 
 
+def test_io_parameter_in_transformation():
+    with pytest.raises(ValueError):
+        tr = Transformation(
+            [Parameter('o1', Annotation(Type(numpy.float32, shape=100), 'io'))],
+            "${o1.store_same}(${o1.load_same});")
+
+
 def test_signature_correctness():
 
     N = 200

@@ -52,6 +52,11 @@ class Transformation:
     """
     def __init__(self, parameters, code, render_kwds=None, connectors=None):
 
+        for param in parameters:
+            if param.annotation.input and param.annotation.output:
+                raise ValueError(
+                    "Transformation cannot have 'io' parameters ('" + param.name + "')")
+
         self.signature = Signature(parameters)
 
         for param in self.signature.parameters.values():
