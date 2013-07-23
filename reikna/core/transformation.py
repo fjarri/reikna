@@ -253,10 +253,6 @@ class TransformationTree:
 
         ntr = NodeTransformation(comp_connector, tr, comp_from_tr)
 
-        # Check that the target actually exists
-        if comp_connector not in self.leaf_annotations:
-            raise ValueError("Parameter '" + comp_connector + "' is not a part of the signature.")
-
         # Check that the types of connections are correct
         for tr_name, node_name in comp_from_tr.items():
             if node_name not in self.leaf_annotations:
