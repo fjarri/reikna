@@ -129,15 +129,21 @@ def template_from(template):
         return make_template(template)
 
 
-def extract_signature_and_value(func):
-    if not inspect.isfunction(func):
-        raise ValueError("A function is required")
+def extract_signature_and_value(func_or_str, default_parameters=None):
+    if not inspect.isfunction(func_or_str):
+        if default_parameters is None:
+            parameters = []
+        else:
+            kind = funcsigs.Parameter.POSITIONAL_OR_KEYWORD
+            parameters = [funcsigs.Parameter(name, kind=kind) for name in default_parameters]
 
-    signature = funcsigs.signature(func)
+        return funcsigs.Signature(parameters), func_or_str
+
+    signature = funcsigs.signature(func_or_str)
 
     # pass mock values to extract the value
     args = [None] * len(signature.parameters)
-    return signature, func(*args)
+    return signature, func_or_str(*args)
 
 
 def template_def(signature, code):

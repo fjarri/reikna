@@ -53,12 +53,14 @@ class Snippet:
         self.render_kwds = {} if render_kwds is None else dict(render_kwds)
 
     @classmethod
-    def create(cls, signature_func, render_kwds=None):
+    def create(cls, func_or_str, render_kwds=None):
         """
-        Creates a snippet from the ``Mako`` def with the same signature as ``signature_func``
-        and the body equal to the string it returns.
+        Creates a snippet from the ``Mako`` def:
+        * if ``func_or_str`` is a function, then the def has the same signature as ``func_or_str``,
+          and the body equal to the string it returns;
+        * if ``func_or_str`` is a string, then the def has empty signature.
         """
-        signature, code = extract_signature_and_value(signature_func)
+        signature, code = extract_signature_and_value(func_or_str)
         return cls(template_def(signature, code), render_kwds=render_kwds)
 
 
@@ -79,12 +81,17 @@ class Module:
         self.render_kwds = {} if render_kwds is None else dict(render_kwds)
 
     @classmethod
-    def create(cls, code, render_kwds=None):
+    def create(cls, func_or_str, render_kwds=None):
         """
-        Creates a module from the ``Mako`` def with a single positional argument ``prefix``
+        Creates a module from the ``Mako`` def:
+        * if ``func_or_str`` is a function, then the def has the same signature as ``func_or_str``
+          (prefix will be passed as the first positional parameter),
+          and the body equal to the string it returns;
+        * if ``func_or_str`` is a string, then the def has a single positional argument ``prefix``.
         and the body ``code``.
         """
-        return cls(template_def(['prefix'], code), render_kwds=render_kwds)
+        signature, code = extract_signature_and_value(func_or_str, default_parameters=['prefix'])
+        return cls(template_def(signature, code), render_kwds=render_kwds)
 
 
 class SourceCollector:
