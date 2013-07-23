@@ -49,7 +49,9 @@ class Type:
         Creates a :py:class:`Type` object corresponding to the given value.
         """
         if isinstance(val, Type):
-            return val
+            # Creating a new object, because ``val`` may be some derivative of Type,
+            # used as a syntactic sugar, and we do not want it to confuse us later.
+            return cls(val.dtype, shape=val.shape, strides=val.strides)
         elif numpy.issctype(val):
             return cls(val)
         elif hasattr(val, 'dtype') and hasattr(val, 'shape'):
