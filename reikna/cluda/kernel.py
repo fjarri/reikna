@@ -56,6 +56,7 @@ class Snippet:
     def create(cls, func_or_str, render_kwds=None):
         """
         Creates a snippet from the ``Mako`` def:
+
         * if ``func_or_str`` is a function, then the def has the same signature as ``func_or_str``,
           and the body equal to the string it returns;
         * if ``func_or_str`` is a string, then the def has empty signature.
@@ -84,6 +85,7 @@ class Module:
     def create(cls, func_or_str, render_kwds=None):
         """
         Creates a module from the ``Mako`` def:
+
         * if ``func_or_str`` is a function, then the def has the same signature as ``func_or_str``
           (prefix will be passed as the first positional parameter),
           and the body equal to the string it returns;
