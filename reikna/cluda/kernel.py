@@ -90,7 +90,7 @@ class Module:
           (prefix will be passed as the first positional parameter),
           and the body equal to the string it returns;
         * if ``func_or_str`` is a string, then the def has a single positional argument ``prefix``.
-        and the body ``code``.
+          and the body ``code``.
         """
         signature, code = extract_signature_and_value(func_or_str, default_parameters=['prefix'])
         return cls(template_def(signature, code), render_kwds=render_kwds)

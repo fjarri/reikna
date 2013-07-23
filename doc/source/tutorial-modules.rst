@@ -160,8 +160,9 @@ If the argument list is created dynamically, you can use :py:func:`~reikna.helpe
         template_def(argnames, "${varname} + ${num}"),
         render_kwds=dict(num=1))
 
-With modules it is a bit simpler, since their call signature is fixed.
-The shortcut constructor creates a ``Mako`` def with a single argument called ``prefix``:
+Modules have a similar shortcut constructor.
+The only difference is that by default the resulting template def has one positional argument called ``prefix``.
+If you provide your own signature, its first positional argument will receive the prefix value.
 
 ::
 

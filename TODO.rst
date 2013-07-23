@@ -1,8 +1,3 @@
-0.3.0 (Core API change)
-========================
-
-* DOC: clean up docs.
-
 0.3.1
 =====
 

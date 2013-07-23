@@ -49,7 +49,7 @@ Let us consider a (not very useful, but quite involved) example:
         """,
         connectors=['in1', 'out1'])
 
-*Connectors.*
+**Connectors.**
 A transformation gets activated when the main computation attempts to load some value from some index in global memory, or store one to some index.
 This index is passed to the transformation attached to the corresponding parameter, and used to invoke loads/stores either without changes (to perform strictly elementwise operations), or, possibly, with some changes (as the example illustrates).
 
@@ -57,11 +57,11 @@ If some parameter is only queried once, and only using ``load_same`` or ``store_
 Currently connectors cannot be detected automatically, so it is the responsibility of the user to provide a list of them to the constructor.
 By default all parameters are considered to be connectors.
 
-*Shape changing.*
+**Shape changing.**
 Parameters in transformations are typed, and it is possible to change data type or shape of a parameter the transformation is attached to.
 In our example ``out2`` has length 80, so the current index is checked before the output to make sure there is no out of bounds access.
 
-*Argument objects.*
+**Parameter objects.**
 The transformation example above has some hardcoded stuff, for example the type of parameters (``float``), or their shapes (``100`` and ``80``).
 These can be accessed from argument objects ``out1``, ``in1`` etc; they all have the type :py:class:`~reikna.core.transformation.KernelParameter`.
 
@@ -87,13 +87,14 @@ Defining a class:
 
 Each computation class has to define the constructor, and the plan building callback.
 
-*Constructor.*
+**Constructor.**
 :py:class:`~reikna.core.Computation` constructor takes a list of computation parameters, which the deriving class constructor has to create according to arguments passed to it.
 You will often need :py:class:`~reikna.core.Type` objects, which can be extracted from arrays, scalars or other :py:class:`~reikna.core.Type` objects with the help of :py:meth:`~reikna.core.Type.from_value` (or they can be passed straight to :py:class:`~reikna.core.Annotation`) which does the same thing.
 
 ::
 
     def __init__(self, arr, coeff):
+        assert len(arr.shape) == 1
         Computation.__init__(self, [
             Parameter('output', Annotation(arr, 'o')),
             Parameter('input1', Annotation(arr, 'i')),
@@ -102,18 +103,19 @@ You will often need :py:class:`~reikna.core.Type` objects, which can be extracte
 
 In addition to that, the constructor can create some internal state which will be used by the plan builder.
 
-*Plan builder.*
-The second method is called when the computation is being compiled, and has to fill and return the computation plan --- a sequence of kernel calls, plus maybe some temporary or persistent internal allocations kernels use.
+**Plan builder.**
+The second method is called when the computation is being compiled, and has to fill and return the computation plan --- a sequence of kernel calls, plus maybe some temporary or persistent internal allocations its kernels use.
 In addition, the plan can include calls to nested computations.
 
-The method takes two parameters: ``plan_factory`` is a callable that creates a new :py:class:`~reikna.core.computation.ComputationPlan` object (in some cases you may want to recreate the plan, for example, if the workgroup size you were using turned out to be too big), and ``device_params`` is a :py:class:`~reikna.cluda.api.DeviceParameters` object, which is used to optimize the computation for the specific device.
-It must return a filled :py:class:`~reikna.core.computation.ComputationPlan` object.
+The method takes two predefined positional parameters, plus :py:class:`~reikna.core.computation.KernelArgument` objects corresponding to computation parameters.
+The ``plan_factory`` is a callable that creates a new :py:class:`~reikna.core.computation.ComputationPlan` object (in some cases you may want to recreate the plan, for example, if the workgroup size you were using turned out to be too big), and ``device_params`` is a :py:class:`~reikna.cluda.api.DeviceParameters` object, which is used to optimize the computation for the specific device.
+The method must return a filled :py:class:`~reikna.core.computation.ComputationPlan` object.
 
 For our example we only need one action, which is the execution of an elementwise kernel:
 
 ::
 
-    def _build_plan(self, plan_factory, device_params):
+    def _build_plan(self, plan_factory, device_params, output, input1, input2, param):
         plan = plan_factory()
 
         template = template_from(
@@ -125,7 +127,7 @@ For our example we only need one action, which is the execution of an elementwis
                 int idx = virtual_global_id(0);
                 ${k_output.ctype} result =
                     ${k_input1.load_idx}(idx) +
-                    ${mul}(${k_input2.load}(idx), ${k_param});
+                    ${mul}(${k_input2.load_idx}(idx), ${k_param});
                 ${k_output.store_idx}(idx, result);
             }
             </%def>
@@ -133,9 +135,9 @@ For our example we only need one action, which is the execution of an elementwis
 
         plan.kernel_call(
             template.get_def('testcomp'),
-            ['output', 'input1', 'input2', 'param'],
-            global_size=basis.shape,
-            render_kwds=dict(mul=functions.mul(self.input2.dtype, self.param.dtype)))
+            [output, input1, input2, param],
+            global_size=output.shape,
+            render_kwds=dict(mul=functions.mul(input2.dtype, param.dtype)))
 
         return plan
 
@@ -144,7 +146,6 @@ The template can be specified as a string using :py:func:`~reikna.helpers.templa
 Usual pattern in this case is to call the template file same as the file where the computation class is defined (for example, ``testcomp.mako`` for ``testcomp.py``), and store it in some variable on module load using :py:func:`~reikna.helpers.template_for` as ``TEMPLATE = template_for(__file__)``.
 
 The template function should take the same number of positional arguments as the kernel; you can view ``<%def ... >`` part as an actual kernel definition, but with the arguments being :py:class:`~reikna.core.transformation.KernelParameter` objects containing parameter metadata.
-Outside the template parameters can be accessed as attributes of the computation object itself, and have the type :py:class:`~reikna.core.computation.ComputationParameter`.
 
 Also, depending on whether the corresponding argument is an output array, an input array or a scalar parameter, the object can be used as ``${obj.store_idx}(index, val)``, ``${obj.load_idx}(index)`` or ``${obj}``.
 This will produce the corresponding request to the global memory or kernel arguments.
@@ -153,4 +154,4 @@ If you need additional device functions, they have to be specified between ``<%d
 Obviously, these functions can still use ``dtype`` and ``ctype`` object properties, although ``store_idx`` and ``load_idx`` will most likely result in compilation error (since they are rendered as macros using main kernel arguments).
 
 Since kernel call parameters (``global_size`` and ``local_size``) are specified on creation, all kernel calls are rendered as CLUDA static kernels (see :py:meth:`~reikna.cluda.api.Thread.compile_static`) and therefore can use all the corresponding macros and functions (like :c:func:`virtual_global_flat_id` in our kernel).
-Also, they must have :c:macro:`VIRTUAL_SKIP_THREADS` at the beginning of the kernel.
+Also, they must have :c:macro:`VIRTUAL_SKIP_THREADS` at the beginning of the kernel which remainder threads (which can be present, for example, if the workgroup size is not a multiple of the global size).
