@@ -164,6 +164,12 @@ class Computation:
             raise TypeError("Unknown type of the connection target: " + repr(_param))
 
         # Extract transformation parameters names
+
+        if param_name in param_connections:
+            raise ValueError(
+                "Parameter '" + param_name + "' cannot be supplied " +
+                "both as the main connector and one of the child connections")
+
         param_connections[param_name] = _tr_param
         processed_connections = {}
         for comp_connection_name, tr_connection in param_connections.items():
