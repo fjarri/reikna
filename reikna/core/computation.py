@@ -134,15 +134,15 @@ class Computation:
 
     # The names are underscored to avoid name conflicts with ``param_connections`` keys
     # (where the user can introduce new parameter names)
-    def connect(self, _param, _tr, _tr_param, **param_connections):
+    def connect(self, _comp_connector, _tr, _tr_connector, **param_connections):
         """
         Connect a transformation to the computation.
 
-        :param _param: connection target ---
+        :param _comp_connector: connection target ---
             a :py:class:`~reikna.core.computation.ComputationParameter` object
             beloning to this computation object, or a string with its name.
         :param _tr: a :py:class:`~reikna.core.Transformation` object.
-        :param _tr_param: connector on the side of the transformation ---
+        :param _tr_connector: connector on the side of the transformation ---
             a :py:class:`~reikna.core.transformation.TransformationParameter` object
             beloning to ``tr``, or a string with its name.
         :param param_connections: a dictionary with the names of new or old
@@ -153,10 +153,10 @@ class Computation:
         """
 
         # Extract connector name
-        if isinstance(_param, ComputationParameter):
-            if not _param.belongs_to(self):
+        if isinstance(_comp_connector, ComputationParameter):
+            if not _comp_connector.belongs_to(self):
                 raise ValueError("The connection target must belong to this computation.")
-        param_name = str(_param)
+        param_name = str(_comp_connector)
 
         # Extract transformation parameters names
 
@@ -165,7 +165,7 @@ class Computation:
                 "Parameter '" + param_name + "' cannot be supplied " +
                 "both as the main connector and one of the child connections")
 
-        param_connections[param_name] = _tr_param
+        param_connections[param_name] = _tr_connector
         processed_connections = {}
         for comp_connection_name, tr_connection in param_connections.items():
             check_external_parameter_name(comp_connection_name)
