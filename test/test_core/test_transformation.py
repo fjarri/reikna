@@ -292,6 +292,7 @@ def test_alien_parameters():
 
 
 def test_connector_repetition():
+    """Check that the connector id cannot be repeated in the connections list."""
 
     N = 200
     coeff_dtype = numpy.float32
@@ -302,3 +303,61 @@ def test_connector_repetition():
 
     with pytest.raises(ValueError):
         d.parameter.A.connect(trivial, trivial.o1, A=trivial.o1, A_prime=trivial.i1)
+
+
+def test_wrong_connector():
+    """Check that the error is thrown if the connector is unknown or is not in the signature."""
+
+    N = 200
+    coeff_dtype = numpy.float32
+    arr_type = Type(numpy.complex64, (N, N))
+
+    d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
+    trivial = tr_trivial(d.parameter.A)
+
+    d.parameter.A.connect(trivial, trivial.o1, A_prime=trivial.i1)
+
+    # Connector is missing
+    with pytest.raises(ValueError):
+        d.connect('AA', trivial, trivial.o1, A_pp=trivial.i1)
+
+    # Such node exists, but it is not a part of the signature
+    # (hidden by previously connected transformation).
+    with pytest.raises(ValueError):
+        d.connect('A', trivial, trivial.o1, A_pp=trivial.i1)
+
+
+def test_wrong_data_path():
+    """
+    Check that the error is thrown if the connector is a part of the signature,
+    but this particular data path (input or output) is already hidden
+    by a previously connected transformation.
+    """
+
+    N = 200
+    coeff_dtype = numpy.float32
+    arr_type = Type(numpy.complex64, (N, N))
+
+    d = DummyAdvanced(arr_type, coeff_dtype)
+    trivial = tr_trivial(d.parameter.C)
+
+    d.parameter.C.connect(trivial, trivial.o1, C_in=trivial.i1)
+    assert list(d.signature.parameters.values()) == [
+        Parameter('C', Annotation(arr_type, 'o')),
+        Parameter('C_in', Annotation(arr_type, 'i')),
+        Parameter('D', Annotation(arr_type, 'io')),
+        Parameter('coeff1', Annotation(coeff_dtype)),
+        Parameter('coeff2', Annotation(coeff_dtype))]
+
+    # Now input to C is hidden by the previously connected transformation
+    with pytest.raises(ValueError):
+        d.parameter.C.connect(trivial, trivial.o1, C_in_prime=trivial.i1)
+
+    # Output is still available though
+    d.parameter.C.connect(trivial, trivial.i1, C_out=trivial.o1)
+    assert list(d.signature.parameters.values()) == [
+        Parameter('C_out', Annotation(arr_type, 'o')),
+        Parameter('C_in', Annotation(arr_type, 'i')),
+        Parameter('D', Annotation(arr_type, 'io')),
+        Parameter('coeff1', Annotation(coeff_dtype)),
+        Parameter('coeff2', Annotation(coeff_dtype))]

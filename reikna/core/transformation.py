@@ -3,7 +3,7 @@ import weakref
 from reikna.helpers import template_for, template_def, Graph
 import reikna.cluda.dtypes as dtypes
 from reikna.cluda import Module, Snippet
-from reikna.core.signature import Signature, Type, Parameter
+from reikna.core.signature import Signature, Type, Parameter, Annotation
 
 
 TEMPLATE = template_for(__file__)
@@ -33,13 +33,12 @@ class TransformationParameter(Type):
 class Transformation:
     """
     A class containing a pure parallel transformation of arrays.
+    Some restrictions apply:
 
-    A transformation:
-
-    * cannot use local memory;
-    * cannot use global/local id getters (and depends only on externally passed indices);
-    * cannot have 'io' arguments;
-    * has at least one argument that uses
+    * it cannot use local memory;
+    * it cannot use global/local id getters (and depends only on externally passed indices);
+    * it cannot have ``'io'`` arguments;
+    * it has at least one argument that uses
       :py:attr:`~reikna.core.transformation.KernelParameter.load_same` or
       :py:attr:`~reikna.core.transformation.KernelParameter.store_same`, and does it only once.
 
@@ -49,6 +48,7 @@ class Transformation:
         objects in ``parameters``.
     :param render_kwds: a dictionary with render keywords that will be passed to the snippet.
     :param connectors: a list of parameter names suitable for connection.
+        Defaults to all non-scalar parameters.
     """
     def __init__(self, parameters, code, render_kwds=None, connectors=None):
 
@@ -74,17 +74,19 @@ class Transformation:
 
 
 class Node:
+    """
+    Represents a node in the transformation tree.
+    """
 
-    def __init__(self, param, input_ntr=None, output_ntr=None):
-        self.param = param
+    def __init__(self, input_ntr=None, output_ntr=None):
         self.input_ntr = input_ntr
         self.output_ntr = output_ntr
 
     def connect(self, ntr):
         if ntr.output:
-            return Node(self.param, input_ntr=self.input_ntr, output_ntr=ntr)
+            return Node(input_ntr=self.input_ntr, output_ntr=ntr)
         else:
-            return Node(self.param, input_ntr=ntr, output_ntr=self.output_ntr)
+            return Node(input_ntr=ntr, output_ntr=self.output_ntr)
 
     def get_child_names(self):
         get_names = lambda ntr: [] if ntr is None else ntr.get_child_names()
@@ -96,13 +98,34 @@ class Node:
 
 
 class NodeTransformation:
+    """
+    Represents a transformation between two nodes
+    (an edge of the transformation tree).
+    """
 
-    def __init__(self, connector_node_name, tr, param_connections, output=False):
+    def __init__(self, connector_node_name, tr, param_connections):
         self.tr = tr
         self.connector_node_name = connector_node_name
-        self.output = output
         self.node_from_tr = {
             tr_param_name:param_name for param_name, tr_param_name in param_connections.items()}
+
+        # Check that all transformation parameter names are represented,
+        # and each of them is only mentioned once.
+        tr_names_given = set(self.node_from_tr)
+        tr_names_available = set(tr.signature.parameters)
+        if tr_names_given != tr_names_available:
+            raise ValueError(
+                "Supplied transformation names {given} "
+                " do not fully coincide with the existing ones: {available}".format(
+                    given=tr_names_given, available=tr_names_available))
+
+        # If node names were not guaranteed to be different
+        # (which is enforced by Computation.connect()),
+        # we would have to make the same check for them as well.
+
+        # Taking into account that 'io' parameters are not allowed for transformations.
+        tr_connector = param_connections[connector_node_name]
+        self.output = tr.signature.parameters[tr_connector].annotation.input
 
     def get_child_names(self):
         names = []
@@ -124,20 +147,32 @@ class NodeTransformation:
 
 
 class TransformationTree:
+    """
+    A directed acyclic graph of transformations of the kernel arguments.
+    """
 
-    def __init__(self, root_params):
+    def __init__(self, root_parameters):
         # Preserve order of initial root parameters.
         # These can repeat.
-        self.root_names = [param.name for param in root_params]
+        self.root_names = []
 
-        self.roots = list(set(self.root_names))
+        self.root_annotations = {}
 
-        self.nodes = {}
-        for param in root_params:
-            if param.name not in self.nodes:
-                self.nodes[param.name] = Node(param)
+        self.nodes = {} # all nodes of the tree
+        self.leaf_annotations = {} # nodes available for connection
+
+        for param in root_parameters:
+            self.root_names.append(param.name)
+            if param.name in self.root_annotations:
+                # safety check
+                assert param.annotation == self.root_annotations[param.name]
+            else:
+                self.nodes[param.name] = Node()
+                self.root_annotations[param.name] = param.annotation
+                self.leaf_annotations[param.name] = param.annotation
 
     def _get_subtree_names(self, names, visited, leaves_only=False):
+        """Helper method for traversing the tree."""
 
         result = []
 
@@ -146,56 +181,123 @@ class TransformationTree:
                 continue
             visited.add(name)
 
-            child_names = self.nodes[name].get_child_names()
+            node = self.nodes[name]
+            ann = self.leaf_annotations[name] if name in self.leaf_annotations else None
+            child_names = node.get_child_names()
 
-            if not leaves_only or len(child_names) == 0:
+            subtree_names = self._get_subtree_names(child_names, visited, leaves_only=leaves_only)
+            has_input_subtree = node.input_ntr is not None
+            has_output_subtree = node.output_ntr is not None
+            leaf_node = name in self.leaf_annotations
+
+            name_present = False
+            if not leaves_only or len(subtree_names) == 0 or (leaf_node and not has_output_subtree):
                 result.append(name)
-
-            result += self._get_subtree_names(
-                child_names, visited, leaves_only=leaves_only)
+                name_present = True
+            result += subtree_names
+            if not name_present and leaf_node and not has_input_subtree:
+                result.append(name)
 
         return result
 
-    def get_subtree_names(self, root_names, leaves_only=False):
+    def get_subtree_names(self, root_names=None, leaves_only=False):
+        if root_names is None:
+            root_names = self.root_names
         return self._get_subtree_names(root_names, set(), leaves_only=leaves_only)
 
     def get_root_annotations(self):
-        return {name:self.nodes[name].param.annotation for name in self.roots}
+        return self.root_annotations
 
     def get_root_parameters(self):
-        return [self.nodes[name].param for name in self.root_names]
+        return [Parameter(name, self.root_annotations[name]) for name in self.root_names]
 
-    def get_leaf_parameters(self):
-        leaf_names = self.get_subtree_names(self.root_names, leaves_only=True)
-        return [self.nodes[name].param for name in leaf_names]
+    def get_leaf_parameters(self, root_names=None):
+        leaf_names = self.get_subtree_names(root_names=root_names, leaves_only=True)
+        return [Parameter(name, self.leaf_annotations[name]) for name in leaf_names]
 
     def _connect(self, ntr):
 
-        # New nodes introduced by the transformation
-        new_nodes = {}
+        # At this point we assume that ``ntr`` describes a valid connection.
+        # All sanity checks are performed in ``connect()``.
+
         for tr_param in ntr.tr.signature.parameters.values():
             node_name = ntr.node_from_tr[tr_param.name]
+
+            if node_name == ntr.connector_node_name:
+                ann = self.leaf_annotations[node_name]
+                if ann.input and ann.output:
+                # splitting the 'io' leaf
+                    updated_role = 'i' if ntr.output else 'o'
+                    self.leaf_annotations[node_name] = Annotation(ann.type, role=updated_role)
+                else:
+                # 'i' or 'o' leaf is hidden by the transformation
+                    del self.leaf_annotations[node_name]
+
+            else:
+                if node_name in self.leaf_annotations and self.leaf_annotations[node_name].array:
+                    ann = self.leaf_annotations[node_name]
+                    if (ann.input and ntr.output) or (ann.output and ntr.input):
+                    # joining 'i' and 'o' paths into an 'io' leaf
+                        self.leaf_annotations[node_name] = Annotation(ann.type, role='io')
+                else:
+                    self.leaf_annotations[node_name] = tr_param.annotation
+
             if node_name not in self.nodes:
-                new_param = Parameter(node_name, tr_param.annotation)
-                new_nodes[node_name] = Node(new_param)
+                self.nodes[node_name] = Node()
 
-        old_node = self.nodes[ntr.connector_node_name]
-        new_nodes[ntr.connector_node_name] = old_node.connect(ntr)
+        self.nodes[ntr.connector_node_name] = self.nodes[ntr.connector_node_name].connect(ntr)
 
-        # Delaying the internal changes before all the data structures are created.
-        # This way a failed .connect() does not break any internals
-        # (mostly important for interactive regime).
-        self.nodes.update(new_nodes)
+    def connect(self, comp_connector, tr, param_connections):
 
-    def connect(self, param_name, tr, param_connections):
+        ntr = NodeTransformation(comp_connector, tr, param_connections)
 
-        # Check:
-        # - there's a node ``leaf_name`` and it doesn't have a connection of this type attached
-        # - check that ``primary_conn`` exist in ``tr``
-        # - check that keys of ``connections.from_tr`` point to nodes of proper types, or are new names
-        # - check that values of ``connections.from_node`` exist in ``tr``
-        output = self.nodes[param_name].param.annotation.output
-        self._connect(NodeTransformation(param_name, tr, param_connections, output=output))
+        # Check that the target actually exists
+        if comp_connector not in self.leaf_annotations:
+            raise ValueError("Parameter '" + comp_connector + "' is not a part of the signature.")
+
+        # Check that the types of connections are correct
+        for node_name, tr_name in param_connections.items():
+            if node_name not in self.leaf_annotations:
+                if node_name == comp_connector:
+                    raise ValueError(
+                        "Parameter '" + node_name + "' is not a part of the signature")
+                elif node_name in self.nodes:
+                    raise ValueError(
+                        "Parameter '" + node_name + "' is hidden by transformations")
+
+            if node_name not in self.leaf_annotations:
+                # If node names could repeat, we would have to check that
+                # transformation parameters with incompatible types are not pointing
+                # at the same new node.
+                continue
+
+            node_ann = self.leaf_annotations[node_name]
+            tr_ann = tr.signature.parameters[tr_name].annotation
+
+            if tr_ann.type != node_ann.type:
+                raise ValueError(
+                    "Incompatible types of the transformation parameter '{tr_name}' ({tr_type}) "
+                    "and the node '{node_name}' ({node_type})".format(
+                        node_name=node_name, tr_name=tr_name,
+                        node_type=node_ann.type, tr_type=tr_ann.type))
+
+            # No more to check in the case of scalars
+            if not tr_ann.array:
+                continue
+
+            if node_name == comp_connector:
+                if ntr.output and not node_ann.output:
+                    raise ValueError("'" + node_name + "' is not an output node")
+                if not ntr.output and not node_ann.input:
+                    raise ValueError("'" + node_name + "' is not an input node")
+            else:
+                if ntr.output and node_ann.output:
+                    raise ValueError(
+                        "Cannot connect transformation parameter '{tr_name}' "
+                        "to an existing output node '{node_name}'".format(
+                            tr_name=tr_name, node_name=node_name))
+
+        self._connect(ntr)
 
     def reconnect(self, other_tree, translator=None):
         for ntr in other_tree.connections():
@@ -205,7 +307,7 @@ class TransformationTree:
                 self._connect(ntr)
 
     def connections(self):
-        node_names = self.get_subtree_names(self.roots, leaves_only=False)
+        node_names = self.get_subtree_names(leaves_only=False)
         for name in node_names:
             node = self.nodes[name]
             for ntr in node.get_connections():
@@ -223,8 +325,8 @@ class TransformationTree:
         # should have the same annotations.
         # But if they do not, we better catch it here.
         for param in parameters:
-            if param.name in self.nodes:
-                assert self.nodes[param.name].param.annotation == param.annotation
+            if param.name in self.root_annotations:
+                assert self.root_annotations[param.name] == param.annotation
 
         new_tree = TransformationTree(parameters)
         new_tree.reconnect(self)
@@ -239,13 +341,13 @@ class TransformationTree:
 
         return kernel_definition, leaf_names
 
-    def _get_transformation_module(self, ntr):
+    def _get_transformation_module(self, annotation, ntr):
 
         # HACK: Technically, ``module`` attribute is not documented.
         # The reason it is used here is that I need to keep generation of C names for
         # index variable in one place, and the template is the best choice
         # (because they are mostly used there).
-        param = self.nodes[ntr.connector_node_name].param
+        param = Parameter(ntr.connector_node_name, annotation)
         index_cnames = TEMPLATE.module.index_cnames(param)
 
         if ntr.output:
@@ -271,10 +373,9 @@ class TransformationTree:
                     tr_args.append(KernelParameter(
                         param.name, param.annotation.type, store_same=store_same))
             else:
-                tr_args.append(self._get_argobject(connection_name))
+                tr_args.append(self._get_argobject(connection_name, tr_param.annotation))
 
-        subtree_names = self.get_subtree_names([ntr.connector_node_name], leaves_only=True)
-        subtree_params = [self.nodes[name].param for name in subtree_names]
+        subtree_params = self.get_leaf_parameters([ntr.connector_node_name])
 
         return Module(
             TEMPLATE.get_def(transformation_def),
@@ -285,15 +386,15 @@ class TransformationTree:
                 subtree_params=subtree_params,
                 leaf_name=leaf_name))
 
-    def _get_argobject(self, name, base=False):
+    def _get_argobject(self, name, annotation, base=False):
         # Takes a base argument name and returns the corresponding Argument object
         # which can be passed to the main kernel.
         # If the name is not in base, it is treated as a leaf.
 
         node = self.nodes[name]
-        param = node.param
+        param = Parameter(name, annotation)
 
-        if not param.annotation.array:
+        if not annotation.array:
             return KernelParameter(param.name, param.annotation.type)
 
         load_idx = None
@@ -303,16 +404,15 @@ class TransformationTree:
         load_combined_idx = None
         store_combined_idx = None
 
-        if param.annotation.input:
+        if annotation.input:
             if node.input_ntr is None:
                 load_idx = Module(
                     TEMPLATE.get_def('leaf_input_macro'),
                     render_kwds=dict(param=param, leaf_name=leaf_name))
             else:
-                load_idx = self._get_transformation_module(node.input_ntr)
+                load_idx = self._get_transformation_module(annotation, node.input_ntr)
 
-            subtree_names = self.get_subtree_names([name], leaves_only=True)
-            subtree_params = [self.nodes[st_name].param for st_name in subtree_names]
+            subtree_params = self.get_leaf_parameters([name])
 
             if not base:
                 load_same = Module(
@@ -326,16 +426,15 @@ class TransformationTree:
                 render_kwds=dict(param=param, leaf_name=leaf_name, load_idx=load_idx,
                     subtree_params=subtree_params))
 
-        if param.annotation.output:
+        if annotation.output:
             if node.output_ntr is None:
                 store_idx = Module(
                     TEMPLATE.get_def('leaf_output_macro'),
                     render_kwds=dict(param=param, leaf_name=leaf_name))
             else:
-                store_idx = self._get_transformation_module(node.output_ntr)
+                store_idx = self._get_transformation_module(annotation, node.output_ntr)
 
-            subtree_names = self.get_subtree_names([name], leaves_only=True)
-            subtree_params = [self.nodes[st_name].param for st_name in subtree_names]
+            subtree_params = self.get_leaf_parameters([name])
 
             if not base:
                 store_same = Module(
@@ -359,7 +458,9 @@ class TransformationTree:
             store_combined_idx=store_combined_idx)
 
     def get_argobjects(self):
-        return [self._get_argobject(name, base=True) for name in self.root_names]
+        return [
+            self._get_argobject(name, self.root_annotations[name], base=True)
+            for name in self.root_names]
 
 
 def leaf_name(name):
