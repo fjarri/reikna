@@ -34,8 +34,8 @@ load-plugins=
 # multiple time (only on the command line, not in the configuration file where
 # it should appear only once).
 
-# disable "missing docstrings" warning
-disable=C0111
+# disable "missing docstrings" ,"Too many arguments" warnings
+disable=C0111,R0913
 
 
 [REPORTS]
@@ -202,7 +202,7 @@ max-args=5
 ignored-argument-names=_.*
 
 # Maximum number of locals for function / method body
-max-locals=15
+max-locals=20
 
 # Maximum number of return / yield for function / method body
 max-returns=6
