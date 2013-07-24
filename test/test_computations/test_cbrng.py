@@ -63,7 +63,7 @@ def test_raw(thr, name_and_params):
     rng = CBRNG(dest, 1, seed=seed, rng=name, rng_params=params, distribution=distribution)
     rngc = rng.compile(thr)
 
-    counters = create_counters(size, name, distribution, params)
+    counters = create_counters(size, params)
     counters_dev = thr.to_device(counters)
 
     rngc(counters_dev, dest, counters_dev)
@@ -88,7 +88,7 @@ def check_distribution(thr, rng_name, rng_params,
         distribution=distribution, distribution_params=distribution_params)
     rngc = rng.compile(thr)
 
-    counters = create_counters(size, rng_name, distribution, rng_params)
+    counters = create_counters(size, rng_params)
     counters_dev = thr.to_device(counters)
 
     rngc(counters_dev, dest_dev, counters_dev)

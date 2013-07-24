@@ -62,27 +62,23 @@ The following values can be passed as ``distribution`` parameter:
   where :math:`k` is ``shape``, and :math:`\\theta` is ``scale``.
 """
 
-import time
 import numpy
 
-from reikna.helpers import *
-from reikna.core import *
-import reikna.cluda.dtypes as dtypes
+import reikna.helpers as helpers
+from reikna.core import Computation, Parameter, Annotation
 
 
-TEMPLATE = template_for(__file__)
+TEMPLATE = helpers.template_for(__file__)
 
 
-def create_counters(size, rng, distribution, rng_params):
+def create_counters(size, rng_params):
     """
     Create a counter array on a device for use in :py:class:`~reikna.cbrng.CBRNG`.
 
     :param size: a shape of the target random numbers array.
-    :param rng: random number generator name.
-    :param distribution: random distribution name.
     :param rng_params: random number generator parameters.
     """
-    size = wrap_in_tuple(size)
+    size = helpers.wrap_in_tuple(size)
     return numpy.zeros(
         size + (rng_params['words'],),
         numpy.uint32 if rng_params['bitness'] == 32 else numpy.uint64)
@@ -116,8 +112,8 @@ def create_key(rng, rng_params, seed=None):
         key = np_rng.randint(0, 2**16, key_words * 2)
 
     subwords = bitness // 16
-    for i, x in enumerate(key):
-        full_key[i // subwords] += x << (16 * (subwords - 1 - i % subwords))
+    for i, key_subword in enumerate(key):
+        full_key[i // subwords] += key_subword << (16 * (subwords - 1 - i % subwords))
 
     return full_key
 
@@ -148,24 +144,24 @@ class CBRNG(Computation):
         assert rng in ('philox', 'threefry')
 
         counters_size = randoms_arr.shape[-counters_dim:]
-        counters_arr = create_counters(counters_size, rng, distribution, rng_params)
+        counters_arr = create_counters(counters_size, rng_params)
 
         self._rng = rng
         self._distribution = distribution
         self._counters_dim = counters_dim
 
         default_rounds = dict(philox=10, threefry=20)[rng]
-        rng_params_default = AttrDict(bitness=64, words=4, rounds=default_rounds)
+        rng_params_default = helpers.AttrDict(bitness=64, words=4, rounds=default_rounds)
         if rng_params is not None:
             rng_params_default.update(rng_params)
         self._rng_params = rng_params_default
         self._rng_params.key = create_key(self._rng, self._rng_params, seed=seed)
 
         distribution_params_default = dict(
-            uniform_integer=AttrDict(min=0, max=2**self._rng_params.bitness),
-            uniform_float=AttrDict(min=0, max=1),
-            normal_bm=AttrDict(mean=0, std=1),
-            gamma=AttrDict(shape=1, scale=1))
+            uniform_integer=helpers.AttrDict(min=0, max=2**self._rng_params.bitness),
+            uniform_float=helpers.AttrDict(min=0, max=1),
+            normal_bm=helpers.AttrDict(mean=0, std=1),
+            gamma=helpers.AttrDict(shape=1, scale=1))
         distribution_params_default = distribution_params_default[distribution]
         if distribution_params is not None:
             distribution_params_default.update(distribution_params)
@@ -176,20 +172,20 @@ class CBRNG(Computation):
             Parameter('randoms', Annotation(randoms_arr, 'o')),
             Parameter('old_counters', Annotation(counters_arr, 'i'))])
 
-    def _build_plan(self, plan_factory, device_params, new_counters, randoms, old_counters):
+    def _build_plan(self, plan_factory, _, new_counters, randoms, old_counters):
 
         plan = plan_factory()
 
         plan.kernel_call(
             TEMPLATE.get_def('cbrng'),
             [new_counters, randoms, old_counters],
-            global_size=product(old_counters.shape[:-1]),
+            global_size=helpers.product(old_counters.shape[:-1]),
             render_kwds=dict(
                 rng=self._rng,
                 rng_params=self._rng_params,
                 distribution=self._distribution,
                 distribution_params=self._distribution_params,
-                batch=product(randoms.shape[:-self._counters_dim]),
+                batch=helpers.product(randoms.shape[:-self._counters_dim]),
                 counters_slices=[self._counters_dim, 1],
                 randoms_slices=[
                     len(randoms.shape) - self._counters_dim,
