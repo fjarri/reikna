@@ -6,7 +6,7 @@ Release history
 0.3.1 (current development version)
 ===================================
 
-Under construction.
+* FIXED: too strict array type check for nested computations that caused some tests to fail.
 
 
 0.3.0 (23 Jul 2013)
