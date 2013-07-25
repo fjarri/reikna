@@ -37,8 +37,8 @@ def test_identity(some_thr, any_dtype):
     test = get_test_computation(input_dev)
     identity = tr.identity(input_dev)
 
-    test.input.connect(identity, identity.output, input_prime=identity.input)
-    test.output.connect(identity, identity.input, output_prime=identity.output)
+    test.parameter.input.connect(identity, identity.output, input_prime=identity.input)
+    test.parameter.output.connect(identity, identity.input, output_prime=identity.output)
     testc = test.compile(some_thr)
 
     testc(output_dev, input_dev)
@@ -56,8 +56,8 @@ def test_scale_param(some_thr, any_dtype):
     test = get_test_computation(input_dev)
     scale = tr.scale_param(input_dev, any_dtype)
 
-    test.input.connect(scale, scale.output, input_prime=scale.input, p1=scale.coeff)
-    test.output.connect(scale, scale.input, output_prime=scale.output, p2=scale.coeff)
+    test.parameter.input.connect(scale, scale.output, input_prime=scale.input, p1=scale.coeff)
+    test.parameter.output.connect(scale, scale.input, output_prime=scale.output, p2=scale.coeff)
     testc = test.compile(some_thr)
 
     testc(output_dev, p1, input_dev, p2)
@@ -76,8 +76,8 @@ def test_scale_const(some_thr, any_dtype):
     scale1 = tr.scale_const(input_dev, p1)
     scale2 = tr.scale_const(input_dev, p2)
 
-    test.input.connect(scale1, scale1.output, input_prime=scale1.input)
-    test.output.connect(scale2, scale2.input, output_prime=scale2.output)
+    test.parameter.input.connect(scale1, scale1.output, input_prime=scale1.input)
+    test.parameter.output.connect(scale2, scale2.input, output_prime=scale2.output)
     testc = test.compile(some_thr)
 
     testc(output_dev, input_dev)
@@ -98,8 +98,8 @@ def test_split_combine_complex(some_thr):
     combine = tr.combine_complex(base_t)
     split = tr.split_complex(base_t)
 
-    test.input.connect(combine, combine.output, i_real=combine.real, i_imag=combine.imag)
-    test.output.connect(split, split.input, o_real=split.real, o_imag=split.imag)
+    test.parameter.input.connect(combine, combine.output, i_real=combine.real, i_imag=combine.imag)
+    test.parameter.output.connect(split, split.input, o_real=split.real, o_imag=split.imag)
     testc = test.compile(some_thr)
 
     testc(o1_dev, o2_dev, i1_dev, i2_dev)
