@@ -84,10 +84,7 @@ version = {version}
 full_version = "{full_version}"
 git_revision = "{git_revision}"
 release = {released}
-
-if not release:
-    version = full_version
-    '''
+'''
 
     VERSION = (0, 3, 1)
     RELEASED = False
