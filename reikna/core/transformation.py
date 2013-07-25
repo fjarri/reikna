@@ -337,11 +337,17 @@ class TransformationTree:
         # Unless the user was not messing with undocumented fields,
         # same names will correspond to the same parameters.
         # But if they do not, we better catch it here.
+        subtree_params = []
         for param in parameters:
             if param.name in self.root_parameters:
-                assert self.root_parameters[param.name] == param
+                assert self.root_parameters[param.name].annotation == param.annotation
+                # Not using the parameter that came from the user,
+                # because we want to preserve the default value that is saved in our parameter.
+                subtree_params.append(self.root_parameters[param.name])
+            else:
+                subtree_params.append(param)
 
-        new_tree = TransformationTree(parameters)
+        new_tree = TransformationTree(subtree_params)
         new_tree.reconnect(self)
         return new_tree
 
