@@ -8,6 +8,8 @@ Release history
 
 * FIXED: typo in FFT performance test.
 
+* FIXED: bug in FFT that could result in changing the contents of the input array to one of the intermediate results.
+
 
 0.3.1 (25 Jul 2013)
 ===================

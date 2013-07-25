@@ -512,7 +512,7 @@ class FFT(Computation):
             mem_in = input_ if i == 0 else mem_out
             if i == len(kernels) - 1:
                 mem_out = output
-            elif kernel.inplace_possible:
+            elif kernel.inplace_possible and mem_in is not input_:
                 mem_out = mem_in
             else:
                 mem_out = plan.temp_array(kernel.output_shape, output.dtype)
