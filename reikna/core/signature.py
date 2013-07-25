@@ -58,7 +58,7 @@ class Type:
             return False
         if helpers.product(self.shape[:-common_shape_len]) != 1:
             return False
-        if helpers.product(self.shape[:-common_shape_len]) != 1:
+        if helpers.product(other.shape[:-common_shape_len]) != 1:
             return False
 
         return True
