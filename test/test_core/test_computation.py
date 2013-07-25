@@ -105,7 +105,7 @@ def test_computation_adhoc_array(some_thr):
     A = get_test_array((N, N), numpy.complex64)
     B = get_test_array(N, numpy.complex64)
 
-    d = DummyNested(A, B, numpy.float32, numpy.float32, test_computation_adhoc_array=True)
+    d = DummyNested(A, B, numpy.float32, 3, test_computation_adhoc_array=True)
     with pytest.raises(ValueError):
         dc = d.compile(some_thr)
 
@@ -121,7 +121,7 @@ def test_computation_incorrect_role(some_thr):
     A = get_test_array((N, N), numpy.complex64)
     B = get_test_array(N, numpy.complex64)
 
-    d = DummyNested(A, B, numpy.float32, numpy.float32, test_computation_incorrect_role=True)
+    d = DummyNested(A, B, numpy.float32, 3, test_computation_incorrect_role=True)
     with pytest.raises(TypeError):
         dc = d.compile(some_thr)
 
@@ -136,7 +136,7 @@ def test_computation_incorrect_type(some_thr):
     A = get_test_array((N, N), numpy.complex64)
     B = get_test_array(N, numpy.complex64)
 
-    d = DummyNested(A, B, numpy.float32, numpy.float32, test_computation_incorrect_type=True)
+    d = DummyNested(A, B, numpy.float32, 3, test_computation_incorrect_type=True)
     with pytest.raises(TypeError):
         dc = d.compile(some_thr)
 
