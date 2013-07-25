@@ -30,7 +30,7 @@ class PureParallel(Computation):
         else:
             self._guiding_shape = guiding_array
 
-    def _build_plan(self, plan_factory, _, *args):
+    def _build_plan(self, plan_factory, _device_params, *args):
 
         plan = plan_factory()
 

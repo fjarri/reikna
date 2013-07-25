@@ -267,7 +267,7 @@ class DHT(Computation):
 
         return current_mem, current_axes
 
-    def _build_plan(self, plan_factory, _, output_arr, input_arr):
+    def _build_plan(self, plan_factory, _device_params, output_arr, input_arr):
 
         plan = plan_factory()
 

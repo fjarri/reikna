@@ -172,7 +172,7 @@ class CBRNG(Computation):
             Parameter('randoms', Annotation(randoms_arr, 'o')),
             Parameter('old_counters', Annotation(counters_arr, 'i'))])
 
-    def _build_plan(self, plan_factory, _, new_counters, randoms, old_counters):
+    def _build_plan(self, plan_factory, _device_params, new_counters, randoms, old_counters):
 
         plan = plan_factory()
 
