@@ -229,10 +229,8 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     %for i in outer_list:
         <%
             loads = lambda indices, pad: insertGlobalLoadsNoIf(input, kweights,
-                [(i * num_inner_iter + j) for j in indices],
-                [j * inner_step for j in indices],
-                ##i * num_inner_iter + numpy.array(indices)
-                ##inner_step * numpy.array(indices),
+                i * num_inner_iter + numpy.array(indices),
+                inner_step * numpy.array(indices),
                 pad=pad, fft_index_offsets=[i * outer_step] * len(indices))
             border = fft_size_real // inner_step
         %>
@@ -280,8 +278,8 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     %for i in outer_list:
         <%
             stores = lambda indices: insertGlobalStoresNoIf(output, kweights,
-                [(i * num_inner_iter + j) for j in indices],
-                [j * inner_step for j in indices],
+                i * num_inner_iter + numpy.array(indices),
+                inner_step * numpy.array(indices),
                 fft_index_offsets=[i * outer_step] * len(indices))
             border = fft_size_real // inner_step
         %>

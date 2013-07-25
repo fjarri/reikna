@@ -10,6 +10,8 @@ Release history
 
 * FIXED: default values of scalar parameters are now processed correctly.
 
+* FIXED: Mako threw name-not-found exceptions on some list comprehensions in FFT template.
+
 
 0.3.0 (23 Jul 2013)
 ===================
