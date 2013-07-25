@@ -28,6 +28,7 @@ Core classes
 
 .. autoclass:: reikna.core.Computation
     :members:
+    :private-members: _build_plan
 
 .. autoclass:: reikna.core.Transformation
     :members:

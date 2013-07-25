@@ -1,7 +1,5 @@
 import weakref
-import itertools
-from collections import namedtuple, OrderedDict
-import numpy
+from collections import namedtuple
 
 from reikna.helpers import Graph
 from reikna.core.signature import Parameter, Annotation, Type, Signature
@@ -91,20 +89,6 @@ class Computation:
     A base class for computations, intended to be subclassed.
 
     :param root_parameters: a list of :py:class:`~reikna.core.Parameter` objects.
-
-    .. py:method:: _build_plan(plan_factory, device_params, *args)
-
-        Derived classes override this method.
-        It is called by :py:meth:`compile` and
-        supposed to return a :py:class:`~reikna.core.computation.ComputationPlan` object.
-
-        :param plan_factory: a callable returning a new
-            :py:class:`~reikna.core.computation.ComputationPlan` object.
-        :param device_params: a :py:class:`~reikna.cluda.api.DeviceParameters` object corresponding
-            to the thread the computation is being compiled for.
-        :param args: :py:class:`~reikna.core.computation.KernelArgument` objects,
-            corresponding to ``parameters`` specified during the creation
-            of this computation object.
 
     .. py:attribute:: signature
 
@@ -197,6 +181,22 @@ class Computation:
         """
         translator = Translator.identity()
         return self._get_plan(self._tr_tree, translator, thread).finalize()
+
+    def _build_plan(self, plan_factory, device_params, *args):
+        """
+        Derived classes override this method.
+        It is called by :py:meth:`compile` and
+        supposed to return a :py:class:`~reikna.core.computation.ComputationPlan` object.
+
+        :param plan_factory: a callable returning a new
+            :py:class:`~reikna.core.computation.ComputationPlan` object.
+        :param device_params: a :py:class:`~reikna.cluda.api.DeviceParameters` object corresponding
+            to the thread the computation is being compiled for.
+        :param args: :py:class:`~reikna.core.computation.KernelArgument` objects,
+            corresponding to ``parameters`` specified during the creation
+            of this computation object.
+        """
+        raise NotImplementedError
 
 
 class IdGen:
@@ -342,10 +342,10 @@ class ComputationPlan:
 
         Changes the plan state.
         """
-        ba = signature.bind_with_defaults(args, kwds, cast=False)
+        bound_args = signature.bind_with_defaults(args, kwds, cast=False)
 
         args = []
-        for arg, param in zip(ba.args, signature.parameters.values()):
+        for arg, param in zip(bound_args.args, signature.parameters.values()):
 
             if not isinstance(arg, KernelArgument):
                 if param.annotation.array:
@@ -530,9 +530,9 @@ class ComputationCallable:
         """
         Execute the computation.
         """
-        ba = self.signature.bind_with_defaults(args, kwds, cast=True)
+        bound_args = self.signature.bind_with_defaults(args, kwds, cast=True)
         for kernel_call in self._kernel_calls:
-            kernel_call(ba.arguments)
+            kernel_call(bound_args.arguments)
 
 
 class KernelCall:
