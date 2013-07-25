@@ -12,6 +12,8 @@ Release history
 
 * FIXED: Mako threw name-not-found exceptions on some list comprehensions in FFT template.
 
+* FIXED: some earlier-introduced errors in tests.
+
 
 0.3.0 (23 Jul 2013)
 ===================
