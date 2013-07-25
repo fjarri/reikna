@@ -25,12 +25,12 @@ class ComputationParameter(Type):
     def belongs_to(self, comp):
         return self._computation() is comp
 
-    def connect(self, _tr, _tr_connector, **tr_from_comp):
+    def connect(self, _trf, _tr_connector, **tr_from_comp):
         """
         Shortcut for :py:meth:`~reikna.core.Computation.connect`
         with this parameter as a first argument.
         """
-        return self._computation().connect(self._name, _tr, _tr_connector, **tr_from_comp)
+        return self._computation().connect(self._name, _trf, _tr_connector, **tr_from_comp)
 
     def __str__(self):
         return self._name
@@ -118,14 +118,14 @@ class Computation:
 
     # The names are underscored to avoid name conflicts with ``tr_from_comp`` keys
     # (where the user can introduce new parameter names)
-    def connect(self, _comp_connector, _tr, _tr_connector, **tr_from_comp):
+    def connect(self, _comp_connector, _trf, _tr_connector, **tr_from_comp):
         """
         Connect a transformation to the computation.
 
         :param _comp_connector: connection target ---
             a :py:class:`~reikna.core.computation.ComputationParameter` object
             beloning to this computation object, or a string with its name.
-        :param _tr: a :py:class:`~reikna.core.Transformation` object.
+        :param _trf: a :py:class:`~reikna.core.Transformation` object.
         :param _tr_connector: connector on the side of the transformation ---
             a :py:class:`~reikna.core.transformation.TransformationParameter` object
             beloning to ``tr``, or a string with its name.
@@ -154,13 +154,13 @@ class Computation:
         for comp_connection_name, tr_connection in tr_from_comp.items():
             check_external_parameter_name(comp_connection_name)
             if isinstance(tr_connection, TransformationParameter):
-                if not tr_connection.belongs_to(_tr):
+                if not tr_connection.belongs_to(_trf):
                     raise ValueError(
                         "The transformation parameter must belong to the provided transformation")
             tr_connection_name = str(tr_connection)
             comp_from_tr[tr_connection_name] = comp_connection_name
 
-        self._tr_tree.connect(param_name, _tr, comp_from_tr)
+        self._tr_tree.connect(param_name, _trf, comp_from_tr)
         self._update_attributes()
         return self
 

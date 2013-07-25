@@ -204,11 +204,12 @@ class Signature(funcsigs.Signature):
         Binds passed positional and keyword arguments to parameters in the signature and
         returns the resulting ``BoundArguments`` object.
         """
-        ba = self.bind(*args, **kwds)
+        bound_args = self.bind(*args, **kwds)
         for param in self.parameters.values():
-            if param.name not in ba.arguments:
-                ba.arguments[param.name] = param.default
+            if param.name not in bound_args.arguments:
+                bound_args.arguments[param.name] = param.default
             elif cast:
                 if not param.annotation.array:
-                    ba.arguments[param.name] = param.annotation.type(ba.arguments[param.name])
-        return ba
+                    bound_args.arguments[param.name] = \
+                        param.annotation.type(bound_args.arguments[param.name])
+        return bound_args
