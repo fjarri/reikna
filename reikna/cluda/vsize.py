@@ -1,5 +1,4 @@
-import numpy
-from reikna.helpers import *
+from reikna.helpers import product, log2, min_blocks, template_for, wrap_in_tuple, factors
 
 TEMPLATE = template_for(__file__)
 
