@@ -243,13 +243,14 @@ def test_sizes(thr_with_gs_limits, gl_size, gs_is_multiple):
 
 def test_incorrect_sizes(thr_with_gs_limits, incorrect_gl_size):
     """
-    Test that for sizes which exceed thread capability the exception is raised
+    Test that for sizes which exceed the thread capability, the exception is raised.
     """
 
     thr = thr_with_gs_limits
     grid_size, local_size = incorrect_gl_size
 
-    ref = ReferenceIds(grid_size, local_size)
+    global_size, ls = get_global_size(grid_size, local_size)
+    ref = ReferenceIds(global_size, local_size)
 
     with pytest.raises(ValueError):
         kernel = thr.compile_static("""

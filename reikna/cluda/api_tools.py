@@ -42,10 +42,14 @@ def find_devices(
         and lists of device numbers as values.
     """
 
-    if include_devices is None: include_devices = []
-    if exclude_devices is None: exclude_devices = []
-    if include_platforms is None: include_platforms = []
-    if exclude_platforms is None: exclude_platforms = []
+    if include_devices is None:
+        include_devices = []
+    if exclude_devices is None:
+        exclude_devices = []
+    if include_platforms is None:
+        include_platforms = []
+    if exclude_platforms is None:
+        exclude_platforms = []
 
     devices = {}
 

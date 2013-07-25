@@ -118,7 +118,9 @@ class Kernel(api_base.Kernel):
         self.max_work_group_size = self._kernel.get_work_group_info(
             cl.kernel_work_group_info.WORK_GROUP_SIZE, self._thr._device)
 
-    def prepare(self, global_size, local_size=None):
+    def prepare(self, global_size, local_size=None, local_mem=0):
+        # ``local_mem`` is ignored, since it cannot be easily passed to the kernel
+        # (a special kernel argument is requred).
         if local_size is None:
             self._local_size = None
         else:

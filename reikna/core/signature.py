@@ -1,6 +1,7 @@
 import funcsigs # backport of inspect.signature() and related objects for Py2
 import numpy
 
+import reikna.helpers as helpers
 import reikna.cluda.dtypes as dtypes
 from reikna.helpers import wrap_in_tuple, product
 
@@ -42,6 +43,25 @@ class Type:
     def __eq__(self, other):
         return (self.shape == other.shape and self.dtype == other.dtype
             and self.strides == other.strides)
+
+    def __ne__(self, other):
+        return not (self == other)
+
+    def compatible_with(self, other):
+        if self.dtype != other.dtype:
+            return False
+
+        common_shape_len = min(len(self.shape), len(other.shape))
+        if self.shape[-common_shape_len:] != other.shape[-common_shape_len:]:
+            return False
+        if self.strides[-common_shape_len:] != other.strides[-common_shape_len:]:
+            return False
+        if helpers.product(self.shape[:-common_shape_len]) != 1:
+            return False
+        if helpers.product(other.shape[:-common_shape_len]) != 1:
+            return False
+
+        return True
 
     @classmethod
     def from_value(cls, val):
@@ -106,7 +126,7 @@ class Annotation:
         return self.type == other.type and self.role == other.role
 
     def can_be_argument_for(self, annotation):
-        if self.type != annotation.type:
+        if not self.type.compatible_with(annotation.type):
             return False
 
         if self.role == annotation.role:
@@ -139,7 +159,7 @@ class Parameter(funcsigs.Parameter):
     def __init__(self, name, annotation, default=funcsigs.Parameter.empty):
 
         if default is not funcsigs.Parameter.empty:
-            if not annotation.array:
+            if annotation.array:
                 raise ValueError("Array parameters cannot have default values")
             default = annotation.type(default)
 
@@ -184,11 +204,12 @@ class Signature(funcsigs.Signature):
         Binds passed positional and keyword arguments to parameters in the signature and
         returns the resulting ``BoundArguments`` object.
         """
-        ba = self.bind(*args, **kwds)
+        bound_args = self.bind(*args, **kwds)
         for param in self.parameters.values():
-            if param.name not in ba.arguments:
-                ba.arguments[param.name] = param.default
+            if param.name not in bound_args.arguments:
+                bound_args.arguments[param.name] = param.default
             elif cast:
                 if not param.annotation.array:
-                    ba.arguments[param.name] = param.annotation.type(ba.arguments[param.name])
-        return ba
+                    bound_args.arguments[param.name] = \
+                        param.annotation.type(bound_args.arguments[param.name])
+        return bound_args

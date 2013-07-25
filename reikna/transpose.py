@@ -1,9 +1,9 @@
 import numpy
 
-from reikna.helpers import *
-from reikna.core import *
+import reikna.helpers as helpers
+from reikna.core import Computation, Parameter, Annotation, Type
 
-TEMPLATE = template_for(__file__)
+TEMPLATE = helpers.template_for(__file__)
 
 
 def transpose_shape(shape, axes):
@@ -12,10 +12,10 @@ def transpose_shape(shape, axes):
 def transpose_axes(axes, b_start, c_start):
     return axes[:b_start] + axes[c_start:] + axes[b_start:c_start]
 
-def possible_transposes(n):
-    for b in range(n - 1):
-        for c in range(b + 1, n):
-            yield b, c
+def possible_transposes(shape_len):
+    for b_start in range(shape_len - 1):
+        for c_start in range(b_start + 1, shape_len):
+            yield b_start, c_start
 
 def get_operations(source, target):
     visited = set([source])
@@ -25,13 +25,13 @@ def get_operations(source, target):
         if current_best is not None and len(breadcrumbs) >= len(current_best):
             return current_best
 
-        for b, c in actions:
-            result = transpose_axes(node, b, c)
+        for b_start, c_start in actions:
+            result = transpose_axes(node, b_start, c_start)
             if result in visited and result != target:
                 continue
             visited.add(result)
 
-            new_breadcrumbs = breadcrumbs + ((b, c),)
+            new_breadcrumbs = breadcrumbs + ((b_start, c_start),)
 
             if result == target:
                 if current_best is None or len(current_best) > len(new_breadcrumbs):
@@ -62,11 +62,10 @@ def get_transposes(shape, axes=None):
     operations = [(b + len(prefix), c + len(prefix)) for b, c in result]
 
     transposes = []
-    for b, c in operations:
-        transposes.append((shape[:b], shape[b:c], shape[c:]))
-        shape = transpose_axes(shape, b, c)
+    for b_start, c_start in operations:
+        transposes.append((shape[:b_start], shape[b_start:c_start], shape[c_start:]))
+        shape = transpose_axes(shape, b_start, c_start)
     return transposes
-
 
 
 class Transpose(Computation):
@@ -102,7 +101,7 @@ class Transpose(Computation):
             Parameter('input', Annotation(arr, 'i'))])
 
     def _add_transpose(self, plan, device_params,
-            output_name, input_name, batch_shape, height_shape, width_shape):
+            mem_out, mem_in, batch_shape, height_shape, width_shape):
 
         bso = self._block_width_override
         block_width = device_params.local_mem_banks if bso is None else bso
@@ -111,12 +110,12 @@ class Transpose(Computation):
             # If it is not CPU, current solution may affect performance
             block_width = int(numpy.sqrt(device_params.max_work_group_size))
 
-        input_height = product(height_shape)
-        input_width = product(width_shape)
-        batch = product(batch_shape)
+        input_height = helpers.product(height_shape)
+        input_width = helpers.product(width_shape)
+        batch = helpers.product(batch_shape)
 
-        blocks_per_matrix = min_blocks(input_height, block_width)
-        grid_width = min_blocks(input_width, block_width)
+        blocks_per_matrix = helpers.min_blocks(input_height, block_width)
+        grid_width = helpers.min_blocks(input_width, block_width)
 
         render_kwds = dict(
             input_width=input_width, input_height=input_height, batch=batch,
@@ -127,20 +126,21 @@ class Transpose(Computation):
             output_slices=[len(batch_shape), len(width_shape), len(height_shape)])
 
         plan.kernel_call(
-            TEMPLATE.get_def('transpose'), [output_name, input_name],
+            TEMPLATE.get_def('transpose'), [mem_out, mem_in],
             global_size=(grid_width * block_width, blocks_per_matrix * block_width, batch),
             local_size=(block_width, block_width, 1),
             render_kwds=render_kwds)
 
-    def _build_plan(self, plan_factory, device_params, output, input):
+    def _build_plan(self, plan_factory, device_params, output, input_):
         plan = plan_factory()
-        transposes = get_transposes(input.shape, self._axes)
+        transposes = get_transposes(input_.shape, self._axes)
 
-        for i, tr in enumerate(transposes):
+        mem_out = None
+        for i, transpose in enumerate(transposes):
 
-            batch_shape, height_shape, width_shape = tr
+            batch_shape, height_shape, width_shape = transpose
 
-            mem_in = input if i == 0 else mem_out
+            mem_in = input_ if i == 0 else mem_out
             if i == len(transposes) - 1:
                 mem_out = output
             else:

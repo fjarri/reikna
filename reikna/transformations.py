@@ -4,7 +4,7 @@ This module contains a number of pre-created transformations.
 
 import reikna.cluda.dtypes as dtypes
 import reikna.cluda.functions as functions
-from reikna.core import *
+from reikna.core import Transformation, Parameter, Annotation, Type
 
 
 def identity(arr_t):

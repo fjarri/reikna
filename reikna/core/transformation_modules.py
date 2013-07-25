@@ -1,4 +1,4 @@
-from reikna.helpers import *
+import reikna.helpers as helpers
 from reikna.cluda import Module, Snippet
 
 
@@ -11,8 +11,8 @@ def leaf_name(name):
 
 
 def index_cnames(param):
-    type = param.annotation.type
-    return [INDEX_NAME + str(i) for i in range(len(type.shape))]
+    type_ = param.annotation.type
+    return [INDEX_NAME + str(i) for i in range(len(type_.shape))]
 
 
 def index_cnames_str(param, qualified=False):
@@ -29,8 +29,8 @@ def flat_index_expr(param):
     # to cast device pointer to bytes and back.
     # Need to investigate what happens in this case on some concrete example.
 
-    type = param.annotation.type
-    item_strides = [stride // type.dtype.itemsize for stride in type.strides]
+    type_ = param.annotation.type
+    item_strides = [stride // type_.dtype.itemsize for stride in type_.strides]
 
     names = index_cnames(param)
 
@@ -39,11 +39,11 @@ def flat_index_expr(param):
         for name, stride in zip(names, item_strides)])
 
 
-def param_cname(p, qualified=False):
-    name = "_leaf_" + p.name
+def param_cname(param, qualified=False):
+    name = "_leaf_" + param.name
     if qualified:
-        ctype = p.annotation.type.ctype
-        if p.annotation.array:
+        ctype = param.annotation.type.ctype
+        if param.annotation.array:
             return "GLOBAL_MEM " + ctype + " *" + name
         else:
             return ctype + " " + name
@@ -146,26 +146,26 @@ def module_same_indices(output, param, subtree_params, module_idx):
             nq_params=param_cnames_str(subtree_params)))
 
 
-snippet_disassemble_combined = Snippet.create(
-    lambda shape, slices, indices, combined_indices: """
-    %for combined_index, slice_len in enumerate(slices):
-    <%
-        index_start = sum(slices[:combined_index])
-        index_end = index_start + slice_len
-    %>
-        %for index in range(index_start, index_end):
-        <%
-            stride = product(shape[index+1:index_end])
-        %>
-        int ${indices[index]} = ${combined_indices[combined_index]} / ${stride};
-        ${combined_indices[combined_index]} -= ${indices[index]} * ${stride};
-        %endfor
-    %endfor
-    """,
-    render_kwds=dict(product=product))
-
-
 def module_combined(output, param, subtree_params, module_idx):
+
+    snippet_disassemble_combined = Snippet.create(
+        lambda shape, slices, indices, combined_indices: """
+        %for combined_index, slice_len in enumerate(slices):
+        <%
+            index_start = sum(slices[:combined_index])
+            index_end = index_start + slice_len
+        %>
+            %for index in range(index_start, index_end):
+            <%
+                stride = product(shape[index+1:index_end])
+            %>
+            int ${indices[index]} = ${combined_indices[combined_index]} / ${stride};
+            ${combined_indices[combined_index]} -= ${indices[index]} * ${stride};
+            %endfor
+        %endfor
+        """,
+        render_kwds=dict(product=helpers.product))
+
     return Module.create(
         lambda prefix, slices: """
         <%

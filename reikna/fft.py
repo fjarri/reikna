@@ -1,26 +1,25 @@
 import numpy
 
-from reikna.helpers import *
-from reikna.core import *
-from reikna.cluda import Snippet
+import reikna.helpers as helpers
+from reikna.core import Computation, Parameter, Annotation
 from reikna.cluda import functions
 import reikna.cluda.dtypes as dtypes
 from reikna.cluda import OutOfResourcesError
 from reikna.pureparallel import PureParallel
 
-TEMPLATE = template_for(__file__)
+TEMPLATE = helpers.template_for(__file__)
 
 
 MAX_RADIX = 16
 
 
-def get_radix_array(n, use_max_radix=False):
+def get_radix_array(size, use_max_radix=False):
     """
-    For any n, this function decomposes n into factors for loacal memory tranpose
+    For any ``size``, this function decomposes ``size`` into factors for loacal memory tranpose
     based fft. Factors (radices) are sorted such that the first one (radix_array[0])
     is the largest. This base radix determines the number of registers used by each
     work item and product of remaining radices determine the size of work group needed.
-    To make things concrete with and example, suppose n = 1024. It is decomposed into
+    To make things concrete with and example, suppose ``size`` = 1024. It is decomposed into
     1024 = 16 x 16 x 4. Hence kernel uses float2 a[16], for local in-register fft and
     needs 16 x 4 = 64 work items per work group. So kernel first performance 64 length
     16 ffts (64 work items working in parallel) following by transpose using local
@@ -28,14 +27,14 @@ def get_radix_array(n, use_max_radix=False):
     followed by 256 length 4 ffts. For the last step since with size of work group is
     64 and each work item can array for 16 values, 64 work items can compute 256 length
     4 ffts by each work item computing 4 length 4 ffts.
-    Similarly for n = 2048 = 8 x 8 x 8 x 4, each work group has 8 x 8 x 4 = 256 work
+    Similarly for ``size`` = 2048 = 8 x 8 x 8 x 4, each work group has 8 x 8 x 4 = 256 work
     iterms which each computes 256 (in-parallel) length 8 ffts in-register, followed
     by transpose using local memory, followed by 256 length 8 in-register ffts, followed
     by transpose using local memory, followed by 256 length 8 in-register ffts, followed
     by transpose using local memory, followed by 512 length 4 in-register ffts. Again,
     for the last step, each work item computes two length 4 in-register ffts and thus
     256 work items are needed to compute all 512 ffts.
-    For n = 32 = 8 x 4, 4 work items first compute 4 in-register
+    For ``size`` = 32 = 8 x 4, 4 work items first compute 4 in-register
     lenth 8 ffts, followed by transpose using local memory followed by 8 in-register
     length 4 ffts, where each work item computes two length 4 ffts thus 4 work items
     can compute 8 length 4 ffts. However if work group size of say 64 is choosen,
@@ -45,16 +44,15 @@ def get_radix_array(n, use_max_radix=False):
     smaller base radix can avoid spilling ... some has small local memory thus
     using smaller work group size may be required etc
     """
-    if n != 2 ** log2(n):
-        raise ValueError("Wrong problem size: " + str(n))
+    assert size == 2 ** helpers.log2(size)
 
     if use_max_radix:
-        radix = min(n, MAX_RADIX)
+        radix = min(size, MAX_RADIX)
         radix_array = []
-        while n > radix:
+        while size > radix:
             radix_array.append(radix)
-            n //= radix
-        radix_array.append(n)
+            size //= radix
+        radix_array.append(size)
         return radix_array
     else:
         arrays = {
@@ -66,20 +64,20 @@ def get_radix_array(n, use_max_radix=False):
             1024: [16, 16, 4],
             2048: [8, 8, 8, 4]
         }
-        if n in arrays:
-            return arrays[n]
+        if size in arrays:
+            return arrays[size]
         else:
             # Naive algorithm, can be imroved.
-            l = log2(n)
-            num_elems = min_blocks(l, 4)
-            return [16] * (num_elems - 1) + [16 if l % 4 == 0 else 2 ** (l % 4)]
+            lsize = helpers.log2(size)
+            num_elems = helpers.min_blocks(lsize, 4)
+            return [16] * (num_elems - 1) + [16 if lsize % 4 == 0 else 2 ** (lsize % 4)]
 
 
-def get_global_radix_info(n):
+def get_global_radix_info(size):
     """
-    For n larger than what can be computed using local memory fft, global transposes
-    multiple kernel launces is needed. For these sizes, n can be decomposed using
-    much larger base radices i.e. say n = 262144 = 128 x 64 x 32. Thus three kernel
+    For ``size`` larger than what can be computed using local memory fft, global transposes
+    multiple kernel launces is needed. For these sizes, ``size`` can be decomposed using
+    much larger base radices i.e. say ``size`` = 262144 = 128 x 64 x 32. Thus three kernel
     launches will be needed, first computing 64 x 32, length 128 ffts, second computing
     128 x 32 length 64 ffts, and finally a kernel computing 128 x 64 length 32 ffts.
     Each of these base radices can futher be divided into factors so that each of these
@@ -98,97 +96,93 @@ def get_global_radix_info(n):
     decompositions of base radices to generates different kernels and see which gives
     best performance. Following function is just fixed to use 128 as base radix
     """
-    base_radix = min(n, 128)
+    assert size == 2 ** helpers.log2(size)
 
-    numR = 0
-    N = n
-    while N > base_radix:
-        N //= base_radix
-        numR += 1
+    base_radix = min(size, 128)
 
-    radix = []
-    for i in range(numR):
-        radix.append(base_radix)
+    num_radices = 0
+    while size > base_radix:
+        size //= base_radix
+        num_radices += 1
 
-    radix.append(N)
-    numR += 1
+    radix_list = [base_radix] * num_radices + [size]
+    radix1_list = []
+    radix2_list = []
 
-    R1 = []
-    R2 = []
-    for i in range(numR):
-        B = radix[i]
-        if B <= 8:
-            R1.append(B)
-            R2.append(1)
+    for radix in radix_list:
+        if radix <= 8:
+            radix1_list.append(radix)
+            radix2_list.append(1)
         else:
-            r1 = 2
-            r2 = B // r1
-            while r2 > r1:
-                r1 *= 2
-                r2 = B // r1
+            radix1 = 2
+            radix2 = radix // radix1
+            while radix2 > radix1:
+                radix1 *= 2
+                radix2 = radix // radix1
 
-            R1.append(r1)
-            R2.append(r2)
+            radix1_list.append(radix1)
+            radix2_list.append(radix2)
 
     # sanity checks:
-    for r, r1, r2 in zip(radix, R1, R2):
-        assert r2 <= r1
-        assert r1 * r2 == r
-        assert r1 <= MAX_RADIX
+    for radix, radix1, radix2 in zip(radix_list, radix1_list, radix2_list):
+        assert radix2 <= radix1
+        assert radix1 * radix2 == radix
+        assert radix1 <= MAX_RADIX
 
-    return radix, R1, R2
+    return radix_list, radix1_list, radix2_list
 
 
-def get_padding(threads_per_xform, Nprev, threads_req, xforms_per_workgroup, Nr, num_banks):
+def get_padding(threads_per_xform, radix_prev, threads_req, xforms_per_workgroup, radix, num_banks):
 
-    if threads_per_xform <= Nprev or Nprev >= num_banks:
+    if threads_per_xform <= radix_prev or radix_prev >= num_banks:
         offset = 0
     else:
-        numRowsReq = (threads_per_xform if threads_per_xform < num_banks else num_banks) // Nprev
-        numColsReq = 1
-        if numRowsReq > Nr:
-            numColsReq = numRowsReq // Nr
-        numColsReq = Nprev * numColsReq
-        offset = numColsReq
+        num_rows_req = ((threads_per_xform if threads_per_xform < num_banks else num_banks) //
+            radix_prev)
+        num_cols_req = 1
+        if num_rows_req > radix:
+            num_cols_req = num_rows_req // radix
+        num_cols_req *= radix_prev
+        offset = num_cols_req
 
     if threads_per_xform >= num_banks or xforms_per_workgroup == 1:
-        midPad = 0
+        mid_pad = 0
     else:
-        bankNum = ((threads_req + offset) * Nr) & (num_banks - 1)
-        if bankNum >= threads_per_xform:
-            midPad = 0
+        bank_num = ((threads_req + offset) * radix) & (num_banks - 1)
+        if bank_num >= threads_per_xform:
+            mid_pad = 0
         else:
             # TODO: find out which conditions are necessary to execute this code
-            midPad = threads_per_xform - bankNum
+            mid_pad = threads_per_xform - bank_num
 
-    lmem_size = (threads_req + offset) * Nr * xforms_per_workgroup + midPad * (xforms_per_workgroup - 1)
-    return lmem_size, offset, midPad
+    lmem_size = ((threads_req + offset) * radix * xforms_per_workgroup +
+        mid_pad * (xforms_per_workgroup - 1))
+    return lmem_size, offset, mid_pad
 
 
-def get_local_memory_size(n, radix_array, threads_per_xform, xforms_per_workgroup,
+def get_local_memory_size(size, radix_array, threads_per_xform, xforms_per_workgroup,
         num_local_mem_banks, min_mem_coalesce_width):
 
     lmem_size = 0
 
     # from insertGlobal(Loads/Stores)AndTranspose
     if threads_per_xform < min_mem_coalesce_width:
-        lmem_size = max(lmem_size, (n + threads_per_xform) * xforms_per_workgroup)
+        lmem_size = max(lmem_size, (size + threads_per_xform) * xforms_per_workgroup)
 
-    Nprev = 1
-    len_ = n
-    numRadix = len(radix_array)
-    for r in range(numRadix):
+    radix_prev = 1
+    len_ = size
+    for i, radix in enumerate(radix_array):
 
-        threads_req = n // radix_array[r]
-        Ncurr = Nprev * radix_array[r]
+        threads_req = size // radix
+        radix_curr = radix_prev * radix
 
-        if r < numRadix - 1:
-            lmem_size_new, offset, midPad = get_padding(
-                threads_per_xform, Nprev, threads_req, xforms_per_workgroup,
-                radix_array[r], num_local_mem_banks)
+        if i < len(radix_array) - 1:
+            lmem_size_new, _, _ = get_padding(
+                threads_per_xform, radix_prev, threads_req, xforms_per_workgroup,
+                radix, num_local_mem_banks)
             lmem_size = max(lmem_size, lmem_size_new)
-            Nprev = Ncurr
-            len_ = len_ // radix_array[r]
+            radix_prev = radix_curr
+            len_ = len_ // radix
 
     return lmem_size
 
@@ -210,77 +204,51 @@ def get_kweights(size_real, size_bound):
         numpy.fft.ifft(numpy.exp(-args(n_v))) * size_bound / size_real])
 
 
-class _FFTKernel:
-    """Base class for FFT kernels. Handles compilation and execution."""
-
-    def __init__(self, dtype, device_params):
-        self._dtype = dtype
-        self._device_params = device_params
-        self._normalize = False
-        self.kweights = None
-
-    def enable_normalization(self):
-        self._normalize = True
-
-    def prepare_for(self, max_local_size):
-        local_size, workgroups_num, kwds = self._generate(max_local_size)
-        dtype = self._dtype
-
-        kwds.update(dict(
-            dtype=dtype,
-            input_slices=self.input_slices,
-            output_slices=self.output_slices,
-            min_mem_coalesce_width=self._device_params.min_mem_coalesce_width[dtype.itemsize],
-            local_mem_banks=self._device_params.local_mem_banks,
-            get_padding=get_padding,
-            normalize=self._normalize,
-            wrap_const=lambda x: dtypes.c_constant(x, dtypes.real_for(dtype)),
-            min_blocks=min_blocks,
-            takes_kweights=(self.kweights is not None),
-            pad_in=(self._fft_size != self._fft_size_real and self._pass_num == 0
-                and not self._reverse_direction),
-            unpad_out=(self._fft_size != self._fft_size_real and self._last_pass
-                and self._reverse_direction),
-            reverse_direction=self._reverse_direction,
-            mul=functions.mul(dtype, dtype),
-            polar=functions.polar(dtypes.real_for(dtype)),
-            cdivs=functions.div(dtype, dtypes.real_for(dtype))))
-
-        local_size = local_size
-        global_size = local_size * workgroups_num
-
-        return global_size, local_size, kwds
+def get_common_kwds(dtype, device_params):
+    return dict(
+        dtype=dtype,
+        min_mem_coalesce_width=device_params.min_mem_coalesce_width[dtype.itemsize],
+        local_mem_banks=device_params.local_mem_banks,
+        get_padding=get_padding,
+        wrap_const=lambda x: dtypes.c_constant(x, dtypes.real_for(dtype)),
+        min_blocks=helpers.min_blocks,
+        mul=functions.mul(dtype, dtype),
+        polar=functions.polar(dtypes.real_for(dtype)),
+        cdivs=functions.div(dtype, dtypes.real_for(dtype)))
 
 
-class LocalFFTKernel(_FFTKernel):
+class LocalFFTKernel:
     """Generator for 'local' FFT in shared memory"""
 
     def __init__(self, dtype, device_params, outer_shape, fft_size, fft_size_real,
             inner_shape, reverse_direction):
-        _FFTKernel.__init__(self, dtype, device_params)
-        self._fft_size = fft_size
-        self._outer_batch = product(outer_shape)
+
         self.name = "fft_local"
         self.inplace_possible = True
-        self._reverse_direction = reverse_direction
-        self._fft_size_real = fft_size_real
-
-        self._pass_num = 0
-        self._last_pass = True
-
-        if reverse_direction:
-            self.output_shape = outer_shape + (fft_size_real,)
-        else:
-            self.output_shape = outer_shape + (fft_size,)
-        self.input_slices = (len(outer_shape), 1, len(inner_shape))
-        self.output_slices = (len(outer_shape), 1, len(inner_shape))
-
+        self.output_shape = outer_shape + (fft_size_real if reverse_direction else fft_size,)
         if fft_size_real != fft_size and reverse_direction:
             self.kweights = get_kweights(fft_size_real, fft_size)
+        else:
+            self.kweights = None
 
-        self.enable_normalization()
+        self._fft_size = fft_size
+        self._fft_size_real = fft_size_real
+        self._outer_batch = helpers.product(outer_shape)
+        self._local_mem_size = device_params.local_mem_size
+        self._itemsize = dtype.itemsize
 
-    def _generate(self, max_local_size):
+        self._constant_kwds = get_common_kwds(dtype, device_params)
+        self._constant_kwds.update(dict(
+            takes_kweights=(self.kweights is not None),
+            input_slices=(len(outer_shape), 1, len(inner_shape)),
+            output_slices=(len(outer_shape), 1, len(inner_shape)),
+            pad_in=(fft_size != fft_size_real and not reverse_direction),
+            unpad_out=(fft_size != fft_size_real and reverse_direction),
+            reverse_direction=reverse_direction,
+            normalize=True))
+
+    def prepare_for(self, max_local_size):
+        kwds = dict(self._constant_kwds)
         fft_size = self._fft_size
 
         radix_array = get_radix_array(fft_size)
@@ -292,81 +260,84 @@ class LocalFFTKernel(_FFTKernel):
         if local_size > max_local_size:
             raise OutOfResourcesError
         xforms_per_workgroup = local_size // threads_per_xform
-        workgroups_num = min_blocks(self._outer_batch, xforms_per_workgroup)
+        workgroups_num = helpers.min_blocks(self._outer_batch, xforms_per_workgroup)
 
         lmem_size = get_local_memory_size(
             fft_size, radix_array, threads_per_xform, xforms_per_workgroup,
-            self._device_params.local_mem_banks,
-            self._device_params.min_mem_coalesce_width[self._dtype.itemsize])
+            kwds['local_mem_banks'], kwds['min_mem_coalesce_width'])
 
-        if lmem_size * self._dtype.itemsize // 2 > self._device_params.local_mem_size:
+        if lmem_size * self._itemsize // 2 > self._local_mem_size:
             raise OutOfResourcesError
 
-        kwds = dict(
+        kwds.update(dict(
             fft_size=fft_size, fft_size_real=self._fft_size_real, radix_arr=radix_array,
             lmem_size=lmem_size, threads_per_xform=threads_per_xform,
             xforms_per_workgroup=xforms_per_workgroup,
-            outer_batch=self._outer_batch)
+            outer_batch=self._outer_batch))
 
-        return local_size, workgroups_num, kwds
+        return local_size * workgroups_num, local_size, kwds
 
 
-class GlobalFFTKernel(_FFTKernel):
+class GlobalFFTKernel:
     """Generator for 'global' FFT kernel chain."""
 
     def __init__(self, dtype, device_params, outer_shape, fft_size, curr_size,
             fft_size_real, inner_shape, pass_num, reverse_direction):
 
-        _FFTKernel.__init__(self, dtype, device_params)
+        num_passes = len(get_global_radix_info(fft_size)[0])
+        real_output_shape = (pass_num == num_passes - 1 and reverse_direction)
+
+        self.name = 'fft_global'
+        self.inplace_possible = (pass_num == num_passes - 1 and num_passes % 2 == 1)
+        self.output_shape = (outer_shape +
+            (fft_size_real if real_output_shape else fft_size,) + inner_shape)
+        if fft_size != fft_size_real and pass_num == 0 and reverse_direction:
+            self.kweights = get_kweights(fft_size_real, fft_size)
+        else:
+            self.kweights = None
+
         self._fft_size = fft_size
         self._curr_size = curr_size
-        self._inner_batch = product(inner_shape)
-        self._outer_batch = product(outer_shape)
-        self._pass_num = pass_num
-        self.name = 'fft_global'
-
-        self._reverse_direction = reverse_direction
         self._fft_size_real = fft_size_real
-
-        num_passes = len(get_global_radix_info(fft_size)[0])
-        if self._pass_num == num_passes - 1 and num_passes % 2 == 1:
-            self.inplace_possible = True
-        else:
-            self.inplace_possible = False
-
-        if pass_num == 0 and reverse_direction:
-            self.kweights = get_kweights(fft_size_real, fft_size)
-
+        self._local_mem_size = device_params.local_mem_size
+        self._itemsize = dtype.itemsize
+        self._inner_batch = helpers.product(inner_shape)
+        self._outer_batch = helpers.product(outer_shape)
+        self._pass_num = pass_num
         self._last_pass = (pass_num == num_passes - 1)
-        if pass_num == num_passes - 1 and reverse_direction:
-            self.output_shape = outer_shape + (fft_size_real,) + inner_shape
-        else:
-            self.output_shape = outer_shape + (fft_size,) + inner_shape
-        self.input_slices = (len(outer_shape), 1, len(inner_shape))
-        self.output_slices = (len(outer_shape), 1, len(inner_shape))
 
-    def _generate(self, max_local_size):
+        self._constant_kwds = get_common_kwds(dtype, device_params)
+        self._constant_kwds.update(dict(
+            takes_kweights=(self.kweights is not None),
+            input_slices=(len(outer_shape), 1, len(inner_shape)),
+            output_slices=(len(outer_shape), 1, len(inner_shape)),
+            pad_in=(fft_size != fft_size_real and pass_num == 0 and not reverse_direction),
+            unpad_out=(fft_size != fft_size_real and self._last_pass and reverse_direction),
+            reverse_direction=reverse_direction,
+            normalize=self._last_pass))
+
+    def prepare_for(self, max_local_size):
+        kwds = dict(self._constant_kwds)
 
         radix_arr, radix1_arr, radix2_arr = get_global_radix_info(self._fft_size)
 
         radix = radix_arr[self._pass_num]
         radix1 = radix1_arr[self._pass_num]
         radix2 = radix2_arr[self._pass_num]
-        num_passes = len(radix_arr)
 
-        stride_out = self._inner_batch * product(radix_arr[:self._pass_num])
+        stride_out = self._inner_batch * helpers.product(radix_arr[:self._pass_num])
         stride = stride_out * radix
-        stride_in = stride_out * product(radix_arr[self._pass_num+1:])
+        stride_in = stride_out * helpers.product(radix_arr[self._pass_num+1:])
 
         threads_per_xform = radix2
 
-        coalesce_width = self._device_params.min_mem_coalesce_width[self._dtype.itemsize]
+        coalesce_width = kwds['min_mem_coalesce_width']
         local_batch = max_local_size if radix2 == 1 else coalesce_width
         local_batch = min(local_batch, stride_in)
         local_size = min(local_batch * threads_per_xform, max_local_size)
         local_batch = local_size // threads_per_xform
 
-        workgroups_num = min_blocks(stride_in, local_batch) * self._outer_batch
+        workgroups_num = helpers.min_blocks(stride_in, local_batch) * self._outer_batch
 
         if radix2 == 1:
             lmem_size = 0
@@ -376,10 +347,11 @@ class GlobalFFTKernel(_FFTKernel):
             else:
                 lmem_size = local_size * radix1
 
-        if lmem_size * self._dtype.itemsize // 2 > self._device_params.local_mem_size:
+        if lmem_size * self._itemsize // 2 > self._local_mem_size:
             raise OutOfResourcesError
 
-        kwds = dict(
+        kwds.update(self._constant_kwds)
+        kwds.update(dict(
             fft_size=self._fft_size, curr_size=self._curr_size, fft_size_real=self._fft_size_real,
             pass_num=self._pass_num,
             lmem_size=lmem_size, local_batch=local_batch, local_size=local_size,
@@ -387,12 +359,12 @@ class GlobalFFTKernel(_FFTKernel):
             radix_arr=radix_arr, radix1_arr=radix1_arr, radix2_arr=radix2_arr,
             radix1=radix1, radix2=radix2, radix=radix,
             stride_in=stride_in, stride_out=stride_out, stride=stride,
-            last_pass=(self._pass_num == num_passes - 1))
+            last_pass=self._last_pass))
 
-        return local_size, workgroups_num, kwds
+        return workgroups_num * local_size, local_size, kwds
 
     @staticmethod
-    def createChain(dtype, device_params, outer_shape, fft_size, fft_size_real, inner_shape,
+    def create_chain(dtype, device_params, outer_shape, fft_size, fft_size_real, inner_shape,
             reverse_direction):
 
         radix_arr, _, _ = get_global_radix_info(fft_size)
@@ -406,8 +378,6 @@ class GlobalFFTKernel(_FFTKernel):
                 reverse_direction))
             curr_size //= radix_arr[pass_num]
 
-        kernels[-1].enable_normalization()
-
         return kernels
 
 
@@ -420,12 +390,12 @@ def get_fft_1d_kernels(dtype, device_params, outer_shape, fft_size, inner_shape,
     if fft_size_real is None:
         fft_size_real = fft_size
 
-    if (product(inner_shape) == 1 and fft_size // MAX_RADIX <= local_kernel_limit):
+    if (helpers.product(inner_shape) == 1 and fft_size // MAX_RADIX <= local_kernel_limit):
         kernels.append(LocalFFTKernel(
             dtype, device_params, outer_shape, fft_size, fft_size_real,
             inner_shape, reverse_direction))
     else:
-        kernels.extend(GlobalFFTKernel.createChain(
+        kernels.extend(GlobalFFTKernel.create_chain(
             dtype, device_params, outer_shape, fft_size, fft_size_real,
             inner_shape, reverse_direction))
 
@@ -434,7 +404,10 @@ def get_fft_1d_kernels(dtype, device_params, outer_shape, fft_size, inner_shape,
 
 def get_fft_kernels(input_shape, dtype, axes, device_params, local_kernel_limit):
     kernels = []
-    for i, axis in enumerate(reversed(axes)):
+
+    # Starting from the most local transformation, for the sake of neatness.
+    # Does not really matter.
+    for axis in reversed(axes):
         outer_shape = input_shape[:axis]
         fft_size = input_shape[axis]
         inner_shape = input_shape[axis+1:]
@@ -442,7 +415,7 @@ def get_fft_kernels(input_shape, dtype, axes, device_params, local_kernel_limit)
         if fft_size == 1:
             continue
 
-        bounding_size = bounding_power_of_2(fft_size)
+        bounding_size = helpers.bounding_power_of_2(fft_size)
 
         if bounding_size == fft_size:
             kernels.extend(get_fft_1d_kernels(
@@ -468,6 +441,13 @@ def get_fft_kernels(input_shape, dtype, axes, device_params, local_kernel_limit)
             kernels.extend(new_kernels)
 
     return kernels
+
+
+class LocalKernelFail(Exception):
+    pass
+
+class GlobalKernelFail(Exception):
+    pass
 
 
 class FFT(Computation):
@@ -501,23 +481,74 @@ class FFT(Computation):
             axes = tuple(axes)
         self._axes = axes
 
-    def _build_plan(self, plan_factory, device_params, output, input, inverse):
+    def _build_trivial_plan(self, plan_factory, output, input_):
+        # Trivial problem. Need to add a dummy kernel
+        # because we still have to run transformations.
 
-        if product([input.shape[i] for i in self._axes]) == 1:
-            # Trivial problem. Need to add a dummy kernel
-            # because we still have to run transformations.
-            plan = plan_factory()
-            identity = PureParallel(
-                [Parameter('output', Annotation(output, 'o')),
-                Parameter('input', Annotation(input, 'i'))],
-                """
-                <%
-                    idxs_list = ", ".join(idxs)
-                %>
-                ${output.store_idx}(${idxs_list}, ${input.load_idx}(${idxs_list}));
-                """)
-            plan.computation_call(identity, output, input)
-            return plan
+        plan = plan_factory()
+        identity = PureParallel(
+            [Parameter('output', Annotation(output, 'o')),
+            Parameter('input', Annotation(input_, 'i'))],
+            """
+            <%
+                idxs_list = ", ".join(idxs)
+            %>
+            ${output.store_idx}(${idxs_list}, ${input.load_idx}(${idxs_list}));
+            """)
+        plan.computation_call(identity, output, input_)
+
+        return plan
+
+    def _build_limited_plan(self, plan_factory, device_params, local_kernel_limit,
+            output, input_, inverse):
+
+        plan = plan_factory()
+        kernels = get_fft_kernels(
+            input_.shape, input_.dtype, self._axes, device_params, local_kernel_limit)
+
+        mem_out = None
+        for i, kernel in enumerate(kernels):
+
+            mem_in = input_ if i == 0 else mem_out
+            if i == len(kernels) - 1:
+                mem_out = output
+            elif kernel.inplace_possible:
+                mem_out = mem_in
+            else:
+                mem_out = plan.temp_array(kernel.output_shape, output.dtype)
+
+            if kernel.kweights is not None:
+                kweights = plan.persistent_array(kernel.kweights.astype(output.dtype))
+                kweights_arg = [kweights]
+            else:
+                kweights_arg = []
+
+            argnames = [mem_out, mem_in] + kweights_arg + [inverse]
+
+            # Try to find local size for each of the kernels
+            local_size = device_params.max_work_group_size
+            while local_size >= 1:
+                try:
+                    gsize, lsize, kwds = kernel.prepare_for(local_size)
+                    plan.kernel_call(
+                        TEMPLATE.get_def(kernel.name), argnames,
+                        global_size=gsize, local_size=lsize, render_kwds=kwds)
+                except OutOfResourcesError:
+                    if isinstance(kernel, GlobalFFTKernel):
+                        local_size //= 2
+                        continue
+                    else:
+                        raise LocalKernelFail
+                break
+            else:
+                raise GlobalKernelFail
+
+        return plan
+
+    def _build_plan(self, plan_factory, device_params, output, input_, inverse):
+
+        if helpers.product([input_.shape[i] for i in self._axes]) == 1:
+            return self._build_trivial_plan(plan_factory, output, input_)
 
         # While resource consumption of GlobalFFTKernel can be made lower by passing
         # lower value to prepare_for(), LocalFFTKernel may have to be split into several kernels.
@@ -525,63 +556,20 @@ class FFT(Computation):
         # we just call prepare_for() with lower limit, but if LocalFFTKernel.prepare_for()
         # does that, we have to recreate the whole chain.
         local_kernel_limit = device_params.max_work_group_size
-        kernel_calls = []
 
         while local_kernel_limit >= 1:
-            # Starting from scratch.
-            plan = plan_factory()
-            kernels = get_fft_kernels(
-                input.shape, input.dtype, self._axes, device_params, local_kernel_limit)
-
-            for i, kernel in enumerate(kernels):
-
-                mem_in = input if i == 0 else mem_out
-                if i == len(kernels) - 1:
-                    mem_out = output
-                elif kernel.inplace_possible:
-                    mem_out = mem_in
-                else:
-                    mem_out = plan.temp_array(kernel.output_shape, output.dtype)
-
-                if kernel.kweights is not None:
-                    kweights = plan.persistent_array(kernel.kweights.astype(output.dtype))
-                    kweights_arg = [kweights]
-                else:
-                    kweights_arg = []
-
-                argnames = [mem_out, mem_in] + kweights_arg + [inverse]
-
-                # Try to find local size for each of the kernels
-                local_size = device_params.max_work_group_size
-                local_kernel_fail = False # marks the event when LocalFFTKernel is out of resources
-                while local_size >= 1 and not local_kernel_fail:
-                    try:
-                        gs, ls, kwds = kernel.prepare_for(local_size, )
-                        plan.kernel_call(
-                            TEMPLATE.get_def(kernel.name), argnames,
-                            global_size=gs, local_size=ls, render_kwds=kwds)
-                    except OutOfResourcesError:
-                        if isinstance(kernel, GlobalFFTKernel):
-                            local_size //= 2
-                        else:
-                            local_kernel_fail = True
-                        continue
-
-                    break
-                else:
-                    if not local_kernel_fail:
-                        raise ValueError(
-                            "Could not find suitable call parameters for one of the global kernels")
-
-                if local_kernel_fail:
-                    break
-            else:
-                # everything went well, returning list of calls
-                return plan
-
-            # The cycle above received 'break', meaning that LocalFFTKernel was out of resources.
+            try:
+                plan = self._build_limited_plan(
+                    plan_factory, device_params, local_kernel_limit, output, input_, inverse)
+            except LocalKernelFail:
+            # One of LocalFFTKernels was out of resources.
             # Reduce the limit and try to create operations from scratch again.
-            local_kernel_limit //= 2
+                local_kernel_limit //= 2
+                continue
+            except GlobalKernelFail:
+                raise ValueError(
+                    "Could not find suitable call parameters for one of the global kernels")
 
-        else:
-            raise ValueError("Could not find suitable call parameters for one of the local kernels")
+            return plan
+
+        raise ValueError("Could not find suitable call parameters for one of the local kernels")

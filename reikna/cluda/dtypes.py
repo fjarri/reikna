@@ -137,9 +137,9 @@ def c_constant(val, dtype=None):
     else:
         return repr(float(val)) + ("f" if dtype.itemsize <= 4 else "")
 
-def _register_dtype(dtype, ctype):
+def _register_dtype(dtype, ctype_str):
     dtype = normalize_type(dtype)
-    _DTYPE_TO_CTYPE[dtype] = ctype
+    _DTYPE_TO_CTYPE[dtype] = ctype_str
 
 # Taken from compyte.dtypes
 def _fill_dtype_registry(respect_windows=True):

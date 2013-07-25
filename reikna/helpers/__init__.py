@@ -40,7 +40,7 @@ class Graph:
 
     def __init__(self, pairs=None):
         self._pairs = set()
-        self._nodes = collections.defaultdict(lambda: set())
+        self._nodes = collections.defaultdict(set)
         if pairs is not None:
             self.add_edges(pairs)
 
@@ -170,7 +170,7 @@ def template_for(filename):
     which has the same name as ``filename`` and the extension ``.mako``.
     Typically used in computation modules as ``template_for(__filename__)``.
     """
-    name, ext = os.path.splitext(os.path.abspath(filename))
+    name, _ext = os.path.splitext(os.path.abspath(filename))
     return make_template(name + '.mako', filename=True)
 
 
@@ -182,38 +182,38 @@ def min_blocks(length, block):
     return (length - 1) // block + 1
 
 
-def log2(n):
+def log2(num):
     """
     Integer-valued logarigthm with base 2.
     If ``n`` is not a power of 2, the result is rounded to the smallest number.
     """
     pos = 0
-    for pow in [16, 8, 4, 2, 1]:
-        if n >= 2 ** pow:
-            n //= (2 ** pow)
-            pos += pow
+    for pow_ in [16, 8, 4, 2, 1]:
+        if num >= 2 ** pow_:
+            num //= (2 ** pow_)
+            pos += pow_
     return pos
 
 
-def bounding_power_of_2(n):
+def bounding_power_of_2(num):
     """
     Returns closest number of the form ``2**m`` such it is greater or equal to ``n``.
     """
-    return 2 ** (log2(n - 1) + 1)
+    return 2 ** (log2(num - 1) + 1)
 
 
-def factors(n, limit=None):
+def factors(num, limit=None):
     """
-    Returns the list of pairs ``(factor, n/factor)`` for all factors of ``n``
-    (including 1 and ``n``), sorted by ``factor``.
+    Returns the list of pairs ``(factor, num/factor)`` for all factors of ``num``
+    (including 1 and ``num``), sorted by ``factor``.
     If ``limit`` is set, only pairs with ``factor <= limit`` are returned.
     """
     if limit is None:
-        limit = n
+        limit = num
 
     result = []
-    for i in range(1, min(limit, int(n ** 0.5) + 1)):
-        div, mod = divmod(n, i)
+    for i in range(1, min(limit, int(num ** 0.5) + 1)):
+        div, mod = divmod(num, i)
         if mod == 0:
             result.append((i, div))
 
@@ -224,19 +224,19 @@ def factors(n, limit=None):
         return result
 
 
-def wrap_in_tuple(x):
+def wrap_in_tuple(seq_or_elem):
     """
-    If ``x`` is a sequence, converts it to a ``tuple``,
-    otherwise returns a tuple with a single element ``x``.
+    If ``seq_or_elem`` is a sequence, converts it to a ``tuple``,
+    otherwise returns a tuple with a single element ``seq_or_elem``.
     """
-    if x is None:
+    if seq_or_elem is None:
         return tuple()
-    elif isinstance(x, str):
-        return (x,)
-    elif isinstance(x, collections.Iterable):
-        return tuple(x)
+    elif isinstance(seq_or_elem, str):
+        return (seq_or_elem,)
+    elif isinstance(seq_or_elem, collections.Iterable):
+        return tuple(seq_or_elem)
     else:
-        return (x,)
+        return (seq_or_elem,)
 
 
 class ignore_integer_overflow():

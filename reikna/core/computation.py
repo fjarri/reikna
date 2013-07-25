@@ -1,7 +1,5 @@
 import weakref
-import itertools
-from collections import namedtuple, OrderedDict
-import numpy
+from collections import namedtuple
 
 from reikna.helpers import Graph
 from reikna.core.signature import Parameter, Annotation, Type, Signature
@@ -27,12 +25,12 @@ class ComputationParameter(Type):
     def belongs_to(self, comp):
         return self._computation() is comp
 
-    def connect(self, _tr, _tr_connector, **tr_from_comp):
+    def connect(self, _trf, _tr_connector, **tr_from_comp):
         """
         Shortcut for :py:meth:`~reikna.core.Computation.connect`
         with this parameter as a first argument.
         """
-        return self._computation().connect(self._name, _tr, _tr_connector, **tr_from_comp)
+        return self._computation().connect(self._name, _trf, _tr_connector, **tr_from_comp)
 
     def __str__(self):
         return self._name
@@ -92,20 +90,6 @@ class Computation:
 
     :param root_parameters: a list of :py:class:`~reikna.core.Parameter` objects.
 
-    .. py:method:: _build_plan(plan_factory, device_params, *args)
-
-        Derived classes override this method.
-        It is called by :py:meth:`compile` and
-        supposed to return a :py:class:`~reikna.core.computation.ComputationPlan` object.
-
-        :param plan_factory: a callable returning a new
-            :py:class:`~reikna.core.computation.ComputationPlan` object.
-        :param device_params: a :py:class:`~reikna.cluda.api.DeviceParameters` object corresponding
-            to the thread the computation is being compiled for.
-        :param args: :py:class:`~reikna.core.computation.KernelArgument` objects,
-            corresponding to ``parameters`` specified during the creation
-            of this computation object.
-
     .. py:attribute:: signature
 
         A :py:class:`~reikna.core.Signature` object representing current computation signature
@@ -134,14 +118,14 @@ class Computation:
 
     # The names are underscored to avoid name conflicts with ``tr_from_comp`` keys
     # (where the user can introduce new parameter names)
-    def connect(self, _comp_connector, _tr, _tr_connector, **tr_from_comp):
+    def connect(self, _comp_connector, _trf, _tr_connector, **tr_from_comp):
         """
         Connect a transformation to the computation.
 
         :param _comp_connector: connection target ---
             a :py:class:`~reikna.core.computation.ComputationParameter` object
             beloning to this computation object, or a string with its name.
-        :param _tr: a :py:class:`~reikna.core.Transformation` object.
+        :param _trf: a :py:class:`~reikna.core.Transformation` object.
         :param _tr_connector: connector on the side of the transformation ---
             a :py:class:`~reikna.core.transformation.TransformationParameter` object
             beloning to ``tr``, or a string with its name.
@@ -170,13 +154,13 @@ class Computation:
         for comp_connection_name, tr_connection in tr_from_comp.items():
             check_external_parameter_name(comp_connection_name)
             if isinstance(tr_connection, TransformationParameter):
-                if not tr_connection.belongs_to(_tr):
+                if not tr_connection.belongs_to(_trf):
                     raise ValueError(
                         "The transformation parameter must belong to the provided transformation")
             tr_connection_name = str(tr_connection)
             comp_from_tr[tr_connection_name] = comp_connection_name
 
-        self._tr_tree.connect(param_name, _tr, comp_from_tr)
+        self._tr_tree.connect(param_name, _trf, comp_from_tr)
         self._update_attributes()
         return self
 
@@ -197,6 +181,22 @@ class Computation:
         """
         translator = Translator.identity()
         return self._get_plan(self._tr_tree, translator, thread).finalize()
+
+    def _build_plan(self, plan_factory, device_params, *args):
+        """
+        Derived classes override this method.
+        It is called by :py:meth:`compile` and
+        supposed to return a :py:class:`~reikna.core.computation.ComputationPlan` object.
+
+        :param plan_factory: a callable returning a new
+            :py:class:`~reikna.core.computation.ComputationPlan` object.
+        :param device_params: a :py:class:`~reikna.cluda.api.DeviceParameters` object corresponding
+            to the thread the computation is being compiled for.
+        :param args: :py:class:`~reikna.core.computation.KernelArgument` objects,
+            corresponding to ``parameters`` specified during the creation
+            of this computation object.
+        """
+        raise NotImplementedError
 
 
 class IdGen:
@@ -342,10 +342,10 @@ class ComputationPlan:
 
         Changes the plan state.
         """
-        ba = signature.bind_with_defaults(args, kwds, cast=False)
+        bound_args = signature.bind_with_defaults(args, kwds, cast=False)
 
         args = []
-        for arg, param in zip(ba.args, signature.parameters.values()):
+        for arg, param in zip(bound_args.args, signature.parameters.values()):
 
             if not isinstance(arg, KernelArgument):
                 if param.annotation.array:
@@ -530,9 +530,9 @@ class ComputationCallable:
         """
         Execute the computation.
         """
-        ba = self.signature.bind_with_defaults(args, kwds, cast=True)
+        bound_args = self.signature.bind_with_defaults(args, kwds, cast=True)
         for kernel_call in self._kernel_calls:
-            kernel_call(ba.arguments)
+            kernel_call(bound_args.arguments)
 
 
 class KernelCall:

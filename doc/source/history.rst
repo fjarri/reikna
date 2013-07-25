@@ -3,10 +3,18 @@ Release history
 ***************
 
 
-0.3.1 (current development version)
-===================================
+0.3.1 (25 Jul 2013)
+===================
 
-Under construction.
+* FIXED: too strict array type check for nested computations that caused some tests to fail.
+
+* FIXED: default values of scalar parameters are now processed correctly.
+
+* FIXED: Mako threw name-not-found exceptions on some list comprehensions in FFT template.
+
+* FIXED: some earlier-introduced errors in tests.
+
+* INTERNAL: ``pylint`` was ran and many stylistic errors fixed.
 
 
 0.3.0 (23 Jul 2013)

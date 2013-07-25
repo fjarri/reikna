@@ -52,10 +52,13 @@ class TemporaryManager:
             (the last two will be processed recursively).
         """
 
+        # Used to hook memory allocation in the array constructor
+        # and save the requested raw memory size.
         class DummyAllocator:
+            def __init__(self):
+                self.size = None
             def __call__(self, size):
                 self.size = size
-                return None
 
         new_id = self._id_counter
         self._id_counter += 1
@@ -75,25 +78,25 @@ class TemporaryManager:
 
         return array
 
-    def update_buffer(self, id):
-        array = self._arrays[id]()
-        buf = self._get_buffer(id)
+    def update_buffer(self, id_):
+        array = self._arrays[id_]()
+        buf = self._get_buffer(id_)
         if hasattr(array, 'base_data'):
             array.base_data = buf
         else:
             array.gpudata = buf
 
     def update_all(self):
-        for id in self._arrays:
-            self.update_buffer(id)
+        for id_ in self._arrays:
+            self.update_buffer(id_)
 
-    def free(self, id):
-        array = self._arrays[id]()
+    def free(self, id_):
+        array = self._arrays[id_]()
         if array is not None:
             raise Exception("Attempting to free the buffer of an existing temporary array")
 
-        del self._arrays[id]
-        self._free(id, self._pack_on_free)
+        del self._arrays[id_]
+        self._free(id_, self._pack_on_free)
         if self._pack_on_free:
             self.update_all()
 
@@ -115,15 +118,15 @@ class TrivialManager(TemporaryManager):
         TemporaryManager.__init__(self, *args, **kwds)
         self._allocations = {}
 
-    def _allocate(self, new_id, size, dependencies, pack):
+    def _allocate(self, new_id, size, _dependencies, _pack):
         buf = self._thr.allocate(size)
         self._allocations[new_id] = buf
 
-    def _get_buffer(self, id):
-        return self._allocations[id]
+    def _get_buffer(self, id_):
+        return self._allocations[id_]
 
-    def _free(self, id, pack):
-        del self._allocations[id]
+    def _free(self, id_, _pack):
+        del self._allocations[id_]
 
     def _pack(self):
         pass
@@ -208,20 +211,20 @@ class ZeroOffsetManager(TemporaryManager):
         self._virtual_to_real[new_id] = self.VirtualMapping(
             real_id, self._real_allocations[real_id].buffer)
 
-    def _get_buffer(self, id):
-        return self._virtual_to_real[id].sub_region
+    def _get_buffer(self, id_):
+        return self._virtual_to_real[id_].sub_region
 
-    def _free(self, id, pack=False):
+    def _free(self, id_, pack=False):
         # Remove the allocation from the dependency lists of its dependencies
-        dep_set = self._virtual_allocations[id].dependencies
+        dep_set = self._virtual_allocations[id_].dependencies
         for dep in dep_set:
-            self._virtual_allocations[dep].dependencies.remove(id)
+            self._virtual_allocations[dep].dependencies.remove(id_)
 
-        vtr = self._virtual_to_real[id]
+        vtr = self._virtual_to_real[id_]
 
         # Clear virtual allocation data
-        del self._virtual_allocations[id]
-        del self._virtual_to_real[id]
+        del self._virtual_allocations[id_]
+        del self._virtual_to_real[id_]
 
         if pack:
             self._pack()
@@ -230,7 +233,7 @@ class ZeroOffsetManager(TemporaryManager):
             # Remove the virtual allocation from the real allocation,
             # and delete the real allocation if its no longer used by other virtual allocations.
             ra = self._real_allocations[vtr.real_id]
-            ra.virtual_ids.remove(id)
+            ra.virtual_ids.remove(id_)
             if len(ra.virtual_ids) == 0:
                 del self._real_allocations[vtr.real_id]
                 self._real_sizes.remove(self.RealSize(ra.buffer.size, vtr.real_id))
@@ -273,17 +276,17 @@ class ZeroOffsetManager(TemporaryManager):
             virtual_sizes=[],
             real_sizes=[])
 
-        for id, va in self._virtual_allocations.items():
+        for va in self._virtual_allocations.values():
             stats['virtual_size_total'] += va.size
             stats['virtual_num'] += 1
             stats['virtual_sizes'].append(va.size)
 
-        for id, ra in self._real_allocations.items():
+        for ra in self._real_allocations.values():
             stats['real_size_total'] += ra.buffer.size
             stats['real_num'] += 1
             stats['real_sizes'].append(ra.buffer.size)
 
-        stats['virtual_sizes'] = sorted(stats.virtual_sizes)
-        stats['real_sizes'] = sorted(stats.real_sizes)
+        stats['virtual_sizes'] = sorted(stats['virtual_sizes'])
+        stats['real_sizes'] = sorted(stats['real_sizes'])
 
         return stats

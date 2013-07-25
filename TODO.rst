@@ -1,32 +1,38 @@
-0.3.1
+0.3.2
 =====
 
-* FEATURE (computations): add ``inplace`` parameter to FFT and DHT, which will produce computations that are guaranteed to work inplace.
 * ?API (core): pass ``kernel_definition`` as a positional argument to a kernel template def?
 * ?API (core): when we are connecting a transformation to an existing scalar parameter, during the leaf signature building it moves from its place, which may seem a bit surprising. Should we attempt to keep it at the same place? Like, keep all parameters with default values at the end (thus breaking the "depth first" order, of course)?
-* ?FIX (core): check if Signature.bind() is too slow in the kernel call; perhaps we will have to rewrite it taking into account restrictions to Parameter types we have.
 * FIX (core): When we connect a transformation, difference in strides between arrays in the connection can be ignored (and probably the transformation's signature changed too; at least we need to decide which strides to use in the exposed node).
-  Idea: strides can be passes to compile() (in form of actual arrays, as a dictionary).
-* FIX (cluda): rewrite vsizes to just use a 1D global size and get any-D virtual sizes through modular division (shouldn't be that slow, but need to test; or maybe just fall back to modular division if the requested dimensionality is too big).
-* ?FIX (computations): PureParallel can be either rewritten using stub kernel and Transformation (to use load/store_combined_idx) (downside: order of parameters messes up in this case; upside: can use store_same/load_same), or using the new any-D static kernels from CLUDA (if the above fix is implemented).
+  Proposal: leave it as is; make existing transformations "propagate" strides to results; and create a special transformation that only changes strides (or make it a parameter to the identity one).
 * FIX: get rid of AttrDict and replace it by classes/named tuples.
-* FEATURE (computations): processing several indices per thread in PureParallel may result in a performance boost, need to check that.
-* FEATURE (computations): add a helper function that transforms a transformation into a ParallelComputation with the same arguments.
-* FEATURE (core): take not only CLUDA Thread as a parameter for computation ``compile``, but also CommandQueue, opencl Context, CUDA Stream and so on.
-* API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
 * API (computations): make helpers functions in dht methods of DHT class.
   Same for CBRNG.
+* API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
 * ?API (computations): move some of the functionality to the top level of ``reikna`` module?
 * ?API (computations): move all "raw" computations to their own submodule?
 * ?API (CLUDA, core): do something about the inconsistency of array shapes (row-major) and global sizes (column-major). Special get_id() functions maybe?
-* ?API (computations): can we improve how Predicates for Reduce are defined?
 * FIX (computations): use modules in ``CBRNG``
+* TESTS: run pylint
+* ?API (core): make ``device_params`` an attribute of plan or plan factory?
+* API (computations): review computation docs, unify parameter names
+
+
+0.3.3
+=====
+
+* FEATURE (computations): add ``inplace`` parameter to FFT and DHT, which will produce computations that are guaranteed to work inplace.
+* ?FIX (core): check if Signature.bind() is too slow in the kernel call; perhaps we will have to rewrite it taking into account restrictions to Parameter types we have.
+  Idea: strides can be passes to compile() (in form of actual arrays, as a dictionary).
+* FIX (cluda): rewrite vsizes to just use a 1D global size and get any-D virtual sizes through modular division (shouldn't be that slow, but need to test; or maybe just fall back to modular division if the requested dimensionality is too big).
+* ?FIX (computations): PureParallel can be either rewritten using stub kernel and Transformation (to use load/store_combined_idx) (downside: order of parameters messes up in this case; upside: can use store_same/load_same), or using the new any-D static kernels from CLUDA (if the above fix is implemented).
+* FEATURE (computations): processing several indices per thread in PureParallel may result in a performance boost, need to check that.
+* FEATURE (computations): add a helper function that transforms a transformation into a ParallelComputation with the same arguments.
+* FEATURE (core): take not only CLUDA Thread as a parameter for computation ``compile``, but also CommandQueue, opencl Context, CUDA Stream and so on.
+* ?API (computations): can we improve how Predicates for Reduce are defined?
 * FIX (cluda): when ``None`` is passed as a local size for a static kernel, and the global size is small, it sets large values for local size (e.g. for gs=13 it sets ls=480, gs=480).
   It's not critical, just confusing; large global sizes seem to have much less unused threads.
   Also, in general, cluda/vsize code is a mess.
-* TESTS: run coverage tests and see if some functionality has to be tested,
-  and check existing testcases for redundancy (fft and vsizes in particular)
-* TESTS: run pylint
 * FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
   it is called again with reduced local size
 * FEATURE (computations): add special optimized kernel for matrix-vector multiplication in MatrixMul.
@@ -38,7 +44,6 @@
   Basically, the first stage has to be modified to store results in several arrays and then several separate reductions can be performed.
 * FEATURE (CLUDA, core): implement custom structures as types (will also require updating the strides-to-flat-index algorithm)
 * ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
-* ?FEATURE (core): when passing scalar to plan.kernel_call(), there's no typecheck (and the only check that happens is during execution). Need to somehow query the kernel about type of its parameters.
 * FEATURE (computations): allow non-sequential axes in Reduce
 
 

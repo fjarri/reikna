@@ -1,9 +1,6 @@
-import itertools
-import numpy
-
 from reikna.cluda import Snippet
-from reikna.helpers import *
-from reikna.core import *
+import reikna.helpers as helpers
+from reikna.core import Computation
 
 
 class PureParallel(Computation):
@@ -22,7 +19,7 @@ class PureParallel(Computation):
 
         Computation.__init__(self, parameters)
         self._root_parameters = list(self.signature.parameters.keys())
-        self._snippet = Snippet(template_def(
+        self._snippet = Snippet(helpers.template_def(
             ['idxs'] + self._root_parameters, code), render_kwds=render_kwds)
 
         if guiding_array is None:
@@ -33,7 +30,7 @@ class PureParallel(Computation):
         else:
             self._guiding_shape = guiding_array
 
-    def _build_plan(self, plan_factory, device_params, *args):
+    def _build_plan(self, plan_factory, _device_params, *args):
 
         plan = plan_factory()
 
@@ -41,7 +38,7 @@ class PureParallel(Computation):
         arglist = ", ".join(argnames)
         idx_names = ["_idx" + str(i) for i in range(len(self._guiding_shape))]
 
-        template = template_def(
+        template = helpers.template_def(
             argnames,
             """
             ${kernel_definition}
@@ -63,11 +60,11 @@ class PureParallel(Computation):
 
         plan.kernel_call(
             template, args,
-            global_size=product(self._guiding_shape),
+            global_size=helpers.product(self._guiding_shape),
             render_kwds=dict(
                 shape=self._guiding_shape,
                 idx_names=idx_names,
-                product=product,
+                product=helpers.product,
                 snippet=self._snippet))
 
         return plan

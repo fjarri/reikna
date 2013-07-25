@@ -85,7 +85,7 @@ import weakref
 
 from reikna.helpers import AttrDict
 from reikna.cluda import OutOfResourcesError, find_devices
-from reikna.helpers import wrap_in_tuple, product
+from reikna.helpers import product
 from reikna.cluda.kernel import render_prelude, render_template_source
 from reikna.cluda.vsize import VirtualSizes
 from reikna.cluda.tempalloc import ZeroOffsetManager

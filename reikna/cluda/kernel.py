@@ -1,11 +1,9 @@
 from logging import error
 
-import numpy
 from mako import exceptions
 
 import reikna.helpers as helpers
-from reikna.helpers import AttrDict, template_for, template_from, \
-    template_def, extract_signature_and_value
+from reikna.helpers import template_for, template_from, template_def, extract_signature_and_value
 from reikna.cluda import dtypes
 
 
@@ -102,11 +100,11 @@ class SourceCollector:
         self.sources = []
         self.prefix_counter = 0
 
-    def add_module(self, template_def, args, render_kwds):
+    def add_module(self, tmpl_def, args, render_kwds):
         prefix = "_module" + str(self.prefix_counter) + "_"
         self.prefix_counter += 1
 
-        src = render_template(template_def, prefix, *args, **render_kwds)
+        src = render_template(tmpl_def, prefix, *args, **render_kwds)
         self.sources.append(src)
 
         return prefix
@@ -117,8 +115,8 @@ class SourceCollector:
 
 class RenderableSnippet:
 
-    def __init__(self, template_def, render_kwds):
-        self.template_def = template_def
+    def __init__(self, tmpl_def, render_kwds):
+        self.template_def = tmpl_def
         self.render_kwds = render_kwds
 
     def __call__(self, *args):
@@ -127,9 +125,9 @@ class RenderableSnippet:
 
 class RenderableModule:
 
-    def __init__(self, collector, template_def, render_kwds):
+    def __init__(self, collector, tmpl_def, render_kwds):
         self.collector = collector
-        self.template_def = template_def
+        self.template_def = tmpl_def
         self.render_kwds = render_kwds
         self.no_arg_prefix = None
 

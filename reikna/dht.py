@@ -1,87 +1,88 @@
 import numpy
-import unittest, itertools
-from numpy.polynomial import Hermite as H
+from numpy.polynomial import Hermite
 
-from reikna.helpers import *
-from reikna.core import *
+from reikna.core import Computation, Parameter, Annotation, Type
 import reikna.cluda.dtypes as dtypes
 from reikna.transpose import Transpose
 from reikna.matrixmul import MatrixMul
 
 
-def factorial(n):
+def factorial(num):
     """
     Replacement of ``scipy.misc.factorial()``.
     First, it avoids requiring scipy; second, it returns integer instead of float
     (which gives more precision for subsequent calculations).
     """
     res = 1
-    for i in range(2, n + 1):
+    for i in range(2, num + 1):
         res *= i
     return res
 
 
 def hermite(mode):
     """Returns an orthonormal Hermite polynomial"""
-    def func(x):
+    def func(x_coord):
         norm = 1. / (numpy.pi ** 0.25) / numpy.sqrt(float(factorial(mode) * 2 ** mode))
-        return H([0] * mode + [1])(x) * norm
+        return Hermite([0] * mode + [1])(x_coord) * norm
 
     return func
 
 
-def h_roots(n):
+def h_roots(order):
     """
     Recursive root finding algorithm, taken from Numerical Recipes.
     More accurate than the standard h_roots() from scipy.
     """
 
-    EPS = 1.0e-16
-    PIM4 = numpy.pi ** (-0.25) # 0.7511255444649425
-    MAXIT = 20 # Maximum iterations.
+    eps = 1.0e-14
+    pim4 = numpy.pi ** (-0.25)
+    max_iter = 20 # Maximum iterations.
 
-    x = numpy.empty(n)
-    w = numpy.empty(n)
-    m = (n + 1) // 2
+    roots = numpy.empty(order)
+    weights = numpy.empty(order)
 
-    z = 0
+    # Initial guess for the largest root
+    curr_root = numpy.sqrt(2 * order + 1) - 1.85575 * (2 * order + 1) ** (-0.16667)
 
-    for i in range(m):
-        if i == 0: # Initial guess for the largest root.
-            z = numpy.sqrt(float(2 * n + 1)) - 1.85575 * float(2 * n + 1) ** (-0.16667)
-        elif i == 1:
-            z -= 1.14 * float(n) ** 0.426 / z
+    for i in range((order + 1) // 2):
+
+        # Initial guesses for the following roots
+        if i == 1:
+            curr_root -= 1.14 * order ** 0.426 / curr_root
         elif i == 2:
-            z = 1.86 * z + 0.86 * x[0]
+            curr_root = 1.86 * curr_root + 0.86 * roots[0]
         elif i == 3:
-            z = 1.91 * z + 0.91 * x[1]
-        else:
-            z = 2.0 * z + x[i - 2]
+            curr_root = 1.91 * curr_root + 0.91 * roots[1]
+        elif i > 3:
+            curr_root = 2.0 * curr_root + roots[i - 2]
 
-        for its in range(MAXIT):
-            p1 = PIM4
-            p2 = 0.0
-            p3 = 0.0
-            for j in range(n):
-                p3 = p2
-                p2 = p1
-                p1 = z * numpy.sqrt(2.0 / (j + 1)) * p2 - numpy.sqrt(float(j) / (j + 1)) * p3
+        # Refinement by Newton's method
+        for _ in range(max_iter):
+            pval = pim4
+            pval_prev = 0.0
 
-            pp = numpy.sqrt(float(2 * n)) * p2
-            z1 = z
-            z = z1 - p1 / pp
-            if abs(z - z1) <= EPS:
+            # Recurrence relation to get the Hermite polynomial evaluated at ``curr_root``
+            for j in range(order):
+                pval, pval_prev = (curr_root * numpy.sqrt(2.0 / (j + 1)) * pval -
+                    numpy.sqrt(float(j) / (j + 1)) * pval_prev), pval
+
+            # ``pval`` is now the desired Hermite polynomial
+            # We next compute ``pderiv``, its derivative, using ``pval_prev``, the polynomial
+            # of one lower order.
+            pderiv = numpy.sqrt(2 * order) * pval_prev
+            prev_root = curr_root
+            curr_root -= pval / pderiv
+            if abs(curr_root - prev_root) <= eps:
                 break
-
-        if its >= MAXIT:
+        else:
             raise Exception("Too many iterations")
 
-        x[n - 1 - i] = z
-        x[i] = -z
-        w[i] = 2.0 / (pp ** 2)
-        w[n - 1 - i] = w[i]
+        roots[order - 1 - i] = curr_root
+        roots[i] = -curr_root
+        weights[i] = 2.0 / (pderiv ** 2)
+        weights[order - 1 - i] = weights[i]
 
-    return x, w
+    return roots, weights
 
 
 def get_spatial_points(modes, order, add_points=0):
@@ -143,8 +144,8 @@ def harmonic(mode):
     where :math:`H_n` is the :math:`n`-th order "physicists'" Hermite polynomial.
     The normalization is chosen so that :math:`\int \phi_n^2(x) dx = 1`.
     """
-    H = hermite(mode)
-    return lambda x: H(x) * numpy.exp(-(x ** 2) / 2)
+    polynomial = hermite(mode)
+    return lambda x_coord: polynomial(x_coord) * numpy.exp(-(x_coord ** 2) / 2)
 
 
 def get_transformation_matrix(modes, order, add_points):
@@ -152,12 +153,12 @@ def get_transformation_matrix(modes, order, add_points):
     Returns the the matrix of values of mode functions taken at
     points of the spatial grid.
     """
-    x = get_spatial_grid(modes, order, add_points=add_points)
+    x_coords = get_spatial_grid(modes, order, add_points=add_points)
 
-    res = numpy.zeros((modes, x.size))
+    res = numpy.zeros((modes, x_coords.size))
 
     for mode in range(modes):
-        res[mode, :] = harmonic(mode)(x)
+        res[mode, :] = harmonic(mode)(x_coords)
 
     return res
 
@@ -213,69 +214,81 @@ class DHT(Computation):
                     mode_arr.shape[axis], order, add_points=add_points[axis])
         coord_arr = Type(mode_arr.dtype, shape=coord_shape)
 
-        if not inverse:
-            output_arr = mode_arr
-            input_arr = coord_arr
-        else:
-            output_arr = coord_arr
-            input_arr = mode_arr
-
         self._inverse = inverse
         self._order = order
 
-        Computation.__init__(self, [
-            Parameter('output', Annotation(output_arr, 'o')),
-            Parameter('input', Annotation(input_arr, 'i'))])
+        if not inverse:
+            parameters = [
+                Parameter('modes', Annotation(mode_arr, 'o')),
+                Parameter('coords', Annotation(coord_arr, 'i'))]
+        else:
+            parameters = [
+                Parameter('coords', Annotation(coord_arr, 'o')),
+                Parameter('modes', Annotation(mode_arr, 'i'))]
 
-    def _build_plan(self, plan_factory, device_params, output, input):
+        Computation.__init__(self, parameters)
+
+    def _get_transformation_matrix(self, dtype, modes, add_points):
+        p_matrix = get_transformation_matrix(modes, self._order, add_points)
+        p_matrix = p_matrix.astype(dtype)
+
+        if not self._inverse:
+            weights = get_spatial_weights(modes, self._order, add_points)
+            tiled_weights = numpy.tile(
+                weights.reshape(weights.size, 1).astype(dtype),
+                (1, modes))
+            p_matrix = p_matrix.transpose() * tiled_weights
+
+        return p_matrix
+
+    def _add_transpose(self, plan, current_mem, current_axes, axis):
+        """
+        Transpose the current array so that the ``axis`` is in the end of axes list.
+        """
+
+        seq_axes = list(range(len(current_axes)))
+
+        cur_pos = current_axes.index(axis)
+        if cur_pos != len(current_axes) - 1:
+
+            # We can move the target axis to the end in different ways,
+            # but this one will require only one transpose kernel.
+            optimal_transpose = lambda seq: seq[:cur_pos] + seq[cur_pos+1:] + [seq[cur_pos]]
+
+            tr_axes = optimal_transpose(seq_axes)
+            new_axes = optimal_transpose(current_axes)
+
+            transpose = Transpose(current_mem, axes=tr_axes)
+            tr_output = plan.temp_array_like(transpose.parameter.output)
+            plan.computation_call(transpose, tr_output, current_mem)
+
+            current_mem = tr_output
+            current_axes = new_axes
+
+        return current_mem, current_axes
+
+    def _build_plan(self, plan_factory, _device_params, output_arr, input_arr):
 
         plan = plan_factory()
 
-        dtype = input.dtype
-        mode_shape = input.shape if self._inverse else output.shape
-
+        dtype = input_arr.dtype
         p_dtype = dtypes.real_for(dtype) if dtypes.is_complex(dtype) else dtype
 
-        current_mem = input
-        seq_axes = list(range(len(input.shape)))
-        current_axes = list(range(len(input.shape)))
+        mode_shape = input_arr.shape if self._inverse else output_arr.shape
+
+        current_mem = input_arr
+        seq_axes = list(range(len(input_arr.shape)))
+        current_axes = list(range(len(input_arr.shape)))
 
         for i, axis in enumerate(self._axes):
+            current_mem, current_axes = self._add_transpose(plan, current_mem, current_axes, axis)
 
-            # Transpose the current array so that the ``axis`` is in the end of axes list
-
-            cur_pos = current_axes.index(axis)
-            if cur_pos != len(current_axes) - 1:
-
-                # We can move the target axis to the end in different ways,
-                # but this one will require only one transpose kernel.
-                optimal_transpose = lambda seq: seq[:cur_pos] + seq[cur_pos+1:] + [seq[cur_pos]]
-
-                tr_axes = optimal_transpose(seq_axes)
-                new_axes = optimal_transpose(current_axes)
-
-                transpose = Transpose(current_mem, axes=tr_axes)
-                tr_output = plan.temp_array_like(transpose.parameter.output)
-                plan.computation_call(transpose, tr_output, current_mem)
-
-                current_mem = tr_output
-                current_axes = new_axes
-
-            # Prepare the transformation matrix
-
-            p = get_transformation_matrix(mode_shape[axis], self._order, self._add_points[axis])
-            p = p.astype(p_dtype)
-            if not self._inverse:
-                w = get_spatial_weights(mode_shape[axis], self._order, self._add_points[axis])
-                ww = numpy.tile(w.reshape(w.size, 1).astype(p_dtype), (1, mode_shape[axis]))
-                p = p.transpose() * ww
-            tr_matrix = plan.persistent_array(p)
-
-            # Add the matrix multiplication
+            tr_matrix = plan.persistent_array(
+                self._get_transformation_matrix(p_dtype, mode_shape[axis], self._add_points[axis]))
 
             dot = MatrixMul(current_mem, tr_matrix)
             if i == len(self._axes) - 1 and current_axes == seq_axes:
-                dot_output = output
+                dot_output = output_arr
             else:
                 # Cannot write to output if it is not the last transform,
                 # or if we need to return to the initial axes order
@@ -289,6 +302,6 @@ class DHT(Computation):
         if current_axes != seq_axes:
             tr_axes = [current_axes.index(i) for i in range(len(current_axes))]
             transpose = Transpose(current_mem, axes=tr_axes)
-            plan.add_computation(transpose, output, current_mem)
+            plan.add_computation(transpose, output_arr, current_mem)
 
         return plan
