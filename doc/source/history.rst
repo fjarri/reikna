@@ -14,6 +14,8 @@ Release history
 
 * FIXED: some earlier-introduced errors in tests.
 
+* INTERNAL: ``pylint`` was ran and many stylistic errors fixed.
+
 
 0.3.0 (23 Jul 2013)
 ===================
