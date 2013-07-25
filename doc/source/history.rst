@@ -8,6 +8,8 @@ Release history
 
 * FIXED: too strict array type check for nested computations that caused some tests to fail.
 
+* FIXED: default values of scalar parameters are now processed correctly.
+
 
 0.3.0 (23 Jul 2013)
 ===================

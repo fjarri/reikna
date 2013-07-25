@@ -156,20 +156,21 @@ class TransformationTree:
         # These can repeat.
         self.root_names = []
 
-        self.root_annotations = {}
+        # Keeping whole parameters, because we want to preserve the default values (if any).
+        self.root_parameters = {}
 
         self.nodes = {} # all nodes of the tree
-        self.leaf_annotations = {} # nodes available for connection
+        self.leaf_parameters = {} # nodes available for connection
 
         for param in root_parameters:
             self.root_names.append(param.name)
-            if param.name in self.root_annotations:
+            if param.name in self.root_parameters:
                 # safety check
-                assert param.annotation == self.root_annotations[param.name]
+                assert param == self.root_parameters[param.name]
             else:
                 self.nodes[param.name] = Node()
-                self.root_annotations[param.name] = param.annotation
-                self.leaf_annotations[param.name] = param.annotation
+                self.root_parameters[param.name] = param
+                self.leaf_parameters[param.name] = param
 
     def _get_subtree_names(self, names, visited, leaves_only=False):
         """Helper method for traversing the tree."""
@@ -182,13 +183,13 @@ class TransformationTree:
             visited.add(name)
 
             node = self.nodes[name]
-            ann = self.leaf_annotations[name] if name in self.leaf_annotations else None
+            ann = self.leaf_parameters[name].annotation if name in self.leaf_parameters else None
             child_names = node.get_child_names()
 
             subtree_names = self._get_subtree_names(child_names, visited, leaves_only=leaves_only)
             has_input_subtree = node.input_ntr is not None
             has_output_subtree = node.output_ntr is not None
-            leaf_node = name in self.leaf_annotations
+            leaf_node = name in self.leaf_parameters
 
             name_present = False
             if not leaves_only or len(subtree_names) == 0 or (leaf_node and not has_output_subtree):
@@ -206,14 +207,14 @@ class TransformationTree:
         return self._get_subtree_names(root_names, set(), leaves_only=leaves_only)
 
     def get_root_annotations(self):
-        return self.root_annotations
+        return {name:param.annotation for name, param in self.root_parameters.items()}
 
     def get_root_parameters(self):
-        return [Parameter(name, self.root_annotations[name]) for name in self.root_names]
+        return [self.root_parameters[name] for name in self.root_names]
 
     def get_leaf_parameters(self, root_names=None):
         leaf_names = self.get_subtree_names(root_names=root_names, leaves_only=True)
-        return [Parameter(name, self.leaf_annotations[name]) for name in leaf_names]
+        return [self.leaf_parameters[name] for name in leaf_names]
 
     def _connect(self, ntr):
 
@@ -224,23 +225,31 @@ class TransformationTree:
             node_name = ntr.node_from_tr[tr_param.name]
 
             if node_name == ntr.connector_node_name:
-                ann = self.leaf_annotations[node_name]
+                ann = self.leaf_parameters[node_name].annotation
                 if ann.input and ann.output:
                 # splitting the 'io' leaf
                     updated_role = 'i' if ntr.output else 'o'
-                    self.leaf_annotations[node_name] = Annotation(ann.type, role=updated_role)
+
+                    # Since it is an array parameter, we do not need to worry
+                    # about preserving the default value (it can't have one).
+                    self.leaf_parameters[node_name] = Parameter(
+                        node_name, Annotation(ann.type, role=updated_role))
                 else:
                 # 'i' or 'o' leaf is hidden by the transformation
-                    del self.leaf_annotations[node_name]
+                    del self.leaf_parameters[node_name]
 
             else:
-                if node_name in self.leaf_annotations and self.leaf_annotations[node_name].array:
-                    ann = self.leaf_annotations[node_name]
+                if (node_name in self.leaf_parameters and
+                        self.leaf_parameters[node_name].annotation.array):
+                    ann = self.leaf_parameters[node_name].annotation
                     if (ann.input and ntr.output) or (ann.output and not ntr.output):
-                    # joining 'i' and 'o' paths into an 'io' leaf
-                        self.leaf_annotations[node_name] = Annotation(ann.type, role='io')
+                    # Joining 'i' and 'o' paths into an 'io' leaf.
+                    # Since it is an array parameter, we do not need to worry
+                    # about preserving the default value (it can't have one).
+                        self.leaf_parameters[node_name] = Parameter(
+                            node_name, Annotation(ann.type, role='io'))
                 else:
-                    self.leaf_annotations[node_name] = tr_param.annotation
+                    self.leaf_parameters[node_name] = tr_param.rename(node_name)
 
             if node_name not in self.nodes:
                 self.nodes[node_name] = Node()
@@ -253,7 +262,7 @@ class TransformationTree:
 
         # Check that the types of connections are correct
         for tr_name, node_name in comp_from_tr.items():
-            if node_name not in self.leaf_annotations:
+            if node_name not in self.leaf_parameters:
                 if node_name == comp_connector:
                     raise ValueError(
                         "Parameter '" + node_name + "' is not a part of the signature")
@@ -261,13 +270,13 @@ class TransformationTree:
                     raise ValueError(
                         "Parameter '" + node_name + "' is hidden by transformations")
 
-            if node_name not in self.leaf_annotations:
+            if node_name not in self.leaf_parameters:
                 # If node names could repeat, we would have to check that
                 # transformation parameters with incompatible types are not pointing
                 # at the same new node.
                 continue
 
-            node_ann = self.leaf_annotations[node_name]
+            node_ann = self.leaf_parameters[node_name].annotation
             tr_ann = tr.signature.parameters[tr_name].annotation
 
             if tr_ann.type != node_ann.type:
@@ -300,13 +309,13 @@ class TransformationTree:
             if translator is not None:
                 ntr = ntr.translate_node_names(translator)
 
-            if ntr.connector_node_name not in self.leaf_annotations:
+            if ntr.connector_node_name not in self.leaf_parameters:
                 continue
 
             # In the nested tree this particular node may only use one data path
             # (input or output), despite it being 'io' in the parent tree.
             # Thus we only need to reconnect the transformation if such data path exists.
-            ann = self.leaf_annotations[ntr.connector_node_name]
+            ann = self.leaf_parameters[ntr.connector_node_name].annotation
             if (ntr.output and ann.output) or (not ntr.output and ann.input):
                 self._connect(ntr)
 
@@ -325,12 +334,12 @@ class TransformationTree:
         return new_tree
 
     def get_subtree(self, parameters):
-        # If the user was not messing with undocumented fields, parameters with the same names
-        # should have the same annotations.
+        # Unless the user was not messing with undocumented fields,
+        # same names will correspond to the same parameters.
         # But if they do not, we better catch it here.
         for param in parameters:
-            if param.name in self.root_annotations:
-                assert self.root_annotations[param.name] == param.annotation
+            if param.name in self.root_parameters:
+                assert self.root_parameters[param.name] == param
 
         new_tree = TransformationTree(parameters)
         new_tree.reconnect(self)
@@ -423,7 +432,7 @@ class TransformationTree:
 
     def get_kernel_argobjects(self):
         return [
-            self._get_kernel_argobject(name, self.root_annotations[name], base=True)
+            self._get_kernel_argobject(name, self.root_parameters[name].annotation, base=True)
             for name in self.root_names]
 
 
