@@ -1,4 +1,4 @@
-0.3.1
+0.3.2
 =====
 
 * ?API (core): pass ``kernel_definition`` as a positional argument to a kernel template def?
@@ -18,7 +18,7 @@
 * API (computations): review computation docs, unify parameter names
 
 
-0.3.2
+0.3.3
 =====
 
 * FEATURE (computations): add ``inplace`` parameter to FFT and DHT, which will produce computations that are guaranteed to work inplace.
