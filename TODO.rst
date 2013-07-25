@@ -13,7 +13,6 @@
 * ?API (computations): move all "raw" computations to their own submodule?
 * ?API (CLUDA, core): do something about the inconsistency of array shapes (row-major) and global sizes (column-major). Special get_id() functions maybe?
 * FIX (computations): use modules in ``CBRNG``
-* TESTS: run pylint
 * ?API (core): make ``device_params`` an attribute of plan or plan factory?
 * API (computations): review computation docs, unify parameter names
 
