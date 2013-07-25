@@ -204,7 +204,7 @@ def check_performance(thr_and_double, shape_and_axes):
     attempts = 10
     t1 = time.time()
     for i in range(attempts):
-        fft(res_dev, data_dev)
+        fftc(res_dev, data_dev)
     thr.synchronize()
     t2 = time.time()
     dev_time = (t2 - t1) / attempts

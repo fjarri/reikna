@@ -6,7 +6,7 @@ Release history
 0.3.2 (current development version)
 ===================================
 
-Under construction.
+* FIXED: typo in FFT performance test.
 
 
 0.3.1 (25 Jul 2013)
