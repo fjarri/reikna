@@ -127,6 +127,7 @@ But user-supplied parameters (``>>``) have changed, which can be also seen in th
     param:Annotation(float32)
 
 Notice that the order of the final signature is obtained by traversing the transformation tree depth-first, starting from the base parameters.
+For more details see the note in the documentation for :py:meth:`~reikna.core.Computation.connect`.
 
 The resulting computation returns the value ``in1 + (in2_prime * param2) + param`` split in half.
 In order to run it, we have to compile it first.

@@ -6,6 +6,9 @@ Release history
 0.3.2 (current development version)
 ===================================
 
+* CHANGED: slightly changed the algorithm that determines the order of computation parameters after a transformation is connected to it.
+  Now the ordering inside a list of initial computation parameters or a list of a single transformation parameters is preserved.
+
 * FIXED: typo in FFT performance test.
 
 * FIXED: bug in FFT that could result in changing the contents of the input array to one of the intermediate results.

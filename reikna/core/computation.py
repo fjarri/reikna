@@ -134,6 +134,19 @@ class Computation:
             :py:class:`~reikna.core.transformation.TransformationParameter` objects
             (or their names) as values.
         :returns: this computation object (modified).
+
+        .. note::
+
+            The resulting parameter order is determined by traversing
+            the graph of connections depth-first (starting from the initial computation parameters),
+            with the additional condition: the nodes do not change their order
+            in the same branching level (i.e. in the list of computation or
+            transformation parameters, both of which are ordered).
+
+            For example, consider a computation with parameters ``(a, b, c, d)``.
+            If you connect a transformation ``(a', c) -> a``, the resulting computation
+            will have the signature ``(a', b, c, d)`` (as opposed to ``(a', c, b, d)``
+            it would have for the pure depth-first traversal).
         """
 
         # Extract connector name
