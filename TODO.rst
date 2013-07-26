@@ -1,7 +1,6 @@
 0.3.2
 =====
 
-* ?API (core): pass ``kernel_definition`` as a positional argument to a kernel template def?
 * FIX (core): When we connect a transformation, difference in strides between arrays in the connection can be ignored (and probably the transformation's signature changed too; at least we need to decide which strides to use in the exposed node).
   Proposal: leave it as is; make existing transformations "propagate" strides to results; and create a special transformation that only changes strides (or make it a parameter to the identity one).
 * FIX: get rid of AttrDict and replace it by classes/named tuples.

@@ -55,7 +55,7 @@ def param_cnames_str(params, qualified=False):
     return ", ".join([param_cname(p, qualified=qualified) for p in params])
 
 
-def kernel_definition(kernel_name, params):
+def kernel_declaration(kernel_name, params):
     return "KERNEL void {kernel_name}({cnames_str})".format(
         kernel_name=kernel_name, cnames_str=param_cnames_str(params, qualified=True))
 

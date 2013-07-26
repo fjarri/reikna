@@ -1,6 +1,6 @@
-<%def name="matrixmul(output, a, b)">
+<%def name="matrixmul(kernel_declaration, output, a, b)">
 
-${kernel_definition}
+${kernel_declaration}
 {
     VIRTUAL_SKIP_THREADS;
 

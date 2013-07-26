@@ -39,9 +39,9 @@ class PureParallel(Computation):
         idx_names = ["_idx" + str(i) for i in range(len(self._guiding_shape))]
 
         template = helpers.template_def(
-            argnames,
+            ['kernel_declaration'] + argnames,
             """
-            ${kernel_definition}
+            ${kernel_declaration}
             {
                 VIRTUAL_SKIP_THREADS;
                 int _flat_idx = virtual_global_id(0);

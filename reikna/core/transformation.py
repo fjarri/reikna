@@ -4,7 +4,7 @@ from reikna.helpers import template_def
 from reikna.cluda import Snippet
 from reikna.core.signature import Signature, Type, Parameter, Annotation
 from reikna.core.transformation_modules import leaf_name, node_connector, module_transformation, \
-    module_leaf_macro, module_same_indices, module_combined, kernel_definition, index_cnames
+    module_leaf_macro, module_same_indices, module_combined, kernel_declaration, index_cnames
 
 
 class TransformationParameter(Type):
@@ -355,13 +355,13 @@ class TransformationTree:
         new_tree.reconnect(self)
         return new_tree
 
-    def get_kernel_definition(self, kernel_name):
+    def get_kernel_declaration(self, kernel_name):
         leaf_params = self.get_leaf_parameters()
 
-        kernel_def = kernel_definition(kernel_name, leaf_params)
+        decl = kernel_declaration(kernel_name, leaf_params)
         leaf_names = [param.name for param in leaf_params]
 
-        return kernel_def, leaf_names
+        return decl, leaf_names
 
     def _get_transformation_module(self, annotation, ntr):
 

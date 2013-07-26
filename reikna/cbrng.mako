@@ -366,7 +366,7 @@ WITHIN_KERNEL ${ctype} distribution_gamma(LOCAL_STATE *state)
 </%def>
 
 
-<%def name="cbrng(new_counters, randoms, old_counters)">
+<%def name="cbrng(kernel_declaration, new_counters, randoms, old_counters)">
 
 <%
     uint32 = dtypes.ctype(numpy.uint32)
@@ -464,7 +464,7 @@ WITHIN_KERNEL ${uint64} get_raw_uint64(LOCAL_STATE *state)
 ${distr_func_body(randoms.dtype, distribution_params)}
 
 
-${kernel_definition}
+${kernel_declaration}
 {
     VIRTUAL_SKIP_THREADS;
 

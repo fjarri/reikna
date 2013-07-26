@@ -1,5 +1,5 @@
-<%def name="transpose(output, input)">
-${kernel_definition}
+<%def name="transpose(kernel_declaration, output, input)">
+${kernel_declaration}
 {
 	VIRTUAL_SKIP_THREADS;
 

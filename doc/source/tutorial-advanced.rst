@@ -120,8 +120,8 @@ For our example we only need one action, which is the execution of an elementwis
 
         template = template_from(
             """
-            <%def name='testcomp(k_output, k_input1, k_input2, k_param)'>
-            ${kernel_definition}
+            <%def name='testcomp(kernel_declaration, k_output, k_input1, k_input2, k_param)'>
+            ${kernel_declaration}
             {
                 VIRTUAL_SKIP_THREADS;
                 int idx = virtual_global_id(0);
@@ -145,12 +145,13 @@ Every kernel call is based on the separate ``Mako`` template def.
 The template can be specified as a string using :py:func:`~reikna.helpers.template_def`, or loaded as a separate file.
 Usual pattern in this case is to call the template file same as the file where the computation class is defined (for example, ``testcomp.mako`` for ``testcomp.py``), and store it in some variable on module load using :py:func:`~reikna.helpers.template_for` as ``TEMPLATE = template_for(__file__)``.
 
-The template function should take the same number of positional arguments as the kernel; you can view ``<%def ... >`` part as an actual kernel definition, but with the arguments being :py:class:`~reikna.core.transformation.KernelParameter` objects containing parameter metadata.
+The template function should take the same number of positional arguments as the kernel plus one; you can view ``<%def ... >`` part as an actual kernel definition, but with the arguments being :py:class:`~reikna.core.transformation.KernelParameter` objects containing parameter metadata.
+The first argument will contain the string with the kernel declaration.
 
 Also, depending on whether the corresponding argument is an output array, an input array or a scalar parameter, the object can be used as ``${obj.store_idx}(index, val)``, ``${obj.load_idx}(index)`` or ``${obj}``.
 This will produce the corresponding request to the global memory or kernel arguments.
 
-If you need additional device functions, they have to be specified between ``<%def ... >`` and ``${kernel_definition}`` (the latter is where the actual kernel signature will be rendered).
+If you need additional device functions, they have to be specified between ``<%def ... >`` and ``${kernel_declaration}``.
 Obviously, these functions can still use ``dtype`` and ``ctype`` object properties, although ``store_idx`` and ``load_idx`` will most likely result in compilation error (since they are rendered as macros using main kernel arguments).
 
 Since kernel call parameters (``global_size`` and ``local_size``) are specified on creation, all kernel calls are rendered as CLUDA static kernels (see :py:meth:`~reikna.cluda.api.Thread.compile_static`) and therefore can use all the corresponding macros and functions (like :c:func:`virtual_global_flat_id` in our kernel).

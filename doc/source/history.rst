@@ -9,6 +9,8 @@ Release history
 * CHANGED: slightly changed the algorithm that determines the order of computation parameters after a transformation is connected to it.
   Now the ordering inside a list of initial computation parameters or a list of a single transformation parameters is preserved.
 
+* CHANGED: kernel declaration string is now passed explicitly to a kernel template as the first parameter.
+
 * FIXED: typo in FFT performance test.
 
 * FIXED: bug in FFT that could result in changing the contents of the input array to one of the intermediate results.

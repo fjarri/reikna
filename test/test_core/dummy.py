@@ -58,8 +58,8 @@ class Dummy(Computation):
         div = functions.div(arr_dtype, coeff_dtype)
 
         template = template_from("""
-        <%def name="dummy(C, D, A, B, coeff)">
-        ${kernel_definition}
+        <%def name="dummy(kernel_declaration, C, D, A, B, coeff)">
+        ${kernel_declaration}
         {
             VIRTUAL_SKIP_THREADS;
             int idx0 = virtual_global_id(1);
@@ -84,8 +84,8 @@ class Dummy(Computation):
         }
         </%def>
 
-        <%def name="dummy2(CC, DD, C, D, pers_arr, const_coeff)">
-        ${kernel_definition}
+        <%def name="dummy2(kernel_declaration, CC, DD, C, D, pers_arr, const_coeff)">
+        ${kernel_declaration}
         {
             VIRTUAL_SKIP_THREADS;
             int idx0 = virtual_global_id(1);
@@ -220,8 +220,8 @@ class DummyAdvanced(Computation):
         div = functions.div(arr_dtype, coeff_dtype)
 
         template = template_from("""
-        <%def name="dummy(CC, C, D, coeff)">
-        ${kernel_definition}
+        <%def name="dummy(kernel_declaration, CC, C, D, coeff)">
+        ${kernel_declaration}
         {
             VIRTUAL_SKIP_THREADS;
             int idx0 = virtual_global_id(1);
