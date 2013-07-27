@@ -45,7 +45,4 @@ Discrete harmonic transform
 Counter-based random number generators
 --------------------------------------
 
-.. currentmodule:: reikna.cbrng
 .. automodule:: reikna.cbrng
-.. autofunction:: reikna.cbrng.create_counters
-.. autoclass:: reikna.cbrng.CBRNG

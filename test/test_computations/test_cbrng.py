@@ -6,7 +6,8 @@ from helpers import *
 from test_computations.cbrng_ref import philox, threefry
 
 from reikna.helpers import product
-from reikna.cbrng import CBRNG, create_counters, create_key
+from reikna.cbrng import CBRNG
+from reikna.cbrng.rngs import Threefry, Philox
 import reikna.cluda.dtypes as dtypes
 
 
@@ -33,47 +34,80 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize('name_and_params', vals, ids=ids)
 
 
-def rng_ref(ctr, size, name, seed, **params):
-    dtype = numpy.uint32 if params['bitness'] == 32 else numpy.uint64
-    result = numpy.empty((size, params['words']), dtype)
-    base_key = create_key(name, params, seed=seed)
-
+def raw_ref(counters, keys, name, words, bitness, rounds):
+    result = numpy.empty_like(counters)
     func = philox if name == 'philox' else threefry
 
-    counter = numpy.zeros(params['words'], dtype)
-    counter[-1] += ctr
+    for i in range(keys.shape[0]):
+        result[i] = func(bitness, words, counters[i], keys[i], Nrounds=rounds)
 
-    for i in range(size):
-        key = base_key.copy()
-        key[-1] += numpy.cast[key.dtype](i)
-
-        result[i] = func(params['bitness'], params['words'], counter, key, params['rounds'])
-
-    return result.T
+    return result
 
 
 def test_raw(thr, name_and_params):
     name, params = name_and_params
-    distribution = 'uniform_integer'
+
     size = 1000
-    seed = 123
+    key = 123
+    words = params['words']
+    bitness = params['bitness']
+    rounds = params['rounds']
 
-    dest = thr.array((params['words'], size),
-        numpy.uint32 if params['bitness'] == 32 else numpy.uint64)
-    rng = CBRNG(dest, 1, seed=seed, rng=name, rng_params=params, distribution=distribution)
-    rngc = rng.compile(thr)
+    if name == 'philox':
+        rng_ctr = Philox
+    else:
+        rng_ctr = Threefry
+    rng = rng_ctr(bitness, words, rounds=rounds)
 
-    counters = create_counters(size, params)
-    counters_dev = thr.to_device(counters)
+    keys_ref = numpy.zeros((size, rng.key_words), rng.dtype)
+    key0 = key << (32 if rng.dtype.itemsize == 8 and rng.key_words == 1 else 0)
+    keys_ref[:,0] = key0
+    keys_ref[:,rng.key_words-1] += numpy.arange(size)
+    counters_ref = numpy.zeros((size, rng.counter_words), rng.dtype)
 
-    rngc(counters_dev, dest, counters_dev)
-    dest_ref = rng_ref(0, size, name, seed, **params)
+    rng_kernel = thr.compile_static(
+        """
+        <%
+            ctype = dtypes.ctype(rng.dtype)
+        %>
+        KERNEL void test(GLOBAL_MEM ${ctype} *dest, int ctr)
+        {
+            VIRTUAL_SKIP_THREADS;
+            const int idx = virtual_global_id(0);
+
+            ${rng.module}KEY key;
+            key.v[0] = ${key0};
+            %for i in range(1, rng.key_words):
+            key.v[${i}] = 0;
+            %endfor
+            key.v[${rng.key_words - 1}] += idx;
+
+            ${rng.module}COUNTER counter;
+            %for i in range(rng.counter_words - 1):
+            counter.v[${i}] = 0;
+            %endfor
+            counter.v[${rng.counter_words - 1}] = ctr;
+
+            ${rng.module}COUNTER result = ${rng.module}(key, counter);
+
+            %for i in range(rng.counter_words):
+            dest[idx * ${rng.counter_words} + ${i}] = result.v[${i}];
+            %endfor
+        }
+        """,
+        'test', size,
+        render_kwds=dict(rng=rng, key0=key0))
+
+    dest = thr.array((size, rng.counter_words), rng.dtype)
+
+    rng_kernel(dest, numpy.int32(0))
+    dest_ref = raw_ref(counters_ref, keys_ref, name, words, bitness, rounds)
     assert diff_is_negligible(dest.get(), dest_ref)
 
-    rngc(counters_dev, dest, counters_dev)
-    dest_ref = rng_ref(1, size, name, seed, **params)
+    rng_kernel(dest, numpy.int32(1))
+    counters_ref[:,-1] += 1
+    dest_ref = raw_ref(counters_ref, keys_ref, name, words, bitness, rounds)
     assert diff_is_negligible(dest.get(), dest_ref)
-
 
 
 def check_distribution(thr, rng_name, rng_params,
