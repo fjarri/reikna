@@ -6,6 +6,9 @@ Release history
 0.3.2 (current development version)
 ===================================
 
+* ADDED: same module object, when being called without arguments from other modules/snippets, is rendered only once and returns the same prefix each time.
+  This allows one to create structure declarations that can be used by functions in several modules.
+
 * CHANGED: slightly changed the algorithm that determines the order of computation parameters after a transformation is connected to it.
   Now the ordering inside a list of initial computation parameters or a list of a single transformation parameters is preserved.
 

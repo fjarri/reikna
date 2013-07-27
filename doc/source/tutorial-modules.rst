@@ -135,6 +135,9 @@ When it is rendered, it is traversed depth-first, modules are extracted from it 
 Their positions in ``render_kwds`` are replaced by assigned prefixes.
 This flat list is then rendered, producing a single source file being fed to the compiler.
 
+Note that if the same module object was used without arguments in several other modules or in the kernel itself, it will only be rendered once.
+Therefore one can create a "root" module with the data structure declaration and then use that structure in other modules without producing type errors on compilation.
+
 
 Shortcuts
 =========
