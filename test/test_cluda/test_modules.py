@@ -132,3 +132,79 @@ def test_snippet(some_thr):
     ref = (a * b + m1num) + ((a * b + m2num) - snum)
 
     assert diff_is_negligible(dest_dev.get(), ref)
+
+
+CACHING_TEMPLATE = template_from("""
+<%def name="data_structures(prefix)">
+typedef struct ${prefix}_TEST
+{
+    int a;
+    int b;
+} ${prefix}TEST;
+</%def>
+
+
+<%def name="module1(prefix)">
+WITHIN_KERNEL ${data}TEST ${prefix}(${data}TEST x)
+{
+    ${data}TEST res;
+    res.a = x.b;
+    res.b = x.a;
+    return res;
+}
+</%def>
+
+
+<%def name="module2(prefix)">
+WITHIN_KERNEL ${data}TEST ${prefix}(${data}TEST x)
+{
+    ${data}TEST res;
+    res.a = x.a + 2;
+    res.b = x.b + 3;
+    return res;
+}
+</%def>
+""")
+
+caching_data = Module(CACHING_TEMPLATE.get_def('data_structures'))
+caching_module1 = Module(CACHING_TEMPLATE.get_def('module1'), render_kwds=dict(data=caching_data))
+caching_module2 = Module(CACHING_TEMPLATE.get_def('module2'), render_kwds=dict(data=caching_data))
+
+
+def test_caching(some_thr):
+    """
+    Tests that the root module with the data structure declaration is rendered only once,
+    despite being used both by kernel and by two other modules.
+    This allows the data structure to be passed to functions from both modules without type errors.
+    """
+
+    dtype = numpy.int32
+    size = 128
+
+    program = some_thr.compile(
+        """
+        KERNEL void test(GLOBAL_MEM int *dest)
+        {
+            const int idx = get_global_id(0);
+            ${data}TEST x;
+            x.a = dest[idx];
+            x.b = dest[idx + ${size}];
+
+            x = ${module1}(x);
+            x = ${module2}(x);
+
+            dest[idx] = x.a;
+            dest[idx + ${size}] = x.b;
+        }
+        """,
+        render_kwds=dict(
+            size=size,
+            module1=caching_module1, module2=caching_module2, data=caching_data))
+
+    a = get_test_array((2, size), dtype)
+    a_dev = some_thr.to_device(a)
+
+    program.test(a_dev, local_size=size, global_size=size)
+    a_ref = numpy.vstack([a[1] + 2, a[0] + 3])
+
+    assert diff_is_negligible(a_dev.get(), a_ref)
