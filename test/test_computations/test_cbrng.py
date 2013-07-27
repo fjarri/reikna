@@ -185,8 +185,3 @@ def test_gamma(thr_and_double):
         'philox', dict(bitness=64, words=4),
         'gamma', dict(mean=mean, std=std), dtype,
         dict(shape=shape, scale=scale))
-
-
-@pytest.mark.perf
-def test_raw_perf():
-    pass

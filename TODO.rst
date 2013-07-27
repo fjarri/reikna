@@ -43,6 +43,7 @@
 * FEATURE (CLUDA, core): implement custom structures as types (will also require updating the strides-to-flat-index algorithm)
 * ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
 * FEATURE (computations): allow non-sequential axes in Reduce
+* TEST (computations): add some performance tests for CBRNG
 
 
 1.0.0 (production-quality version... hopefully)
