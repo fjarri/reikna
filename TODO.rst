@@ -4,13 +4,14 @@
 * FIX (core): When we connect a transformation, difference in strides between arrays in the connection can be ignored (and probably the transformation's signature changed too; at least we need to decide which strides to use in the exposed node).
   Proposal: leave it as is; make existing transformations "propagate" strides to results; and create a special transformation that only changes strides (or make it a parameter to the identity one).
 * FIX: get rid of AttrDict and replace it by classes/named tuples.
+* API (computations): make helpers functions in cbrng methods of CBRNG class.
+* FIX (computations): use modules in ``CBRNG``
 * API (computations): make helpers functions in dht methods of DHT class.
-  Same for CBRNG.
+* API (computations): add FFT.get_freqs()
 * API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
 * ?API (computations): move some of the functionality to the top level of ``reikna`` module?
 * ?API (computations): move all "raw" computations to their own submodule?
 * ?API (CLUDA, core): do something about the inconsistency of array shapes (row-major) and global sizes (column-major). Special get_id() functions maybe?
-* FIX (computations): use modules in ``CBRNG``
 * ?API (core): make ``device_params`` an attribute of plan or plan factory?
 * API (computations): review computation docs, unify parameter names
 
