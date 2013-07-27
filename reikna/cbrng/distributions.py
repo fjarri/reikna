@@ -7,6 +7,26 @@ from reikna.cluda import Module
 TEMPLATE = helpers.template_for(__file__)
 
 
+class Distribution:
+    """
+    The base class for the kernel API of random distributions.
+    Supports ``__process_modules__`` protocol.
+
+    .. py:attribute:: deterministic
+
+        If ``True``, every sampled random number consumes the same amount of counters.
+
+    .. py:attribute:: module
+
+        The module containing the distribution sampling function.
+        Provides:
+    """
+    pass
+
+
+
+
+
 class UniformInteger:
     """
     Generates uniformly distributed integer numbers in the interval ``[low, high)``.
@@ -15,7 +35,7 @@ class UniformInteger:
     If the size of the interval is a power of 2, a fixed number of counters is used in each thread.
     """
 
-    def __init__(self, dtype, low, high=None):
+    def __init__(self, cbrng, dtype, low, high=None, processed_module=None):
         if high is None:
             low, high = 0, low + 1
         else:
@@ -38,11 +58,15 @@ class UniformInteger:
             raw_func = 'get_raw_uint64'
             max_num = 2 ** 64
 
-        self.module = Module(
-            TEMPLATE.get_def("uniform_integer"),
-            render_kwds=dict(
-                dtype=dtype, raw_ctype=raw_ctype, raw_func=raw_func,
-                max_num=max_num, num=num, low=low))
+        if processed_module is None:
+            self.module = Module(
+                TEMPLATE.get_def("uniform_integer"),
+                render_kwds=dict(
+                    cbrng=cbrng,
+                    dtype=dtype, raw_ctype=raw_ctype, raw_func=raw_func,
+                    max_num=max_num, num=num, low=low))
+        else:
+            self.module = processed_module
 
 
 class UniformFloat:

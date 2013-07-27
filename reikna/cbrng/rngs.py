@@ -9,7 +9,7 @@ TEMPLATE = helpers.template_for(__file__)
 
 class CBRNGModule:
     """
-    A base class for the kernel API of CBRNG.
+    The base class for the kernel API of CBRNG.
     Supports ``__process_modules__`` protocol.
 
     .. py:attribute:: dtype

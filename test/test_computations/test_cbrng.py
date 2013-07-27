@@ -8,6 +8,7 @@ from test_computations.cbrng_ref import philox, threefry
 from reikna.helpers import product
 from reikna.cbrng import CBRNG
 from reikna.cbrng.rngs import Threefry, Philox
+from reikna.cbrng.distributions import UniformInteger
 import reikna.cluda.dtypes as dtypes
 
 
@@ -44,7 +45,7 @@ def raw_ref(counters, keys, name, words, bitness, rounds):
     return result
 
 
-def test_raw(thr, name_and_params):
+def test_kernel_cbrng(thr, name_and_params):
     name, params = name_and_params
 
     size = 1000
@@ -108,6 +109,39 @@ def test_raw(thr, name_and_params):
     counters_ref[:,-1] += 1
     dest_ref = raw_ref(counters_ref, keys_ref, name, words, bitness, rounds)
     assert diff_is_negligible(dest.get(), dest_ref)
+
+
+def test_kernel_sampler(thr):
+
+    rng = Threefry(64, 4)
+    sampler = UniformInteger(rng, numpy.int32, -10, 98)
+    rng_kernel = thr.compile_static(
+        """
+        KERNEL void test(GLOBAL_MEM int *dest, int ctr)
+        {
+            VIRTUAL_SKIP_THREADS;
+            const int idx = virtual_global_id(0);
+
+            ${sampler.module}KEY key = ${keygen}(idx);
+            ${sampler.module}COUNTER ctr = ${ctrgen}from_int(0);
+            ${sampler.module}STATE st = ${sampler.module}state_from_counter(ctr);
+
+            ${sampler.module}RESULT res = ${sampler.module}(&st, key);
+            ${sampler2.module}RESULT res2 = ${sampler2.module}(&st, key);
+
+            %for i in range(sampler.randoms_per_call):
+            ... res.v[${i}] ...
+            %endfor
+
+            ${sampler.module}COUNTER next_ctr = ${sampler.module}counter_from_state(st);
+
+            %for i in range(rng.counter_words):
+            dest[idx * ${rng.counter_words} + ${i}] = result.v[${i}];
+            %endfor
+        }
+        """,
+        'test', size,
+        render_kwds=dict(rng=rng, key0=key0))
 
 
 def check_distribution(thr, rng_name, rng_params,
