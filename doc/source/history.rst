@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.3.2 (current development version)
-===================================
+0.3.2 (29 Jul 2013)
+===================
 
 * ADDED: same module object, when being called without arguments from other modules/snippets, is rendered only once and returns the same prefix each time.
   This allows one to create structure declarations that can be used by functions in several modules.
