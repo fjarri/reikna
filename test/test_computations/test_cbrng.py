@@ -8,7 +8,7 @@ from test_computations.cbrng_ref import threefry as threefry_ref
 
 from reikna.core import Type
 from reikna.helpers import product
-from reikna.cbrng.cbrng import CBRNG
+from reikna.cbrng import CBRNG
 from reikna.cbrng.bijections import threefry, philox
 from reikna.cbrng.tools import KeyGenerator
 from reikna.cbrng.samplers import uniform_integer, uniform_float, normal_bm, gamma
@@ -58,7 +58,7 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize('test_bijection', vals, ids=ids)
 
 
-def _test_kernel_bijection(thr, test_bijection):
+def test_kernel_bijection(thr, test_bijection):
 
     size = 1000
     seed = 123
