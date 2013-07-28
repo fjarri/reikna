@@ -20,16 +20,16 @@ class CBRNG(Computation):
     :param seed: ``None`` for random seed, or an integer.
     """
 
-    def __init__(self, randoms_arr, counters_dim, sampler, seed=None):
+    def __init__(self, randoms_arr, generators_dim, sampler, seed=None):
 
         self._sampler = sampler
         self._keygen = KeyGenerator.create(sampler.bijection, seed=seed, reserve_id_space=True)
 
         assert sampler.dtype == randoms_arr.dtype
 
-        counters_size = randoms_arr.shape[-counters_dim:]
+        counters_size = randoms_arr.shape[-generators_dim:]
 
-        self._counters_dim = counters_dim
+        self._generators_dim = generators_dim
         self._counters_t = Type(
             sampler.bijection.dtype,
             shape=counters_size + (sampler.bijection.counter_words,))
@@ -55,11 +55,11 @@ class CBRNG(Computation):
             render_kwds=dict(
                 sampler=self._sampler,
                 keygen=self._keygen,
-                batch=helpers.product(randoms.shape[:-self._counters_dim]),
-                counters_slices=[self._counters_dim, 1],
+                batch=helpers.product(randoms.shape[:-self._generators_dim]),
+                counters_slices=[self._generators_dim, 1],
                 randoms_slices=[
-                    len(randoms.shape) - self._counters_dim,
-                    self._counters_dim]))
+                    len(randoms.shape) - self._generators_dim,
+                    self._generators_dim]))
 
         return plan
 
@@ -71,10 +71,10 @@ class _ConvenienceCtr:
     def __init__(self, sampler_name):
         self._sampler_func = SAMPLERS[sampler_name]
 
-    def __call__(self, cls, randoms_arr, counters_dim, sampler_kwds=None, seed=None):
+    def __call__(self, cls, randoms_arr, generators_dim, sampler_kwds=None, seed=None):
         bijection = philox(64, 4)
         sampler = self._sampler_func(bijection, randoms_arr.dtype, **sampler_kwds)
-        return cls(randoms_arr, counters_dim, sampler, seed=seed)
+        return cls(randoms_arr, generators_dim, sampler, seed=seed)
 
 
 # Add convenience constructors to CBRNG
