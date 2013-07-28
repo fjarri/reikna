@@ -8,6 +8,14 @@ TEMPLATE = helpers.template_for(__file__)
 
 
 class Predicate:
+    """
+    A predicate used in :py:class:`~reikna.reduce.Reduce`.
+
+    :param operation: a :py:class:`~reikna.cluda.Snippet` object with two parameters
+        which will take the names of two arguments to join.
+    :param empty: a string with the empty value of the argument
+        (the one which, being joined by another argument, does not change it).
+    """
 
     def __init__(self, operation, empty):
         self.operation = operation
@@ -18,6 +26,9 @@ class Predicate:
 
 
 def predicate_sum(dtype):
+    """
+    Returns a :py:class:`~reikna.reduce.Predicate` object which sums its arguments.
+    """
     return Predicate(
         Snippet.create(lambda v1, v2: "return ${v1} + ${v2};"),
         dtypes.c_constant(dtypes.cast(dtype)(0)))
@@ -25,7 +36,19 @@ def predicate_sum(dtype):
 
 class Reduce(Computation):
     """
+    Bases: :py:class:`~reikna.core.Computation`
+
     Reduces the array over given axis using given binary operation.
+
+    :param arr_t: an array-like defining the initial array.
+    :param predicate: a :py:class:`~reikna.reduce.Predicate` object.
+    :param axes: a list of sequential axes to reduce over.
+
+    .. py:method:: compiled_signature(output:o, input:i)
+
+        :param input: an array with the attributes of ``arr_t``.
+        :param output: an array with the attributes of ``arr_t``,
+            with its shape missing axes from ``axes``.
     """
 
     def __init__(self, arr_t, predicate, axes=None):

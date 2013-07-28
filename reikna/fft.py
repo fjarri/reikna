@@ -452,13 +452,13 @@ class GlobalKernelFail(Exception):
 
 class FFT(Computation):
     """
+    Bases: :py:class:`~reikna.core.Computation`
+
     Performs the Fast Fourier Transform.
     The interface is similar to ``numpy.fft.fftn``.
     The inverse transform is normalized so that ``IFFT(FFT(X)) = X``.
 
-    :param output: output array.
-    :param input: input array (with the same size as ``output``).
-    :param direction: ``-1`` for forward transform, ``1`` for inverse transform.
+    :param arr_t: an array-like defining the problem array.
     :param axes: a tuple with axes over which to perform the transform.
         If not given, the transform is performed over all the axes.
 
@@ -467,6 +467,14 @@ class FFT(Computation):
         This mostly applies to the axes over which the transform is performed,
         beacuse otherwise the computation falls back to the Bluestein's algorithm,
         which effectively halves the performance.
+
+    .. py:method:: compiled_signature(output:o, input:i, inverse:s)
+
+        :param output: an array wit the attributes of ``arr_t``.
+        :param input: an array wit the attributes of ``arr_t``.
+        :param inverse: a scalar value castable to integer.
+            If ``1``, ``output`` contains the forward FFT of ``input``,
+            if ``0`` the inverse one.
     """
 
     def __init__(self, arr_t, axes=None):

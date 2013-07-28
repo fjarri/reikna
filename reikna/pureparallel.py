@@ -5,6 +5,8 @@ from reikna.core import Computation
 
 class PureParallel(Computation):
     """
+    Bases: :py:class:`~reikna.core.Computation`
+
     A general class for pure parallel computations
     (i.e. with no interaction between threads).
 
@@ -13,6 +15,10 @@ class PureParallel(Computation):
     :param guiding_array: an tuple with the array shape, or the name of one of ``parameters``.
         By default, the first parameter is chosen.
     :param render_kwds: a dictionary with render keywords for the ``code``.
+
+    .. py:function:: compiled_signature(*args)
+
+        :param args: corresponds to the given ``parameters``.
     """
 
     def __init__(self, parameters, code, guiding_array=None, render_kwds=None):

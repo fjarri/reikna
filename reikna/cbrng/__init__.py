@@ -38,7 +38,6 @@ This state is then passed to, and updated by a :py:class:`~reikna.cbrng.CBRNG` o
 
 .. autoclass:: CBRNG
     :members:
-    :special-members: __compiled_signature__
 
 
 Kernel API

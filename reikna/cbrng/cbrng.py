@@ -11,6 +11,8 @@ TEMPLATE = helpers.template_for(__file__)
 
 class CBRNG(Computation):
     """
+    Bases: :py:class:`~reikna.core.Computation`
+
     Counter-based pseudo-random number generator class.
 
     :param randoms_arr: an array intended for storing generated random numbers.
@@ -30,7 +32,7 @@ class CBRNG(Computation):
         function (with ``bijection`` being created automatically,
         and ``dtype`` taken from ``randoms_arr``).
 
-    .. py:method:: __compiled_signature__(counters:io, randoms:o)
+    .. py:method:: compiled_signature(counters:io, randoms:o)
 
         :param counters: the RNG "state".
             All attributes are equal to the ones of the result of :py:meth:`create_counters`.

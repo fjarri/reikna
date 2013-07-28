@@ -24,6 +24,8 @@ Release history
 
 * FIXED: Py3 incompatibility in ``cluda.cuda``.
 
+* FIXED: updated some obsolete computation docstrings.
+
 
 0.3.1 (25 Jul 2013)
 ===================

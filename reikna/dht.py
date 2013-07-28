@@ -165,6 +165,8 @@ def get_transformation_matrix(modes, order, add_points):
 
 class DHT(Computation):
     r"""
+    Bases: :py:class:`~reikna.core.Computation`
+
     Discrete transform to and from harmonic oscillator modes.
     With ``inverse=True`` transforms a function defined by its expansion
     :math:`C_m,\,m=0 \ldots M-1` in the mode space with mode functions
@@ -181,16 +183,26 @@ class DHT(Computation):
     For the detailed description of the algorithm, see Dion & Cances,
     `PRE 67(4) 046706 (2003) <http://dx.doi.org/10.1103/PhysRevE.67.046706>`_
 
-    :param output: output array.
+    :param mode_arr: an array-like object defining the shape of mode space.
         If ``inverse=False``, its shape is used to define the mode space size.
-    :param input: input array.
-        If ``inverse=True``, its shape is used to define the mode space size.
     :param inverse: ``False`` for forward (coordinate space -> mode space) transform,
         ``True`` for inverse (mode space -> coordinate space) transform.
     :param axes: a tuple with axes over which to perform the transform.
         If not given, the transform is performed over all the axes.
     :param order: if ``F`` is a function in mode space, the number of spatial points
         is chosen so that the transformation ``DHT[(DHT^{-1}[F])^order]`` could be performed.
+    :param add_points: a list of the same length as ``mode_arr`` shape,
+        specifying the number of points in x-space to use in addition to minimally required
+        (``0`` by default).
+
+    .. py:method:: compiled_signature_forward(modes:o, coords:i)
+    .. py:method:: compiled_signature_inverse(coords:o, modes:i)
+
+        Depending on ``inverse`` value, either of these two will be created.
+
+        :param modes: an array with the attributes of ``mode_arr``.
+        :param coords: an array with the shape depending on ``mode_arr``, ``axes``, ``order``
+            and ``add_points``, and the dtype of ``mode_arr``.
     """
 
     def __init__(self, mode_arr, add_points=None, inverse=False, order=1, axes=None):

@@ -1,14 +1,8 @@
-0.3.2
+0.3.3
 =====
 
 * API (computations): make helpers functions in dht methods of DHT class.
 * API (computations): add FFT.get_freqs()
-* API (computations): review computation docs, unify parameter names
-
-
-0.3.3
-=====
-
 * API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
 * ?API (computations): move some of the functionality to the top level of ``reikna`` module?
 * ?API (computations): move all "raw" computations to their own submodule?
