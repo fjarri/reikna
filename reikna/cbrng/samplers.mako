@@ -1,4 +1,7 @@
 <%def name="result_struct(prefix, ctype, randoms_per_call)">
+typedef ${ctype} ${prefix}value;
+#define ${prefix}RANDOMS_PER_CALL ${randoms_per_call}
+
 typedef struct ${prefix}_RESULT
 {
     ${ctype} v[${randoms_per_call}];

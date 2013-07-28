@@ -22,36 +22,36 @@ then the period of the generator is :math:`2^{256}`.
 As for the key size, in case of ``threefry`` the key has the same size as the counter,
 and for ``philox`` the key is half its size.
 
-This implementation sets one of the words of the key (except for ``philox-2x64``,
-where 32 bit of the only word in the key are used), the rest are the same for all threads
-and are derived from the provided ``seed``.
+The :py:class:`~reikna.cbrng.CBRNG` class sets one of the words of the key
+(except for ``philox-2x64``, where 32 bit of the only word in the key are used),
+the rest are the same for all threads and are derived from the provided ``seed``.
 This limits the maximum number of number-generating threads (``size``).
 ``philox-2x32`` has a 32-bit key and therefore cannot be used in :py:class:`~reikna.cbrng.CBRNG`
-(although it can be used separately as a part of larger kernel).
+(although it can be used separately with the help of the kernel API).
 
 The :py:class:`~reikna.cbrng.CBRNG` class itself is stateless, same as other computations in Reikna,
 so you have to manage the generator state yourself.
-The state is created by :py:func:`~reikna.cbrng.create_counters`
-and contains either a single counter if the target distribution uses the fixed number
-of generated integers, or ``size`` counters otherwise.
+The state is created by the :py:meth:`~reikna.cbrng.CBRNG.create_counters` method
+and contains a ``size`` counters.
 This state is then passed to, and updated by a :py:class:`~reikna.cbrng.CBRNG` object.
 
 
 .. autoclass:: CBRNG
+    :members:
+    :special-members: __compiled_signature__
 
 
 Kernel API
 ----------
 
-.. currentmodule:: reikna.cbrng.bijections
+.. automodule:: reikna.cbrng.bijections
+    :members:
 
-.. autoclass:: Bijection
+.. automodule:: reikna.cbrng.samplers
+    :members:
 
-.. autoclass:: threefry
-
-.. autoclass:: Philox
+.. automodule:: reikna.cbrng.tools
+    :members:
 """
 
-#from reikna.cbrng.bijections import Threefry, Philox
-#from reikna.cbrng.distributions import UniformInteger, UniformFloat, NormalBM, Gamma
-#from reikna.cbrng.cbrng import CBRNG
+from reikna.cbrng.cbrng import CBRNG

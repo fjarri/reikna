@@ -27,16 +27,70 @@ class Bijection:
     .. py:attribute:: module
 
         The module containing the CBRNG function.
-        It provides:
+        It provides the C functions below.
 
-        * the ``${prefix}COUNTER`` structure, which contains a single field
-          ``v[${counter_words}]`` of type ``dtype``;
-        * the ``${prefix}KEY`` structure, which contains a single field
-          ``v[${key_words}]`` of type ``dtype``;
-        * the function with the signature
-          ``${prefix}COUNTER ${prefix}(${prefix}KEY, ${prefix}COUNTER)``.
+    .. c:macro:: COUNTER_WORDS
+
+        Contains the value of :py:attr:`counter_words`.
+
+    .. c:macro:: KEY_WORDS
+
+        Contains the value of :py:attr:`key_words`.
+
+    .. c:type:: word
+
+        Contains the type corresponding to :py:attr:`dtype`.
+
+    .. c:type:: COUNTER
+
+        Describes the bijection counter, or its output.
+
+        .. c:member:: word v[COUNTER_WORDS]
+
+    .. c:type:: KEY
+
+        Describes the bijection key.
+
+        .. c:member:: word v[KEY_WORDS]
+
+    .. c:function:: COUNTER make_counter_from_int(int x)
+
+        Creates a counter object from an integer.
+
+    .. c:function:: COUNTER bijection(KEY key, COUNTER counter)
+
+        The main bijection function.
+
+    .. c:type:: STATE
+
+        A structure containing the CBRNG state which is used by :py:mod:`~reikna.cbrng.samplers`.
+
+    .. c:type:: uint32
+
+        A type of unigned 32-bit word.
+
+    .. c:type:: uint64
+
+        A type of unigned 64-bit word.
+
+    .. c:function:: STATE make_state(KEY key, COUNTER counter)
+
+        Creates a new state object.
+
+    .. c:function:: COUNTER get_next_unused_counter(STATE state)
+
+        Extracts a counter which has not been used in random sampling.
+
+    .. c:function:: uint32 get_raw_uint32(STATE *state)
+
+        Returns uniformly distributed unsigned 32-bit word and updates the state.
+
+    .. c:function:: uint64 get_raw_uint64(STATE *state)
+
+        Returns uniformly distributed unsigned 64-bit word and updates the state.
     """
     def __init__(self, module, dtype, counter_words, key_words):
+        """__init__()""" # hide the signature from Sphinx
         self.module = module
         self.dtype = dtypes.normalize_type(dtype)
         self.counter_words = counter_words
@@ -54,6 +108,7 @@ def threefry(bitness, counter_words, rounds=20):
     :param counter_words: ``2`` or ``4``, number of integers generated in one go.
     :param rounds: ``1`` to ``72``, the more rounds, the better randomness is achieved.
         Default values are big enough to qualify as PRNG.
+    :returns: a :py:class:`Bijection` object.
     """
 
     ROTATION_CONSTANTS = {
@@ -135,6 +190,7 @@ def philox(bitness, counter_words, rounds=10):
     :param counter_words: ``2`` or ``4``, number of integers generated in one go.
     :param rounds: ``1`` to ``12``, the more rounds, the better randomness is achieved.
         Default values are big enough to qualify as PRNG.
+    :returns: a :py:class:`Bijection` object.
     """
 
     W_CONSTANTS = {

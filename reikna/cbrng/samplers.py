@@ -9,19 +9,46 @@ TEMPLATE = helpers.template_for(__file__)
 
 class Sampler:
     """
-    The base class for the kernel API of random distributions.
+    Contains a random distribution sampler module and accompanying metadata.
     Supports ``__process_modules__`` protocol.
 
     .. py:attribute:: deterministic
 
         If ``True``, every sampled random number consumes the same amount of counters.
 
+    .. py:attribute:: randoms_per_call
+
+        How many random numbers one call to ``sample`` creates.
+
+    .. py:attribute:: dtype
+
+        The data type of one random value produced by the sampler.
+
     .. py:attribute:: module
 
         The module containing the distribution sampling function.
-        Provides:
+        It provides the C functions below.
+
+    .. c:macro:: RANDOMS_PER_CALL
+
+        Contains the value of :py:attr:`randoms_per_call`.
+
+    .. c:type:: value
+
+        Contains the type corresponding to :py:attr:`dtype`.
+
+    .. c:type:: RESULT
+
+        Describes the sampling result.
+
+        .. c:member:: value v[RANDOMS_PER_CALL]
+
+    .. c:type:: RESULT sample(STATE *state)
+
+        Performs the sampling, updating the state.
     """
     def __init__(self, bijection, module, dtype, randoms_per_call=1, deterministic=False):
+        """__init__()""" # hide the signature from Sphinx
         self.randoms_per_call = randoms_per_call
         self.dtype = dtypes.normalize_type(dtype)
         self.deterministic = deterministic
@@ -42,6 +69,7 @@ def uniform_integer(bijection, dtype, low, high=None):
     Supported dtypes: any numpy integers.
     If the size of the interval is a power of 2, a fixed number of counters
     is used in each thread.
+    Returns a :py:class:`~reikna.cbrng.samplers.Sampler` object.
     """
 
     if high is None:
@@ -86,6 +114,7 @@ def uniform_float(bijection, dtype, low=0, high=1):
     Generates uniformly distributed floating-points numbers in the interval ``[low, high)``.
     Supported dtypes: ``float(32/64)``.
     A fixed number of counters is used in each thread.
+    Returns a :py:class:`~reikna.cbrng.samplers.Sampler` object.
     """
     assert low < high
 
@@ -113,6 +142,7 @@ def normal_bm(bijection, dtype, mean=0, std=1):
     the standard deviation ``std`` using Box-Muller transform.
     Supported dtypes: ``float(32/64)``.
     Produces two random numbers per call.
+    Returns a :py:class:`~reikna.cbrng.samplers.Sampler` object.
     """
 
     ctype = dtypes.ctype(dtype)
@@ -140,6 +170,7 @@ def gamma(bijection, dtype, shape=1, scale=1):
 
     where :math:`k` is ``shape``, and :math:`\\theta` is ``scale``.
     Supported dtypes: ``float(32/64)``.
+    Returns a :py:class:`~reikna.cbrng.samplers.Sampler` object.
     """
 
     ctype = dtypes.ctype(dtype)

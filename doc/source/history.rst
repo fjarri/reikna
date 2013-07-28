@@ -9,6 +9,8 @@ Release history
 * ADDED: same module object, when being called without arguments from other modules/snippets, is rendered only once and returns the same prefix each time.
   This allows one to create structure declarations that can be used by functions in several modules.
 
+* ADDED: reworked :py:mod:`~reikna.cbrng` module and exposed kernel interface of bijections and samplers.
+
 * CHANGED: slightly changed the algorithm that determines the order of computation parameters after a transformation is connected to it.
   Now the ordering inside a list of initial computation parameters or a list of a single transformation parameters is preserved.
 

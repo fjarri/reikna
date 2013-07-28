@@ -5,8 +5,21 @@ import reikna.helpers as helpers
 
 
 class KeyGenerator:
+    """
+    Contains a key generator module and accompanying metadata.
+    Supports ``__process_modules__`` protocol.
+
+    .. py:attribute:: module
+
+        A module with the key generator function:
+
+    .. c:function:: KEY key_from_int(int idx)
+
+        Generates and returns a key, suitable for the bijection which was given to the constructor.
+    """
 
     def __init__(self, module, base_key):
+        """__init__()""" # hide the signature from Sphinx
         self.module = module
         self._base_key = base_key
 
@@ -15,6 +28,18 @@ class KeyGenerator:
 
     @classmethod
     def create(cls, bijection, seed=None, reserve_id_space=True):
+        """
+        Creates a generator.
+
+        :param bijection: a :py:class:`~reikna.cbrng.bijections.Bijection` object.
+        :param seed: an integer, or numpy array of 32-bit unsigned integers.
+        :param reserve_id_space: if ``True``, the last 32 bit of the key will be reserved
+            for the thread identifier.
+            As a result, the total size of the key should be 64 bit or more.
+            If ``False``, the thread identifier will be just added to the key,
+            which will still result in different keys for different threads,
+            with the danger that different seeds produce the same sequences.
+        """
 
         if reserve_id_space:
             if bijection.key_words == 1 and bijection.dtype.itemsize == 4:
@@ -57,14 +82,14 @@ class KeyGenerator:
                 full_key[i // 2] += key[i] << (32 if i % 2 == 0 else 0)
 
         module = Module.create("""
-            WITHIN_KERNEL ${bijection.module}KEY ${prefix}key_from_int(int id)
+            WITHIN_KERNEL ${bijection.module}KEY ${prefix}key_from_int(int idx)
             {
                 ${bijection.module}KEY result;
 
                 %for i in range(bijection.key_words):
                 result.v[${i}] = ${key[i]}
                     %if i == bijection.key_words - 1:
-                    + id
+                    + idx
                     %endif
                 ;
                 %endfor
@@ -79,6 +104,10 @@ class KeyGenerator:
         return cls(module, full_key)
 
     def reference(self, idx):
+        """
+        Reference function that returns the key given the thread identifier.
+        Uses the same algorithm as the module.
+        """
         key = self._base_key.copy()
         key[-1] += numpy.cast[key.dtype](idx)
         return key

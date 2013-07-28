@@ -2,6 +2,10 @@
 <%
     ctype = dtypes.ctype(dtype)
 %>
+#define ${prefix}COUNTER_WORDS ${counter_words}
+#define ${prefix}KEY_WORDS ${key_words}
+typedef ${ctype} ${prefix}WORD;
+
 typedef struct ${prefix}_COUNTER
 {
     ${ctype} v[${counter_words}];
@@ -31,6 +35,9 @@ WITHIN_KERNEL ${prefix}COUNTER ${prefix}make_counter_from_int(int x)
     uint32 = dtypes.ctype(numpy.uint32)
     uint64 = dtypes.ctype(numpy.uint64)
 %>
+
+typedef ${uint32} ${prefix}uint32;
+typedef ${uint64} ${prefix}uint64;
 
 typedef struct ${prefix}_STATE
 {

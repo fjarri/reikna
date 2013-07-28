@@ -13,11 +13,29 @@ class CBRNG(Computation):
     """
     Counter-based pseudo-random number generator class.
 
-    :param rng: an object of any RNG class;
-        see :py:mod:`~reikna.cbrng` documentation for the list.
-    :param distribution: an object of any distribution class;
-        see :py:mod:`~reikna.cbrng` documentation for the list.
+    :param randoms_arr: an array intended for storing generated random numbers.
+    :param generators_dim: the number of dimensions (counting from the end)
+        which will use independent generators.
+        For example, if ``randoms_arr`` has the shape ``(100, 200, 300)`` and
+        ``generators_dim`` is ``2``, then every sub-array ``(100, :, :)``
+        will use an independent generator.
+    :param sampler: a :py:class:`~reikna.cbrng.samplers.Sampler` object.
     :param seed: ``None`` for random seed, or an integer.
+
+    .. py:classmethod:: sampler_name(randoms_arr, generators_dim, sampler_kwds=None, seed=None)
+
+        A convenience constructor for the sampler ``sampler_name``
+        from :py:mod:`~reikna.cbrng.samplers`.
+        The contents of the dictionary ``sampler_kwds`` will be passed to the sampler constructor
+        function (with ``bijection`` being created automatically,
+        and ``dtype`` taken from ``randoms_arr``).
+
+    .. py:method:: __compiled_signature__(counters:io, randoms:o)
+
+        :param counters: the RNG "state".
+            All attributes are equal to the ones of the result of :py:meth:`create_counters`.
+        :param randoms: generated random numbers.
+            All attributes are equal to the ones of ``randoms_arr`` from the constructor.
     """
 
     def __init__(self, randoms_arr, generators_dim, sampler, seed=None):
