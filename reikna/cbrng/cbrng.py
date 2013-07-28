@@ -1,8 +1,8 @@
 import numpy
 
 import reikna.helpers as helpers
-import reikna.cluda.dtypes as dtypes
-from reikna.core import Computation, Parameter, Annotation
+from reikna.cbrng.tools import KeyGenerator
+from reikna.core import Computation, Parameter, Annotation, Type
 
 TEMPLATE = helpers.template_for(__file__)
 
@@ -18,19 +18,19 @@ class CBRNG(Computation):
     :param seed: ``None`` for random seed, or an integer.
     """
 
-    def __init__(self, randoms_arr, counters_dim, distribution, rng=None, seed=None):
+    def __init__(self, randoms_arr, counters_dim, sampler, seed=None):
 
-        if rng is None:
-            rng = Philox(64, 4, seed=seed)
-        self._rng_module = rng.module
-        self._distribution_module = distribution.module
+        self._sampler = sampler
+        self._keygen = KeyGenerator.create(sampler.bijection, seed=seed, reserve_id_space=True)
+
+        assert sampler.dtype == randoms_arr.dtype
 
         counters_size = randoms_arr.shape[-counters_dim:]
 
         self._counters_dim = counters_dim
         self._counters_t = Type(
-            numpy.uint32 if rng.bitness == 32 else numpy.uint64,
-            shape=counters_size + (rng.words,))
+            sampler.bijection.dtype,
+            shape=counters_size + (sampler.bijection.counter_words,))
 
         Computation.__init__(self, [
             Parameter('counters', Annotation(self._counters_t, 'io')),
@@ -49,10 +49,10 @@ class CBRNG(Computation):
         plan.kernel_call(
             TEMPLATE.get_def('cbrng'),
             [counters, randoms],
-            global_size=helpers.product(old_counters.shape[:-1]),
+            global_size=helpers.product(counters.shape[:-1]),
             render_kwds=dict(
-                rng=self._rng_module,
-                distribution=self._distribution_module,
+                sampler=self._sampler,
+                keygen=self._keygen,
                 batch=helpers.product(randoms.shape[:-self._counters_dim]),
                 counters_slices=[self._counters_dim, 1],
                 randoms_slices=[

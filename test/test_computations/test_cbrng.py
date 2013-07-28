@@ -6,6 +6,7 @@ from helpers import *
 from test_computations.cbrng_ref import philox as philox_ref
 from test_computations.cbrng_ref import threefry as threefry_ref
 
+from reikna.core import Type
 from reikna.helpers import product
 from reikna.cbrng import CBRNG
 from reikna.cbrng.bijections import threefry, philox
@@ -168,49 +169,6 @@ def check_distribution(arr, extent=None, mean=None, std=None):
         assert diff < 5 * v_std # about 1e-6 chance of fail
 
 
-def check_cbrng(thr, rng_name, rng_params,
-        distribution, distribution_params, dtype, reference):
-
-    size = 10000
-    batch = 100
-    seed = 456
-
-    dest_dev = thr.array((batch, size), dtype)
-    rng = CBRNG(dest_dev, 1, seed=seed, rng=rng_name, rng_params=rng_params,
-        distribution=distribution, distribution_params=distribution_params)
-    rngc = rng.compile(thr)
-
-    counters = create_counters(size, rng_params)
-    counters_dev = thr.to_device(counters)
-
-    rngc(counters_dev, dest_dev, counters_dev)
-    dest = dest_dev.get()
-
-    extent = reference.get('extent', None)
-    mean = reference.get('mean', None)
-    std = reference.get('std', None)
-
-    if extent is not None:
-        assert dest.min() >= extent[0]
-        assert dest.max() <= extent[1]
-
-    if mean is not None and std is not None:
-        # expected mean and std of the mean of the sample array
-        m_mean = mean
-        m_std = std / numpy.sqrt(batch * size)
-
-        diff = abs(dest.mean() - mean)
-        assert diff < 5 * m_std # about 1e-6 chance of fail
-
-    if std is not None:
-        # expected mean and std of the variance of the sample array
-        v_mean = std ** 2
-        v_std = numpy.sqrt(2. * std ** 4 / (batch * size - 1))
-
-        diff = abs(dest.var() - v_mean)
-        assert diff < 5 * v_std # about 1e-6 chance of fail
-
-
 def uniform_discrete_mean_and_std(min, max):
     return (min + max) / 2., numpy.sqrt(((max - min + 1) ** 2 - 1.) / 12)
 
@@ -271,3 +229,30 @@ def test_gamma(thr_and_double):
     bijection = philox(64, 4)
     sampler = gamma(bijection, dtype, shape=shape, scale=scale)
     check_kernel_sampler(thr, sampler, mean=mean, std=std)
+
+
+def check_computation(thr, rng, extent=None, mean=None, std=None):
+    dest_dev = thr.empty_like(rng.parameter.randoms)
+    counters = rng.create_counters()
+    counters_dev = thr.to_device(counters)
+    rngc = rng.compile(thr)
+
+    rngc(counters_dev, dest_dev)
+    dest = dest_dev.get()
+    check_distribution(dest, extent=extent, mean=mean, std=std)
+
+
+def test_computation_general(thr_and_double):
+
+    size = 10000
+    batch = 101
+    seed = 456
+
+    thr, double = thr_and_double
+    dtype = numpy.float64 if double else numpy.float32
+    mean, std = -2, 10
+    bijection = philox(64, 4)
+    sampler = normal_bm(bijection, dtype, mean=mean, std=std)
+
+    rng = CBRNG(Type(dtype, shape=(batch, size)), 1, sampler)
+    check_computation(thr, rng, mean=mean, std=std)
