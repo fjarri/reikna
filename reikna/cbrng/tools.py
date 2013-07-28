@@ -80,5 +80,5 @@ class KeyGenerator:
 
     def reference(self, idx):
         key = self._base_key.copy()
-        key[-1] += idx
+        key[-1] += numpy.cast[key.dtype](idx)
         return key
