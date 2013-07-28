@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.3.3 (current development version)
-===================================
+0.3.3 (29 Jul 2013)
+===================
 
 * FIXED: package metadata.
 
