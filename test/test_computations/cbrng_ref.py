@@ -8,10 +8,18 @@ is not for use in production.
 It only guarantees to produce the same results as the original Random123.
 """
 from __future__ import print_function
+import sys
 
 import numpy
 
 from reikna.helpers import ignore_integer_overflow
+
+
+major, _, _, _, _ = sys.version_info
+if major < 3:
+    long_int = long
+else:
+    long_int = int
 
 
 # Rotation constants:
@@ -180,7 +188,7 @@ PHILOX_M = {
 
 
 def philox_mulhilo(W, x, y):
-    res = long(x) * long(y)
+    res = long_int(x) * long_int(y)
     cast = numpy.cast[x.dtype]
     return cast(res // (2 ** W)), cast(res % (2 ** W))
 

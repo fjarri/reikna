@@ -4,8 +4,6 @@
 * FIX (core): When we connect a transformation, difference in strides between arrays in the connection can be ignored (and probably the transformation's signature changed too; at least we need to decide which strides to use in the exposed node).
   Proposal: leave it as is; make existing transformations "propagate" strides to results; and create a special transformation that only changes strides (or make it a parameter to the identity one).
 * FIX: get rid of AttrDict and replace it by classes/named tuples.
-* API (computations): make helpers functions in cbrng methods of CBRNG class.
-* FIX (computations): use modules in ``CBRNG``
 * API (computations): make helpers functions in dht methods of DHT class.
 * API (computations): add FFT.get_freqs()
 * API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
@@ -43,6 +41,8 @@
 * FEATURE (CLUDA, core): implement custom structures as types (will also require updating the strides-to-flat-index algorithm)
 * ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
 * FEATURE (computations): allow non-sequential axes in Reduce
+* TEST (computations): add some performance tests for CBRNG
+* FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
 
 
 1.0.0 (production-quality version... hopefully)

@@ -9,6 +9,8 @@ Release history
 * ADDED: same module object, when being called without arguments from other modules/snippets, is rendered only once and returns the same prefix each time.
   This allows one to create structure declarations that can be used by functions in several modules.
 
+* ADDED: reworked :py:mod:`~reikna.cbrng` module and exposed kernel interface of bijections and samplers.
+
 * CHANGED: slightly changed the algorithm that determines the order of computation parameters after a transformation is connected to it.
   Now the ordering inside a list of initial computation parameters or a list of a single transformation parameters is preserved.
 
@@ -17,6 +19,8 @@ Release history
 * FIXED: typo in FFT performance test.
 
 * FIXED: bug in FFT that could result in changing the contents of the input array to one of the intermediate results.
+
+* FIXED: missing data type normalization in :py:func:`~reikna.cluda.dtypes.c_constant`.
 
 
 0.3.1 (25 Jul 2013)
