@@ -68,7 +68,7 @@ WITHIN_KERNEL ${prefix}COUNTER ${prefix}get_next_unused_counter(${prefix}STATE s
 
 WITHIN_KERNEL void ${prefix}refill_buffer(${prefix}STATE *state)
 {
-    state->buffer = ${prefix}(state->key, state->counter);
+    state->buffer = ${prefix}bijection(state->key, state->counter);
 }
 
 WITHIN_KERNEL ${prefix}STATE ${prefix}make_state(${prefix}KEY key, ${prefix}COUNTER counter)
@@ -129,7 +129,7 @@ WITHIN_KERNEL INLINE ${ctype} ${prefix}threefry_rotate(${ctype} x, ${ctype} lshi
 #endif
 }
 
-WITHIN_KERNEL ${prefix}COUNTER ${prefix}(const ${prefix}KEY key, const ${prefix}COUNTER counter)
+WITHIN_KERNEL ${prefix}COUNTER ${prefix}bijection(const ${prefix}KEY key, const ${prefix}COUNTER counter)
 {
     // Prepare the key
     %for i in range(counter_words):
@@ -213,7 +213,7 @@ WITHIN_KERNEL INLINE ${ctype} ${prefix}mulhilo(${ctype} *hip, ${ctype} a, ${ctyp
 %endif
 }
 
-WITHIN_KERNEL ${prefix}COUNTER ${prefix}(const ${prefix}KEY key, const ${prefix}COUNTER counter)
+WITHIN_KERNEL ${prefix}COUNTER ${prefix}bijection(const ${prefix}KEY key, const ${prefix}COUNTER counter)
 {
     ${prefix}COUNTER X;
     %for i in range(counter_words):

@@ -77,9 +77,9 @@ def test_kernel_bijection(thr, test_bijection):
             VIRTUAL_SKIP_THREADS;
             const int idx = virtual_global_id(0);
 
-            ${bijection.module}KEY key = ${keygen.module}(idx);
+            ${bijection.module}KEY key = ${keygen.module}key_from_int(idx);
             ${bijection.module}COUNTER counter = ${bijection.module}make_counter_from_int(ctr);
-            ${bijection.module}COUNTER result = ${bijection.module}(key, counter);
+            ${bijection.module}COUNTER result = ${bijection.module}bijection(key, counter);
 
             %for i in range(bijection.counter_words):
             dest[idx * ${bijection.counter_words} + ${i}] = result.v[${i}];
@@ -117,7 +117,7 @@ def check_kernel_sampler(thr, sampler, extent=None, mean=None, std=None):
             VIRTUAL_SKIP_THREADS;
             const int idx = virtual_global_id(0);
 
-            ${bijection.module}KEY key = ${keygen.module}(idx);
+            ${bijection.module}KEY key = ${keygen.module}key_from_int(idx);
             ${bijection.module}COUNTER ctr = ${bijection.module}make_counter_from_int(ctr_start);
             ${bijection.module}STATE st = ${bijection.module}make_state(key, ctr);
 
@@ -125,7 +125,7 @@ def check_kernel_sampler(thr, sampler, extent=None, mean=None, std=None):
 
             for(int j = 0; j < ${batch}; j++)
             {
-                res = ${sampler.module}(&st);
+                res = ${sampler.module}sample(&st);
 
                 %for i in range(sampler.randoms_per_call):
                 dest[j * ${size * sampler.randoms_per_call} + ${size * i} + idx] = res.v[${i}];

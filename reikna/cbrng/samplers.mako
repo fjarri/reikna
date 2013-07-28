@@ -9,7 +9,7 @@ typedef struct ${prefix}_RESULT
 <%def name="uniform_integer(prefix)">
 ${result_struct(prefix, ctype, 1)}
 
-WITHIN_KERNEL ${prefix}RESULT ${prefix}(${bijection.module}STATE *state)
+WITHIN_KERNEL ${prefix}RESULT ${prefix}sample(${bijection.module}STATE *state)
 {
     ${prefix}RESULT result;
     ${raw_ctype} non_offset = 0;
@@ -38,7 +38,7 @@ WITHIN_KERNEL ${prefix}RESULT ${prefix}(${bijection.module}STATE *state)
 <%def name="uniform_float(prefix)">
 ${result_struct(prefix, ctype, 1)}
 
-WITHIN_KERNEL ${prefix}RESULT ${prefix}(${bijection.module}STATE *state)
+WITHIN_KERNEL ${prefix}RESULT ${prefix}sample(${bijection.module}STATE *state)
 {
     ${prefix}RESULT result;
     ${ctype} normalized = (${ctype})${bijection.module}${raw_func}(state) / ${raw_max};
@@ -51,11 +51,11 @@ WITHIN_KERNEL ${prefix}RESULT ${prefix}(${bijection.module}STATE *state)
 <%def name="normal_bm(prefix)">
 ${result_struct(prefix, ctype, 2)}
 
-WITHIN_KERNEL ${prefix}RESULT ${prefix}(${bijection.module}STATE *state)
+WITHIN_KERNEL ${prefix}RESULT ${prefix}sample(${bijection.module}STATE *state)
 {
     ${prefix}RESULT result;
-    ${uf.module}RESULT r1 = ${uf.module}(state);
-    ${uf.module}RESULT r2 = ${uf.module}(state);
+    ${uf.module}RESULT r1 = ${uf.module}sample(state);
+    ${uf.module}RESULT r2 = ${uf.module}sample(state);
     ${ctype} u1 = r1.v[0];
     ${ctype} u2 = r2.v[0];
 
@@ -74,7 +74,7 @@ WITHIN_KERNEL ${prefix}RESULT ${prefix}(${bijection.module}STATE *state)
 <%def name="gamma(prefix)">
 ${result_struct(prefix, ctype, 1)}
 
-WITHIN_KERNEL ${prefix}RESULT ${prefix}(${bijection.module}STATE *state)
+WITHIN_KERNEL ${prefix}RESULT ${prefix}sample(${bijection.module}STATE *state)
 {
     <%
         d = shape - 1. / 3
@@ -97,7 +97,7 @@ WITHIN_KERNEL ${prefix}RESULT ${prefix}(${bijection.module}STATE *state)
         {
             if (normals_need_regen)
             {
-                rand_normal = ${nbm.module}(state);
+                rand_normal = ${nbm.module}sample(state);
                 X = rand_normal.v[0];
             }
             else
@@ -109,7 +109,7 @@ WITHIN_KERNEL ${prefix}RESULT ${prefix}(${bijection.module}STATE *state)
         } while (V <= 0);
 
         V = V * V * V;
-        rand_float = ${uf.module}(state);
+        rand_float = ${uf.module}sample(state);
         if (rand_float.v[0] < 1 - 0.0331f * (X * X) * (X * X))
         {
             result.v[0] = (d * V) * (${scale});

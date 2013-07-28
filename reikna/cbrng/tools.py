@@ -57,7 +57,7 @@ class KeyGenerator:
                 full_key[i // 2] += key[i] << (32 if i % 2 == 0 else 0)
 
         module = Module.create("""
-            WITHIN_KERNEL ${bijection.module}KEY ${prefix}(int id)
+            WITHIN_KERNEL ${bijection.module}KEY ${prefix}key_from_int(int id)
             {
                 ${bijection.module}KEY result;
 
