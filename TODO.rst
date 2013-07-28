@@ -1,4 +1,4 @@
-0.3.3
+0.3.4
 =====
 
 * API (computations): make helpers functions in dht methods of DHT class.
