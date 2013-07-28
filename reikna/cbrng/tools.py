@@ -35,11 +35,7 @@ class KeyGenerator:
         else:
             key_words32 = bijection.key_words * (bijection.dtype.itemsize // 4)
 
-        if isinstance(seed, int):
-            assert seed < 2 ** 32
-            key = numpy.zeros(key_words32, numpy.uint32)
-            key[0] = seed
-        elif isinstance(seed, numpy.ndarray):
+        if isinstance(seed, numpy.ndarray):
             # explicit key was provided
             assert seed.size == key_words32 and seed.dtype == numpy.uint32
             key = seed.copy().flatten()
