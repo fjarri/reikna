@@ -3,148 +3,172 @@ import numpy
 import pytest
 
 from helpers import *
-from test_computations.cbrng_ref import philox, threefry
+from test_computations.cbrng_ref import philox as philox_ref
+from test_computations.cbrng_ref import threefry as threefry_ref
 
 from reikna.helpers import product
 from reikna.cbrng import CBRNG
-from reikna.cbrng.rngs import Threefry, Philox
-from reikna.cbrng.distributions import UniformInteger
+from reikna.cbrng.bijections import threefry, philox
+from reikna.cbrng.tools import KeyGenerator
+from reikna.cbrng.samplers import uniform_integer, uniform_float, normal_bm, gamma
 import reikna.cluda.dtypes as dtypes
+
+
+class TestBijection:
+
+    def __init__(self, name, words, bitness):
+        rounds = 20 if name == 'threefry' else 10
+        if name == 'philox':
+            bijection_func = philox
+        else:
+            bijection_func = threefry
+        self._name = name
+        self._words = words
+        self._bitness = bitness
+        self._rounds = rounds
+        self.bijection = bijection_func(bitness, words, rounds=rounds)
+
+        func = philox_ref if name == 'philox' else threefry_ref
+        self._reference_func = lambda ctr, key: func(bitness, words, ctr, key, Nrounds=rounds)
+
+    def reference(self, counters, keygen):
+        result = numpy.empty_like(counters)
+        for i in range(counters.shape[0]):
+            result[i] = self._reference_func(counters[i], keygen(i))
+        return result
+
+    def __str__(self):
+        return "{name}-{words}x{bitness}-{rounds}".format(
+            name=self._name, words=self._words, bitness=self._bitness, rounds=self._rounds)
 
 
 def pytest_generate_tests(metafunc):
 
-    if 'name_and_params' in metafunc.funcargnames:
+    if 'test_bijection' in metafunc.funcargnames:
 
         vals = []
         ids = []
 
         for name, words, bitness in itertools.product(['threefry', 'philox'], [2, 4], [32, 64]):
-            # This particular set is not supported by CBRNG,
-            # because the key in this case is only 32bit and cannot hold
-            # both seed and thread id.
-            if name == 'philox' and words == 2 and bitness == 32:
-                continue
+            val = TestBijection(name, words, bitness)
+            vals.append(val)
+            ids.append(str(val))
 
-            rounds = 20 if name == 'threefry' else 10
-
-            params = dict(words=words, bitness=bitness, rounds=rounds)
-            vals.append((name, params))
-            ids.append("{name}-{words}x{bitness}-{rounds}".format(name=name, **params))
-
-        metafunc.parametrize('name_and_params', vals, ids=ids)
+        metafunc.parametrize('test_bijection', vals, ids=ids)
 
 
-def raw_ref(counters, keys, name, words, bitness, rounds):
-    result = numpy.empty_like(counters)
-    func = philox if name == 'philox' else threefry
-
-    for i in range(keys.shape[0]):
-        result[i] = func(bitness, words, counters[i], keys[i], Nrounds=rounds)
-
-    return result
-
-
-def test_kernel_cbrng(thr, name_and_params):
-    name, params = name_and_params
+def _test_kernel_bijection(thr, test_bijection):
 
     size = 1000
-    key = 123
-    words = params['words']
-    bitness = params['bitness']
-    rounds = params['rounds']
+    seed = 123
 
-    if name == 'philox':
-        rng_ctr = Philox
-    else:
-        rng_ctr = Threefry
-    rng = rng_ctr(bitness, words, rounds=rounds)
-
-    keys_ref = numpy.zeros((size, rng.key_words), rng.dtype)
-    key0 = key << (32 if rng.dtype.itemsize == 8 and rng.key_words == 1 else 0)
-    keys_ref[:,0] = key0
-    keys_ref[:,rng.key_words-1] += numpy.arange(size)
-    counters_ref = numpy.zeros((size, rng.counter_words), rng.dtype)
+    bijection = test_bijection.bijection
+    keygen = KeyGenerator.create(bijection, seed=seed, reserve_id_space=False)
+    counters_ref = numpy.zeros((size, bijection.counter_words), bijection.dtype)
 
     rng_kernel = thr.compile_static(
         """
         <%
-            ctype = dtypes.ctype(rng.dtype)
+            ctype = dtypes.ctype(bijection.dtype)
         %>
         KERNEL void test(GLOBAL_MEM ${ctype} *dest, int ctr)
         {
             VIRTUAL_SKIP_THREADS;
             const int idx = virtual_global_id(0);
 
-            ${rng.module}KEY key;
-            key.v[0] = ${key0};
-            %for i in range(1, rng.key_words):
-            key.v[${i}] = 0;
-            %endfor
-            key.v[${rng.key_words - 1}] += idx;
+            ${bijection.module}KEY key = ${keygen.module}(idx);
+            ${bijection.module}COUNTER counter = ${bijection.module}make_counter_from_int(ctr);
+            ${bijection.module}COUNTER result = ${bijection.module}(key, counter);
 
-            ${rng.module}COUNTER counter;
-            %for i in range(rng.counter_words - 1):
-            counter.v[${i}] = 0;
-            %endfor
-            counter.v[${rng.counter_words - 1}] = ctr;
-
-            ${rng.module}COUNTER result = ${rng.module}(key, counter);
-
-            %for i in range(rng.counter_words):
-            dest[idx * ${rng.counter_words} + ${i}] = result.v[${i}];
+            %for i in range(bijection.counter_words):
+            dest[idx * ${bijection.counter_words} + ${i}] = result.v[${i}];
             %endfor
         }
         """,
         'test', size,
-        render_kwds=dict(rng=rng, key0=key0))
+        render_kwds=dict(bijection=bijection, keygen=keygen))
 
-    dest = thr.array((size, rng.counter_words), rng.dtype)
+    dest = thr.array((size, bijection.counter_words), bijection.dtype)
 
     rng_kernel(dest, numpy.int32(0))
-    dest_ref = raw_ref(counters_ref, keys_ref, name, words, bitness, rounds)
+    dest_ref = test_bijection.reference(counters_ref, keygen.reference)
     assert diff_is_negligible(dest.get(), dest_ref)
 
     rng_kernel(dest, numpy.int32(1))
     counters_ref[:,-1] += 1
-    dest_ref = raw_ref(counters_ref, keys_ref, name, words, bitness, rounds)
+    dest_ref = test_bijection.reference(counters_ref, keygen.reference)
     assert diff_is_negligible(dest.get(), dest_ref)
 
 
-def test_kernel_sampler(thr):
+def check_kernel_sampler(thr, sampler, extent=None, mean=None, std=None):
 
-    rng = Threefry(64, 4)
-    sampler = UniformInteger(rng, numpy.int32, -10, 98)
+    size = 10000
+    batch = 100
+    seed = 456
+
+    bijection = sampler.bijection
+    keygen = KeyGenerator.create(bijection, seed=seed)
+
     rng_kernel = thr.compile_static(
         """
-        KERNEL void test(GLOBAL_MEM int *dest, int ctr)
+        KERNEL void test(GLOBAL_MEM ${ctype} *dest, int ctr_start)
         {
             VIRTUAL_SKIP_THREADS;
             const int idx = virtual_global_id(0);
 
-            ${sampler.module}KEY key = ${keygen}(idx);
-            ${sampler.module}COUNTER ctr = ${ctrgen}from_int(0);
-            ${sampler.module}STATE st = ${sampler.module}state_from_counter(ctr);
+            ${bijection.module}KEY key = ${keygen.module}(idx);
+            ${bijection.module}COUNTER ctr = ${bijection.module}make_counter_from_int(ctr_start);
+            ${bijection.module}STATE st = ${bijection.module}make_state(key, ctr);
 
-            ${sampler.module}RESULT res = ${sampler.module}(&st, key);
-            ${sampler2.module}RESULT res2 = ${sampler2.module}(&st, key);
+            ${sampler.module}RESULT res;
 
-            %for i in range(sampler.randoms_per_call):
-            ... res.v[${i}] ...
-            %endfor
+            for(int j = 0; j < ${batch}; j++)
+            {
+                res = ${sampler.module}(&st);
 
-            ${sampler.module}COUNTER next_ctr = ${sampler.module}counter_from_state(st);
+                %for i in range(sampler.randoms_per_call):
+                dest[j * ${size * sampler.randoms_per_call} + ${size * i} + idx] = res.v[${i}];
+                %endfor
+            }
 
-            %for i in range(rng.counter_words):
-            dest[idx * ${rng.counter_words} + ${i}] = result.v[${i}];
-            %endfor
+            ${bijection.module}COUNTER next_ctr = ${bijection.module}get_next_unused_counter(st);
         }
         """,
         'test', size,
-        render_kwds=dict(rng=rng, key0=key0))
+        render_kwds=dict(
+            size=size, batch=batch, ctype=dtypes.ctype(sampler.dtype),
+            bijection=bijection, keygen=keygen, sampler=sampler))
+
+    dest = thr.array((batch, sampler.randoms_per_call, size), sampler.dtype)
+    rng_kernel(dest, numpy.int32(0))
+    dest = dest.get()
+
+    check_distribution(dest, extent=extent, mean=mean, std=std)
 
 
-def check_distribution(thr, rng_name, rng_params,
+def check_distribution(arr, extent=None, mean=None, std=None):
+    if extent is not None:
+        assert arr.min() >= extent[0]
+        assert arr.max() <= extent[1]
+
+    if mean is not None and std is not None:
+        # expected mean and std of the mean of the sample array
+        m_mean = mean
+        m_std = std / numpy.sqrt(arr.size)
+
+        diff = abs(arr.mean() - mean)
+        assert diff < 5 * m_std # about 1e-6 chance of fail
+
+    if std is not None:
+        # expected mean and std of the variance of the sample array
+        v_mean = std ** 2
+        v_std = numpy.sqrt(2. * std ** 4 / (arr.size - 1))
+
+        diff = abs(arr.var() - v_mean)
+        assert diff < 5 * v_std # about 1e-6 chance of fail
+
+
+def check_cbrng(thr, rng_name, rng_params,
         distribution, distribution_params, dtype, reference):
 
     size = 10000
@@ -198,28 +222,25 @@ def uniform_mean_and_std(min, max):
 def test_32_to_64_bit(thr):
     extent = (0, 2**63-1)
     mean, std = uniform_discrete_mean_and_std(*extent)
-    check_distribution(thr,
-        'philox', dict(bitness=32, words=4),
-        'uniform_integer', dict(min=extent[0], max=extent[1] + 1), numpy.uint64,
-        dict(extent=extent, mean=mean, std=std))
+    bijection = philox(32, 4)
+    sampler = uniform_integer(bijection, numpy.uint64, extent[0], extent[1] + 1)
+    check_kernel_sampler(thr, sampler, extent=extent, mean=mean, std=std)
 
 
 def test_64_to_32_bit(thr):
     extent = (0, 2**31-1)
     mean, std = uniform_discrete_mean_and_std(*extent)
-    check_distribution(thr,
-        'philox', dict(bitness=64, words=4),
-        'uniform_integer', dict(min=extent[0], max=extent[1] + 1), numpy.uint32,
-        dict(extent=extent, mean=mean, std=std))
+    bijection = philox(64, 4)
+    sampler = uniform_integer(bijection, numpy.uint32, extent[0], extent[1] + 1)
+    check_kernel_sampler(thr, sampler, extent=extent, mean=mean, std=std)
 
 
 def test_uniform_integer(thr):
     extent = (-10, 98)
     mean, std = uniform_discrete_mean_and_std(*extent)
-    check_distribution(thr,
-        'philox', dict(bitness=64, words=4),
-        'uniform_integer', dict(min=extent[0], max=extent[1] + 1), numpy.int32,
-        dict(extent=extent, mean=mean, std=std))
+    bijection = philox(64, 4)
+    sampler = uniform_integer(bijection, numpy.int32, extent[0], extent[1] + 1)
+    check_kernel_sampler(thr, sampler, extent=extent, mean=mean, std=std)
 
 
 def test_uniform_float(thr_and_double):
@@ -227,20 +248,18 @@ def test_uniform_float(thr_and_double):
     dtype = numpy.float64 if double else numpy.float32
     extent = (-5, 7.7)
     mean, std = uniform_mean_and_std(*extent)
-    check_distribution(thr,
-        'philox', dict(bitness=64, words=4),
-        'uniform_float', dict(min=extent[0], max=extent[1]), dtype,
-        dict(extent=extent, mean=mean, std=std))
+    bijection = philox(64, 4)
+    sampler = uniform_float(bijection, dtype, extent[0], extent[1])
+    check_kernel_sampler(thr, sampler, extent=extent, mean=mean, std=std)
 
 
 def test_normal_bm(thr_and_double):
     thr, double = thr_and_double
     dtype = numpy.float64 if double else numpy.float32
     mean, std = -2, 10
-    check_distribution(thr,
-        'philox', dict(bitness=64, words=4),
-        'normal_bm', dict(mean=mean, std=std), dtype,
-        dict(mean=mean, std=std))
+    bijection = philox(64, 4)
+    sampler = normal_bm(bijection, dtype, mean=mean, std=std)
+    check_kernel_sampler(thr, sampler, mean=mean, std=std)
 
 
 def test_gamma(thr_and_double):
@@ -249,7 +268,6 @@ def test_gamma(thr_and_double):
     shape, scale = 3, 10
     mean = shape * scale
     std = numpy.sqrt(shape) * scale
-    check_distribution(thr,
-        'philox', dict(bitness=64, words=4),
-        'gamma', dict(mean=mean, std=std), dtype,
-        dict(shape=shape, scale=scale))
+    bijection = philox(64, 4)
+    sampler = gamma(bijection, dtype, shape=shape, scale=scale)
+    check_kernel_sampler(thr, sampler, mean=mean, std=std)

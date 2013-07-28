@@ -43,15 +43,15 @@ This state is then passed to, and updated by a :py:class:`~reikna.cbrng.CBRNG` o
 Kernel API
 ----------
 
-.. currentmodule:: reikna.cbrng.rngs
+.. currentmodule:: reikna.cbrng.bijections
 
-.. autoclass:: CBRNGModule
+.. autoclass:: Bijection
 
-.. autoclass:: Threefry
+.. autoclass:: threefry
 
 .. autoclass:: Philox
 """
 
-from reikna.cbrng.rngs import Threefry, Philox
-from reikna.cbrng.distributions import UniformInteger, UniformFloat, NormalBM, Gamma
+#from reikna.cbrng.bijections import Threefry, Philox
+#from reikna.cbrng.distributions import UniformInteger, UniformFloat, NormalBM, Gamma
 from reikna.cbrng.cbrng import CBRNG

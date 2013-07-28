@@ -7,9 +7,9 @@ from reikna.cluda import Module
 TEMPLATE = helpers.template_for(__file__)
 
 
-class CBRNGModule:
+class Bijection:
     """
-    The base class for the kernel API of CBRNG.
+    Contains a CBRNG bijection module and accompanying metadata.
     Supports ``__process_modules__`` protocol.
 
     .. py:attribute:: dtype
@@ -36,13 +36,18 @@ class CBRNGModule:
         * the function with the signature
           ``${prefix}COUNTER ${prefix}(${prefix}KEY, ${prefix}COUNTER)``.
     """
-    pass
+    def __init__(self, module, dtype, counter_words, key_words):
+        self.module = module
+        self.dtype = dtypes.normalize_type(dtype)
+        self.counter_words = counter_words
+        self.key_words = key_words
+
+    def __process_modules__(self, process):
+        return Bijection(process(self.module), self.dtype, self.counter_words, self.key_words)
 
 
-class Threefry(CBRNGModule):
+def threefry(bitness, counter_words, rounds=20):
     """
-    Bases: :py:class:`~reikna.cbrng.rngs.CBRNGModule`
-
     A CBRNG based on a big number of fast rounds (bit rotations).
 
     :param bitness: ``32`` or ``64``, corresponds to the size of generated random integers.
@@ -106,39 +111,24 @@ class Threefry(CBRNGModule):
         32: numpy.uint32(0x1BD11BDA)
     }
 
-    def __init__(self, bitness, counter_words, rounds=20, processed_module=None):
+    assert 1 <= rounds <= 72
 
-        assert 1 <= rounds <= 72
+    dtype = dtypes.normalize_type(numpy.uint32 if bitness == 32 else numpy.uint64)
+    key_words = counter_words
 
-        self.dtype = dtypes.normalize_type(numpy.uint32 if bitness == 32 else numpy.uint64)
-        ctype = dtypes.ctype(self.dtype)
+    module = Module(
+        TEMPLATE.get_def("threefry"),
+        render_kwds=dict(
+            dtype=dtype, ctype=dtypes.ctype(dtype),
+            counter_words=counter_words, key_words=key_words, rounds=rounds,
+            rotation_constants=ROTATION_CONSTANTS[(bitness, counter_words)],
+            parity_constant=PARITY_CONSTANTS[bitness]))
 
-        self.counter_words = counter_words
-        self.key_words = counter_words
-        self._rounds = rounds
-
-        if processed_module is None:
-            self.module = Module(
-                TEMPLATE.get_def("threefry"),
-                render_kwds=dict(
-                    ctype=ctype,
-                    counter_words=counter_words, key_words=self.key_words,
-                    bitness=bitness, rounds=rounds,
-                    rotation_constants=self.ROTATION_CONSTANTS[(bitness, counter_words)],
-                    parity_constant=self.PARITY_CONSTANTS[bitness]))
-        else:
-            self.module = processed_module
-
-    def __process_modules__(self, process):
-        return Threefry(
-            self.dtype.itemsize * 8, self.counter_words,
-            rounds=self._rounds, processed_module=process(self.module))
+    return Bijection(module, dtype, counter_words, key_words)
 
 
-class Philox(CBRNGModule):
+def philox(bitness, counter_words, rounds=10):
     """
-    Bases: :py:class:`~reikna.cbrng.rngs.CBRNGModule`
-
     A CBRNG based on a low number of slow rounds (multiplications).
 
     :param bitness: ``32`` or ``64``, corresponds to the size of generated random integers.
@@ -165,29 +155,17 @@ class Philox(CBRNGModule):
         (32,4): [numpy.uint32(0xD2511F53), numpy.uint32(0xCD9E8D57)]
     }
 
-    def __init__(self, bitness, counter_words, rounds=10, processed_module=None):
+    assert 1 <= rounds <= 12
+    dtype = dtypes.normalize_type(numpy.uint32 if bitness == 32 else numpy.uint64)
+    key_words = counter_words // 2
 
-        assert 1 <= rounds <= 12
-        self.dtype = dtypes.normalize_type(numpy.uint32 if bitness == 32 else numpy.uint64)
-        ctype = dtypes.ctype(self.dtype)
+    module = Module(
+        TEMPLATE.get_def("philox"),
+        render_kwds=dict(
+            dtype=dtype, ctype=dtypes.ctype(dtype),
+            counter_words=counter_words,
+            key_words=key_words, rounds=rounds,
+            w_constants=W_CONSTANTS[bitness],
+            m_constants=M_CONSTANTS[(bitness, counter_words)]))
 
-        self.counter_words = counter_words
-        self.key_words = counter_words // 2
-        self._rounds = rounds
-
-        if processed_module is None:
-            self.module = Module(
-                TEMPLATE.get_def("philox"),
-                render_kwds=dict(
-                    dtype=self.dtype, ctype=ctype,
-                    bitness=bitness, counter_words=counter_words,
-                    key_words=self.key_words, rounds=rounds,
-                    w_constants=self.W_CONSTANTS[bitness],
-                    m_constants=self.M_CONSTANTS[(bitness, counter_words)]))
-        else:
-            self.module = processed_module
-
-    def __process_modules__(self, process):
-        return Philox(
-            self.dtype.itemsize * 8, self.counter_words,
-            rounds=self._rounds, processed_module=process(self.module))
+    return Bijection(module, dtype, counter_words, key_words)
