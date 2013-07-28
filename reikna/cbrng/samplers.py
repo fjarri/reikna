@@ -157,8 +157,8 @@ def gamma(bijection, dtype, shape=1, scale=1):
 
 
 # List of samplers that can be used as convenience constructors in CBRNG class
-SAMPLERS = [
-    'uniform_integer',
-    'uniform_float',
-    'normal_bm',
-    'gamma']
+SAMPLERS = {
+    'uniform_integer': uniform_integer,
+    'uniform_float': uniform_float,
+    'normal_bm': normal_bm,
+    'gamma': gamma}
