@@ -44,6 +44,7 @@
 * ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
 * FEATURE (computations): allow non-sequential axes in Reduce
 * TEST (computations): add some performance tests for CBRNG
+* FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
 
 
 1.0.0 (production-quality version... hopefully)
