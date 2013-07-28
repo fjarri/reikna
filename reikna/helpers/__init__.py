@@ -15,27 +15,6 @@ import funcsigs
 from mako.template import Template
 
 
-class AttrDict(dict):
-    """
-    An extension of the standard ``dict`` class
-    which allows one to address its elements as attributes
-    (for example, ``d.key`` instead of ``d['key']``).
-    """
-
-    def __getattr__(self, attr):
-        return self[attr]
-
-    def __setattr__(self, attr, value):
-        self[attr] = value
-
-    def __process_modules__(self, process):
-        return AttrDict({k:process(v) for k, v in self.items()})
-
-    def __repr__(self):
-        return "AttrDict(" + \
-            ", ".join((key + "=" + repr(value)) for key, value in self.items()) + ")"
-
-
 class Graph:
 
     def __init__(self, pairs=None):

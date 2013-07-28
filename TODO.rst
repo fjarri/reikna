@@ -1,7 +1,6 @@
 0.3.2
 =====
 
-* FIX: get rid of AttrDict and replace it by classes/named tuples.
 * API (computations): make helpers functions in dht methods of DHT class.
 * API (computations): add FFT.get_freqs()
 * API (computations): review computation docs, unify parameter names
