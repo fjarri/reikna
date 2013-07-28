@@ -1,10 +1,10 @@
 import numpy
 
 import reikna.helpers as helpers
-from reikna.cbrng.tools import KeyGenerator
 from reikna.core import Computation, Parameter, Annotation, Type
+from reikna.cbrng.tools import KeyGenerator
 from reikna.cbrng.bijections import philox
-import reikna.cbrng.samplers as samplers
+from reikna.cbrng.samplers import SAMPLERS
 
 TEMPLATE = helpers.template_for(__file__)
 
@@ -69,7 +69,7 @@ class CBRNG(Computation):
 class _ConvenienceCtr:
 
     def __init__(self, sampler_name):
-        self._sampler_func = getattr(samplers, sampler_name)
+        self._sampler_func = SAMPLERS[sampler_name]
 
     def __call__(self, cls, randoms_arr, counters_dim, sampler_kwds=None, seed=None):
         bijection = philox(64, 4)
@@ -78,6 +78,6 @@ class _ConvenienceCtr:
 
 
 # Add convenience constructors to CBRNG
-for name in samplers.SAMPLERS:
+for name in SAMPLERS:
     ctr = _ConvenienceCtr(name)
     setattr(CBRNG, name, classmethod(ctr))
