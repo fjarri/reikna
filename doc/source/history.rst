@@ -6,7 +6,7 @@ Release history
 0.3.3 (current development version)
 ===================================
 
-Under construction.
+* FIXED: package metadata.
 
 
 0.3.2 (29 Jul 2013)

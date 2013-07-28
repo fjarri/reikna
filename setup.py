@@ -134,7 +134,7 @@ if __name__ == '__main__':
 
     setup(
         name='reikna',
-        packages=['reikna', 'reikna/cluda', 'reikna/core', 'reikna/helpers'],
+        packages=['reikna', 'reikna/cluda', 'reikna/core', 'reikna/helpers', 'reikna/cbrng'],
         provides=['reikna'],
         requires=requires,
         install_requires=install_requires,
@@ -143,7 +143,8 @@ if __name__ == '__main__':
             pycuda=["pycuda>=2013.2"],
             test=["pytest>=2.3", "pytest-cov"]),
         package_data={'reikna': ['*.mako'],
-                      'reikna/cluda': ['*.mako']},
+                      'reikna/cluda': ['*.mako'],
+                      'reikna/cbrng': ['*.mako']},
         version=VERSION_STR,
         author='Bogdan Opanchuk',
         author_email='bogdan@opanchuk.net',
