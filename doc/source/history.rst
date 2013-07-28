@@ -18,6 +18,8 @@ Release history
 
 * FIXED: bug in FFT that could result in changing the contents of the input array to one of the intermediate results.
 
+* FIXED: missing data type normalization in :py:func:`~reikna.cluda.dtypes.c_constant`.
+
 
 0.3.1 (25 Jul 2013)
 ===================
