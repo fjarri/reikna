@@ -127,6 +127,8 @@ def c_constant(val, dtype=None):
     """
     if dtype is None:
         dtype = detect_type(val)
+    else:
+        dtype = normalize_type(dtype)
     val = numpy.cast[dtype](val)
 
     if is_complex(dtype):

@@ -83,7 +83,6 @@ from __future__ import print_function
 from logging import error
 import weakref
 
-from reikna.helpers import AttrDict
 from reikna.cluda import OutOfResourcesError, find_devices
 from reikna.helpers import product
 from reikna.cluda.kernel import render_prelude, render_template_source
@@ -218,14 +217,14 @@ class Thread:
 
         self.device_params = self.api.DeviceParameters(self._device)
 
-        temp_alloc_params = AttrDict(
+        temp_alloc_params = dict(
             cls=ZeroOffsetManager, pack_on_alloc=False, pack_on_free=False)
         if temp_alloc is not None:
             temp_alloc_params.update(temp_alloc)
 
-        self.temp_alloc = temp_alloc_params.cls(weakref.proxy(self),
-            pack_on_alloc=temp_alloc_params.pack_on_alloc,
-            pack_on_free=temp_alloc_params.pack_on_free)
+        self.temp_alloc = temp_alloc_params['cls'](weakref.proxy(self),
+            pack_on_alloc=temp_alloc_params['pack_on_alloc'],
+            pack_on_free=temp_alloc_params['pack_on_free'])
 
     def override_device_params(self, **kwds):
         for kwd in kwds:

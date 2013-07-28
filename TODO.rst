@@ -1,26 +1,16 @@
-0.3.2
+0.3.3
 =====
 
-* ?API (core): pass ``kernel_definition`` as a positional argument to a kernel template def?
-* ?API (core): when we are connecting a transformation to an existing scalar parameter, during the leaf signature building it moves from its place, which may seem a bit surprising. Should we attempt to keep it at the same place? Like, keep all parameters with default values at the end (thus breaking the "depth first" order, of course)?
-* FIX (core): When we connect a transformation, difference in strides between arrays in the connection can be ignored (and probably the transformation's signature changed too; at least we need to decide which strides to use in the exposed node).
-  Proposal: leave it as is; make existing transformations "propagate" strides to results; and create a special transformation that only changes strides (or make it a parameter to the identity one).
-* FIX: get rid of AttrDict and replace it by classes/named tuples.
 * API (computations): make helpers functions in dht methods of DHT class.
-  Same for CBRNG.
+* API (computations): add FFT.get_freqs()
 * API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
 * ?API (computations): move some of the functionality to the top level of ``reikna`` module?
 * ?API (computations): move all "raw" computations to their own submodule?
 * ?API (CLUDA, core): do something about the inconsistency of array shapes (row-major) and global sizes (column-major). Special get_id() functions maybe?
-* FIX (computations): use modules in ``CBRNG``
-* TESTS: run pylint
 * ?API (core): make ``device_params`` an attribute of plan or plan factory?
-* API (computations): review computation docs, unify parameter names
-
-
-0.3.3
-=====
-
+* FIX (core): When we connect a transformation, difference in strides between arrays in the connection can be ignored (and probably the transformation's signature changed too; at least we need to decide which strides to use in the exposed node).
+  Proposal: leave it as is; make existing transformations "propagate" strides to results; and create a special transformation that only changes strides (or make it a parameter to the identity one).
+  Currently strides are not supported by PyCUDA or PyOpenCL, so this will wait.
 * FEATURE (computations): add ``inplace`` parameter to FFT and DHT, which will produce computations that are guaranteed to work inplace.
 * ?FIX (core): check if Signature.bind() is too slow in the kernel call; perhaps we will have to rewrite it taking into account restrictions to Parameter types we have.
   Idea: strides can be passes to compile() (in form of actual arrays, as a dictionary).
@@ -45,6 +35,8 @@
 * FEATURE (CLUDA, core): implement custom structures as types (will also require updating the strides-to-flat-index algorithm)
 * ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
 * FEATURE (computations): allow non-sequential axes in Reduce
+* TEST (computations): add some performance tests for CBRNG
+* FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
 
 
 1.0.0 (production-quality version... hopefully)

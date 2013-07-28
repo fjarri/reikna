@@ -134,6 +134,19 @@ class Computation:
             :py:class:`~reikna.core.transformation.TransformationParameter` objects
             (or their names) as values.
         :returns: this computation object (modified).
+
+        .. note::
+
+            The resulting parameter order is determined by traversing
+            the graph of connections depth-first (starting from the initial computation parameters),
+            with the additional condition: the nodes do not change their order
+            in the same branching level (i.e. in the list of computation or
+            transformation parameters, both of which are ordered).
+
+            For example, consider a computation with parameters ``(a, b, c, d)``.
+            If you connect a transformation ``(a', c) -> a``, the resulting computation
+            will have the signature ``(a', b, c, d)`` (as opposed to ``(a', c, b, d)``
+            it would have for the pure depth-first traversal).
         """
 
         # Extract connector name
@@ -384,7 +397,7 @@ class ComputationPlan:
         subtree = self._tr_tree.get_subtree(processed_args)
 
         kernel_name = '_kernel_func'
-        kernel_definition, kernel_leaf_names = subtree.get_kernel_definition(kernel_name)
+        kernel_declaration, kernel_leaf_names = subtree.get_kernel_declaration(kernel_name)
         kernel_argobjects = subtree.get_kernel_argobjects()
 
         if render_kwds is None:
@@ -392,12 +405,10 @@ class ComputationPlan:
         else:
             render_kwds = dict(render_kwds)
 
-        assert 'kernel_definition' not in render_kwds
-        render_kwds['kernel_definition'] = kernel_definition
-
         kernel = self._thread.compile_static(
             template_def, kernel_name, global_size, local_size=local_size,
-            render_args=kernel_argobjects, render_kwds=render_kwds)
+            render_args=[kernel_declaration] + kernel_argobjects,
+            render_kwds=render_kwds)
 
         self._kernels.append(PlannedKernelCall(kernel, kernel_leaf_names, adhoc_values))
 

@@ -70,22 +70,27 @@ def get_transposes(shape, axes=None):
 
 class Transpose(Computation):
     """
+    Bases: :py:class:`~reikna.core.Computation`
+
     Changes the order of axes in a multidimensional array.
     Works analogous to ``numpy.transpose``.
 
-    .. py:method:: prepare_for(output, input, axes=None)
+    :param arr_t: an array-like defining the initial array.
+    :param axes: tuple with the new axes order.
+        If ``None``, then axes will be reversed.
 
-        :param output: output array
-        :param input: input array
-        :param axes: tuple with the new axes order.
-            If ``None``, then axes will be reversed.
+    .. py:function:: compiled_signature(output:o, input:i)
+
+        :param output: an array with all the attributes of ``arr_t``,
+            with the shape permuted according to ``axes``.
+        :param input: an array with all the attributes of ``arr_t``.
     """
 
-    def __init__(self, arr, axes=None, block_width_override=None):
+    def __init__(self, arr_t, axes=None, block_width_override=None):
 
         self._block_width_override = block_width_override
 
-        all_axes = range(len(arr.shape))
+        all_axes = range(len(arr_t.shape))
         if axes is None:
             axes = tuple(reversed(all_axes))
         else:
@@ -93,12 +98,12 @@ class Transpose(Computation):
 
         self._axes = tuple(axes)
 
-        output_shape = transpose_shape(arr.shape, self._axes)
-        output_arr = Type(arr.dtype, output_shape)
+        output_shape = transpose_shape(arr_t.shape, self._axes)
+        output_arr = Type(arr_t.dtype, output_shape)
 
         Computation.__init__(self, [
             Parameter('output', Annotation(output_arr, 'o')),
-            Parameter('input', Annotation(arr, 'i'))])
+            Parameter('input', Annotation(arr_t, 'i'))])
 
     def _add_transpose(self, plan, device_params,
             mem_out, mem_in, batch_shape, height_shape, width_shape):

@@ -1,4 +1,4 @@
-<%def name="reduce(output, input)">
+<%def name="reduce(kernel_declaration, output, input)">
 
 <%
     log2_warp_size = log2(warp_size)
@@ -16,7 +16,7 @@ INLINE WITHIN_KERNEL ${ctype} reduction_op(${ctype} input1, ${ctype} input2)
     ${predicate.operation('input1', 'input2')}
 }
 
-${kernel_definition}
+${kernel_declaration}
 {
     VIRTUAL_SKIP_THREADS;
 

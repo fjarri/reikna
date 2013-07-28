@@ -4,7 +4,7 @@ from reikna.helpers import template_def
 from reikna.cluda import Snippet
 from reikna.core.signature import Signature, Type, Parameter, Annotation
 from reikna.core.transformation_modules import leaf_name, node_connector, module_transformation, \
-    module_leaf_macro, module_same_indices, module_combined, kernel_definition, index_cnames
+    module_leaf_macro, module_same_indices, module_combined, kernel_declaration, index_cnames
 
 
 class TransformationParameter(Type):
@@ -174,26 +174,29 @@ class TransformationTree:
                 self.root_parameters[param.name] = param
                 self.leaf_parameters[param.name] = param
 
-    def _get_subtree_names(self, names, visited, leaves_only=False):
+    def _get_subtree_names(self, names, ignore, visited, leaves_only=False):
         """Helper method for traversing the tree."""
 
         result = []
 
-        for name in names:
-            if name in visited:
+        for i, name in enumerate(names):
+            if name in ignore or name in visited:
                 continue
+
             visited.add(name)
+            ignore_in_children = names[i+1:]
 
             node = self.nodes[name]
             child_names = node.get_child_names()
 
-            subtree_names = self._get_subtree_names(child_names, visited, leaves_only=leaves_only)
+            subtree_names = self._get_subtree_names(
+                child_names, ignore_in_children, visited, leaves_only=leaves_only)
             has_input_subtree = node.input_ntr is not None
             has_output_subtree = node.output_ntr is not None
             leaf_node = name in self.leaf_parameters
 
             name_present = False
-            if not leaves_only or len(subtree_names) == 0 or (leaf_node and not has_output_subtree):
+            if not leaves_only or (leaf_node and not has_output_subtree):
                 result.append(name)
                 name_present = True
             result += subtree_names
@@ -205,7 +208,7 @@ class TransformationTree:
     def get_subtree_names(self, root_names=None, leaves_only=False):
         if root_names is None:
             root_names = self.root_names
-        return self._get_subtree_names(root_names, set(), leaves_only=leaves_only)
+        return self._get_subtree_names(root_names, [], set(), leaves_only=leaves_only)
 
     def get_root_annotations(self):
         return {name:param.annotation for name, param in self.root_parameters.items()}
@@ -352,13 +355,13 @@ class TransformationTree:
         new_tree.reconnect(self)
         return new_tree
 
-    def get_kernel_definition(self, kernel_name):
+    def get_kernel_declaration(self, kernel_name):
         leaf_params = self.get_leaf_parameters()
 
-        kernel_def = kernel_definition(kernel_name, leaf_params)
+        decl = kernel_declaration(kernel_name, leaf_params)
         leaf_names = [param.name for param in leaf_params]
 
-        return kernel_def, leaf_names
+        return decl, leaf_names
 
     def _get_transformation_module(self, annotation, ntr):
 

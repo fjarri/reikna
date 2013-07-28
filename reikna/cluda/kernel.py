@@ -97,15 +97,30 @@ class Module:
 class SourceCollector:
 
     def __init__(self):
+        self.constant_modules = {}
         self.sources = []
         self.prefix_counter = 0
 
-    def add_module(self, tmpl_def, args, render_kwds):
+    def add_module(self, module_id, tmpl_def, args, render_kwds):
+
+        # This caching serves two purposes.
+        # First, it reduces the amount of generated code by not generating
+        # the same module several times.
+        # Second, if the same module object is used (without arguments) in other modules,
+        # the data structures defined in this module will be suitable
+        # for functions in these modules.
+        if len(args) == 0:
+            if module_id in self.constant_modules:
+                return self.constant_modules[module_id]
+
         prefix = "_module" + str(self.prefix_counter) + "_"
         self.prefix_counter += 1
 
         src = render_template(tmpl_def, prefix, *args, **render_kwds)
         self.sources.append(src)
+
+        if len(args) == 0:
+            self.constant_modules[module_id] = prefix
 
         return prefix
 
@@ -125,23 +140,18 @@ class RenderableSnippet:
 
 class RenderableModule:
 
-    def __init__(self, collector, tmpl_def, render_kwds):
+    def __init__(self, collector, module_id, tmpl_def, render_kwds):
+        self.module_id = module_id
         self.collector = collector
         self.template_def = tmpl_def
         self.render_kwds = render_kwds
-        self.no_arg_prefix = None
 
     def __call__(self, *args):
-        prefix = self.collector.add_module(self.template_def, args, self.render_kwds)
-        return prefix
+        return self.collector.add_module(
+            self.module_id, self.template_def, args, self.render_kwds)
 
     def __str__(self):
-        # To avoid a lot of repeating module renders when it's called without arguments
-        # (which will be the majority of calls),
-        # we are caching the corresponding prefix.
-        if self.no_arg_prefix is None:
-            self.no_arg_prefix = self()
-        return self.no_arg_prefix
+        return self()
 
 
 def process(obj, collector):
@@ -150,7 +160,7 @@ def process(obj, collector):
         return RenderableSnippet(obj.template, render_kwds)
     elif isinstance(obj, Module):
         render_kwds = process(obj.render_kwds, collector)
-        return RenderableModule(collector, obj.template, render_kwds)
+        return RenderableModule(collector, id(obj), obj.template, render_kwds)
     elif hasattr(obj, '__process_modules__'):
         return obj.__process_modules__(lambda x: process(x, collector))
     elif isinstance(obj, dict):

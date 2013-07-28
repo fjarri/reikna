@@ -164,6 +164,13 @@ def test_connection_to_base(thr):
     d.parameter.A.connect(identity, identity.o1, B=identity.i1)
     # connect to the base scalar argument
     d.parameter.C.connect(scale, scale.i1, C_prime=scale.o1, coeff=scale.s1)
+
+    assert list(d.signature.parameters.values()) == [
+        Parameter('C_prime', Annotation(arr_type, 'o')),
+        Parameter('D', Annotation(arr_type, 'o')),
+        Parameter('B', Annotation(arr_type, 'i')),
+        Parameter('coeff', Annotation(coeff_dtype))]
+
     dc = d.compile(thr)
 
     B = get_test_array_like(d.parameter.B)
@@ -171,7 +178,7 @@ def test_connection_to_base(thr):
     C_prime_dev = thr.empty_like(d.parameter.B)
     D_dev = thr.empty_like(d.parameter.B)
 
-    dc(C_prime_dev, coeff, D_dev, B_dev)
+    dc(C_prime_dev, D_dev, B_dev, coeff)
 
     C, D = mock_dummy(B, B, coeff)
     C_prime = C * coeff

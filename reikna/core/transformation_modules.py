@@ -51,13 +51,13 @@ def param_cname(param, qualified=False):
         return name
 
 
-def param_cnames_str(params, qualified=False):
-    return ", ".join([param_cname(p, qualified=qualified) for p in params])
+def param_cnames_str(parameters, qualified=False):
+    return ", ".join([param_cname(p, qualified=qualified) for p in parameters])
 
 
-def kernel_definition(kernel_name, params):
+def kernel_declaration(kernel_name, parameters):
     return "KERNEL void {kernel_name}({cnames_str})".format(
-        kernel_name=kernel_name, cnames_str=param_cnames_str(params, qualified=True))
+        kernel_name=kernel_name, cnames_str=param_cnames_str(parameters, qualified=True))
 
 
 def node_connector(output):
@@ -67,7 +67,7 @@ def node_connector(output):
         return VALUE_NAME + " ="
 
 
-def module_transformation(output, param, subtree_params, tr_snippet, tr_args):
+def module_transformation(output, param, subtree_parameters, tr_snippet, tr_args):
     return Module.create(
         """
         // ${'output' if output else 'input'} transformation node for "${name}"
@@ -99,10 +99,10 @@ def module_transformation(output, param, subtree_params, tr_snippet, tr_args):
         render_kwds=dict(
             output=output,
             name=param.name,
-            q_params=param_cnames_str(subtree_params, qualified=True),
+            q_params=param_cnames_str(subtree_parameters, qualified=True),
             q_indices=index_cnames_str(param, qualified=True),
             VALUE_NAME=VALUE_NAME,
-            nq_params=param_cnames_str(subtree_params),
+            nq_params=param_cnames_str(subtree_parameters),
             nq_indices=index_cnames_str(param),
             connector_ctype=param.annotation.type.ctype,
             tr_snippet=tr_snippet,
@@ -128,7 +128,7 @@ def module_leaf_macro(output, param):
             index_expr=flat_index_expr(param)))
 
 
-def module_same_indices(output, param, subtree_params, module_idx):
+def module_same_indices(output, param, subtree_parameters, module_idx):
     return Module.create("""
         // ${'output' if output else 'input'} for a transformation for "${name}"
         %if output:
@@ -143,10 +143,10 @@ def module_same_indices(output, param, subtree_params, module_idx):
             VALUE_NAME=VALUE_NAME,
             module_idx=module_idx,
             nq_indices=index_cnames_str(param),
-            nq_params=param_cnames_str(subtree_params)))
+            nq_params=param_cnames_str(subtree_parameters)))
 
 
-def module_combined(output, param, subtree_params, module_idx):
+def module_combined(output, param, subtree_parameters, module_idx):
 
     snippet_disassemble_combined = Snippet.create(
         lambda shape, slices, indices, combined_indices: """
@@ -205,6 +205,6 @@ def module_combined(output, param, subtree_params, module_idx):
             connector_ctype=param.annotation.type.ctype,
             nq_indices=index_cnames_str(param),
             q_indices=index_cnames_str(param, qualified=True),
-            q_params=param_cnames_str(subtree_params, qualified=True),
-            nq_params=param_cnames_str(subtree_params),
+            q_params=param_cnames_str(subtree_parameters, qualified=True),
+            nq_params=param_cnames_str(subtree_parameters),
             indices=index_cnames(param)))

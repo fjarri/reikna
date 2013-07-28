@@ -725,7 +725,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     const int norm_coeff = direction == 1 ? ${fft_size if normalize else 1} : 1;
 </%def>
 
-<%def name="fft_local(*args)">
+<%def name="fft_local(kernel_declaration, *args)">
 
 <%
     if takes_kweights:
@@ -740,7 +740,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 
 ${insertBaseKernels()}
 
-${kernel_definition}
+${kernel_declaration}
 {
     VIRTUAL_SKIP_THREADS;
 
@@ -787,7 +787,7 @@ ${kernel_definition}
 
 </%def>
 
-<%def name="fft_global(*args)">
+<%def name="fft_global(kernel_declaration, *args)">
 
 <%
     if takes_kweights:
@@ -803,7 +803,7 @@ ${insertBaseKernels()}
     groups_per_xform = min_blocks(stride_in, local_batch)
 %>
 
-${kernel_definition}
+${kernel_declaration}
 {
     VIRTUAL_SKIP_THREADS;
 

@@ -135,6 +135,9 @@ When it is rendered, it is traversed depth-first, modules are extracted from it 
 Their positions in ``render_kwds`` are replaced by assigned prefixes.
 This flat list is then rendered, producing a single source file being fed to the compiler.
 
+Note that if the same module object was used without arguments in several other modules or in the kernel itself, it will only be rendered once.
+Therefore one can create a "root" module with the data structure declaration and then use that structure in other modules without producing type errors on compilation.
+
 
 Shortcuts
 =========
@@ -183,7 +186,7 @@ Module and snippet discovery
 Sometimes you may want to pass a module or a snippet inside a template as an attribute of a custom object.
 In order for CLUDA to be able to discover and process it without modifying your original object, you need to make your object comply to a discovery protocol.
 The protocol method takes a processing function and is expected to return a **new object** of the same class with the processing function applied to all the attributes that may contain a module or a snippet.
-By default, objects of type ``tuple``, ``list``, ``dict`` and :py:class:`~reikna.helpers.AttrDict` are discoverable.
+By default, objects of type ``tuple``, ``list``, and ``dict`` are discoverable.
 
 For example:
 
