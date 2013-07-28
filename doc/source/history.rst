@@ -22,6 +22,8 @@ Release history
 
 * FIXED: missing data type normalization in :py:func:`~reikna.cluda.dtypes.c_constant`.
 
+* FIXED: Py3 incompatibility in ``cluda.cuda``.
+
 
 0.3.1 (25 Jul 2013)
 ===================

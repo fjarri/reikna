@@ -193,7 +193,7 @@ class Kernel(api_base.Kernel):
                         return False
                 return True
 
-            local_size_dims = [zip(*factors(g, limit=max_size))[0] for g in global_size]
+            local_size_dims = [list(zip(*factors(g, limit=max_size)))[0] for g in global_size]
             local_sizes = [t for t in itertools.product(*local_size_dims)
                 if product(t) <= max_size and fits_into_dims(t)]
             local_size = max(local_sizes, key=product)
