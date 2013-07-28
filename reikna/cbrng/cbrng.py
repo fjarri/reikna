@@ -3,6 +3,8 @@ import numpy
 import reikna.helpers as helpers
 from reikna.cbrng.tools import KeyGenerator
 from reikna.core import Computation, Parameter, Annotation, Type
+from reikna.cbrng.bijections import philox
+import reikna.cbrng.samplers as samplers
 
 TEMPLATE = helpers.template_for(__file__)
 
@@ -60,3 +62,22 @@ class CBRNG(Computation):
                     self._counters_dim]))
 
         return plan
+
+
+# For some reason, closure did not work correctly.
+# This class encapsulates the context and provides a classmethod for a given sampler.
+class _ConvenienceCtr:
+
+    def __init__(self, sampler_name):
+        self._sampler_func = getattr(samplers, sampler_name)
+
+    def __call__(self, cls, randoms_arr, counters_dim, sampler_kwds=None, seed=None):
+        bijection = philox(64, 4)
+        sampler = self._sampler_func(bijection, randoms_arr.dtype, **sampler_kwds)
+        return cls(randoms_arr, counters_dim, sampler, seed=seed)
+
+
+# Add convenience constructors to CBRNG
+for name in samplers.SAMPLERS:
+    ctr = _ConvenienceCtr(name)
+    setattr(CBRNG, name, classmethod(ctr))

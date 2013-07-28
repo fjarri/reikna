@@ -54,4 +54,4 @@ Kernel API
 
 #from reikna.cbrng.bijections import Threefry, Philox
 #from reikna.cbrng.distributions import UniformInteger, UniformFloat, NormalBM, Gamma
-from reikna.cbrng.cbrng import CBRNG
+#from reikna.cbrng.cbrng import CBRNG

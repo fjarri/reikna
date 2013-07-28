@@ -154,3 +154,11 @@ def gamma(bijection, dtype, shape=1, scale=1):
             uf=uf, nbm=nbm))
 
     return Sampler(bijection, module, dtype)
+
+
+# List of samplers that can be used as convenience constructors in CBRNG class
+SAMPLERS = [
+    'uniform_integer',
+    'uniform_float',
+    'normal_bm',
+    'gamma']

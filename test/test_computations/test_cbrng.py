@@ -8,7 +8,7 @@ from test_computations.cbrng_ref import threefry as threefry_ref
 
 from reikna.core import Type
 from reikna.helpers import product
-from reikna.cbrng import CBRNG
+from reikna.cbrng.cbrng import CBRNG
 from reikna.cbrng.bijections import threefry, philox
 from reikna.cbrng.tools import KeyGenerator
 from reikna.cbrng.samplers import uniform_integer, uniform_float, normal_bm, gamma
@@ -246,13 +246,24 @@ def test_computation_general(thr_and_double):
 
     size = 10000
     batch = 101
-    seed = 456
 
     thr, double = thr_and_double
     dtype = numpy.float64 if double else numpy.float32
     mean, std = -2, 10
-    bijection = philox(64, 4)
+    bijection = threefry(64, 4)
     sampler = normal_bm(bijection, dtype, mean=mean, std=std)
 
     rng = CBRNG(Type(dtype, shape=(batch, size)), 1, sampler)
     check_computation(thr, rng, mean=mean, std=std)
+
+
+def test_computation_convenience(thr):
+
+    size = 10000
+    batch = 101
+
+    extent = (0, 511)
+    mean, std = uniform_discrete_mean_and_std(*extent)
+    rng = CBRNG.uniform_integer(Type(numpy.int32, shape=(batch, size)), 1,
+        sampler_kwds=dict(low=extent[0], high=extent[1] + 1))
+    check_computation(thr, rng, extent=extent, mean=mean, std=std)
