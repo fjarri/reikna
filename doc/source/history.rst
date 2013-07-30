@@ -6,7 +6,7 @@ Release history
 0.3.4 (current development version)
 ===================================
 
-Under construction.
+* FIXED: requirements for PyCUDA extras (a currently non-existent version was specified).
 
 
 0.3.3 (29 Jul 2013)
