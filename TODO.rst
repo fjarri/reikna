@@ -4,25 +4,26 @@
 * API (computations): make helpers functions in dht methods of DHT class.
 * API (computations): add FFT.get_freqs()
 * API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
-* ?API (CLUDA, core): do something about the inconsistency of array shapes (row-major) and global sizes (column-major). Special get_id() functions maybe?
 * ?API (core): make ``device_params`` an attribute of plan or plan factory?
 * ?API (computations): can we improve how Predicates for Reduce are defined?
 * ?API (cluda): make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
 
-* FIX (core): When we connect a transformation, difference in strides between arrays in the connection can be ignored (and probably the transformation's signature changed too; at least we need to decide which strides to use in the exposed node).
-  Proposal: leave it as is; make existing transformations "propagate" strides to results; and create a special transformation that only changes strides (or make it a parameter to the identity one).
-  Currently strides are not supported by PyCUDA or PyOpenCL, so this will wait.
-  Idea: strides can be passes to compile() (in form of actual arrays, as a dictionary).
+* ?API (CLUDA, core): do something about the inconsistency of array shapes (row-major) and global sizes (column-major). Special get_id() functions maybe?
+* FIX (cluda): when ``None`` is passed as a local size for a static kernel, and the global size is small, it sets large values for local size (e.g. for gs=13 it sets ls=480, gs=480).
+  It's not critical, just confusing; large global sizes seem to have much less unused threads.
+  Also, in general, cluda/vsize code is a mess.
+* FIX (cluda): rewrite vsizes to just use a 1D global size and get any-D virtual sizes through modular division (shouldn't be that slow, but need to test; or maybe just fall back to modular division if the requested dimensionality is too big).
+* ?FIX (cluda): change type of id()/size() functions to size_t in case of CUDA?
+  In OpenCL these functions have type ``size_t func(uint)``.
+  In CUDA, there are constants with type ``uint``, because they have a limit on grid size in one dimension.
+  We can create our own functions based on OpenCL ones, since we too have (theoretically) unlimited size in one dimension.
+
 * FEATURE (computations): add ``inplace`` parameter to FFT and DHT, which will produce computations that are guaranteed to work inplace.
 * ?FIX (core): check if Signature.bind() is too slow in the kernel call; perhaps we will have to rewrite it taking into account restrictions to Parameter types we have.
-* FIX (cluda): rewrite vsizes to just use a 1D global size and get any-D virtual sizes through modular division (shouldn't be that slow, but need to test; or maybe just fall back to modular division if the requested dimensionality is too big).
 * ?FIX (computations): PureParallel can be either rewritten using stub kernel and Transformation (to use load/store_combined_idx) (downside: order of parameters messes up in this case; upside: can use store_same/load_same), or using the new any-D static kernels from CLUDA (if the above fix is implemented).
 * FEATURE (computations): processing several indices per thread in PureParallel may result in a performance boost, need to check that.
 * FEATURE (computations): add a helper function that transforms a transformation into a ParallelComputation with the same arguments.
 * FEATURE (core): take not only CLUDA Thread as a parameter for computation ``compile``, but also CommandQueue, opencl Context, CUDA Stream and so on.
-* FIX (cluda): when ``None`` is passed as a local size for a static kernel, and the global size is small, it sets large values for local size (e.g. for gs=13 it sets ls=480, gs=480).
-  It's not critical, just confusing; large global sizes seem to have much less unused threads.
-  Also, in general, cluda/vsize code is a mess.
 * FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
   it is called again with reduced local size
 * FEATURE (computations): add special optimized kernel for matrix-vector multiplication in MatrixMul.
@@ -38,6 +39,11 @@
 * TEST (computations): add some performance tests for CBRNG
 * FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
 
+* FIX (core): When we connect a transformation, difference in strides between arrays in the connection can be ignored (and probably the transformation's signature changed too; at least we need to decide which strides to use in the exposed node).
+  Proposal: leave it as is; make existing transformations "propagate" strides to results; and create a special transformation that only changes strides (or make it a parameter to the identity one).
+  Currently strides are not supported by PyCUDA or PyOpenCL, so this will wait.
+  Idea: strides can be passes to compile() (in form of actual arrays, as a dictionary).
+
 
 1.0.0 (production-quality version... hopefully)
 ===============================================
@@ -51,7 +57,6 @@
 * ?FIX (cluda): Is there a way to get number of shared memory banks and warp size from AMD device?
 * ?FIX (cluda): what are we going to do with OpenCL platforms that do not support intra-block interaction?
   (for example, Apple's implementation)
-* ?FIX (cluda): change type of id()/size() functions to size_t in case of CUDA?
 * ?FIX (cluda): find a way to get ``min_mem_coalesce_width`` for OpenCL
 * FEATURE (cluda): add a mechanism to select the best local size based on occupancy
 * ?FEATURE (core): check for errors in load/stores/param usage when connecting transformations?
