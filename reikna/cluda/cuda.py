@@ -163,6 +163,28 @@ class DeviceParameters:
         self.local_mem_size = device.max_shared_memory_per_block
 
 
+def find_local_size(global_size, max_work_item_sizes, max_work_group_size):
+    """
+    Mimics the OpenCL local size finding algorithm.
+    Returns the tuple of the same length as ``global_size``, with every element
+    being a factor of the corresponding element of ``global_size``.
+    Neither of the elements of ``local_size`` are greater then the corresponding element
+    of ``max_work_item_sizes``, and their product is not greater than ``max_work_group_size``.
+    """
+    if len(global_size) == 0:
+        return tuple()
+
+    if max_work_group_size == 1:
+        return (1,) * len(global_size)
+
+    gs_factors = factors(global_size[0], limit=min(max_work_item_sizes[0], max_work_group_size))
+    local_size_1d, _ = gs_factors[-1]
+    remainder = find_local_size(
+        global_size[1:], max_work_item_sizes[1:], max_work_group_size // local_size_1d)
+
+    return (local_size_1d,) + remainder
+
+
 class Kernel(api_base.Kernel):
 
     def _get_kernel(self, program, name):
@@ -176,38 +198,25 @@ class Kernel(api_base.Kernel):
         global_size = wrap_in_tuple(global_size)
         self._local_mem = local_mem
 
+        max_dims = self._thr.device_params.max_work_item_sizes
+        if len(global_size) > len(max_dims):
+            raise ValueError("Global size has too many dimensions")
+
         if local_size is not None:
             local_size = wrap_in_tuple(local_size)
             if len(local_size) != len(global_size):
                 raise ValueError("Global/local work sizes have differing dimensions")
         else:
-            # Dumb algorithm of finding suitable local_size.
-            # Works more or less the same as its OpenCL equivalent.
-            max_size = self.max_work_group_size
-            max_dims = self._thr.device_params.max_work_item_sizes
-
-            def fits_into_dims(block_size):
-                """Checks if block dimensions fit into limits"""
-                for md, bs in zip(max_dims, block_size):
-                    if md < bs:
-                        return False
-                return True
-
-            local_size_dims = [list(zip(*factors(g, limit=max_size)))[0] for g in global_size]
-            local_sizes = [t for t in itertools.product(*local_size_dims)
-                if product(t) <= max_size and fits_into_dims(t)]
-            local_size = max(local_sizes, key=product)
-
-        # append missing dimensions, otherwise PyCUDA will complain
-        self._local_size = local_size + (1,) * (3 - len(local_size))
+            local_size = find_local_size(global_size, max_dims, self.max_work_group_size)
 
         grid = []
-        for gs, ls in zip(global_size, self._local_size):
+        for gs, ls in zip(global_size, local_size):
             if gs % ls != 0:
                 raise ValueError("Global sizes must be multiples of corresponding local sizes")
             grid.append(gs // ls)
 
         # append missing dimensions, otherwise PyCUDA will complain
+        self._local_size = local_size + (1,) * (3 - len(grid))
         self._grid = tuple(grid) + (1,) * (3 - len(grid))
 
     def prepared_call(self, *args):
