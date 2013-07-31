@@ -205,9 +205,9 @@ Let us change the previous example and connect transformations to it.
     combine_a = combine_complex(a_type)
     combine_b = combine_complex(b_type)
 
-    dot.parameter.a.connect(
+    dot.parameter.matrix_a.connect(
         combine_a, combine_a.output, a_re=combine_a.real, a_im=combine_a.imag)
-    dot.parameter.b.connect(
+    dot.parameter.matrix_b.connect(
         combine_b, combine_b.output, b_re=combine_b.real, b_im=combine_b.imag)
 
     dotc = dot.compile(thr)
