@@ -35,7 +35,7 @@ Now we can compile a template which uses this snippet:
     program = thr.compile("""
     KERNEL void test(int *arr)
     {
-        int idx = get_global_id(0);
+        const SIZE_T idx = get_global_id(0);
         int a = arr[idx];
         arr[idx] = ${add('x')};
     }
@@ -48,7 +48,7 @@ As a result, the code that gets compiled is
 
     KERNEL void test(int *arr)
     {
-        int idx = get_global_id(0);
+        const SIZE_T idx = get_global_id(0);
         int a = arr[idx];
         arr[idx] = x + 1;
     }
@@ -86,7 +86,7 @@ Let us now create a kernel that uses this module:
     program = thr.compile("""
     KERNEL void test(int *arr)
     {
-        int idx = get_global_id(0);
+        const SIZE_T idx = get_global_id(0);
         int a = arr[idx];
         arr[idx] = ${add(2)}(x);
     }
@@ -121,7 +121,7 @@ Then the main code is rendered and appended to the previously renderd parts, giv
 
     KERNEL void test(int *arr)
     {
-        int idx = get_global_id(0);
+        const SIZE_T idx = get_global_id(0);
         int a = arr[idx];
         arr[idx] = _module0(x);
     }

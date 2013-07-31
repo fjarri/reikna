@@ -153,7 +153,7 @@ def test_ids(thr_with_gs_limits, gl_size, gs_is_multiple):
         GLOBAL_MEM int *glx, GLOBAL_MEM int *gly, GLOBAL_MEM int *glz)
     {
         VIRTUAL_SKIP_THREADS;
-        const int i = virtual_global_flat_id();
+        const VSIZE_T i = virtual_global_flat_id();
         fid[i] = i;
         lx[i] = virtual_local_id(0);
         ly[i] = virtual_local_id(1);

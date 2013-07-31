@@ -30,7 +30,7 @@ Consider the following example, which is very similar to the one from the index 
         GLOBAL_MEM float *a,
         GLOBAL_MEM float *b)
     {
-      const int i = get_local_id(0);
+      const SIZE_T i = get_local_id(0);
       dest[i] = a[i] * b[i];
     }
     """)
@@ -79,7 +79,7 @@ The template engine of choice in ``reikna`` is `Mako <http://www.makotemplates.o
         GLOBAL_MEM ${ctype} *a,
         GLOBAL_MEM ${ctype} *b)
     {
-      const int i = get_local_id(0);
+      const SIZE_T i = get_local_id(0);
       dest[i] = ${mul}(a[i], b[i]);
     }
     """, render_kwds=dict(

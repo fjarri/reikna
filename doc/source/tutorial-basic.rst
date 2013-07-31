@@ -57,7 +57,7 @@ As an example, let us consider a pure parallel computation object with one outpu
         Parameter('in2', Annotation(carr_t, 'i')),
         Parameter('param', Annotation(numpy.float32))],
         """
-        int idx = ${idxs[0]};
+        VSIZE_T idx = ${idxs[0]};
         ${out.store_idx}(
             idx, ${in1.load_idx}(idx) + ${in2.load_idx}(idx) + ${param});
         """)

@@ -1,16 +1,16 @@
 <%def name="normal_funcs()">
 
-WITHIN_KERNEL int virtual_local_id(int dim)
+WITHIN_KERNEL VSIZE_T virtual_local_id(unsigned int dim)
 {
     return get_local_id(dim);
 }
 
-WITHIN_KERNEL int virtual_local_size(int dim)
+WITHIN_KERNEL VSIZE_T virtual_local_size(unsigned int dim)
 {
     return get_local_size(dim);
 }
 
-WITHIN_KERNEL int virtual_num_groups(int dim)
+WITHIN_KERNEL VSIZE_T virtual_num_groups(unsigned int dim)
 {
 %for dim in range(len(vs.naive_bounding_grid)):
     if (dim == ${dim}) return ${vs.naive_bounding_grid[dim] if dim < len(vs.naive_bounding_grid) else 1};
@@ -18,11 +18,11 @@ WITHIN_KERNEL int virtual_num_groups(int dim)
     return 1;
 }
 
-WITHIN_KERNEL int virtual_group_id(int dim)
+WITHIN_KERNEL VSIZE_T virtual_group_id(unsigned int dim)
 {
 %for dim in range(len(vs.naive_bounding_grid)):
     if (dim == ${dim}) {
-        int res = 0;
+        VSIZE_T res = 0;
     %for rdim in range(len(vs.params.max_num_groups)):
     <%
         widths = [p[rdim] for p in vs.grid_parts]
@@ -46,7 +46,7 @@ WITHIN_KERNEL int virtual_group_id(int dim)
     return 0;
 }
 
-WITHIN_KERNEL int virtual_global_size(int dim)
+WITHIN_KERNEL VSIZE_T virtual_global_size(unsigned int dim)
 {
 %for dim in range(len(vs.naive_bounding_grid)):
     if(dim == ${dim}) return ${vs.global_size[dim] if dim < len(vs.global_size) else 1};
@@ -54,17 +54,17 @@ WITHIN_KERNEL int virtual_global_size(int dim)
     return 1;
 }
 
-WITHIN_KERNEL int virtual_global_id(int dim)
+WITHIN_KERNEL VSIZE_T virtual_global_id(unsigned int dim)
 {
     return virtual_local_id(dim) + virtual_group_id(dim) * virtual_local_size(dim);
 }
 
-WITHIN_KERNEL int virtual_global_flat_size()
+WITHIN_KERNEL VSIZE_T virtual_global_flat_size()
 {
     return virtual_global_size(0) * virtual_global_size(1) * virtual_global_size(2);
 }
 
-WITHIN_KERNEL int virtual_global_flat_id()
+WITHIN_KERNEL VSIZE_T virtual_global_flat_id()
 {
     <%
     def get_expr(dims):

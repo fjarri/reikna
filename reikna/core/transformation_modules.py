@@ -18,7 +18,7 @@ def index_cnames(param):
 def index_cnames_str(param, qualified=False):
     names = index_cnames(param)
     if qualified:
-        names = ["int " + name for name in names]
+        names = ["VSIZE_T " + name for name in names]
     return ", ".join(names)
 
 
@@ -159,7 +159,7 @@ def module_combined(output, param, subtree_parameters, module_idx):
             <%
                 stride = product(shape[index+1:index_end])
             %>
-            int ${indices[index]} = ${combined_indices[combined_index]} / ${stride};
+            VSIZE_T ${indices[index]} = ${combined_indices[combined_index]} / ${stride};
             ${combined_indices[combined_index]} -= ${indices[index]} * ${stride};
             %endfor
         %endfor
@@ -170,7 +170,7 @@ def module_combined(output, param, subtree_parameters, module_idx):
         lambda prefix, slices: """
         <%
             combined_indices=['_c_idx' + str(i) for i in range(len(slices))]
-            q_combined_indices=", ".join(['int ' + ind for ind in combined_indices])
+            q_combined_indices=", ".join(['VSIZE_T ' + ind for ind in combined_indices])
             nq_combined_indices=", ".join(combined_indices)
         %>
         INLINE WITHIN_KERNEL ${'void' if output else connector_ctype} ${prefix}func(
