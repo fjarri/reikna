@@ -6,6 +6,9 @@ Release history
 0.3.4 (current development version)
 ===================================
 
+* CHANGED: id- and size- getting kernel functions now have return types corresponding to their equivalents.
+  Virtual size functions have their own independent return type.
+
 * FIXED: requirements for PyCUDA extras (a currently non-existent version was specified).
 
 

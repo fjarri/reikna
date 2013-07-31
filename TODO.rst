@@ -1,22 +1,18 @@
 0.3.4
 =====
 
+* ?API (CLUDA, core): do something about the inconsistency of array shapes (row-major) and global sizes (column-major). Special get_id() functions maybe?
+* FIX (cluda): when ``None`` is passed as a local size for a static kernel, and the global size is small, it sets large values for local size (e.g. for gs=13 it sets ls=480, gs=480).
+  It's not critical, just confusing; large global sizes seem to have much less unused threads.
+  Also, in general, cluda/vsize code is a mess.
+* FIX (cluda): rewrite vsizes to just use a 1D global size and get any-D virtual sizes through modular division (shouldn't be that slow, but need to test; or maybe just fall back to modular division if the requested dimensionality is too big).
+
 * API (computations): make helpers functions in dht methods of DHT class.
 * API (computations): add FFT.get_freqs()
 * API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
 * ?API (core): make ``device_params`` an attribute of plan or plan factory?
 * ?API (computations): can we improve how Predicates for Reduce are defined?
 * ?API (cluda): make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
-
-* ?API (CLUDA, core): do something about the inconsistency of array shapes (row-major) and global sizes (column-major). Special get_id() functions maybe?
-* FIX (cluda): when ``None`` is passed as a local size for a static kernel, and the global size is small, it sets large values for local size (e.g. for gs=13 it sets ls=480, gs=480).
-  It's not critical, just confusing; large global sizes seem to have much less unused threads.
-  Also, in general, cluda/vsize code is a mess.
-* FIX (cluda): rewrite vsizes to just use a 1D global size and get any-D virtual sizes through modular division (shouldn't be that slow, but need to test; or maybe just fall back to modular division if the requested dimensionality is too big).
-* ?FIX (cluda): change type of id()/size() functions to size_t in case of CUDA?
-  In OpenCL these functions have type ``size_t func(uint)``.
-  In CUDA, there are constants with type ``uint``, because they have a limit on grid size in one dimension.
-  We can create our own functions based on OpenCL ones, since we too have (theoretically) unlimited size in one dimension.
 
 * FEATURE (computations): add ``inplace`` parameter to FFT and DHT, which will produce computations that are guaranteed to work inplace.
 * ?FIX (core): check if Signature.bind() is too slow in the kernel call; perhaps we will have to rewrite it taking into account restrictions to Parameter types we have.
