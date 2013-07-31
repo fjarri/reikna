@@ -233,11 +233,13 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         %>
         %if pad_in:
             ${loads(range(border), False)}
+            %if fft_size_real % inner_step > 0:
             if (fft_position_offset < ${fft_size_real % inner_step})
             {
                 ${loads([border], False)}
             }
             else
+            %endif
             {
                 ${loads([border], True)}
             }
@@ -280,10 +282,12 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         %>
         %if unpad_out:
             ${stores(range(border))}
+            %if fft_size_real % inner_step > 0:
             if (fft_position_offset < ${fft_size_real % inner_step})
             {
                 ${stores([border])}
             }
+            %endif
         %else:
             ${stores(range(num_inner_iter))}
         %endif
@@ -310,16 +314,21 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         const int fft_index = group_id * ${xforms_per_workgroup} + xform_in_wg;
         const int fft_position_offset = thread_in_xform;
 
-        if(${xforms_remainder} == 0 || (group_id < num_groups - 1) ||
-            (xform_in_wg < ${xforms_remainder}))
+        if(${xforms_remainder} == 0 || (group_id < num_groups - 1)
+            %if xforms_remainder > 0:
+            || (xform_in_wg < ${xforms_remainder})
+            %endif
+            )
         {
         %if pad_in:
             ${loads(range(border), False)}
+            %if fft_size_real % threads_per_xform > 0:
             if (fft_position_offset < ${fft_size_real % threads_per_xform})
             {
                 ${loads([border], False)}
             }
             else
+            %endif
             {
                 ${loads([border], True)}
             }
@@ -357,12 +366,14 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
                 range(xforms_remainder // (local_size // mem_coalesce_width)),
                 num_inner_iter, (local_size // mem_coalesce_width), mem_coalesce_width)}
 
+            %if xforms_remainder % (local_size // mem_coalesce_width) > 0:
             if (coalesce_in_wg < ${xforms_remainder % (local_size // mem_coalesce_width)})
             {
                 ${insertGlobalLoadsOuter(input, kweights,
                     [xforms_remainder // (local_size // mem_coalesce_width)],
                     num_inner_iter, (local_size // mem_coalesce_width), mem_coalesce_width)}
             }
+            %endif
         }
         else
         {
@@ -415,10 +426,12 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             {
             %endif
                 ${loads(range(border), False)}
+                %if xforms_remainder % (local_size // fft_size) > 0:
                 if (fft_in_wg < ${xforms_remainder % (local_size // fft_size)})
                 {
                     ${loads([border], False)}
                 }
+                %endif
             %if pad_in:
             }
             else
@@ -479,14 +492,20 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             border = fft_size_real // threads_per_xform
         %>
 
-        if(${xforms_remainder} == 0 || group_id < num_groups - 1 || xform_in_wg < ${xforms_remainder})
+        if(${xforms_remainder} == 0 || group_id < num_groups - 1
+            %if xforms_remainder > 0:
+            || xform_in_wg < ${xforms_remainder}
+            %endif
+            )
         {
         %if unpad_out:
             ${stores(range(border))}
+            %if fft_size_real % threads_per_xform > 0:
             if (fft_position_offset < ${fft_size_real % threads_per_xform})
             {
                 ${stores([border])}
             }
+            %endif
         %else:
             ${stores(range(max_radix))}
         %endif
@@ -537,10 +556,12 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         if((group_id == num_groups - 1) && ${xforms_remainder} != 0)
         {
             ${stores(range(border))}
+            %if xforms_remainder % (local_size // mem_coalesce_width) > 0:
             if (coalesce_in_wg < ${xforms_remainder % (local_size // mem_coalesce_width)})
             {
                 ${stores([border])}
             }
+            %endif
         }
         else
         {
@@ -584,10 +605,12 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             {
             %endif
                 ${stores(range(border))}
+                %if xforms_remainder % (local_size // fft_size) > 0:
                 if (fft_in_wg < ${xforms_remainder % (local_size // fft_size)})
                 {
                     ${stores([border])}
                 }
+                %endif
             %if unpad_out:
             }
             %endif
