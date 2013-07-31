@@ -203,9 +203,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     %else:
     {
         const int position_in_fft = fft_position_offset + ${g_i};
-        ##const int idx = (fft_index + ${fft_index_offset}) * ${fft_size_real if pad_in else fft_size} + position_in_fft;
 
-        ##a[${a_i}] = ${input.load}(idx);
         a[${a_i}] = ${input.load_combined_idx(input_slices)}(
             fft_index + ${fft_index_offset}, position_in_fft, 0);
 
@@ -215,7 +213,6 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 
         %if takes_kweights:
         a[${a_i}] = ${mul}(a[${a_i}],
-            ##${kweights.load}(position_in_fft + ${fft_size} * (1 - direction) / 2)
             ${kweights.load_idx}((1 - direction) / 2, position_in_fft)
             );
         %endif
@@ -260,13 +257,11 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     %for a_i, g_i, fft_index_offset in zip(a_indices, g_indices, fft_index_offsets):
     {
         const int position_in_fft = fft_position_offset + ${g_i};
-        ##const int idx = (fft_index + ${fft_index_offset}) * ${fft_size_real if unpad_out else fft_size} + position_in_fft;
 
         %if unpad_out:
         a[${a_i}] = ${mul}(a[${a_i}], xweight(-direction, position_in_fft));
         %endif
 
-        ##${output.store}(idx, ${cdivs}(a[${a_i}], norm_coeff));
         ${output.store_combined_idx(output_slices)}(
             fft_index + ${fft_index_offset}, position_in_fft, 0,
             ${cdivs}(a[${a_i}], norm_coeff));
@@ -829,10 +824,8 @@ ${kernel_declaration}
         const int stride_in_number = xform_local + ${j * radix2};
         const int position = position_in_stride_in + ${stride_in} * stride_in_number;
 
-        ##%if pad_in or takes_kweights:
         const int position_in_fft = position / ${inner_batch};
         const int position_in_inner_batch = position % ${inner_batch};
-        ##%endif
 
         %if pad_in:
         const complex_t xw = xweight(direction, position_in_fft);
@@ -841,7 +834,6 @@ ${kernel_declaration}
         if (position_in_fft < ${fft_size_real})
         {
         %endif
-            ##a[${j}] = ${input.load}(position + ${fft_size_real if pad_in else fft_size} * xform_number);
             a[${j}] = ${input.load_combined_idx(input_slices)}(
                 xform_global, position_in_fft, position_in_inner_batch);
         %if pad_in:
@@ -853,7 +845,6 @@ ${kernel_declaration}
 
         %if takes_kweights:
         a[${j}] = ${mul}(a[${j}],
-            ##${kweights.load}(position_in_fft + ${fft_size} * (1 - direction) / 2)
             ${kweights.load_idx}((1 - direction) / 2, position_in_fft)
             );
         %endif
@@ -954,7 +945,6 @@ ${kernel_declaration}
         {
             const int position = stride_out_number * ${stride} + ${k * local_size} +
                 position_in_stride_out + thread_id;
-            ##%if unpad_out:
             const int position_in_fft = position / ${inner_batch};
             const int position_in_inner_batch = position % ${inner_batch};
             %if unpad_out:
@@ -962,8 +952,6 @@ ${kernel_declaration}
             a[${k}] = ${mul}(a[${k}], xw);
             if (position_in_fft < ${fft_size_real})
             %endif
-                ##${output.store}(position + ${fft_size_real if unpad_out else fft_size} * xform_number,
-                ##    ${cdivs}(a[${k}], norm_coeff));
                 ${output.store_combined_idx(output_slices)}(
                     xform_global, position_in_fft, position_in_inner_batch,
                     ${cdivs}(a[${k}], norm_coeff));
@@ -981,7 +969,6 @@ ${kernel_declaration}
                     xform_local * ${radix1 // radix2}) +
                 position_in_stride_out;
 
-            ##%if unpad_out:
             const int position_in_fft = position / ${inner_batch};
             const int position_in_inner_batch = position % ${inner_batch};
             %if unpad_out:
@@ -989,8 +976,6 @@ ${kernel_declaration}
             a[${k}] = ${mul}(a[${k}], xw);
             if (position_in_fft < ${fft_size_real})
             %endif
-                ##${output.store}(position + ${fft_size_real if unpad_out else fft_size} * xform_number,
-                ##    ${cdivs}(a[${k}], norm_coeff));
                 ${output.store_combined_idx(output_slices)}(
                     xform_global, position_in_fft, position_in_inner_batch,
                     ${cdivs}(a[${k}], norm_coeff));
