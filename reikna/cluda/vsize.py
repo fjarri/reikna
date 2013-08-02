@@ -255,6 +255,10 @@ class VirtualSizes:
 
     def __init__(self, device_params, max_local_size, virtual_global_size, virtual_local_size=None):
 
+        virtual_global_size = wrap_in_tuple(virtual_global_size)
+        if virtual_local_size is not None:
+            virtual_local_size = wrap_in_tuple(virtual_local_size)
+
         max_local_size = min(
             max_local_size,
             device_params.max_work_group_size,
