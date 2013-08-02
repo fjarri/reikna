@@ -11,9 +11,6 @@ from helpers import *
 from pytest_threadgen import parametrize_thread_tuple, create_thread_in_tuple
 
 
-pytest_funcarg__thr_with_gs_limits = create_thread_in_tuple
-
-
 vals_find_local_size = [
     ((40, 50), 1, (1, 1)),
     ((7, 11, 13), 1001, (7, 11, 13)),
@@ -84,34 +81,6 @@ def test_find_bounding_shape(virtual_size, available_shape):
     assert all(d <= ad for d, ad in zip(shape, available_shape))
 
 
-def set_thread_gs_limits(metafunc, tc):
-    """
-    Parametrize threads with small grid limits for testing purposes
-    """
-    new_tcs = []
-    rem_ids = []
-    for gl in [[31, 31], [31, 63], [31, 31, 31]]:
-
-        # If the thread will not support these limits, skip
-        thr = tc()
-        mgs = thr.device_params.max_num_groups
-        del thr
-        if len(gl) > len(mgs) or any(g > mg for g, mg in zip(gl, mgs)):
-            continue
-
-        # New thread creator function
-        gl_local = gl # otherwise the closure will use the last 'gl' value the cycle reaches
-        def new_tc():
-            thr = tc()
-            thr.override_device_params(max_num_groups=gl_local)
-            return thr
-
-        rem_ids.append(str(gl))
-        new_tcs.append(new_tc)
-
-    return new_tcs, [tuple()] * len(new_tcs), rem_ids
-
-
 def pytest_generate_tests(metafunc):
     if 'testvs' in metafunc.funcargnames:
         grid_sizes = [
@@ -132,29 +101,14 @@ def pytest_generate_tests(metafunc):
 
         metafunc.parametrize('testvs', vals, ids=[str(x) for x in vals])
 
-    if 'thr_with_gs_limits' in metafunc.funcargnames:
-        parametrize_thread_tuple(metafunc, 'thr_with_gs_limits', set_thread_gs_limits)
-    if 'gs_is_multiple' in metafunc.funcargnames:
-        metafunc.parametrize('gs_is_multiple', [True, False],
-            ids=["gs_is_multiple", "gs_is_not_multiple"])
-    if 'gl_size' in metafunc.funcargnames:
-        grid_sizes = [
-            (13,), (35,), (31*31*4,),
-            (13, 15), (35, 13),
-            (13, 15, 17), (75, 33, 5)]
-        local_sizes = [None, (4,), (4, 4), (4, 4, 4)]
-        gl_sizes = [(g, l) for g, l in itertools.product(grid_sizes, local_sizes)
-            if l is None or len(g) == len(l)]
-        metafunc.parametrize('gl_size', gl_sizes, ids=[str(x) for x in gl_sizes])
-    if 'incorrect_gl_size' in metafunc.funcargnames:
-        grid_sizes = [
-            (31**3+1,),
-            (31**2, 32), (31*20, 31*20),
-            (31, 31, 32), (150, 150, 150)]
-        local_sizes = [(4,), (4, 4), (4, 4, 4)]
-        gl_sizes = [(g, l) for g, l in itertools.product(grid_sizes, local_sizes)
-            if len(g) == len(l)]
-        metafunc.parametrize('incorrect_gl_size', gl_sizes, ids=[str(x) for x in gl_sizes])
+    if 'incorrect_testvs' in metafunc.funcargnames:
+        vals = [
+            # Bounding global size (32, 32) is too big for the grid limit and given block size
+            TestVirtualSizes((32, 32), (4, 4), (8, 7), (4, 4)),
+            # Local size is too big
+            TestVirtualSizes((32, 32), (4, 5), (16, 16), (4, 4)),
+            ]
+        metafunc.parametrize('incorrect_testvs', vals, ids=[str(x) for x in vals])
 
 
 class ReferenceIds:
@@ -240,6 +194,9 @@ class TestVirtualSizes:
     def __init__(self, global_size, local_size, max_num_groups, max_work_item_sizes):
         self.global_size = global_size
         self.local_size = local_size
+        if local_size is not None:
+            self.grid_size = tuple(min_blocks(gs, ls) for gs, ls in zip(global_size, local_size))
+
         self.max_num_groups = max_num_groups
         self.max_work_item_sizes = max_work_item_sizes
 
@@ -303,64 +260,67 @@ def test_ids(thr, testvs):
             assert diff_is_negligible(group_ids.get(), ref.predict_group_ids(vdim))
 
 
-def atest_sizes(thr_with_gs_limits, gl_size, gs_is_multiple):
+def test_sizes(thr, testvs):
     """
     Test that virtual sizes are correct.
     """
-
-    thr = thr_with_gs_limits
-    grid_size, local_size = gl_size
-    if product(grid_size) > product(thr.device_params.max_num_groups):
+    if not testvs.is_supported_by(thr):
         pytest.skip()
 
-    global_size, ls = get_global_size(grid_size, local_size, gs_is_multiple=gs_is_multiple)
-    ref = ReferenceIds(global_size, ls)
+    thr.override_device_params(
+        max_num_groups=testvs.max_num_groups,
+        max_work_item_sizes=testvs.max_work_item_sizes,
+        warp_size=2)
+
+    ref = ReferenceIds(testvs.global_size, testvs.local_size)
+    vdims = len(testvs.global_size)
 
     get_sizes = thr.compile_static("""
     KERNEL void get_sizes(GLOBAL_MEM int *sizes)
     {
         if (virtual_global_id(0) > 0) return;
 
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < ${vdims}; i++)
         {
             sizes[i] = virtual_local_size(i);
-            sizes[i + 3] = virtual_num_groups(i);
-            sizes[i + 6] = virtual_global_size(i);
+            sizes[i + ${vdims}] = virtual_num_groups(i);
+            sizes[i + ${vdims * 2}] = virtual_global_size(i);
         }
-        sizes[9] = virtual_global_flat_size();
+        sizes[${vdims * 3}] = virtual_global_flat_size();
     }
-    """, 'get_sizes', global_size, local_size=local_size)
+    """,
+        'get_sizes',
+        testvs.global_size, local_size=testvs.local_size,
+        render_kwds=dict(vdims=vdims))
 
-    sizes = thr.array(10, numpy.int32)
+    sizes = thr.array(vdims * 3 + 1, numpy.int32)
     get_sizes(sizes)
 
     sizes = sizes.get()
-    ls = sizes[0:3]
-    gs = sizes[3:6]
-    gls = sizes[6:9]
-    flat_size = sizes[9]
+    local_sizes = sizes[0:vdims]
+    grid_sizes = sizes[vdims:vdims*2]
+    global_sizes = sizes[vdims*2:vdims*3]
+    flat_size = sizes[vdims*3]
 
-    gls_ref = numpy.array(list(ref.global_size) + [1] * (3 - len(ref.global_size)), numpy.int32)
-    assert diff_is_negligible(gls, gls_ref)
-    assert flat_size == product(gls_ref)
+    global_sizes_ref = numpy.array(testvs.global_size).astype(numpy.int32)
+    assert diff_is_negligible(global_sizes, global_sizes_ref)
+    assert flat_size == product(testvs.global_size)
 
-    if local_size is not None:
-        ls_ref = numpy.array(list(ref.local_size) + [1] * (3 - len(ref.local_size)), numpy.int32)
-        gs_ref = numpy.array([min_blocks(g, l) for g, l in zip(gls_ref, ls_ref)], numpy.int32)
-        assert diff_is_negligible(ls, ls_ref)
-        assert diff_is_negligible(gs, gs_ref)
+    if testvs.local_size is not None:
+        grid_sizes_ref = numpy.array(testvs.grid_size).astype(numpy.int32)
+        assert diff_is_negligible(grid_sizes, grid_sizes_ref)
+        local_sizes_ref = numpy.array(testvs.local_size).astype(numpy.int32)
+        assert diff_is_negligible(local_sizes, local_sizes_ref)
 
 
-def atest_incorrect_sizes(thr_with_gs_limits, incorrect_gl_size):
+def test_incorrect_sizes(thr, incorrect_testvs):
     """
     Test that for sizes which exceed the thread capability, the exception is raised.
     """
-
-    thr = thr_with_gs_limits
-    grid_size, local_size = incorrect_gl_size
-
-    global_size, ls = get_global_size(grid_size, local_size)
-    ref = ReferenceIds(global_size, local_size)
+    thr.override_device_params(
+        max_num_groups=incorrect_testvs.max_num_groups,
+        max_work_item_sizes=incorrect_testvs.max_work_item_sizes,
+        warp_size=2)
 
     with pytest.raises(ValueError):
         kernel = thr.compile_static("""
@@ -368,4 +328,4 @@ def atest_incorrect_sizes(thr_with_gs_limits, incorrect_gl_size):
         {
             temp[0] = 1;
         }
-        """, 'test', ref.global_size, local_size=ref.local_size)
+        """, 'test', incorrect_testvs.global_size, local_size=incorrect_testvs.local_size)
