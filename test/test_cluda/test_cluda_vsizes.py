@@ -36,6 +36,8 @@ def test_find_local_size(global_size, flat_local_size, expected_local_size):
 
 
 vals_group_dimensions = [
+    ((1, 1, 1), (2, 2)),
+    ((1, 2, 3), (2, 3)),
     ((16, 16), (7, 45)),
     ((16, 16), (7, 45, 50)),
     ((3, 4, 5), (72,)),
@@ -61,7 +63,25 @@ def test_group_dimensions(virtual_shape, available_shape):
         a_dims += a_group
 
     assert v_dims == list(range(len(virtual_shape)))
-    assert a_dims == list(range(len(available_shape)))
+    assert a_dims == list(range(len(available_shape[:len(a_dims)])))
+
+
+vals_find_bounding_shape = [
+    (256, (15, 18)),
+    (256, (10, 3, 10)),
+    (299, (10, 3, 10))
+    ]
+@pytest.mark.parametrize(
+    ('virtual_size', 'available_shape'),
+    vals_find_bounding_shape,
+    ids=[str(x) for x in vals_find_bounding_shape])
+def test_find_bounding_shape(virtual_size, available_shape):
+    """
+    Tests that ``find_bounding_shape()`` obeys its contracts.
+    """
+    shape = vsize.find_bounding_shape(virtual_size, available_shape)
+    assert product(shape) >= virtual_size
+    assert all(d <= ad for d, ad in zip(shape, available_shape))
 
 
 def set_thread_gs_limits(metafunc, tc):
@@ -95,12 +115,12 @@ def set_thread_gs_limits(metafunc, tc):
 def pytest_generate_tests(metafunc):
     if 'testvs' in metafunc.funcargnames:
         grid_sizes = [
-            (13,), (35,), (31*31*4,),
+            (35,), (31*31*4,),
             (13, 15), (35, 13),
             (13, 15, 17), (75, 33, 5)]
-        local_sizes = [None, (4,), (4, 4), (4, 4, 4)]
-        mngs = [(31, 31), (31, 63), (31, 31, 31)]
-        mwiss = [(2, 2), (4, 4), (3, 5), (3, 5, 9)]
+        local_sizes = [None, (4,), (4, 2), (2, 4, 6)]
+        mngs = [(31, 26), (25, 56, 34)]
+        mwiss = [(4, 4), (3, 5), (3, 5, 9)]
 
         vals = []
 
@@ -188,21 +208,32 @@ class TestVirtualSizes:
 
     @classmethod
     def try_create(cls, global_size, local_size, max_num_groups, max_work_item_sizes):
-        if local_size is not None and len(global_size) > len(local_size):
-            local_size = local_size + (1,) * (len(global_size) - len(local_size))
+        """
+        This method is used to filter working combinations of parameters
+        from the cartesian product of all possible ones.
+        Returns ``None`` if the parameters are not compatible.
+        """
 
-        if local_size is None:
-            max_global_size = max_num_groups
-        else:
-            if product(local_size) < product(max_work_item_sizes):
+        if local_size is not None:
+            if len(local_size) > len(global_size):
+                return None
+            else:
+                # we need local size and global size of the same length
+                local_size = local_size + (1,) * (len(global_size) - len(local_size))
+
+            if product(local_size) > product(max_work_item_sizes):
                 return None
 
-            max_global_size = [
-                num_groups * ls for num_groups, ls
-                in zip(max_num_groups, local_size)]
+            bounding_global_size = [
+                ls * min_blocks(gs, ls) for gs, ls
+                in zip(global_size, local_size)]
 
-        if product(global_size) > product(max_global_size):
-            return None
+            if product(bounding_global_size) > product(max_num_groups):
+                return None
+
+        else:
+            if product(global_size) > product(max_num_groups):
+                return None
 
         return cls(global_size, local_size, max_num_groups, max_work_item_sizes)
 
@@ -214,11 +245,11 @@ class TestVirtualSizes:
 
     def is_supported_by(self, thr):
         return (
-            len(self.max_num_groups) < len(thr.device_params.max_num_groups) and
+            len(self.max_num_groups) <= len(thr.device_params.max_num_groups) and
             all(ng <= mng for ng, mng
-                in zip(self.max_num_groups, thr.device_params.max_num_groups)) or
-            len(self.max_work_item_sizes) > len(thr.device_params.max_work_item_sizes) or
-            all(nwi <= mwi for nwi, mnwi
+                in zip(self.max_num_groups, thr.device_params.max_num_groups)) and
+            len(self.max_work_item_sizes) <= len(thr.device_params.max_work_item_sizes) and
+            all(wi <= mwi for wi, mwi
                 in zip(self.max_work_item_sizes, thr.device_params.max_work_item_sizes)))
 
     def __str__(self):
@@ -227,7 +258,7 @@ class TestVirtualSizes:
             mng=self.max_num_groups, mwis=self.max_work_item_sizes)
 
 
-def atest_ids(thr, testvs):
+def test_ids(thr, testvs):
     """
     Test that virtual IDs are correct for each thread.
     """
@@ -236,7 +267,8 @@ def atest_ids(thr, testvs):
 
     thr.override_device_params(
         max_num_groups=testvs.max_num_groups,
-        max_work_item_sizes=testvs.max_work_item_sizes)
+        max_work_item_sizes=testvs.max_work_item_sizes,
+        warp_size=2)
 
     ref = ReferenceIds(testvs.global_size, testvs.local_size)
 
@@ -266,7 +298,7 @@ def atest_ids(thr, testvs):
         get_ids(local_ids, group_ids, global_ids, numpy.int32(vdim))
 
         assert diff_is_negligible(global_ids.get(), ref.predict_global_ids(vdim))
-        if local_size is not None:
+        if testvs.local_size is not None:
             assert diff_is_negligible(local_ids.get(), ref.predict_local_ids(vdim))
             assert diff_is_negligible(group_ids.get(), ref.predict_group_ids(vdim))
 

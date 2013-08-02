@@ -4,13 +4,16 @@ WITHIN_KERNEL VSIZE_T virtual_local_id(unsigned int dim)
     if (dim == ${vdim})
     {
         SIZE_T flat_id =
-        %for rdim in local_groups.real_dims[vdim]:
-            get_local_id(${rdim}) * ${local_groups.real_strides[vdim][rdim]}
+        %for i, rdim in enumerate(local_groups.real_dims[vdim]):
+            get_local_id(${rdim}) * ${local_groups.real_strides[vdim][i]} +
         %endfor
-            + 0;
+            0;
 
-        return (flat_id / ${local_groups.virtual_strides[vdim]}) %
-            ${1 if vdim == local_groups.major_vdims[vdim] else virtual_local_size[vdim]};
+        %if vdim == local_groups.major_vdims[vdim]:
+        return (flat_id / ${local_groups.virtual_strides[vdim]});
+        %else:
+        return (flat_id / ${local_groups.virtual_strides[vdim]}) % ${virtual_local_size[vdim]};
+        %endif
     }
     %endfor
 
@@ -35,13 +38,16 @@ WITHIN_KERNEL VSIZE_T virtual_group_id(unsigned int dim)
     if (dim == ${vdim})
     {
         SIZE_T flat_id =
-        %for rdim in grid_groups.real_dims[vdim]:
-            get_group_id(${rdim}) * ${grid_groups.real_strides[vdim][rdim]}
+        %for i, rdim in enumerate(grid_groups.real_dims[vdim]):
+            get_group_id(${rdim}) * ${grid_groups.real_strides[vdim][i]} +
         %endfor
-            + 0;
+            0;
 
-        return (flat_id / ${grid_groups.virtual_strides[vdim]}) %
-            ${1 if vdim == grid_groups.major_vdims[vdim] else virtual_grid_size[vdim]};
+        %if vdim == grid_groups.major_vdims[vdim]:
+        return (flat_id / ${grid_groups.virtual_strides[vdim]});
+        %else:
+        return (flat_id / ${grid_groups.virtual_strides[vdim]}) % ${virtual_grid_size[vdim]};
+        %endif
     }
     %endfor
 
@@ -83,16 +89,16 @@ WITHIN_KERNEL VSIZE_T virtual_global_flat_id()
     %for vdim in range(len(virtual_global_size)):
         virtual_global_id(${vdim}) * ${product(virtual_global_size[:vdim])} +
     %endfor
-        + 0;
+        0;
 }
 
 WITHIN_KERNEL bool virtual_skip_local_threads()
 {
-    %for threshold, rdims in local_groups.skip_thresholds:
+    %for threshold, strides in local_groups.skip_thresholds:
     {
         VSIZE_T flat_id =
-        %for rdim in rdims:
-            get_local_id(${rdim}) +
+        %for rdim, stride in strides:
+            get_local_id(${rdim}) * ${stride} +
         %endfor
             0;
 
@@ -106,11 +112,11 @@ WITHIN_KERNEL bool virtual_skip_local_threads()
 
 WITHIN_KERNEL bool virtual_skip_groups()
 {
-    %for threshold, rdims in grid_groups.skip_thresholds:
+    %for threshold, strides in grid_groups.skip_thresholds:
     {
         VSIZE_T flat_id =
-        %for rdim in rdims:
-            get_group_id(${rdim}) +
+        %for rdim, stride in strides:
+            get_group_id(${rdim}) * ${stride} +
         %endfor
             0;
 

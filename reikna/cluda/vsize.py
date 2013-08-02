@@ -2,6 +2,7 @@ import sys
 from collections import defaultdict
 import itertools
 
+from reikna.cluda.kernel import render_template
 from reikna.helpers import product, log2, min_blocks, template_for, wrap_in_tuple, factors
 
 TEMPLATE = template_for(__file__)
@@ -123,8 +124,16 @@ def _group_dimensions(vdim, virtual_shape, adim, available_shape):
     """
     ``vdim`` and ``adim`` are used for the absolute addressing of dimensions during recursive calls.
     """
+    if len(virtual_shape) == 1 and virtual_shape[0] == 1:
+        return [(vdim,)], [(adim,)]
+
     if len(virtual_shape) == 0:
         return [], []
+
+    if virtual_shape[0] == 1:
+        v_remainder, a_remainder = _group_dimensions(
+            vdim + 1, virtual_shape[1:], adim, available_shape)
+        return [(vdim,) + v_remainder[0]] + v_remainder[1:], a_remainder
 
     vdim_group = 1 # number of currently grouped virtual dimensions
     adim_group = 1 # number of currently grouped available dimensions
@@ -218,9 +227,7 @@ class ShapeGroups:
         self.bounding_shape = tuple()
         self.skip_thresholds = []
 
-        v_groups, a_groups = group_dimensions(0, virtual_shape, 0, available_shape)
-        print("v groups", v_groups)
-        print("a groups", a_groups)
+        v_groups, a_groups = group_dimensions(virtual_shape, available_shape)
 
         for v_group, a_group in zip(v_groups, a_groups):
             virtual_subshape = virtual_shape[v_group[0]:v_group[-1]+1]
@@ -231,10 +238,10 @@ class ShapeGroups:
                 available_shape[a_group[0]:a_group[-1]+1])
 
             self.bounding_shape += bounding_subshape
-            print("bounding subshape", bounding_subshape)
 
             if virtual_subsize < product(bounding_subshape):
-                self.skip_thresholds.append((virtual_subsize, a_group))
+                strides = [(adim, product(bounding_subshape[:i])) for i, adim in enumerate(a_group)]
+                self.skip_thresholds.append((virtual_subsize, strides))
 
             for vdim in v_group:
                 self.real_dims[vdim] = a_group
@@ -248,6 +255,11 @@ class VirtualSizes:
 
     def __init__(self, device_params, max_local_size, virtual_global_size, virtual_local_size=None):
 
+        max_local_size = min(
+            max_local_size,
+            device_params.max_work_group_size,
+            max(device_params.max_work_item_sizes))
+
         if virtual_local_size is None:
             # FIXME: we can obtain better results by taking occupancy into account here,
             # but for now we will assume that the more threads, the better.
@@ -256,8 +268,11 @@ class VirtualSizes:
 
             if flat_global_size < max_local_size:
                 flat_local_size = flat_global_size
+            elif max_local_size < multiple:
+                flat_local_size = 1
             else:
                 flat_local_size = multiple * (max_local_size // multiple)
+
             virtual_local_size = find_local_size(virtual_global_size, flat_local_size)
 
         # Global and local sizes supported by CUDA or OpenCL restricted number of dimensions,
@@ -268,12 +283,6 @@ class VirtualSizes:
         bounding_global_size = tuple(
             grs * ls for grs, ls in zip(virtual_grid_size, virtual_local_size))
 
-        print()
-        print("virtual_local_size", virtual_local_size)
-        print("virtual_grid_size", virtual_grid_size)
-        print("bounding_global_size", bounding_global_size)
-        print("device max_work_item_sizes", device_params.max_work_item_sizes)
-
         if product(virtual_grid_size) > product(device_params.max_num_groups):
             raise ValueError(
                 "Bounding global size " + repr(bounding_global_size) + " is too large")
@@ -282,18 +291,30 @@ class VirtualSizes:
             raise ValueError("Local size " + repr(virtual_local_size) + " is too large")
 
         local_groups = ShapeGroups(virtual_local_size, device_params.max_work_item_sizes)
-        print("local groups", local_groups.real_dims)
         grid_groups = ShapeGroups(virtual_grid_size, device_params.max_num_groups)
-        print("grid groups", grid_groups.real_dims)
 
         self.virtual_local_size = tuple(virtual_local_size)
         self.virtual_global_size = tuple(virtual_global_size)
-        self.real_local_size = tuple(local_groups.bounding_shape)
+
+        # These can be different lenghts because of expansion into multiple dimensions
+        # find_bounding_shape() does.
+        real_local_size = tuple(local_groups.bounding_shape)
+        real_grid_size = tuple(grid_groups.bounding_shape)
+
+        diff = len(real_local_size) - len(real_grid_size)
+        if diff > 0:
+            self.real_local_size = real_local_size
+            self.real_grid_size = real_grid_size + (1,) * abs(diff)
+        else:
+            self.real_local_size = real_local_size + (1,) * abs(diff)
+            self.real_grid_size = real_grid_size
+
         self.real_global_size = tuple(
             gs * ls for gs, ls
-            in zip(grid_groups.bounding_shape, self.real_local_size))
+            in zip(self.real_grid_size, self.real_local_size))
 
-        self.vsize_functions = TEMPLATE.render(
+        self.vsize_functions = render_template(
+            TEMPLATE,
             virtual_local_size=virtual_local_size,
             virtual_global_size=virtual_global_size,
             bounding_global_size=bounding_global_size,
