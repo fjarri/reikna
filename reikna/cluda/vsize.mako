@@ -92,6 +92,16 @@ WITHIN_KERNEL VSIZE_T virtual_global_flat_id()
         0;
 }
 
+WITHIN_KERNEL VSIZE_T virtual_global_flat_size()
+{
+    return
+    %for vdim in range(len(virtual_global_size)):
+        virtual_global_size(${vdim}) *
+    %endfor
+        1;
+}
+
+
 WITHIN_KERNEL bool virtual_skip_local_threads()
 {
     %for threshold, strides in local_groups.skip_thresholds:
