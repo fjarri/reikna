@@ -2,13 +2,19 @@
 =====
 
 * ?API (CLUDA, core): do something about the inconsistency of array shapes (row-major) and global sizes (column-major). Special get_id() functions maybe?
-
 * API (computations): make helpers functions in dht methods of DHT class.
 * API (computations): add FFT.get_freqs()
 * API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
 * ?API (core): make ``device_params`` an attribute of plan or plan factory?
 * ?API (computations): can we improve how Predicates for Reduce are defined?
 * ?API (cluda): make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
+* ?FIX (cluda): does the forceful enabling of double precision in OpenCL somehow change the performance for single precision?
+* ?FIX (cluda): Is there a way to get number of shared memory banks and warp size from AMD device?
+* ?FIX (cluda): find a way to get ``min_mem_coalesce_width`` for OpenCL
+
+
+0.3.5
+=====
 
 * FEATURE (computations): add ``inplace`` parameter to FFT and DHT, which will produce computations that are guaranteed to work inplace.
 * ?FIX (core): check if Signature.bind() is too slow in the kernel call; perhaps we will have to rewrite it taking into account restrictions to Parameter types we have.
@@ -46,18 +52,14 @@
   Currently it is impossible because of the chosen interface (kwds do not allow repettitions).
   This can be actually still achieved by connecting additional identity transformations.
 * FEATURE (docs): extend starting page (link to issue tracker, quick links to guides, list of algorithms, quick example)
-* ?FIX (cluda): does the forceful enabling of double precision in OpenCL somehow change the performance for single precision?
-* ?FIX (cluda): Is there a way to get number of shared memory banks and warp size from AMD device?
 * ?FIX (cluda): what are we going to do with OpenCL platforms that do not support intra-block interaction?
   (for example, Apple's implementation)
-* ?FIX (cluda): find a way to get ``min_mem_coalesce_width`` for OpenCL
 * ?FEATURE (core): check for errors in load/stores/param usage when connecting transformations?
   Alternatively, return more meaningful errors when accessing load/store/parameter with the wrong number.
 * ?FEATURE (core): check for errors in load/stores/param usage in kernels?
   Need to see what errors look like in this case.
 * FEATURE (core): check correctness of types in Computation.__call__() if _debug is on
 * ?FEATURE (core): check that types of arrays in the computation signature are supported by GPU (eliminates the need to check it in every computation)
-* FIX (core): remove unnecessary whitespace from the transformation code (generated code will look better)
 * FEAURE (computations): add scan
 * FEAURE (computations): add bitonic sort
 * FEAURE (computations): add filter
