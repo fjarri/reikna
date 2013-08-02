@@ -1,56 +1,62 @@
-<%def name="normal_funcs()">
-
 WITHIN_KERNEL VSIZE_T virtual_local_id(unsigned int dim)
 {
-    return get_local_id(dim);
+    %for vdim in range(len(virtual_local_size)):
+    if (dim == ${vdim})
+    {
+        SIZE_T flat_id =
+        %for rdim in local_groups.real_dims[vdim]:
+            get_local_id(${rdim}) * ${local_groups.real_strides[vdim][rdim]}
+        %endfor
+            + 0;
+
+        return (flat_id / ${local_groups.virtual_strides[vdim]}) %
+            ${1 if vdim == local_groups.major_vdims[vdim] else virtual_local_size[vdim]};
+    }
+    %endfor
+
+    return 0;
 }
 
 WITHIN_KERNEL VSIZE_T virtual_local_size(unsigned int dim)
 {
-    return get_local_size(dim);
-}
+    %for vdim in range(len(virtual_local_size)):
+    if (dim == ${vdim})
+    {
+        return ${virtual_local_size[vdim]};
+    }
+    %endfor
 
-WITHIN_KERNEL VSIZE_T virtual_num_groups(unsigned int dim)
-{
-%for dim in range(len(vs.naive_bounding_grid)):
-    if (dim == ${dim}) return ${vs.naive_bounding_grid[dim] if dim < len(vs.naive_bounding_grid) else 1};
-%endfor
     return 1;
 }
 
 WITHIN_KERNEL VSIZE_T virtual_group_id(unsigned int dim)
 {
-%for dim in range(len(vs.naive_bounding_grid)):
-    if (dim == ${dim}) {
-        VSIZE_T res = 0;
-    %for rdim in range(len(vs.params.max_num_groups)):
-    <%
-        widths = [p[rdim] for p in vs.grid_parts]
-        width_greater = product(widths[:dim+1])
-        max_group_id = product(widths)
-        width_lower = product(widths[:dim])
-        multiplier = product(vs.grid_parts[dim][:rdim])
-    %>
-    ## if width_lower >= max_group_id, or width_greater == 1,
-    ## the whole expression is zero
-    %if max_group_id > 1 and width_lower < max_group_id and width_greater > 1:
-        res += ((get_group_id(${rdim})
-            ## if width_greater >= max_group_id, the '%' will have no effect
-            ${('%' + str(width_greater)) if width_greater < max_group_id else ''}
-            ) / ${width_lower}) * ${multiplier};
-    %endif
-    %endfor
-        return res;
+    %for vdim in range(len(virtual_grid_size)):
+    if (dim == ${vdim})
+    {
+        SIZE_T flat_id =
+        %for rdim in grid_groups.real_dims[vdim]:
+            get_group_id(${rdim}) * ${grid_groups.real_strides[vdim][rdim]}
+        %endfor
+            + 0;
+
+        return (flat_id / ${grid_groups.virtual_strides[vdim]}) %
+            ${1 if vdim == grid_groups.major_vdims[vdim] else virtual_grid_size[vdim]};
     }
-%endfor
+    %endfor
+
     return 0;
 }
 
-WITHIN_KERNEL VSIZE_T virtual_global_size(unsigned int dim)
+WITHIN_KERNEL VSIZE_T virtual_num_groups(unsigned int dim)
 {
-%for dim in range(len(vs.naive_bounding_grid)):
-    if(dim == ${dim}) return ${vs.global_size[dim] if dim < len(vs.global_size) else 1};
-%endfor
+    %for vdim in range(len(virtual_grid_size)):
+    if (dim == ${vdim})
+    {
+        return ${virtual_grid_size[vdim]};
+    }
+    %endfor
+
     return 1;
 }
 
@@ -59,53 +65,73 @@ WITHIN_KERNEL VSIZE_T virtual_global_id(unsigned int dim)
     return virtual_local_id(dim) + virtual_group_id(dim) * virtual_local_size(dim);
 }
 
-WITHIN_KERNEL VSIZE_T virtual_global_flat_size()
+WITHIN_KERNEL VSIZE_T virtual_global_size(unsigned int dim)
 {
-    return virtual_global_size(0) * virtual_global_size(1) * virtual_global_size(2);
+    %for vdim in range(len(virtual_global_size)):
+    if(dim == ${vdim})
+    {
+        return ${virtual_global_size[vdim]};
+    }
+    %endfor
+
+    return 1;
 }
 
 WITHIN_KERNEL VSIZE_T virtual_global_flat_id()
 {
-    <%
-    def get_expr(dims):
-        if dims == 1:
-            return "virtual_global_id(0)"
-        else:
-            return "{prev_expr} + virtual_global_id({i}) * {w}".format(
-                prev_expr=get_expr(dims - 1), i=dims-1,
-                w=product(vs.global_size[:dims-1]))
-    %>
-    return ${get_expr(len(vs.global_size))};
+    return
+    %for vdim in range(len(virtual_global_size)):
+        virtual_global_id(${vdim}) * ${product(virtual_global_size[:vdim])} +
+    %endfor
+        + 0;
 }
 
-WITHIN_KERNEL bool virtual_skip_threads()
+WITHIN_KERNEL bool virtual_skip_local_threads()
 {
-    if(
-    %for i in range(len(vs.global_size)):
-        %if vs.global_size[i] % vs.local_size[i] != 0:
-        virtual_global_id(${i}) > ${vs.global_size[i]} - 1 ||
-        %endif
+    %for threshold, rdims in local_groups.skip_thresholds:
+    {
+        VSIZE_T flat_id =
+        %for rdim in rdims:
+            get_local_id(${rdim}) +
+        %endfor
+            0;
+
+        if (flat_id >= ${threshold})
+            return true;
+    }
     %endfor
-        false
-    ) return true;
 
     return false;
 }
 
-WITHIN_KERNEL bool virtual_skip_workgroups()
+WITHIN_KERNEL bool virtual_skip_groups()
 {
-    if(
-    %for i in range(len(vs.naive_bounding_grid)):
-        %if vs.naive_bounding_grid[i] < product(vs.grid_parts[i]):
-        virtual_group_id(${i}) > ${vs.naive_bounding_grid[i]} - 1 ||
-        %endif
+    %for threshold, rdims in grid_groups.skip_thresholds:
+    {
+        VSIZE_T flat_id =
+        %for rdim in rdims:
+            get_group_id(${rdim}) +
+        %endfor
+            0;
+
+        if (flat_id >= ${threshold})
+            return true;
+    }
     %endfor
-        false
-    ) return true;
 
     return false;
 }
 
-#define VIRTUAL_SKIP_THREADS if(virtual_skip_workgroups() || virtual_skip_threads()) return
+WITHIN_KERNEL bool virtual_skip_global_threads()
+{
+    %for vdim in range(len(virtual_global_size)):
+    %if virtual_global_size[vdim] < bounding_global_size[vdim]:
+    if (virtual_global_id(${vdim}) >= ${virtual_global_size[vdim]})
+        return true;
+    %endif
+    %endfor
 
-</%def>
+    return false;
+}
+
+#define VIRTUAL_SKIP_THREADS if(virtual_skip_local_threads() || virtual_skip_groups() || virtual_skip_global_threads()) return

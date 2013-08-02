@@ -523,8 +523,8 @@ class StaticKernel:
         # Stub virtual size functions instead of real ones will not change it (hopefully).
         stub_vs = VirtualSizes(
             thr.device_params, thr.device_params.max_work_group_size,
-            global_size, local_size)
-        stub_vsize_funcs = stub_vs.render_vsize_funcs()
+            global_size, virtual_local_size=local_size)
+        stub_vsize_funcs = stub_vs.vsize_functions
 
         stub_program = Program(self._thr, stub_vsize_funcs + main_src, static=True)
         stub_kernel = getattr(stub_program, name)
@@ -532,16 +532,22 @@ class StaticKernel:
 
         # Second pass, compiling the actual kernel
 
-        vs = VirtualSizes(thr.device_params, max_work_group_size, global_size, local_size)
-        vsize_funcs = vs.render_vsize_funcs()
-        gs, ls = vs.get_call_sizes()
+        vs = VirtualSizes(
+            thr.device_params, max_work_group_size,
+            global_size, virtual_local_size=local_size)
+        vsize_funcs = vs.vsize_functions
         self._program = Program(self._thr, vsize_funcs + main_src, static=True)
         self._kernel = getattr(self._program, name)
 
-        if self._kernel.max_work_group_size < product(ls):
+        self.virtual_local_size = vs.virtual_local_size
+        self.virtual_global_size = vs.virtual_global_size
+        self.local_size = vs.real_local_size
+        self.global_size = vs.real_global_size
+
+        if self._kernel.max_work_group_size < product(self.local_size):
             raise OutOfResourcesError("Not enough registers/local memory for this local size")
 
-        self._kernel.prepare(gs, local_size=ls)
+        self._kernel.prepare(self.global_size, local_size=self.local_size)
 
     def __call__(self, *args):
         """
