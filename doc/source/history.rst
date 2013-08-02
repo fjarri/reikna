@@ -6,6 +6,10 @@ Release history
 0.3.4 (current development version)
 ===================================
 
+* CHANGED: virtual sizes algorithms were rewritten and are now more maintainable.
+  In addition, virtual sizes can now handle any number of dimensions of local and global size,
+  providing the device can support the corresponding total number of work items and groups.
+
 * CHANGED: id- and size- getting kernel functions now have return types corresponding to their equivalents.
   Virtual size functions have their own independent return type.
 
