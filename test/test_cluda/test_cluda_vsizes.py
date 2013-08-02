@@ -3,7 +3,7 @@ import itertools
 import pytest
 
 import reikna.cluda as cluda
-from reikna.cluda.vsize import find_local_size
+import reikna.cluda.vsize as vsize
 from reikna.helpers import min_blocks, product
 import reikna.cluda.dtypes as dtypes
 from helpers import *
@@ -15,6 +15,7 @@ pytest_funcarg__thr_with_gs_limits = create_thread_in_tuple
 
 
 vals_find_local_size = [
+    ((40, 50), 1, (1, 1)),
     ((7, 11, 13), 1001, (7, 11, 13)),
     ((100,), 6, (6,)),
     ((3, 15), 12, (3, 4)),
@@ -29,9 +30,38 @@ def test_find_local_size(global_size, flat_local_size, expected_local_size):
     """
     Checking that ``find_local_size`` finds the sizes we expect from it.
     """
-    local_size = find_local_size(global_size, flat_local_size)
+    local_size = vsize.find_local_size(global_size, flat_local_size)
     assert product(local_size) == flat_local_size
     assert local_size == expected_local_size
+
+
+vals_group_dimensions = [
+    ((16, 16), (7, 45)),
+    ((16, 16), (7, 45, 50)),
+    ((3, 4, 5), (72,)),
+    ((3, 4, 5), (4, 5, 6))
+    ]
+@pytest.mark.parametrize(
+    ('virtual_shape', 'available_shape'),
+    vals_group_dimensions,
+    ids=[str(x) for x in vals_group_dimensions])
+def test_group_dimensions(virtual_shape, available_shape):
+    """
+    Tests that ``group_dimensions()`` obeys its contracts.
+    """
+    v_groups, a_groups = vsize.group_dimensions(virtual_shape, available_shape)
+    v_dims = []
+    a_dims = []
+    for v_group, a_group in zip(v_groups, a_groups):
+        v_shape = virtual_shape[v_group[0]:v_group[-1]+1]
+        a_shape = available_shape[a_group[0]:a_group[-1]+1]
+        assert(product(v_shape) <= product(a_shape))
+
+        v_dims += v_group
+        a_dims += a_group
+
+    assert v_dims == list(range(len(virtual_shape)))
+    assert a_dims == list(range(len(available_shape)))
 
 
 def set_thread_gs_limits(metafunc, tc):

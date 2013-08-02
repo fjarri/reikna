@@ -119,18 +119,10 @@ def find_local_size(global_size, flat_local_size, threshold=0.05):
     return best_local_size
 
 
-def group_dimensions(vdim, virtual_shape, adim, available_shape):
+def _group_dimensions(vdim, virtual_shape, adim, available_shape):
     """
-    Returns two lists, one of tuples with numbers of grouped virtual dimensions, the other
-    one of tuples with numbers of corresponding group of available dimensions,
-    such that for any group of virtual dimensions, the total number of elements they cover
-    does not exceed the number of elements covered by the
-    corresponding group of available dimensions.
-
     ``vdim`` and ``adim`` are used for the absolute addressing of dimensions during recursive calls.
     """
-    assert product(virtual_shape) <= product(available_shape)
-
     if len(virtual_shape) == 0:
         return [], []
 
@@ -156,10 +148,22 @@ def group_dimensions(vdim, virtual_shape, adim, available_shape):
         # This means we can make a recursive call now.
         v_res = tuple(range(vdim, vdim + vdim_group))
         a_res = tuple(range(adim, adim + adim_group))
-        v_remainder, a_remainder = group_dimensions(
+        v_remainder, a_remainder = _group_dimensions(
             vdim + vdim_group, virtual_shape[vdim_group:],
             adim + adim_group, available_shape[adim_group:])
         return [v_res] + v_remainder, [a_res] + a_remainder
+
+
+def group_dimensions(virtual_shape, available_shape):
+    """
+    Returns two lists, one of tuples with numbers of grouped virtual dimensions, the other
+    one of tuples with numbers of corresponding group of available dimensions,
+    such that for any group of virtual dimensions, the total number of elements they cover
+    does not exceed the number of elements covered by the
+    corresponding group of available dimensions.
+    """
+    assert product(virtual_shape) <= product(available_shape)
+    return _group_dimensions(0, virtual_shape, 0, available_shape)
 
 
 def ceiling_root(num, pwr):
