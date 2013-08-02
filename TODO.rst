@@ -1,16 +1,8 @@
-0.3.4
+0.3.5
 =====
 
 * API (computations): make helpers functions in dht methods of DHT class.
 * API (computations): add FFT.get_freqs()
-* ?FIX (cluda): does the forceful enabling of double precision in OpenCL somehow change the performance for single precision?
-* ?FIX (cluda): Is there a way to get number of shared memory banks and warp size from AMD device?
-* ?FIX (cluda): find a way to get ``min_mem_coalesce_width`` for OpenCL
-
-
-0.3.5
-=====
-
 * API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
 * ?API (core): make ``device_params`` an attribute of plan or plan factory?
 * ?API (computations): can we improve how Predicates for Reduce are defined?
@@ -45,6 +37,8 @@
 1.0.0 (production-quality version... hopefully)
 ===============================================
 
+* ?FIX (cluda): Is there a way to get number of shared memory banks and warp size from AMD device?
+* ?FIX (cluda): find a way to get ``min_mem_coalesce_width`` for OpenCL
 * FEATURE (cluda): add a mechanism to select the best local size based on occupancy
 * ?API (computations): move some of the functionality to the top level of ``reikna`` module?
 * ?FEATURE (core): add ability to connect several transformation parameters to one node.
