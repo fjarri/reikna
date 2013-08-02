@@ -80,7 +80,8 @@ class DeviceParameters:
             self.max_work_group_size = device.max_work_group_size
             self.max_work_item_sizes = device.max_work_item_sizes
 
-        self.max_num_groups = [sys.maxsize, sys.maxsize, sys.maxsize]
+        max_size = 2 ** device.address_bits
+        self.max_num_groups = [max_size, max_size, max_size]
 
         if device.type == cl.device_type.CPU:
             # For CPU both values do not make much sense
