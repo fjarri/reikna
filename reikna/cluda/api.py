@@ -367,13 +367,19 @@ class Thread:
         """
         Creates a kernel object with fixed call sizes,
         which allows to overcome some backend limitations.
+        Global and local sizes can have any length, providing that
+        ``len(global_size) >= len(local_size)``, and the total number of work items and work groups
+        is less than the corresponding total number available for the device.
+        In order to get IDs and sizes in such kernels, virtual size functions have to be used
+        (see :c:macro:`VIRTUAL_SKIP_THREADS` and others for details).
 
         :param template_src: Mako template or a template source to render
         :param name: name of the kernel function
         :param global_size: global size to be used
         :param local_size: local size to be used.
             If ``None``, some suitable one will be picked.
-        :param local_mem: (**CUDA API only**) amount of dynamically allocated local memory to be used (in bytes).
+        :param local_mem: (**CUDA API only**) amount of dynamically allocated local memory
+            to be used (in bytes).
         :param render_args: a list of parameters to be passed as positional arguments
             to the template.
         :param render_kwds: a dictionary with additional parameters

@@ -109,12 +109,13 @@ Second, there is a set of macros attached to any kernel depending on the API it 
     Equal to ``unsigned int`` for CUDA, and ``size_t`` for OpenCL
     (which can be 32- or 64-bit unsigned integer, depending on the device).
 
-.. c:function:: SIZE_T get_local_id(unsigned int dim)
-.. c:function:: SIZE_T get_group_id(unsigned int dim)
-.. c:function:: SIZE_T get_global_id(unsigned int dim)
-.. c:function:: SIZE_T get_local_size(unsigned int dim)
-.. c:function:: SIZE_T get_num_groups(unsigned int dim)
-.. c:function:: SIZE_T get_global_size(unsigned int dim)
+.. FIXME: techincally, it should be unsigned int here, but Sphinx gives warnings for 'unsigned'
+.. c:function:: SIZE_T get_local_id(int dim)
+.. c:function:: SIZE_T get_group_id(int dim)
+.. c:function:: SIZE_T get_global_id(int dim)
+.. c:function:: SIZE_T get_local_size(int dim)
+.. c:function:: SIZE_T get_num_groups(int dim)
+.. c:function:: SIZE_T get_global_size(int dim)
 
     Local, group and global identifiers and sizes.
     In case of CUDA mimic the behavior of corresponding OpenCL functions.
@@ -131,21 +132,19 @@ Second, there is a set of macros attached to any kernel depending on the API it 
     This macro should start any kernel compiled with :py:meth:`~reikna.cluda.api.Thread.compile_static`.
     It skips all the empty threads resulting from fitting call parameters into backend limitations.
 
-.. c:function:: VSIZE_T virtual_local_id(unsigned int dim)
-.. c:function:: VSIZE_T virtual_group_id(unsigned int dim)
-.. c:function:: VSIZE_T virtual_global_id(unsigned int dim)
-.. c:function:: VSIZE_T virtual_local_size(unsigned int dim)
-.. c:function:: VSIZE_T virtual_num_groups(unsigned int dim)
-.. c:function:: VSIZE_T virtual_global_size(unsigned int dim)
-
-    Only available in :py:class:`~reikna.cluda.api.StaticKernel` objects obtained from :py:meth:`~reikna.cluda.api.Thread.compile_static`.
-    Since its dimensions can differ from actual call dimensions, these functions have to be used.
-
+.. FIXME: techincally, it should be unsigned int here, but Sphinx gives warnings for 'unsigned'
+.. c:function:: VSIZE_T virtual_local_id(int dim)
+.. c:function:: VSIZE_T virtual_group_id(int dim)
+.. c:function:: VSIZE_T virtual_global_id(int dim)
+.. c:function:: VSIZE_T virtual_local_size(int dim)
+.. c:function:: VSIZE_T virtual_num_groups(int dim)
+.. c:function:: VSIZE_T virtual_global_size(int dim)
 .. c:function:: VSIZE_T virtual_global_flat_id()
 .. c:function:: VSIZE_T virtual_global_flat_size()
 
     Only available in :py:class:`~reikna.cluda.api.StaticKernel` objects obtained from :py:meth:`~reikna.cluda.api.Thread.compile_static`.
-    useful for addressing input and output arrays.
+    Since its dimensions can differ from actual call dimensions, these functions have to be used.
+
 
 Datatype tools
 --------------
