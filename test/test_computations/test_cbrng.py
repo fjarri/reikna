@@ -75,7 +75,7 @@ def test_kernel_bijection(thr, test_bijection):
         KERNEL void test(GLOBAL_MEM ${ctype} *dest, int ctr)
         {
             VIRTUAL_SKIP_THREADS;
-            const int idx = virtual_global_id(0);
+            const VSIZE_T idx = virtual_global_id(0);
 
             ${bijection.module}KEY key = ${keygen.module}key_from_int(idx);
             ${bijection.module}COUNTER counter = ${bijection.module}make_counter_from_int(ctr);
@@ -115,7 +115,7 @@ def check_kernel_sampler(thr, sampler, extent=None, mean=None, std=None):
         KERNEL void test(GLOBAL_MEM ${ctype} *dest, int ctr_start)
         {
             VIRTUAL_SKIP_THREADS;
-            const int idx = virtual_global_id(0);
+            const VSIZE_T idx = virtual_global_id(0);
 
             ${bijection.module}KEY key = ${keygen.module}key_from_int(idx);
             ${bijection.module}COUNTER ctr = ${bijection.module}make_counter_from_int(ctr_start);
@@ -123,7 +123,7 @@ def check_kernel_sampler(thr, sampler, extent=None, mean=None, std=None):
 
             ${sampler.module}RESULT res;
 
-            for(int j = 0; j < ${batch}; j++)
+            for(VSIZE_T j = 0; j < ${batch}; j++)
             {
                 res = ${sampler.module}sample(&st);
 

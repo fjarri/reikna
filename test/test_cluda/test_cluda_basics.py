@@ -123,7 +123,7 @@ def test_dtype_support(thr, dtype):
     KERNEL void test(
         GLOBAL_MEM ${ctype} *dest, GLOBAL_MEM ${ctype} *a, GLOBAL_MEM ${ctype} *b)
     {
-      const int i = get_global_id(0);
+      const SIZE_T i = get_global_id(0);
       ${ctype} temp = ${mul}(a[i], b[i]);
       dest[i] = ${div}(temp, b[i]);
     }
@@ -154,7 +154,7 @@ def test_find_local_size(thr_and_global_size):
     """
     KERNEL void test(GLOBAL_MEM int *dest)
     {
-        const int i = get_global_id(0) +
+        const SIZE_T i = get_global_id(0) +
             get_global_id(1) * get_global_size(0) +
             get_global_id(2) * get_global_size(1) * get_global_size(0);
         dest[i] = i;
@@ -201,13 +201,13 @@ def test_tempalloc(cluda_api, tempalloc_cls, pack):
     """
     KERNEL void fill(GLOBAL_MEM ${ctype} *dest, ${ctype} val)
     {
-      const int i = get_global_id(0);
+      const SIZE_T i = get_global_id(0);
       dest[i] = val;
     }
 
     KERNEL void transfer(GLOBAL_MEM ${ctype} *dest, GLOBAL_MEM ${ctype} *src)
     {
-      const int i = get_global_id(0);
+      const SIZE_T i = get_global_id(0);
       dest[i] = src[i];
     }
     """, render_kwds=dict(ctype=dtypes.ctype(dtype)))

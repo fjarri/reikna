@@ -103,36 +103,48 @@ Second, there is a set of macros attached to any kernel depending on the API it 
 
     Modifier for inline functions.
 
-.. c:function:: int get_local_id(int dim)
-.. c:function:: int get_group_id(int dim)
-.. c:function:: int get_global_id(int dim)
-.. c:function:: int get_local_size(int dim)
-.. c:function:: int get_num_groups(int dim)
-.. c:function:: int get_global_size(int dim)
+.. c:macro:: SIZE_T
+
+    The type of local/global IDs and sizes.
+    Equal to ``unsigned int`` for CUDA, and ``size_t`` for OpenCL
+    (which can be 32- or 64-bit unsigned integer, depending on the device).
+
+.. FIXME: techincally, it should be unsigned int here, but Sphinx gives warnings for 'unsigned'
+.. c:function:: SIZE_T get_local_id(int dim)
+.. c:function:: SIZE_T get_group_id(int dim)
+.. c:function:: SIZE_T get_global_id(int dim)
+.. c:function:: SIZE_T get_local_size(int dim)
+.. c:function:: SIZE_T get_num_groups(int dim)
+.. c:function:: SIZE_T get_global_size(int dim)
 
     Local, group and global identifiers and sizes.
     In case of CUDA mimic the behavior of corresponding OpenCL functions.
+
+.. c:macro:: VSIZE_T
+
+    The type of local/global IDs in the virtual grid.
+    It is separate from :c:macro:`SIZE_T` because the former is intended to be equivalent to
+    what the backend is using, while ``VSIZE_T`` is a separate type and can be made larger
+    than ``SIZE_T`` in the future if necessary.
 
 .. c:macro:: VIRTUAL_SKIP_THREADS
 
     This macro should start any kernel compiled with :py:meth:`~reikna.cluda.api.Thread.compile_static`.
     It skips all the empty threads resulting from fitting call parameters into backend limitations.
 
-.. c:function:: int virtual_local_id(int dim)
-.. c:function:: int virtual_group_id(int dim)
-.. c:function:: int virtual_global_id(int dim)
-.. c:function:: int virtual_local_size(int dim)
-.. c:function:: int virtual_num_groups(int dim)
-.. c:function:: int virtual_global_size(int dim)
+.. FIXME: techincally, it should be unsigned int here, but Sphinx gives warnings for 'unsigned'
+.. c:function:: VSIZE_T virtual_local_id(int dim)
+.. c:function:: VSIZE_T virtual_group_id(int dim)
+.. c:function:: VSIZE_T virtual_global_id(int dim)
+.. c:function:: VSIZE_T virtual_local_size(int dim)
+.. c:function:: VSIZE_T virtual_num_groups(int dim)
+.. c:function:: VSIZE_T virtual_global_size(int dim)
+.. c:function:: VSIZE_T virtual_global_flat_id()
+.. c:function:: VSIZE_T virtual_global_flat_size()
 
     Only available in :py:class:`~reikna.cluda.api.StaticKernel` objects obtained from :py:meth:`~reikna.cluda.api.Thread.compile_static`.
     Since its dimensions can differ from actual call dimensions, these functions have to be used.
 
-.. c:function:: int virtual_global_flat_id(int dim)
-.. c:function:: int virtual_global_flat_size(int dim)
-
-    Only available in :py:class:`~reikna.cluda.api.StaticKernel` objects obtained from :py:meth:`~reikna.cluda.api.Thread.compile_static`.
-    useful for addressing input and output arrays.
 
 Datatype tools
 --------------

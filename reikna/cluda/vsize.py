@@ -1,168 +1,328 @@
+import sys
+from collections import defaultdict
+import itertools
+
+from reikna.cluda.kernel import render_template
 from reikna.helpers import product, log2, min_blocks, template_for, wrap_in_tuple, factors
 
 TEMPLATE = template_for(__file__)
 
 
-def find_local_size(device_params, max_workgroup_size, dims):
+# For effectiveness' sake, since we have quite a lot of range() usage here,
+# and Py2's range() that returns list will be too slow.
+_range = xrange if sys.version_info[0] < 3 else range
+
+
+class PrimeFactors:
     """
-    Simple algorithm to find local_size with given limitations
+    Contains a natural number's decomposition into prime factors.
     """
 
-    # shortcut for CPU devices
-    if device_params.warp_size == 1:
-        return [max_workgroup_size] + [1] * (dims - 1)
+    def __init__(self, factors):
+        self.factors = factors
 
-    # trying to find local size with dimensions which are multiples of warp_size
-    unit = device_params.warp_size
-    max_dims = device_params.max_work_item_sizes
+    @classmethod
+    def decompose(cls, num):
+        factors = defaultdict(lambda: 0)
+        if num == 1:
+            return cls(dict(factors))
 
-    sizes = [1]
-    for i in range(1, min_blocks(max_workgroup_size, unit)):
-        if i * unit <= max_workgroup_size:
-            sizes.append(i * unit)
-
-    total_size = lambda indices: product([sizes[i] for i in indices])
-    result_indices = [0] * dims
-    pos = 0
-
-    while True:
-        result_indices[pos] += 1
-
-        if result_indices[pos] < len(sizes) and total_size(result_indices) <= max_workgroup_size:
-            if sizes[result_indices[pos]] > max_dims[pos]:
-                result_indices[pos] -= 1
-
-                if pos == len(result_indices):
+        while num > 1:
+            for i in _range(2, int(round(num ** 0.5)) + 1):
+                if num % i == 0:
+                    factors[i] += 1
+                    num //= i
                     break
+            else:
+                factors[num] += 1
+                num = 1
 
-                pos += 1
+        return cls(dict(factors))
+
+    def get_value(self):
+        res = 1
+        for pwr, exp in self.factors.items():
+            res *= pwr ** exp
+        return res
+
+    def get_arrays(self):
+        return self.factors.keys(), self.factors.values()
+
+    def div_by(self, other):
+        factors = dict(self.factors)
+        for o_pwr, o_exp in other.factors.items():
+            factors[o_pwr] -= o_exp
+            if factors[o_pwr] == 0:
+                del factors[o_pwr]
+        return PrimeFactors(factors)
+
+
+def _get_decompositions(num_factors, parts):
+    """
+    Helper recursive function for ``get_decompositions()``.
+    Iterates over all possible decompositions of ``num_factors`` (of type ``PrimeFactors``)
+    into ``parts`` factors.
+    """
+    if parts == 1:
+        yield (num_factors.get_value(),)
+        return
+
+    powers, exponents = num_factors.get_arrays()
+    for sub_exps in itertools.product(*[_range(exp, -1, -1) for exp in exponents]):
+        part_factors = PrimeFactors(
+            {pwr:sub_exp for pwr, sub_exp in zip(powers, sub_exps) if sub_exp > 0})
+        part = part_factors.get_value()
+        remainder = num_factors.div_by(part_factors)
+        for decomp in _get_decompositions(remainder, parts - 1):
+            yield (part,) + decomp
+
+
+def get_decompositions(num, parts):
+    """
+    Iterates overall possible decompositions of ``num`` into ``parts`` factors.
+    """
+    num_factors = PrimeFactors.decompose(num)
+    return _get_decompositions(num_factors, parts)
+
+
+def find_local_size(global_size, flat_local_size, threshold=0.05):
+    """
+    Returns a tuple of the same size as ``global_size``,
+    with the product equal to ``flat_local_size``,
+    and minimal difference between ``product(global_size)``
+    and ``product(min_blocks(gs, ls) for gs, ls in zip(global_size, local_size))``
+    (i.e. tries to minimize the amount of empty threads).
+    """
+    flat_global_size = product(global_size)
+    if flat_local_size >= flat_global_size:
+        return global_size
+
+    threads_num = product(global_size)
+
+    best_ratio = None
+    best_local_size = None
+
+    for local_size in get_decompositions(flat_local_size, len(global_size)):
+        bounding_global_size = tuple(
+            ls * min_blocks(gs, ls) for gs, ls in zip(global_size, local_size))
+        empty_threads = product(bounding_global_size) - threads_num
+        ratio = float(empty_threads) / threads_num
+
+        # Stopping iteration early, because there may be a lot of elements to iterate over,
+        # and we do not need the perfect solution.
+        if ratio < threshold:
+            return local_size
+
+        if best_ratio is None or ratio < best_ratio:
+            best_ratio = ratio
+            best_local_size = local_size
+
+    return best_local_size
+
+
+def _group_dimensions(vdim, virtual_shape, adim, available_shape):
+    """
+    ``vdim`` and ``adim`` are used for the absolute addressing of dimensions during recursive calls.
+    """
+    if len(virtual_shape) == 1 and virtual_shape[0] == 1:
+        return [(vdim,)], [(adim,)]
+
+    if len(virtual_shape) == 0:
+        return [], []
+
+    if virtual_shape[0] == 1:
+        v_remainder, a_remainder = _group_dimensions(
+            vdim + 1, virtual_shape[1:], adim, available_shape)
+        return [(vdim,) + v_remainder[0]] + v_remainder[1:], a_remainder
+
+    vdim_group = 1 # number of currently grouped virtual dimensions
+    adim_group = 1 # number of currently grouped available dimensions
+
+    while 1:
+        # If we have more elements in the virtual group than there is in the available group,
+        # extend the available group by one dimension.
+        if product(virtual_shape[:vdim_group]) > product(available_shape[:adim_group]):
+            adim_group += 1
+            continue
+
+        # If the remaining available dimensions cannot accommodate the remaining virtual dimensions,
+        # we try to fit one more virtual dimension in the virtual group.
+        if product(virtual_shape[vdim_group:]) > product(available_shape[adim_group:]):
+            vdim_group += 1
+            continue
+
+        # If we are here, it means that:
+        # 1) the current available group can accommodate the current virtual group;
+        # 2) the remaining available dimensions can accommodate the remaining virtual dimensions.
+        # This means we can make a recursive call now.
+        v_res = tuple(range(vdim, vdim + vdim_group))
+        a_res = tuple(range(adim, adim + adim_group))
+        v_remainder, a_remainder = _group_dimensions(
+            vdim + vdim_group, virtual_shape[vdim_group:],
+            adim + adim_group, available_shape[adim_group:])
+        return [v_res] + v_remainder, [a_res] + a_remainder
+
+
+def group_dimensions(virtual_shape, available_shape):
+    """
+    Returns two lists, one of tuples with numbers of grouped virtual dimensions, the other
+    one of tuples with numbers of corresponding group of available dimensions,
+    such that for any group of virtual dimensions, the total number of elements they cover
+    does not exceed the number of elements covered by the
+    corresponding group of available dimensions.
+    """
+    assert product(virtual_shape) <= product(available_shape)
+    return _group_dimensions(0, virtual_shape, 0, available_shape)
+
+
+def ceiling_root(num, pwr):
+    """
+    Returns the integer ``num ** (1. / pwr)`` if num is a perfect square/cube/etc,
+    or the integer ceiling of this value, if it's not.
+    """
+    res = num ** (1. / pwr)
+    int_res = round(res)
+    if int_res ** pwr == num:
+        return int_res
+    else:
+        return int(res + 1)
+
+
+def find_bounding_shape(virtual_size, available_shape):
+    """
+    Finds a tuple of the same length as ``available_shape``, with every element
+    not greater than the corresponding element of ``available_shape``,
+    and product not lower than ``virtual_size``.
+    """
+    assert virtual_size <= product(available_shape)
+
+    free_size = virtual_size
+    free_dims = set(range(len(available_shape)))
+    bounding_shape = [None] * len(available_shape)
+
+    while len(free_dims) > 0:
+        guess = ceiling_root(free_size, len(free_dims))
+        for fdim in free_dims:
+            bounding_shape[fdim] = guess
+
+        for fdim in free_dims:
+            if bounding_shape[fdim] > available_shape[fdim]:
+                bounding_shape[fdim] = available_shape[fdim]
+                free_dims.remove(fdim)
+                free_size = min_blocks(free_size, bounding_shape[fdim])
+                break
         else:
-            result_indices[pos] -= 1
-            break
+            return tuple(bounding_shape)
 
-    return tuple([sizes[i] for i in result_indices])
+    return available_shape
+
+
+class ShapeGroups:
+
+    def __init__(self, virtual_shape, available_shape):
+        self.real_dims = {}
+        self.real_strides = {}
+        self.virtual_strides = {}
+        self.major_vdims = {}
+        self.bounding_shape = tuple()
+        self.skip_thresholds = []
+
+        v_groups, a_groups = group_dimensions(virtual_shape, available_shape)
+
+        for v_group, a_group in zip(v_groups, a_groups):
+            virtual_subshape = virtual_shape[v_group[0]:v_group[-1]+1]
+            virtual_subsize = product(virtual_subshape)
+
+            bounding_subshape = find_bounding_shape(
+                virtual_subsize,
+                available_shape[a_group[0]:a_group[-1]+1])
+
+            self.bounding_shape += bounding_subshape
+
+            if virtual_subsize < product(bounding_subshape):
+                strides = [(adim, product(bounding_subshape[:i])) for i, adim in enumerate(a_group)]
+                self.skip_thresholds.append((virtual_subsize, strides))
+
+            for vdim in v_group:
+                self.real_dims[vdim] = a_group
+                self.real_strides[vdim] = tuple(
+                    product(self.bounding_shape[a_group[0]:adim]) for adim in a_group)
+                self.virtual_strides[vdim] = product(virtual_shape[v_group[0]:vdim])
+                self.major_vdims[vdim] = v_group[-1]
 
 
 class VirtualSizes:
 
-    def __init__(self, device_params, max_workgroup_size, global_size, local_size):
-        self.params = device_params
+    def __init__(self, device_params, max_local_size, virtual_global_size, virtual_local_size=None):
 
-        self.global_size = wrap_in_tuple(global_size)
+        virtual_global_size = wrap_in_tuple(virtual_global_size)
+        if virtual_local_size is not None:
+            virtual_local_size = wrap_in_tuple(virtual_local_size)
 
-        if local_size is None:
-            local_size = find_local_size(device_params, max_workgroup_size, len(self.global_size))
+        max_local_size = min(
+            max_local_size,
+            device_params.max_work_group_size,
+            max(device_params.max_work_item_sizes))
 
-        self.local_size = wrap_in_tuple(local_size)
+        if virtual_local_size is None:
+            # FIXME: we can obtain better results by taking occupancy into account here,
+            # but for now we will assume that the more threads, the better.
+            flat_global_size = product(virtual_global_size)
+            multiple = device_params.warp_size
 
-        if len(self.global_size) != len(self.local_size):
-            raise ValueError("Global/local work sizes have differing dimensions")
-        if len(self.global_size) > 3:
-            raise ValueError("Virtual sizes are supported for 1D to 3D grids only")
+            if flat_global_size < max_local_size:
+                flat_local_size = flat_global_size
+            elif max_local_size < multiple:
+                flat_local_size = 1
+            else:
+                flat_local_size = multiple * (max_local_size // multiple)
 
-        self.naive_bounding_grid = [min_blocks(gs, ls)
-            for gs, ls in zip(self.global_size, self.local_size)]
+            virtual_local_size = find_local_size(virtual_global_size, flat_local_size)
 
-        if product(self.local_size) > self.params.max_work_group_size:
-            raise ValueError("Number of work items is too high")
-        if product(self.naive_bounding_grid) > product(self.params.max_num_groups):
-            raise ValueError("Number of work groups is too high")
+        # Global and local sizes supported by CUDA or OpenCL restricted number of dimensions,
+        # which may have limited size, so we need to pack our multidimensional sizes.
 
-        self.grid_parts = self.get_rearranged_grid(self.naive_bounding_grid)
-        gdims = len(self.params.max_num_groups)
-        self.grid = [product([row[i] for row in self.grid_parts])
-            for i in range(gdims)]
-        self.k_local_size = list(self.local_size) + [1] * (gdims - len(self.local_size))
-        self.k_global_size = [l * g for l, g in zip(self.k_local_size, self.grid)]
+        virtual_grid_size = tuple(
+            min_blocks(gs, ls) for gs, ls in zip(virtual_global_size, virtual_local_size))
+        bounding_global_size = tuple(
+            grs * ls for grs, ls in zip(virtual_grid_size, virtual_local_size))
 
-    def get_rearranged_grid(self, grid):
-        # This algorithm can be made much better, but at the moment we have a simple implementation
-        # The guidelines are:
-        # 1) the order of array elements should be preserved (so it is like a reshape() operation)
-        # 2) the overhead of empty threads is considered negligible
-        #    (usually it will be true because it will be hidden by global memory latency)
-        # 3) assuming len(grid) <= 3
-        max_grid = self.params.max_num_groups
-        if len(grid) == 1:
-            return self.get_rearranged_grid_1d(grid, max_grid)
-        elif len(grid) == 2:
-            return self.get_rearranged_grid_2d(grid, max_grid)
-        elif len(grid) == 3:
-            return self.get_rearranged_grid_3d(grid, max_grid)
+        if product(virtual_grid_size) > product(device_params.max_num_groups):
+            raise ValueError(
+                "Bounding global size " + repr(bounding_global_size) + " is too large")
+
+        if product(virtual_local_size) > product(device_params.max_work_item_sizes):
+            raise ValueError("Local size " + repr(virtual_local_size) + " is too large")
+
+        local_groups = ShapeGroups(virtual_local_size, device_params.max_work_item_sizes)
+        grid_groups = ShapeGroups(virtual_grid_size, device_params.max_num_groups)
+
+        self.virtual_local_size = tuple(virtual_local_size)
+        self.virtual_global_size = tuple(virtual_global_size)
+
+        # These can be different lenghts because of expansion into multiple dimensions
+        # find_bounding_shape() does.
+        real_local_size = tuple(local_groups.bounding_shape)
+        real_grid_size = tuple(grid_groups.bounding_shape)
+
+        diff = len(real_local_size) - len(real_grid_size)
+        if diff > 0:
+            self.real_local_size = real_local_size
+            self.real_grid_size = real_grid_size + (1,) * abs(diff)
         else:
-            raise NotImplementedError()
+            self.real_local_size = real_local_size + (1,) * abs(diff)
+            self.real_grid_size = real_grid_size
 
-    def get_rearranged_grid_2d(self, grid, max_grid):
-        # A dumb algorithm which relies on 1d version
-        grid1 = self.get_rearranged_grid_1d([grid[0]], max_grid)
+        self.real_global_size = tuple(
+            gs * ls for gs, ls
+            in zip(self.real_grid_size, self.real_local_size))
 
-        # trying to fit in remaining dimensions, to decrease the number of operations
-        # in get_group_id()
-        new_max_grid = [mg // g1d for mg, g1d in zip(max_grid, grid1[0])]
-        if product(new_max_grid[1:]) >= grid[1]:
-            grid2 = self.get_rearranged_grid_1d([grid[1]], new_max_grid[1:])
-            grid2 = [[1] + grid2[0]]
-        else:
-            grid2 = self.get_rearranged_grid_1d([grid[1]], new_max_grid)
-
-        return grid1 + grid2
-
-    def get_rearranged_grid_3d(self, grid, max_grid):
-        # same dumb algorithm, but relying on 2d version
-        grid1 = self.get_rearranged_grid_2d(grid[:2], max_grid)
-
-        # trying to fit in remaining dimensions, to decrease the number of operations
-        # in get_group_id()
-        new_max_grid = [mg // g1 // g2 for mg, g1, g2 in zip(max_grid, grid1[0], grid1[1])]
-        if len(new_max_grid) > 2 and product(new_max_grid[2:]) >= grid[2]:
-            grid2 = self.get_rearranged_grid_1d([grid[2]], new_max_grid[2:])
-            grid2 = [[1, 1] + grid2[0]]
-        elif len(new_max_grid) > 1 and product(new_max_grid[1:]) >= grid[2]:
-            grid2 = self.get_rearranged_grid_1d([grid[2]], new_max_grid[1:])
-            grid2 = [[1] + grid2[0]]
-        else:
-            grid2 = self.get_rearranged_grid_1d([grid[2]], new_max_grid)
-
-        return grid1 + grid2
-
-    def get_rearranged_grid_1d(self, grid, max_grid):
-        g = grid[0]
-        if g <= max_grid[0]:
-            return [[g] + [1] * (len(max_grid) - 1)]
-
-        # for cases when max_grid was passed from higher dimension methods,
-        # and there is no space left
-        if max_grid[0] == 0:
-            return [[1] + self.get_rearranged_grid_1d([g], max_grid[1:])[0]]
-
-        # first check if we can split the number
-        fs = factors(g)
-        for f, div in reversed(fs):
-            if f <= max_grid[0]:
-                break
-
-        if f != 1 and div <= product(max_grid[1:]):
-            res = self.get_rearranged_grid_1d([div], max_grid[1:])
-            return [[f] + res[0]]
-
-        # fallback: will have some empty threads
-        # picking factor equal to the power of 2 to make id calculations faster
-        # Starting from low powers in order to minimize the number of resulting empty threads
-        for p in range(1, log2(max_grid[-1]) + 1):
-            f = 2 ** p
-            remainder = min_blocks(g, f)
-            if remainder <= product(max_grid[:-1]):
-                res = self.get_rearranged_grid_1d([remainder], max_grid[:-1])
-                return [res[0] + [f]]
-
-        # fallback 2: couldn't find suitable 2**n factor, so using the maximum size
-        f = max_grid[0]
-        remainder = min_blocks(g, f)
-        res = self.get_rearranged_grid_1d([remainder], max_grid[1:])
-        return [[f] + res[0]]
-
-    def render_vsize_funcs(self):
-        return TEMPLATE.get_def('normal_funcs').render(vs=self, product=product)
-
-    def get_call_sizes(self):
-        return tuple(self.k_global_size), tuple(self.k_local_size)
+        self.vsize_functions = render_template(
+            TEMPLATE,
+            virtual_local_size=virtual_local_size,
+            virtual_global_size=virtual_global_size,
+            bounding_global_size=bounding_global_size,
+            virtual_grid_size=virtual_grid_size,
+            local_groups=local_groups,
+            grid_groups=grid_groups,
+            product=product)

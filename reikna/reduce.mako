@@ -22,11 +22,11 @@ ${kernel_declaration}
 
     LOCAL_MEM ${ctype} local_mem[${smem_size}];
 
-    int tid = virtual_local_id(0);
-    int bid = virtual_group_id(0);
-    int part_num = virtual_global_id(1);
+    VSIZE_T tid = virtual_local_id(0);
+    VSIZE_T bid = virtual_group_id(0);
+    VSIZE_T part_num = virtual_global_id(1);
 
-    int index_in_part = ${block_size} * bid + tid;
+    VSIZE_T index_in_part = ${block_size} * bid + tid;
 
     if(bid == ${blocks_per_part} - 1 && tid >= ${last_block_size})
         local_mem[tid] = ${predicate.empty};

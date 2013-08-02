@@ -50,13 +50,13 @@ class PureParallel(Computation):
             ${kernel_declaration}
             {
                 VIRTUAL_SKIP_THREADS;
-                int _flat_idx = virtual_global_id(0);
+                VSIZE_T _flat_idx = virtual_global_id(0);
 
                 %for i, idx_name in enumerate(idx_names):
                 <%
                     stride = product(shape[i+1:])
                 %>
-                int ${idx_name} = _flat_idx / ${stride};
+                VSIZE_T ${idx_name} = _flat_idx / ${stride};
                 _flat_idx -= ${idx_name} * ${stride};
                 %endfor
 

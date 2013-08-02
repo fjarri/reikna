@@ -86,7 +86,7 @@ def test_modules(some_thr):
         """
         KERNEL void test(GLOBAL_MEM float *dest, GLOBAL_MEM float *a, GLOBAL_MEM float *b)
         {
-            const int idx = get_global_id(0);
+            const SIZE_T idx = get_global_id(0);
             dest[idx] = ${c}combinator(a[idx], b[idx]);
         }
         """,
@@ -116,7 +116,7 @@ def test_snippet(some_thr):
         """
         KERNEL void test(GLOBAL_MEM float *dest, GLOBAL_MEM float *a, GLOBAL_MEM float *b)
         {
-            const int idx = get_global_id(0);
+            const SIZE_T idx = get_global_id(0);
             ${s('a', 'b')}
         }
         """,
@@ -185,7 +185,7 @@ def test_caching(some_thr):
         """
         KERNEL void test(GLOBAL_MEM int *dest)
         {
-            const int idx = get_global_id(0);
+            const SIZE_T idx = get_global_id(0);
             ${data}TEST x;
             x.a = dest[idx];
             x.b = dest[idx + ${size}];

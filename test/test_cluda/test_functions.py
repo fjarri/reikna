@@ -25,7 +25,7 @@ def get_func_kernel(thr, func_module, out_dtype, in_dtypes):
         %endfor
         )
     {
-        const int i = get_global_id(0);
+        const SIZE_T i = get_global_id(0);
         %for arg, ctype in zip(argnames, in_ctypes):
         ${ctype} ${arg}_load = ${arg}[i];
         %endfor

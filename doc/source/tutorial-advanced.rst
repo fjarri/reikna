@@ -40,7 +40,7 @@ Let us consider a (not very useful, but quite involved) example:
             Parameter('param', Annotation(Type(numpy.float32))),
         ],
         """
-        int idx = ${idxs[0]};
+        VSIZE_T idx = ${idxs[0]};
         float i1 = ${in1.load_same};
         float i2 = ${in2.load_idx}(100 - idx) * ${param};
         ${out1.store_same}(i1);
@@ -124,7 +124,7 @@ For our example we only need one action, which is the execution of an elementwis
             ${kernel_declaration}
             {
                 VIRTUAL_SKIP_THREADS;
-                int idx = virtual_global_id(0);
+                const VSIZE_T idx = virtual_global_id(0);
                 ${k_output.ctype} result =
                     ${k_input1.load_idx}(idx) +
                     ${mul}(${k_input2.load_idx}(idx), ${k_param});
