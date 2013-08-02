@@ -244,8 +244,6 @@ def test_ids(thr, testvs):
     }
     """, 'get_ids', testvs.global_size, local_size=testvs.local_size)
 
-    print(get_ids.global_size, get_ids.local_size, get_ids.virtual_global_size, get_ids.virtual_local_size)
-
     local_ids = thr.array(ref.np_global_size, numpy.int32)
     group_ids = thr.array(ref.np_global_size, numpy.int32)
     global_ids = thr.array(ref.np_global_size, numpy.int32)
