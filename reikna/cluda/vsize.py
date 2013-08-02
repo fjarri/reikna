@@ -261,6 +261,13 @@ class VirtualSizes:
             if len(virtual_local_size) != len(virtual_global_size):
                 raise ValueError("Global size and local size must have the same dimensions")
 
+        # Since the device uses column-major ordering of sizes, while we get
+        # row-major ordered shapes, we temporarily invert our shapes
+        # to facilitate internal handling.
+        virtual_global_size = tuple(reversed(virtual_global_size))
+        if virtual_local_size is not None:
+            virtual_local_size = tuple(reversed(virtual_local_size))
+
         max_local_size = min(
             max_local_size,
             device_params.max_work_group_size,
@@ -299,8 +306,9 @@ class VirtualSizes:
         local_groups = ShapeGroups(virtual_local_size, device_params.max_work_item_sizes)
         grid_groups = ShapeGroups(virtual_grid_size, device_params.max_num_groups)
 
-        self.virtual_local_size = tuple(virtual_local_size)
-        self.virtual_global_size = tuple(virtual_global_size)
+        # Returning back to the row-major ordering
+        self.virtual_local_size = tuple(reversed(virtual_local_size))
+        self.virtual_global_size = tuple(reversed(virtual_global_size))
 
         # These can be different lenghts because of expansion into multiple dimensions
         # find_bounding_shape() does.
@@ -319,6 +327,10 @@ class VirtualSizes:
             gs * ls for gs, ls
             in zip(self.real_grid_size, self.real_local_size))
 
+        # This function will be used to translate between internal column-major vdims
+        # and user-supplied row-major vdims.
+        vdim_inverse = lambda dim: len(self.virtual_local_size) - dim - 1
+
         self.vsize_functions = render_template(
             TEMPLATE,
             virtual_local_size=virtual_local_size,
@@ -327,4 +339,5 @@ class VirtualSizes:
             virtual_grid_size=virtual_grid_size,
             local_groups=local_groups,
             grid_groups=grid_groups,
-            product=product)
+            product=product,
+            vdim_inverse=vdim_inverse)

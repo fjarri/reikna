@@ -135,8 +135,8 @@ class Reduce(Computation):
             plan.kernel_call(
                 TEMPLATE.get_def('reduce'),
                 [cur_output, cur_input],
-                global_size=(blocks_per_part * block_size, final_size),
-                local_size=(block_size, 1),
+                global_size=(final_size, blocks_per_part * block_size),
+                local_size=(1, block_size),
                 render_kwds=render_kwds)
 
             part_size = blocks_per_part

@@ -17,7 +17,7 @@ vals_find_local_size = [
     ((100,), 6, (6,)),
     ((3, 15), 12, (3, 4)),
     ((10, 10, 10, 10, 10), 32, (2, 2, 2, 2, 2)),
-    ((2, 1024, 128, 16, 16), 30 * 32, (2, 96, 5, 1, 1))
+    ((16, 16, 128, 1024, 2), 30 * 32, (16, 4, 3, 5, 1))
     ]
 @pytest.mark.parametrize(
     ('global_size', 'flat_local_size', 'expected_local_size'),
@@ -85,11 +85,11 @@ def pytest_generate_tests(metafunc):
     if 'testvs' in metafunc.funcargnames:
         grid_sizes = [
             (35,), (31*31*4,),
-            (13, 15), (35, 13),
-            (13, 15, 17), (75, 33, 5)]
-        local_sizes = [None, (4,), (4, 2), (2, 4, 6)]
-        mngs = [(31, 26), (25, 56, 34)]
-        mwiss = [(4, 4), (3, 5), (3, 5, 9)]
+            (15, 13), (13, 35),
+            (17, 15, 13), (5, 33, 75)]
+        local_sizes = [None, (4,), (2, 4), (6, 4, 2)]
+        mngs = [(26, 31), (34, 56, 25)]
+        mwiss = [(4, 4), (5, 3), (9, 5, 3)]
 
         vals = []
 
@@ -104,9 +104,9 @@ def pytest_generate_tests(metafunc):
     if 'incorrect_testvs' in metafunc.funcargnames:
         vals = [
             # Bounding global size (32, 32) is too big for the grid limit and given block size
-            TestVirtualSizes((32, 32), (4, 4), (8, 7), (4, 4)),
+            TestVirtualSizes((32, 32), (4, 4), (7, 8), (4, 4)),
             # Local size is too big
-            TestVirtualSizes((32, 32), (4, 5), (16, 16), (4, 4)),
+            TestVirtualSizes((32, 32), (5, 4), (16, 16), (4, 4)),
             ]
         metafunc.parametrize('incorrect_testvs', vals, ids=[str(x) for x in vals])
 
@@ -115,12 +115,9 @@ class ReferenceIds:
 
     def __init__(self, global_size, local_size):
         self.global_size = global_size
-        self.np_global_size = tuple(reversed(global_size))
         if local_size is not None:
             self.local_size = local_size
-            self.np_local_size = tuple(reversed(local_size))
             self.grid_size = tuple(min_blocks(gs, ls) for gs, ls in zip(global_size, local_size))
-            self.np_grid_size = tuple(reversed(self.grid_size))
 
     def _tile_pattern(self, pattern, axis, full_shape):
 
@@ -133,29 +130,26 @@ class ReferenceIds:
         return pattern.astype(numpy.int32)
 
     def predict_local_ids(self, dim):
-        np_dim = len(self.global_size) - dim - 1
-        global_len = self.np_global_size[np_dim]
-        local_len = self.np_local_size[np_dim]
+        global_len = self.global_size[dim]
+        local_len = self.local_size[dim]
         repetitions = min_blocks(global_len, local_len)
 
         pattern = numpy.tile(numpy.arange(local_len), repetitions)[:global_len]
-        return self._tile_pattern(pattern, np_dim, self.np_global_size)
+        return self._tile_pattern(pattern, dim, self.global_size)
 
     def predict_group_ids(self, dim):
-        np_dim = len(self.global_size) - dim - 1
-        global_len = self.np_global_size[np_dim]
-        local_len = self.np_local_size[np_dim]
+        global_len = self.global_size[dim]
+        local_len = self.local_size[dim]
         repetitions = min_blocks(global_len, local_len)
 
         pattern = numpy.repeat(numpy.arange(repetitions), local_len)[:global_len]
-        return self._tile_pattern(pattern, np_dim, self.np_global_size)
+        return self._tile_pattern(pattern, dim, self.global_size)
 
     def predict_global_ids(self, dim):
-        np_dim = len(self.global_size) - dim - 1
-        global_len = self.np_global_size[np_dim]
+        global_len = self.global_size[dim]
 
         pattern = numpy.arange(global_len)
-        return self._tile_pattern(pattern, np_dim, self.np_global_size)
+        return self._tile_pattern(pattern, dim, self.global_size)
 
 
 class TestVirtualSizes:
@@ -244,9 +238,9 @@ def test_ids(thr, testvs):
     }
     """, 'get_ids', testvs.global_size, local_size=testvs.local_size)
 
-    local_ids = thr.array(ref.np_global_size, numpy.int32)
-    group_ids = thr.array(ref.np_global_size, numpy.int32)
-    global_ids = thr.array(ref.np_global_size, numpy.int32)
+    local_ids = thr.array(ref.global_size, numpy.int32)
+    group_ids = thr.array(ref.global_size, numpy.int32)
+    global_ids = thr.array(ref.global_size, numpy.int32)
 
     for vdim in range(len(testvs.global_size)):
 

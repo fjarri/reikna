@@ -12,11 +12,11 @@ ${kernel_declaration}
     LOCAL_MEM ${a.ctype} As[${block_width ** 2}];
     LOCAL_MEM ${b.ctype} Bs[${block_width ** 2}];
 
-    const VSIZE_T bx = virtual_group_id(0);
+    const VSIZE_T bx = virtual_group_id(2);
     const VSIZE_T by = virtual_group_id(1);
-    const VSIZE_T tx = virtual_local_id(0);
+    const VSIZE_T tx = virtual_local_id(2);
     const VSIZE_T ty = virtual_local_id(1);
-    const VSIZE_T matrix_num = virtual_global_id(2);
+    const VSIZE_T matrix_num = virtual_global_id(0);
 
     %if batched_a:
     VSIZE_T A_num = matrix_num;

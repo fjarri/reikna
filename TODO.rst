@@ -1,13 +1,8 @@
 0.3.4
 =====
 
-* ?API (CLUDA, core): do something about the inconsistency of array shapes (row-major) and global sizes (column-major). Special get_id() functions maybe?
 * API (computations): make helpers functions in dht methods of DHT class.
 * API (computations): add FFT.get_freqs()
-* API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
-* ?API (core): make ``device_params`` an attribute of plan or plan factory?
-* ?API (computations): can we improve how Predicates for Reduce are defined?
-* ?API (cluda): make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
 * ?FIX (cluda): does the forceful enabling of double precision in OpenCL somehow change the performance for single precision?
 * ?FIX (cluda): Is there a way to get number of shared memory banks and warp size from AMD device?
 * ?FIX (cluda): find a way to get ``min_mem_coalesce_width`` for OpenCL
@@ -16,6 +11,10 @@
 0.3.5
 =====
 
+* API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
+* ?API (core): make ``device_params`` an attribute of plan or plan factory?
+* ?API (computations): can we improve how Predicates for Reduce are defined?
+* ?API (cluda): make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
 * FEATURE (computations): add ``inplace`` parameter to FFT and DHT, which will produce computations that are guaranteed to work inplace.
 * ?FIX (core): check if Signature.bind() is too slow in the kernel call; perhaps we will have to rewrite it taking into account restrictions to Parameter types we have.
 * ?FIX (computations): PureParallel can be either rewritten using stub kernel and Transformation (to use load/store_combined_idx) (downside: order of parameters messes up in this case; upside: can use store_same/load_same), or using the new any-D static kernels from CLUDA (if the above fix is implemented).

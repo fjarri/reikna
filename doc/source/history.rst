@@ -13,6 +13,8 @@ Release history
 * CHANGED: id- and size- getting kernel functions now have return types corresponding to their equivalents.
   Virtual size functions have their own independent return type.
 
+* CHANGED: ``Thread.compile_static()`` and ``ComputationPlan.kernel_call()`` take global and local sizes in the row-major order, to correspond to the matrix indexing in load/store macros.
+
 * FIXED: requirements for PyCUDA extras (a currently non-existent version was specified).
 
 

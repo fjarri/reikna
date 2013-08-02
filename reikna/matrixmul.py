@@ -102,10 +102,10 @@ class MatrixMul(Computation):
                     TEMPLATE.get_def('matrixmul'),
                     [output, matrix_a, matrix_b],
                     global_size=(
-                        grid_width * block_width,
+                        batch,
                         blocks_per_matrix * block_width,
-                        batch),
-                    local_size=(block_width, block_width, 1),
+                        grid_width * block_width),
+                    local_size=(1, block_width, block_width),
                     render_kwds=render_kwds)
             except OutOfResourcesError:
                 continue

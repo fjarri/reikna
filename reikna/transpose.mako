@@ -15,15 +15,15 @@ ${kernel_declaration}
 	//   memory.
 	LOCAL_MEM ${output.ctype} block[(${block_width} + 1) * ${block_width}];
 
-	VSIZE_T lid_x = virtual_local_id(0);
+	VSIZE_T lid_x = virtual_local_id(2);
 	VSIZE_T lid_y = virtual_local_id(1);
 
-	VSIZE_T gid_x = virtual_group_id(0);
+	VSIZE_T gid_x = virtual_group_id(2);
 	VSIZE_T gid_y = virtual_group_id(1);
 
 	//unsigned int batch_num = gid_y / ${blocks_per_matrix};
 	//gid_y = gid_y % ${blocks_per_matrix};
-	VSIZE_T batch_num = virtual_global_id(2);
+	VSIZE_T batch_num = virtual_global_id(0);
 
 	VSIZE_T xBlock = ${block_width} * gid_x;
 	VSIZE_T yBlock = ${block_width} * gid_y;

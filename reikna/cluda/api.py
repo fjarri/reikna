@@ -375,8 +375,8 @@ class Thread:
 
         :param template_src: Mako template or a template source to render
         :param name: name of the kernel function
-        :param global_size: global size to be used
-        :param local_size: local size to be used.
+        :param global_size: global size to be used, in **row-major** order.
+        :param local_size: local size to be used, in **row-major** order.
             If ``None``, some suitable one will be picked.
         :param local_mem: (**CUDA API only**) amount of dynamically allocated local memory
             to be used (in bytes).

@@ -22,9 +22,9 @@ ${kernel_declaration}
 
     LOCAL_MEM ${ctype} local_mem[${smem_size}];
 
-    VSIZE_T tid = virtual_local_id(0);
-    VSIZE_T bid = virtual_group_id(0);
-    VSIZE_T part_num = virtual_global_id(1);
+    VSIZE_T tid = virtual_local_id(1);
+    VSIZE_T bid = virtual_group_id(1);
+    VSIZE_T part_num = virtual_global_id(0);
 
     VSIZE_T index_in_part = ${block_size} * bid + tid;
 

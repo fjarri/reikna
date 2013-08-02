@@ -387,8 +387,8 @@ class ComputationPlan:
             :py:class:`~reikna.core.computation.KernelArgument` objects,
             or scalar values wrapped in ``numpy.ndarray``,
             that are going to be passed to the kernel during execution.
-        :param global_size: global size to use for the call.
-        :param local_size: local size to use for the call.
+        :param global_size: global size to use for the call, in **row-major** order.
+        :param local_size: local size to use for the call, in **row-major** order.
             If ``None``, the local size will be picked automatically.
         :param render_kwds: dictionary with additional values used to render the template.
         """
