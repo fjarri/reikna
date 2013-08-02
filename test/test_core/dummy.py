@@ -111,7 +111,7 @@ class Dummy(Computation):
         </%def>
         """)
 
-        block_size = 16
+        block_size = 8
 
         C_temp = plan.temp_array_like(C)
         D_temp = plan.temp_array_like(D)
