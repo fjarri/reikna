@@ -258,6 +258,8 @@ class VirtualSizes:
         virtual_global_size = wrap_in_tuple(virtual_global_size)
         if virtual_local_size is not None:
             virtual_local_size = wrap_in_tuple(virtual_local_size)
+            if len(virtual_local_size) != len(virtual_global_size):
+                raise ValueError("Global size and local size must have the same dimensions")
 
         max_local_size = min(
             max_local_size,
