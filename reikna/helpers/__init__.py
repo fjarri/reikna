@@ -187,20 +187,33 @@ def factors(num, limit=None):
     (including 1 and ``num``), sorted by ``factor``.
     If ``limit`` is set, only pairs with ``factor <= limit`` are returned.
     """
-    if limit is None:
+    if limit is None or limit > num:
         limit = num
 
+    float_sqrt = num ** 0.5
+    int_sqrt = int(round(float_sqrt))
+
     result = []
-    for i in range(1, min(limit, int(num ** 0.5) + 1)):
+
+    if int_sqrt ** 2 == num:
+        int_limit = int_sqrt + 1
+    else:
+        int_limit = int(float_sqrt) + 1
+
+    for i in range(1, int_limit):
         div, mod = divmod(num, i)
         if mod == 0:
             result.append((i, div))
 
     if limit > result[-1][0]:
-        result = result + [(div, f) for f, div in reversed(result)]
-        return [r for r in result if r[0] <= limit]
-    else:
-        return result
+        if int_sqrt ** 2 == num:
+            to_rev = result[:-1]
+        else:
+            to_rev = result
+
+        result = result + [(div, f) for f, div in reversed(to_rev)]
+
+    return [r for r in result if r[0] <= limit]
 
 
 def wrap_in_tuple(seq_or_elem):

@@ -3,6 +3,23 @@ Release history
 ***************
 
 
+0.3.4 (3 Aug 2013)
+==================
+
+* CHANGED: virtual sizes algorithms were rewritten and are now more maintainable.
+  In addition, virtual sizes can now handle any number of dimensions of local and global size,
+  providing the device can support the corresponding total number of work items and groups.
+
+* CHANGED: id- and size- getting kernel functions now have return types corresponding to their equivalents.
+  Virtual size functions have their own independent return type.
+
+* CHANGED: ``Thread.compile_static()`` and ``ComputationPlan.kernel_call()`` take global and local sizes in the row-major order, to correspond to the matrix indexing in load/store macros.
+
+* FIXED: requirements for PyCUDA extras (a currently non-existent version was specified).
+
+* FIXED: an error in gamma distribution sampler, which lead to slightly wrong shape of the resulting distribution.
+
+
 0.3.3 (29 Jul 2013)
 ===================
 

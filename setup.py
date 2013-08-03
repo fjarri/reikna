@@ -86,7 +86,7 @@ git_revision = "{git_revision}"
 release = {released}
 '''
 
-    VERSION = (0, 3, 3)
+    VERSION = (0, 3, 4)
     RELEASED = True
 
     version_str = '%d.%d.%d' % VERSION
@@ -140,7 +140,7 @@ if __name__ == '__main__':
         install_requires=install_requires,
         extras_require=dict(
             pyopencl=["pyopencl>=2013.1"],
-            pycuda=["pycuda>=2013.2"],
+            pycuda=["pycuda>=2013.1"],
             test=["pytest>=2.3", "pytest-cov"]),
         package_data={'reikna': ['*.mako'],
                       'reikna/cluda': ['*.mako'],

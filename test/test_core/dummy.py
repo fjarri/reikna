@@ -62,8 +62,8 @@ class Dummy(Computation):
         ${kernel_declaration}
         {
             VIRTUAL_SKIP_THREADS;
-            int idx0 = virtual_global_id(1);
-            int idx1 = virtual_global_id(0);
+            VSIZE_T idx0 = virtual_global_id(0);
+            VSIZE_T idx1 = virtual_global_id(1);
 
             ${A.ctype} a = ${A.load_idx}(idx0, idx1);
             ${C.ctype} c = ${mul}(a, ${coeff});
@@ -88,8 +88,8 @@ class Dummy(Computation):
         ${kernel_declaration}
         {
             VIRTUAL_SKIP_THREADS;
-            int idx0 = virtual_global_id(1);
-            int idx1 = virtual_global_id(0);
+            VSIZE_T idx0 = virtual_global_id(0);
+            VSIZE_T idx1 = virtual_global_id(1);
 
             ${CC.store_idx}(idx0, idx1, ${C.load_idx}(idx0, idx1));
 
@@ -111,7 +111,7 @@ class Dummy(Computation):
         </%def>
         """)
 
-        block_size = 16
+        block_size = 8
 
         C_temp = plan.temp_array_like(C)
         D_temp = plan.temp_array_like(D)
@@ -224,8 +224,8 @@ class DummyAdvanced(Computation):
         ${kernel_declaration}
         {
             VIRTUAL_SKIP_THREADS;
-            int idx0 = virtual_global_id(1);
-            int idx1 = virtual_global_id(0);
+            VSIZE_T idx0 = virtual_global_id(0);
+            VSIZE_T idx1 = virtual_global_id(1);
 
             ${CC.store_idx}(idx0, idx1,
                 ${C.load_idx}(idx0, idx1) +

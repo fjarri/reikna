@@ -8,7 +8,7 @@ ${kernel_declaration}
 {
     VIRTUAL_SKIP_THREADS;
 
-    const int idx = virtual_global_id(0);
+    const VSIZE_T idx = virtual_global_id(0);
 
     ${bijection.module}KEY key = ${keygen.module}key_from_int(idx);
 
@@ -21,7 +21,7 @@ ${kernel_declaration}
     ${bijection.module}STATE state = ${bijection.module}make_state(key, counter);
 
     ${sampler.module}RESULT result;
-    for (int i = 0; i < ${batch // randoms_per_call}; i++)
+    for (VSIZE_T i = 0; i < ${batch // randoms_per_call}; i++)
     {
         result = ${sampler.module}sample(&state);
         %for j in range(randoms_per_call):

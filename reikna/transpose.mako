@@ -15,22 +15,22 @@ ${kernel_declaration}
 	//   memory.
 	LOCAL_MEM ${output.ctype} block[(${block_width} + 1) * ${block_width}];
 
-	unsigned int lid_x = virtual_local_id(0);
-	unsigned int lid_y = virtual_local_id(1);
+	VSIZE_T lid_x = virtual_local_id(2);
+	VSIZE_T lid_y = virtual_local_id(1);
 
-	unsigned int gid_x = virtual_group_id(0);
-	unsigned int gid_y = virtual_group_id(1);
+	VSIZE_T gid_x = virtual_group_id(2);
+	VSIZE_T gid_y = virtual_group_id(1);
 
 	//unsigned int batch_num = gid_y / ${blocks_per_matrix};
 	//gid_y = gid_y % ${blocks_per_matrix};
-	unsigned int batch_num = virtual_global_id(2);
+	VSIZE_T batch_num = virtual_global_id(0);
 
-	unsigned int xBlock = ${block_width} * gid_x;
-	unsigned int yBlock = ${block_width} * gid_y;
-	unsigned int xIndex = xBlock + lid_x;
-	unsigned int yIndex = yBlock + lid_y;
-	unsigned int index_block = lid_y * (${block_width} + 1) + lid_x;
-	unsigned int index_transpose = lid_x * (${block_width} + 1) + lid_y;
+	VSIZE_T xBlock = ${block_width} * gid_x;
+	VSIZE_T yBlock = ${block_width} * gid_y;
+	VSIZE_T xIndex = xBlock + lid_x;
+	VSIZE_T yIndex = yBlock + lid_y;
+	VSIZE_T index_block = lid_y * (${block_width} + 1) + lid_x;
+	VSIZE_T index_transpose = lid_x * (${block_width} + 1) + lid_y;
 
 	if(xIndex < ${input_width} && yIndex < ${input_height})
 		block[index_block] = ${input.load_combined_idx(input_slices)}(

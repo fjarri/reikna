@@ -180,7 +180,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 }
 
 // Calculates input and output weights for the Bluestein's algorithm
-WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
+WITHIN_KERNEL complex_t xweight(int dir_coeff, VSIZE_T pos)
 {
     // The modulo of 2 * fft_size_real does not change the result,
     // but greatly improves the precision by keeping the argument of sin()/cos() small.
@@ -202,10 +202,8 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         a[${a_i}] = complex_ctr(0, 0);
     %else:
     {
-        const int position_in_fft = fft_position_offset + ${g_i};
-        ##const int idx = (fft_index + ${fft_index_offset}) * ${fft_size_real if pad_in else fft_size} + position_in_fft;
+        const VSIZE_T position_in_fft = fft_position_offset + ${g_i};
 
-        ##a[${a_i}] = ${input.load}(idx);
         a[${a_i}] = ${input.load_combined_idx(input_slices)}(
             fft_index + ${fft_index_offset}, position_in_fft, 0);
 
@@ -215,7 +213,6 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 
         %if takes_kweights:
         a[${a_i}] = ${mul}(a[${a_i}],
-            ##${kweights.load}(position_in_fft + ${fft_size} * (1 - direction) / 2)
             ${kweights.load_idx}((1 - direction) / 2, position_in_fft)
             );
         %endif
@@ -236,11 +233,13 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         %>
         %if pad_in:
             ${loads(range(border), False)}
+            %if fft_size_real % inner_step > 0:
             if (fft_position_offset < ${fft_size_real % inner_step})
             {
                 ${loads([border], False)}
             }
             else
+            %endif
             {
                 ${loads([border], True)}
             }
@@ -259,14 +258,12 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 
     %for a_i, g_i, fft_index_offset in zip(a_indices, g_indices, fft_index_offsets):
     {
-        const int position_in_fft = fft_position_offset + ${g_i};
-        ##const int idx = (fft_index + ${fft_index_offset}) * ${fft_size_real if unpad_out else fft_size} + position_in_fft;
+        const VSIZE_T position_in_fft = fft_position_offset + ${g_i};
 
         %if unpad_out:
         a[${a_i}] = ${mul}(a[${a_i}], xweight(-direction, position_in_fft));
         %endif
 
-        ##${output.store}(idx, ${cdivs}(a[${a_i}], norm_coeff));
         ${output.store_combined_idx(output_slices)}(
             fft_index + ${fft_index_offset}, position_in_fft, 0,
             ${cdivs}(a[${a_i}], norm_coeff));
@@ -285,10 +282,12 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         %>
         %if unpad_out:
             ${stores(range(border))}
+            %if fft_size_real % inner_step > 0:
             if (fft_position_offset < ${fft_size_real % inner_step})
             {
                 ${stores([border])}
             }
+            %endif
         %else:
             ${stores(range(num_inner_iter))}
         %endif
@@ -310,21 +309,26 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             border = fft_size_real // threads_per_xform
         %>
 
-        const int thread_in_xform = thread_id % ${threads_per_xform};
-        const int xform_in_wg = thread_id / ${threads_per_xform};
-        const int fft_index = group_id * ${xforms_per_workgroup} + xform_in_wg;
-        const int fft_position_offset = thread_in_xform;
+        const VSIZE_T thread_in_xform = thread_id % ${threads_per_xform};
+        const VSIZE_T xform_in_wg = thread_id / ${threads_per_xform};
+        const VSIZE_T fft_index = group_id * ${xforms_per_workgroup} + xform_in_wg;
+        const VSIZE_T fft_position_offset = thread_in_xform;
 
-        if(${xforms_remainder} == 0 || (group_id < num_groups - 1) ||
-            (xform_in_wg < ${xforms_remainder}))
+        if(${xforms_remainder} == 0 || (group_id < num_groups - 1)
+            %if xforms_remainder > 0:
+            || (xform_in_wg < ${xforms_remainder})
+            %endif
+            )
         {
         %if pad_in:
             ${loads(range(border), False)}
+            %if fft_size_real % threads_per_xform > 0:
             if (fft_position_offset < ${fft_size_real % threads_per_xform})
             {
                 ${loads([border], False)}
             }
             else
+            %endif
             {
                 ${loads([border], True)}
             }
@@ -348,13 +352,13 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             num_outer_iter = xforms_per_workgroup // (local_size // mem_coalesce_width)
         %>
 
-        const int thread_in_coalesce = thread_id % ${mem_coalesce_width};
-        const int coalesce_in_wg = thread_id / ${mem_coalesce_width};
-        const int fft_index = group_id * ${xforms_per_workgroup} + coalesce_in_wg;
-        const int fft_position_offset = thread_in_coalesce;
+        const VSIZE_T thread_in_coalesce = thread_id % ${mem_coalesce_width};
+        const VSIZE_T coalesce_in_wg = thread_id / ${mem_coalesce_width};
+        const VSIZE_T fft_index = group_id * ${xforms_per_workgroup} + coalesce_in_wg;
+        const VSIZE_T fft_position_offset = thread_in_coalesce;
 
-        const int thread_in_xform = thread_id % ${threads_per_xform};
-        const int xform_in_wg = thread_id / ${threads_per_xform};
+        const VSIZE_T thread_in_xform = thread_id % ${threads_per_xform};
+        const VSIZE_T xform_in_wg = thread_id / ${threads_per_xform};
 
         if((group_id == num_groups - 1) && ${xforms_remainder} != 0)
         {
@@ -362,12 +366,14 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
                 range(xforms_remainder // (local_size // mem_coalesce_width)),
                 num_inner_iter, (local_size // mem_coalesce_width), mem_coalesce_width)}
 
+            %if xforms_remainder % (local_size // mem_coalesce_width) > 0:
             if (coalesce_in_wg < ${xforms_remainder % (local_size // mem_coalesce_width)})
             {
                 ${insertGlobalLoadsOuter(input, kweights,
                     [xforms_remainder // (local_size // mem_coalesce_width)],
                     num_inner_iter, (local_size // mem_coalesce_width), mem_coalesce_width)}
             }
+            %endif
         }
         else
         {
@@ -376,8 +382,8 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         }
 
         {
-        const int lmem_store_idx = coalesce_in_wg * ${fft_size + threads_per_xform} + thread_in_coalesce;
-        const int lmem_load_idx = xform_in_wg * ${fft_size + threads_per_xform} + thread_in_xform;
+        const VSIZE_T lmem_store_idx = coalesce_in_wg * ${fft_size + threads_per_xform} + thread_in_coalesce;
+        const VSIZE_T lmem_load_idx = xform_in_wg * ${fft_size + threads_per_xform} + thread_in_xform;
 
         %for comp in ('x', 'y'):
             %for i in range(num_outer_iter):
@@ -398,13 +404,13 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         }
 
     %else:
-        const int thread_in_fft = thread_id % ${fft_size};
-        const int fft_in_wg = thread_id / ${fft_size};
-        const int fft_index = group_id * ${xforms_per_workgroup} + fft_in_wg;
-        const int fft_position_offset = thread_in_fft;
+        const VSIZE_T thread_in_fft = thread_id % ${fft_size};
+        const VSIZE_T fft_in_wg = thread_id / ${fft_size};
+        const VSIZE_T fft_index = group_id * ${xforms_per_workgroup} + fft_in_wg;
+        const VSIZE_T fft_position_offset = thread_in_fft;
 
-        const int thread_in_xform = thread_id % ${threads_per_xform};
-        const int xform_in_wg = thread_id / ${threads_per_xform};
+        const VSIZE_T thread_in_xform = thread_id % ${threads_per_xform};
+        const VSIZE_T xform_in_wg = thread_id / ${threads_per_xform};
 
         <%
             loads = lambda indices, pad: insertGlobalLoadsNoIf(input, kweights,
@@ -420,10 +426,12 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             {
             %endif
                 ${loads(range(border), False)}
+                %if xforms_remainder % (local_size // fft_size) > 0:
                 if (fft_in_wg < ${xforms_remainder % (local_size // fft_size)})
                 {
                     ${loads([border], False)}
                 }
+                %endif
             %if pad_in:
             }
             else
@@ -449,8 +457,8 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         }
 
         {
-        const int lmem_store_idx = fft_in_wg * ${fft_size + threads_per_xform} + thread_in_fft;
-        const int lmem_load_idx = xform_in_wg * ${fft_size + threads_per_xform} + thread_in_xform;
+        const VSIZE_T lmem_store_idx = fft_in_wg * ${fft_size + threads_per_xform} + thread_in_fft;
+        const VSIZE_T lmem_load_idx = xform_in_wg * ${fft_size + threads_per_xform} + thread_in_xform;
 
         %for comp in ('x', 'y'):
             %for i in range(radix):
@@ -484,14 +492,20 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             border = fft_size_real // threads_per_xform
         %>
 
-        if(${xforms_remainder} == 0 || group_id < num_groups - 1 || xform_in_wg < ${xforms_remainder})
+        if(${xforms_remainder} == 0 || group_id < num_groups - 1
+            %if xforms_remainder > 0:
+            || xform_in_wg < ${xforms_remainder}
+            %endif
+            )
         {
         %if unpad_out:
             ${stores(range(border))}
+            %if fft_size_real % threads_per_xform > 0:
             if (fft_position_offset < ${fft_size_real % threads_per_xform})
             {
                 ${stores([border])}
             }
+            %endif
         %else:
             ${stores(range(max_radix))}
         %endif
@@ -508,8 +522,8 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         %>
 
         {
-        const int lmem_load_idx = xform_in_wg * ${fft_size + threads_per_xform} + thread_in_xform;
-        const int lmem_store_idx = coalesce_in_wg * ${fft_size + threads_per_xform} + thread_in_coalesce;
+        const VSIZE_T lmem_load_idx = xform_in_wg * ${fft_size + threads_per_xform} + thread_in_xform;
+        const VSIZE_T lmem_store_idx = coalesce_in_wg * ${fft_size + threads_per_xform} + thread_in_coalesce;
 
         %for comp in ('x', 'y'):
             %for i in range(max_radix):
@@ -542,10 +556,12 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         if((group_id == num_groups - 1) && ${xforms_remainder} != 0)
         {
             ${stores(range(border))}
+            %if xforms_remainder % (local_size // mem_coalesce_width) > 0:
             if (coalesce_in_wg < ${xforms_remainder % (local_size // mem_coalesce_width)})
             {
                 ${stores([border])}
             }
+            %endif
         }
         else
         {
@@ -554,8 +570,8 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
 
     %else:
         {
-        const int lmem_load_idx = xform_in_wg * ${fft_size + threads_per_xform} + thread_in_xform;
-        const int lmem_store_idx = fft_in_wg * ${fft_size + threads_per_xform} + thread_in_fft;
+        const VSIZE_T lmem_load_idx = xform_in_wg * ${fft_size + threads_per_xform} + thread_in_xform;
+        const VSIZE_T lmem_store_idx = fft_in_wg * ${fft_size + threads_per_xform} + thread_in_fft;
 
         %for comp in ('x', 'y'):
             %for i in range(max_radix):
@@ -589,10 +605,12 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
             {
             %endif
                 ${stores(range(border))}
+                %if xforms_remainder % (local_size // fft_size) > 0:
                 if (fft_in_wg < ${xforms_remainder % (local_size // fft_size)})
                 {
                     ${stores([border])}
                 }
+                %endif
             %if unpad_out:
             }
             %endif
@@ -615,7 +633,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     // Twiddle kernel
     %for z in range(num_iter):
     {
-        const int angf = (${z * threads_per_xform} + thread_in_xform) / ${radix_prev};
+        const VSIZE_T angf = (${z * threads_per_xform} + thread_in_xform) / ${radix_prev};
         %for k in range(1, radix):
             <% ind = z * radix + k %>
             a[${ind}] = ${mul}(
@@ -647,12 +665,12 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     %>
     {
     %if xforms_per_workgroup == 1:
-        const int lmem_store_idx = thread_in_xform;
+        const VSIZE_T lmem_store_idx = thread_in_xform;
     %else:
-        const int lmem_store_idx = xform_in_wg * ${(threads_req + offset) * radix + mid_pad} + thread_in_xform;
+        const VSIZE_T lmem_store_idx = xform_in_wg * ${(threads_req + offset) * radix + mid_pad} + thread_in_xform;
     %endif
 
-        int i, j;
+        VSIZE_T i, j;
     %if radix_curr < threads_per_xform:
         j = (thread_in_xform % ${radix_curr}) / ${radix_prev};
         i = (thread_in_xform / ${radix_curr}) * ${radix_prev} + thread_in_xform % ${radix_prev};
@@ -665,7 +683,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
         i = xform_in_wg * ${incr} + i;
     %endif
 
-        const int lmem_load_idx = j * ${threads_req + offset} + i;
+        const VSIZE_T lmem_load_idx = j * ${threads_req + offset} + i;
 
     %for comp in ('x', 'y'):
         %for z in range(num_iter):
@@ -712,8 +730,8 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     a[${i}] = complex_ctr(NAN, NAN);
     %endfor
 
-    const int thread_id = virtual_local_id(0);
-    const int group_id = virtual_group_id(0);
+    const VSIZE_T thread_id = virtual_local_id(0);
+    const VSIZE_T group_id = virtual_group_id(0);
 
     ## makes it easier to use it inside other definitions
     %if reverse_direction:
@@ -722,7 +740,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, int pos)
     const int direction = -(1 - ${inverse} * 2);
     %endif
 
-    const int norm_coeff = direction == 1 ? ${fft_size if normalize else 1} : 1;
+    const unsigned int norm_coeff = direction == 1 ? ${fft_size if normalize else 1} : 1;
 </%def>
 
 <%def name="fft_local(kernel_declaration, *args)">
@@ -809,13 +827,12 @@ ${kernel_declaration}
 
     ${insertVariableDefinitions(direction, lmem_size, radix1)}
 
-    const int xform_global = group_id / ${groups_per_xform};
-    const int group_in_xform = group_id % ${groups_per_xform};
-    const int xform_local = thread_id / ${local_batch};
-    const int thread_in_xform = thread_id % ${local_batch};
+    const VSIZE_T xform_global = group_id / ${groups_per_xform};
+    const VSIZE_T group_in_xform = group_id % ${groups_per_xform};
+    const VSIZE_T xform_local = thread_id / ${local_batch};
+    const VSIZE_T thread_in_xform = thread_id % ${local_batch};
 
-    const int position_in_stride_in = thread_in_xform + group_in_xform * ${local_batch};
-    const int xform_number = xform_global * ${inner_batch};
+    const VSIZE_T position_in_stride_in = thread_in_xform + group_in_xform * ${local_batch};
 
     // Load data
     %if stride_in % local_batch != 0:
@@ -826,13 +843,11 @@ ${kernel_declaration}
 
     %for j in range(radix1):
     {
-        const int stride_in_number = xform_local + ${j * radix2};
-        const int position = position_in_stride_in + ${stride_in} * stride_in_number;
+        const VSIZE_T stride_in_number = xform_local + ${j * radix2};
+        const VSIZE_T position = position_in_stride_in + ${stride_in} * stride_in_number;
 
-        ##%if pad_in or takes_kweights:
-        const int position_in_fft = position / ${inner_batch};
-        const int position_in_inner_batch = position % ${inner_batch};
-        ##%endif
+        const VSIZE_T position_in_fft = position / ${inner_batch};
+        const VSIZE_T position_in_inner_batch = position % ${inner_batch};
 
         %if pad_in:
         const complex_t xw = xweight(direction, position_in_fft);
@@ -841,7 +856,6 @@ ${kernel_declaration}
         if (position_in_fft < ${fft_size_real})
         {
         %endif
-            ##a[${j}] = ${input.load}(position + ${fft_size_real if pad_in else fft_size} * xform_number);
             a[${j}] = ${input.load_combined_idx(input_slices)}(
                 xform_global, position_in_fft, position_in_inner_batch);
         %if pad_in:
@@ -853,7 +867,6 @@ ${kernel_declaration}
 
         %if takes_kweights:
         a[${j}] = ${mul}(a[${j}],
-            ##${kweights.load}(position_in_fft + ${fft_size} * (1 - direction) / 2)
             ${kweights.load_idx}((1 - direction) / 2, position_in_fft)
             );
         %endif
@@ -874,8 +887,8 @@ ${kernel_declaration}
 
         // Shuffle
         {
-        const int lmem_store_idx = thread_id;
-        const int lmem_load_idx = xform_local * ${local_size * num_iter} + thread_in_xform;
+        const VSIZE_T lmem_store_idx = thread_id;
+        const VSIZE_T lmem_load_idx = xform_local * ${local_size * num_iter} + thread_in_xform;
 
         %for comp in ('x', 'y'):
             %for k in range(radix1):
@@ -901,8 +914,8 @@ ${kernel_declaration}
     %if not last_pass:
     // Twiddle
     {
-        const int l = (group_in_xform * ${local_batch} + thread_in_xform) / ${stride_out};
-        const int k = xform_local * ${radix1 // radix2};
+        const VSIZE_T l = (group_in_xform * ${local_batch} + thread_in_xform) / ${stride_out};
+        const VSIZE_T k = xform_local * ${radix1 // radix2};
         const real_t ang1 = ${wrap_const(2 * numpy.pi / curr_size)} * l * direction;
         %for t in range(radix1):
         {
@@ -917,8 +930,8 @@ ${kernel_declaration}
     // Store Data
     %if stride_out == 1:
     {
-        const int lmem_store_idx = thread_in_xform * ${radix + 1} + xform_local * ${radix1 // radix2};
-        const int lmem_load_idx = (thread_id / ${radix}) * ${radix + 1} + thread_id % ${radix};
+        const VSIZE_T lmem_store_idx = thread_in_xform * ${radix + 1} + xform_local * ${radix1 // radix2};
+        const VSIZE_T lmem_load_idx = (thread_id / ${radix}) * ${radix + 1} + thread_id % ${radix};
 
         %for comp in ('x', 'y'):
             %for i in range(radix1 // radix2):
@@ -947,50 +960,44 @@ ${kernel_declaration}
         %endfor
     }
 
-        const int position_in_stride_out = (group_in_xform * ${local_batch}) % ${stride_out};
-        const int stride_out_number = (group_in_xform * ${local_batch}) / ${stride_out};
+        const VSIZE_T position_in_stride_out = (group_in_xform * ${local_batch}) % ${stride_out};
+        const VSIZE_T stride_out_number = (group_in_xform * ${local_batch}) / ${stride_out};
 
         %for k in range(radix1):
         {
-            const int position = stride_out_number * ${stride} + ${k * local_size} +
+            const VSIZE_T position = stride_out_number * ${stride} + ${k * local_size} +
                 position_in_stride_out + thread_id;
-            ##%if unpad_out:
-            const int position_in_fft = position / ${inner_batch};
-            const int position_in_inner_batch = position % ${inner_batch};
+            const VSIZE_T position_in_fft = position / ${inner_batch};
+            const VSIZE_T position_in_inner_batch = position % ${inner_batch};
             %if unpad_out:
             const complex_t xw = xweight(-direction, position_in_fft);
             a[${k}] = ${mul}(a[${k}], xw);
             if (position_in_fft < ${fft_size_real})
             %endif
-                ##${output.store}(position + ${fft_size_real if unpad_out else fft_size} * xform_number,
-                ##    ${cdivs}(a[${k}], norm_coeff));
                 ${output.store_combined_idx(output_slices)}(
                     xform_global, position_in_fft, position_in_inner_batch,
                     ${cdivs}(a[${k}], norm_coeff));
         }
         %endfor
     %else:
-        const int position_in_stride_out = (group_in_xform * ${local_batch} + thread_in_xform) % ${stride_out};
-        const int stride_out_number = (group_in_xform * ${local_batch} + thread_in_xform) / ${stride_out};
+        const VSIZE_T position_in_stride_out = (group_in_xform * ${local_batch} + thread_in_xform) % ${stride_out};
+        const VSIZE_T stride_out_number = (group_in_xform * ${local_batch} + thread_in_xform) / ${stride_out};
 
         %for k in range(radix1):
         {
-            const int position = ${((k % radix2) * radix1 + (k // radix2)) * stride_out} +
+            const VSIZE_T position = ${((k % radix2) * radix1 + (k // radix2)) * stride_out} +
                 ${stride_out} * (
                     stride_out_number * ${radix} +
                     xform_local * ${radix1 // radix2}) +
                 position_in_stride_out;
 
-            ##%if unpad_out:
-            const int position_in_fft = position / ${inner_batch};
-            const int position_in_inner_batch = position % ${inner_batch};
+            const VSIZE_T position_in_fft = position / ${inner_batch};
+            const VSIZE_T position_in_inner_batch = position % ${inner_batch};
             %if unpad_out:
             const complex_t xw = xweight(-direction, position_in_fft);
             a[${k}] = ${mul}(a[${k}], xw);
             if (position_in_fft < ${fft_size_real})
             %endif
-                ##${output.store}(position + ${fft_size_real if unpad_out else fft_size} * xform_number,
-                ##    ${cdivs}(a[${k}], norm_coeff));
                 ${output.store_combined_idx(output_slices)}(
                     xform_global, position_in_fft, position_in_inner_batch,
                     ${cdivs}(a[${k}], norm_coeff));

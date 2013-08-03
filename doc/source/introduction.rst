@@ -30,7 +30,7 @@ Consider the following example, which is very similar to the one from the index 
         GLOBAL_MEM float *a,
         GLOBAL_MEM float *b)
     {
-      const int i = get_local_id(0);
+      const SIZE_T i = get_local_id(0);
       dest[i] = a[i] * b[i];
     }
     """)
@@ -79,7 +79,7 @@ The template engine of choice in ``reikna`` is `Mako <http://www.makotemplates.o
         GLOBAL_MEM ${ctype} *a,
         GLOBAL_MEM ${ctype} *b)
     {
-      const int i = get_local_id(0);
+      const SIZE_T i = get_local_id(0);
       dest[i] = ${mul}(a[i], b[i]);
     }
     """, render_kwds=dict(
@@ -205,9 +205,9 @@ Let us change the previous example and connect transformations to it.
     combine_a = combine_complex(a_type)
     combine_b = combine_complex(b_type)
 
-    dot.parameter.a.connect(
+    dot.parameter.matrix_a.connect(
         combine_a, combine_a.output, a_re=combine_a.real, a_im=combine_a.imag)
-    dot.parameter.b.connect(
+    dot.parameter.matrix_b.connect(
         combine_b, combine_b.output, b_re=combine_b.real, b_im=combine_b.imag)
 
     dotc = dot.compile(thr)

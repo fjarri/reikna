@@ -16,12 +16,14 @@
     #define LOCAL_MEM_DYNAMIC extern __shared__
     #define LOCAL_MEM_ARG /* empty */
     #define INLINE __forceinline__
+    #define SIZE_T unsigned int
+    #define VSIZE_T unsigned int
 
     <%
         dimnames = ['x', 'y', 'z']
     %>
 
-    WITHIN_KERNEL int get_local_id(int dim)
+    WITHIN_KERNEL SIZE_T get_local_id(unsigned int dim)
     {
     %for n in range(3):
         if(dim == ${n}) return threadIdx.${dimnames[n]};
@@ -29,7 +31,7 @@
         return 0;
     }
 
-    WITHIN_KERNEL int get_group_id(int dim)
+    WITHIN_KERNEL SIZE_T get_group_id(unsigned int dim)
     {
     %for n in range(3):
         if(dim == ${n}) return blockIdx.${dimnames[n]};
@@ -37,7 +39,7 @@
         return 0;
     }
 
-    WITHIN_KERNEL int get_local_size(int dim)
+    WITHIN_KERNEL SIZE_T get_local_size(unsigned int dim)
     {
     %for n in range(3):
         if(dim == ${n}) return blockDim.${dimnames[n]};
@@ -45,7 +47,7 @@
         return 1;
     }
 
-    WITHIN_KERNEL int get_num_groups(int dim)
+    WITHIN_KERNEL SIZE_T get_num_groups(unsigned int dim)
     {
     %for n in range(3):
         if(dim == ${n}) return gridDim.${dimnames[n]};
@@ -53,12 +55,12 @@
         return 1;
     }
 
-    WITHIN_KERNEL int get_global_size(int dim)
+    WITHIN_KERNEL SIZE_T get_global_size(unsigned int dim)
     {
         return get_num_groups(dim) * get_local_size(dim);
     }
 
-    WITHIN_KERNEL int get_global_id(int dim)
+    WITHIN_KERNEL SIZE_T get_global_id(unsigned int dim)
     {
         return get_local_id(dim) + get_group_id(dim) * get_local_size(dim);
     }
@@ -80,6 +82,8 @@
     #define LOCAL_MEM_DYNAMIC __local
     #define LOCAL_MEM_ARG __local
     #define INLINE inline
+    #define SIZE_T size_t
+    #define VSIZE_T size_t
 
     #if defined(cl_khr_fp64)
     #pragma OPENCL EXTENSION cl_khr_fp64: enable
