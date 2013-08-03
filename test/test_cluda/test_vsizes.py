@@ -161,6 +161,8 @@ class TestVirtualSizes:
         from the cartesian product of all possible ones.
         Returns ``None`` if the parameters are not compatible.
         """
+        if len(max_work_groups) != len(max_work_item_sizes):
+            return None
 
         if local_size is not None:
             if len(local_size) > len(global_size):
