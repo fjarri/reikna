@@ -17,6 +17,8 @@ Release history
 
 * FIXED: requirements for PyCUDA extras (a currently non-existent version was specified).
 
+* FIXED: an error in gamma distribution sampler, which lead to slightly wrong shape of the resulting distribution.
+
 
 0.3.3 (29 Jul 2013)
 ===================

@@ -102,10 +102,12 @@ WITHIN_KERNEL ${prefix}RESULT ${prefix}sample(${bijection.module}STATE *state)
             {
                 rand_normal = ${nbm.module}sample(state);
                 X = rand_normal.v[0];
+                normals_need_regen = false;
             }
             else
             {
                 X = rand_normal.v[1];
+                normals_need_regen = true;
             }
 
             V = 1 + c * X;
