@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.3.4 (current development version)
-===================================
+0.3.4 (3 Aug 2013)
+==================
 
 * CHANGED: virtual sizes algorithms were rewritten and are now more maintainable.
   In addition, virtual sizes can now handle any number of dimensions of local and global size,
