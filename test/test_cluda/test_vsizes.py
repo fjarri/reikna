@@ -83,7 +83,7 @@ def test_find_bounding_shape(virtual_size, available_shape):
 
 def pytest_generate_tests(metafunc):
     if 'testvs' in metafunc.funcargnames:
-        grid_sizes = [
+        global_sizes = [
             (35,), (31*31*4,),
             (15, 13), (13, 35),
             (17, 15, 13), (5, 33, 75)]
@@ -93,7 +93,7 @@ def pytest_generate_tests(metafunc):
 
         vals = []
 
-        for gs, ls, mng, mwis in itertools.product(grid_sizes, local_sizes, mngs, mwiss):
+        for gs, ls, mng, mwis in itertools.product(global_sizes, local_sizes, mngs, mwiss):
             testvs = TestVirtualSizes.try_create(gs, ls, mng, mwis)
             if testvs is None:
                 continue
