@@ -833,7 +833,6 @@ ${kernel_declaration}
     const VSIZE_T thread_in_xform = thread_id % ${local_batch};
 
     const VSIZE_T position_in_stride_in = thread_in_xform + group_in_xform * ${local_batch};
-    const VSIZE_T xform_number = xform_global * ${inner_batch};
 
     // Load data
     %if stride_in % local_batch != 0:
