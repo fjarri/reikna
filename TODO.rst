@@ -1,6 +1,7 @@
 0.3.5
 =====
 
+* FEATURE (core, computations): add some method to indices objects that is passed to transformations and in PureParallel (at least something to avoid writing ``{', '.join(idxs)}``).
 * API (computations): make helpers functions in dht methods of DHT class.
 * API (computations): add FFT.get_freqs()
 * API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
