@@ -54,11 +54,11 @@
   Need to see what errors look like in this case.
 * FEATURE (core): check correctness of types in Computation.__call__() if _debug is on
 * ?FEATURE (core): check that types of arrays in the computation signature are supported by GPU (eliminates the need to check it in every computation)
-* FEAURE (computations): add scan
-* FEAURE (computations): add bitonic sort
-* FEAURE (computations): add filter
-* FEAURE (computations): add better block width finder for small matrices in matrixmul
-* FEAURE (computations): add radix-3,5,7 for FFT
+* FEATURE (computations): add scan
+* FEATURE (computations): add bitonic sort
+* FEATURE (computations): add filter
+* FEATURE (computations): add better block width finder for small matrices in matrixmul
+* FEATURE (computations): add radix-3,5,7 for FFT
 
 
 1.*
