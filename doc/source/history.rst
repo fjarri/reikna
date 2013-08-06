@@ -6,7 +6,7 @@ Release history
 0.3.6 (current development version)
 ===================================
 
-Under construction.
+* FIXED: improved ``Computation.compile()`` performance for complicated computations by precreating transformation templates.
 
 
 0.3.5 (6 Aug 2013)
