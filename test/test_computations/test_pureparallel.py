@@ -2,8 +2,6 @@ import numpy
 import pytest
 
 from helpers import *
-from reikna.helpers import template_def
-from reikna.cluda import Module, Snippet
 from reikna.pureparallel import PureParallel
 from reikna.core import Parameter, Annotation, Type
 import reikna.cluda.dtypes as dtypes
