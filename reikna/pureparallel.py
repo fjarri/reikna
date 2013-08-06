@@ -14,7 +14,7 @@ class PureParallel(Computation):
     :param code: a source code for the computation.
         Will be used to create a :py:class:`~reikna.cluda.Snippet` with
         :py:class:`~reikna.core.Indices` object for the ``guiding_array`` as the first
-        positional argument, and :py:class:`~reikna.core.KernelParameter` objects
+        positional argument, and :py:class:`~reikna.core.transformation.KernelParameter` objects
         corresponding to ``parameters`` as the rest of positional arguments.
     :param guiding_array: an tuple with the array shape, or the name of one of ``parameters``.
         By default, the first parameter is chosen.
