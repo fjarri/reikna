@@ -2,32 +2,30 @@
 =====
 
 * FEATURE (core, computations): add some method to indices objects that is passed to transformations and in PureParallel (at least something to avoid writing ``{', '.join(idxs)}``).
-* API (computations): make helpers functions in dht methods of DHT class.
-* API (computations): add FFT.get_freqs()
 * API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
 * ?API (core): make ``device_params`` an attribute of plan or plan factory?
-* ?API (computations): can we improve how Predicates for Reduce are defined?
 * ?API (cluda): make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
 * FEATURE (computations): add ``inplace`` parameter to FFT and DHT, which will produce computations that are guaranteed to work inplace.
 * ?FIX (core): check if Signature.bind() is too slow in the kernel call; perhaps we will have to rewrite it taking into account restrictions to Parameter types we have.
-* ?FIX (computations): PureParallel can be either rewritten using stub kernel and Transformation (to use load/store_combined_idx) (downside: order of parameters messes up in this case; upside: can use store_same/load_same), or using the new any-D static kernels from CLUDA (if the above fix is implemented).
 * FEATURE (computations): processing several indices per thread in PureParallel may result in a performance boost, need to check that.
 * FEATURE (computations): add a helper function that transforms a transformation into a ParallelComputation with the same arguments.
 * FEATURE (core): take not only CLUDA Thread as a parameter for computation ``compile``, but also CommandQueue, opencl Context, CUDA Stream and so on.
 * FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
   it is called again with reduced local size
-* FEATURE (computations): add special optimized kernel for matrix-vector multiplication in MatrixMul.
-  Or create specific matrix-vector and vector-vector computations?
 * FEATURE (CLUDA): add ``Thread.fork()`` which creates another Thread with the same context and device but different queue.
   Also, how do we create a ``Thread`` with the same context, but different device?
   Or how do we create and use a ``Thread`` with several devices?
+
+* FEATURE (CLUDA, core): implement custom structures as types (will also require updating the strides-to-flat-index algorithm)
+* FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
+* ?API (computations): can we improve how Predicates for Reduce are defined?
 * FEATURE (computations): reduction with multiple predicates on a single (or multiple too?) array.
   Basically, the first stage has to be modified to store results in several arrays and then several separate reductions can be performed.
-* FEATURE (CLUDA, core): implement custom structures as types (will also require updating the strides-to-flat-index algorithm)
+
 * ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
+  Basically it's just a synonym for ``load_combined(len(arg.shape))``.
 * FEATURE (computations): allow non-sequential axes in Reduce
 * TEST (computations): add some performance tests for CBRNG
-* FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
 
 * FIX (core): When we connect a transformation, difference in strides between arrays in the connection can be ignored (and probably the transformation's signature changed too; at least we need to decide which strides to use in the exposed node).
   Proposal: leave it as is; make existing transformations "propagate" strides to results; and create a special transformation that only changes strides (or make it a parameter to the identity one).
@@ -54,6 +52,7 @@
   Need to see what errors look like in this case.
 * FEATURE (core): check correctness of types in Computation.__call__() if _debug is on
 * ?FEATURE (core): check that types of arrays in the computation signature are supported by GPU (eliminates the need to check it in every computation)
+* FEATURE (computations): add matrix-vector and vector-vector multiplication (the latter can probably be implemented just as a specialized ``Reduce``)
 * FEATURE (computations): add scan
 * FEATURE (computations): add bitonic sort
 * FEATURE (computations): add filter
