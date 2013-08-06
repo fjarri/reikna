@@ -52,7 +52,7 @@ class PureParallel(Computation):
                 VIRTUAL_SKIP_THREADS;
 
                 %for i, idx_name in enumerate(idx_names):
-                VSIZE_T ${idx_name} = get_global_id(${i});
+                VSIZE_T ${idx_name} = virtual_global_id(${i});
                 %endfor
 
                 ${snippet(idx_names, """ + arglist + """)}
