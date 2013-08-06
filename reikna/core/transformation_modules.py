@@ -10,13 +10,12 @@ def leaf_name(name):
     return "_leaf_" + name
 
 
-def index_cnames(param):
-    type_ = param.annotation.type
-    return [INDEX_NAME + str(i) for i in range(len(type_.shape))]
+def index_cnames(shape):
+    return [INDEX_NAME + str(i) for i in range(len(shape))]
 
 
 def index_cnames_str(param, qualified=False):
-    names = index_cnames(param)
+    names = index_cnames(param.annotation.type.shape)
     if qualified:
         names = ["VSIZE_T " + name for name in names]
     return ", ".join(names)
@@ -32,7 +31,7 @@ def flat_index_expr(param):
     type_ = param.annotation.type
     item_strides = [stride // type_.dtype.itemsize for stride in type_.strides]
 
-    names = index_cnames(param)
+    names = index_cnames(param.annotation.type.shape)
 
     return " + ".join([
         name + " * " + str(stride)
@@ -223,4 +222,4 @@ def module_combined(output, param, subtree_parameters, module_idx):
             q_indices=index_cnames_str(param, qualified=True),
             q_params=param_cnames_str(subtree_parameters, qualified=True),
             nq_params=param_cnames_str(subtree_parameters),
-            indices=index_cnames(param)))
+            indices=index_cnames(param.annotation.type.shape)))

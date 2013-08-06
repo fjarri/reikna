@@ -37,6 +37,10 @@ Core classes
 Result and attribute classes
 ----------------------------
 
+.. autoclass:: reikna.core.Indices
+    :members:
+    :special-members: __getitem__
+
 .. automodule:: reikna.core.computation
     :members: ComputationCallable, ComputationParameter, KernelArgument, ComputationPlan
     :special-members: __call__

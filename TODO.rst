@@ -1,7 +1,6 @@
 0.3.6
 =====
 
-* FEATURE (core, computations): add some method to indices objects that is passed to transformations and in PureParallel (at least something to avoid writing ``{', '.join(idxs)}``).
 * API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
 * ?API (core): make ``device_params`` an attribute of plan or plan factory?
 * ?API (cluda): make dtypes.result_type() and dtypes.min_scalar_type() depend on device?

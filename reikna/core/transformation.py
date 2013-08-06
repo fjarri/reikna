@@ -366,9 +366,8 @@ class TransformationTree:
     def _get_transformation_module(self, annotation, ntr):
 
         param = Parameter(ntr.connector_node_name, annotation)
-        cnames = index_cnames(param)
 
-        tr_args = [cnames]
+        tr_args = [Indices(param.annotation.type.shape)]
         connection_names = []
         for tr_param in ntr.trf.signature.parameters.values():
             connection_name = ntr.node_from_tr[tr_param.name]
@@ -440,6 +439,29 @@ class TransformationTree:
         return [
             self._get_kernel_argobject(name, self.root_parameters[name].annotation, base=True)
             for name in self.root_names]
+
+
+class Indices:
+    """
+    Encapsulates the information about index variables available for the snippet.
+    """
+
+    def __init__(self, shape):
+        """__init__()""" # hide the signature from Sphinx
+        self._names = index_cnames(shape)
+
+    def __getitem__(self, dim):
+        """
+        Returns the name of the index varibale for the dimension ``dim``.
+        """
+        return self._names[dim]
+
+    def all(self):
+        """
+        Returns the comma-separated list of all index variable names
+        (useful for passing the guiding indices verbatim in a load or store call).
+        """
+        return ', '.join(self._names)
 
 
 class KernelParameter(Type):

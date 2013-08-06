@@ -6,6 +6,8 @@ Release history
 0.3.6 (current development version)
 ===================================
 
+* ADDED: the first argument to the ``Transformation`` or ``PureParallel`` snippet is now a ``reikna.core.Indices`` object instead of a list.
+
 * FIXED: improved ``Computation.compile()`` performance for complicated computations by precreating transformation templates.
 
 

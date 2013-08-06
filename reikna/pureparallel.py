@@ -1,6 +1,6 @@
 from reikna.cluda import Snippet
 import reikna.helpers as helpers
-from reikna.core import Computation
+from reikna.core import Computation, Indices
 
 
 class PureParallel(Computation):
@@ -11,7 +11,11 @@ class PureParallel(Computation):
     (i.e. with no interaction between threads).
 
     :param parameters: a list of :py:class:`~reikna.core.Parameter` objects.
-    :param code: a source code for a template def.
+    :param code: a source code for the computation.
+        Will be used to create a :py:class:`~reikna.cluda.Snippet` with
+        :py:class:`~reikna.core.Indices` object for the ``guiding_array`` as the first
+        positional argument, and :py:class:`~reikna.core.KernelParameter` objects
+        corresponding to ``parameters`` as the rest of positional arguments.
     :param guiding_array: an tuple with the array shape, or the name of one of ``parameters``.
         By default, the first parameter is chosen.
     :param render_kwds: a dictionary with render keywords for the ``code``.
@@ -42,7 +46,7 @@ class PureParallel(Computation):
 
         argnames = [arg.name for arg in args]
         arglist = ", ".join(argnames)
-        idx_names = ["_idx" + str(i) for i in range(len(self._guiding_shape))]
+        idxs = Indices(self._guiding_shape)
 
         template = helpers.template_def(
             ['kernel_declaration'] + argnames,
@@ -51,11 +55,11 @@ class PureParallel(Computation):
             {
                 VIRTUAL_SKIP_THREADS;
 
-                %for i, idx_name in enumerate(idx_names):
-                VSIZE_T ${idx_name} = virtual_global_id(${i});
+                %for i, idx in enumerate(idxs):
+                VSIZE_T ${idx} = virtual_global_id(${i});
                 %endfor
 
-                ${snippet(idx_names, """ + arglist + """)}
+                ${snippet(idxs, """ + arglist + """)}
             }
             """)
 
@@ -64,7 +68,7 @@ class PureParallel(Computation):
             global_size=self._guiding_shape,
             render_kwds=dict(
                 shape=self._guiding_shape,
-                idx_names=idx_names,
+                idxs=idxs,
                 product=helpers.product,
                 snippet=self._snippet))
 
