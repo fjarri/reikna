@@ -6,7 +6,7 @@ Release history
 0.3.5 (current development version)
 ===================================
 
-Under construction.
+* FIXED: bug with virtual size algorithms returning floating point global and local sizes in Py2.
 
 
 0.3.4 (3 Aug 2013)

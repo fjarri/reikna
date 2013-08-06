@@ -77,6 +77,7 @@ def test_find_bounding_shape(virtual_size, available_shape):
     Tests that ``find_bounding_shape()`` obeys its contracts.
     """
     shape = vsize.find_bounding_shape(virtual_size, available_shape)
+    assert all(isinstance(d, int) for d in shape)
     assert product(shape) >= virtual_size
     assert all(d <= ad for d, ad in zip(shape, available_shape))
 

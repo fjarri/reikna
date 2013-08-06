@@ -181,7 +181,7 @@ def ceiling_root(num, pwr):
     or the integer ceiling of this value, if it's not.
     """
     res = num ** (1. / pwr)
-    int_res = round(res)
+    int_res = int(round(res))
     if int_res ** pwr == num:
         return int_res
     else:
