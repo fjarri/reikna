@@ -365,10 +365,6 @@ class TransformationTree:
 
     def _get_transformation_module(self, annotation, ntr):
 
-        # HACK: Technically, ``module`` attribute is not documented.
-        # The reason it is used here is that I need to keep generation of C names for
-        # index variable in one place, and the template is the best choice
-        # (because they are mostly used there).
         param = Parameter(ntr.connector_node_name, annotation)
         cnames = index_cnames(param)
 
