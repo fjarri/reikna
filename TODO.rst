@@ -1,4 +1,4 @@
-0.3.5
+0.3.6
 =====
 
 * FEATURE (core, computations): add some method to indices objects that is passed to transformations and in PureParallel (at least something to avoid writing ``{', '.join(idxs)}``).
