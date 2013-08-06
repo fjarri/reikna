@@ -50,14 +50,9 @@ class PureParallel(Computation):
             ${kernel_declaration}
             {
                 VIRTUAL_SKIP_THREADS;
-                VSIZE_T _flat_idx = virtual_global_id(0);
 
                 %for i, idx_name in enumerate(idx_names):
-                <%
-                    stride = product(shape[i+1:])
-                %>
-                VSIZE_T ${idx_name} = _flat_idx / ${stride};
-                _flat_idx -= ${idx_name} * ${stride};
+                VSIZE_T ${idx_name} = virtual_global_id(${i});
                 %endfor
 
                 ${snippet(idx_names, """ + arglist + """)}
@@ -66,7 +61,7 @@ class PureParallel(Computation):
 
         plan.kernel_call(
             template, args,
-            global_size=helpers.product(self._guiding_shape),
+            global_size=self._guiding_shape,
             render_kwds=dict(
                 shape=self._guiding_shape,
                 idx_names=idx_names,

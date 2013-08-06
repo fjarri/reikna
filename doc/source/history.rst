@@ -3,6 +3,12 @@ Release history
 ***************
 
 
+0.3.5 (6 Aug 2013)
+==================
+
+* FIXED: bug with virtual size algorithms returning floating point global and local sizes in Py2.
+
+
 0.3.4 (3 Aug 2013)
 ==================
 
