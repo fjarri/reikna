@@ -6,7 +6,6 @@
 * ?API (core): make ``device_params`` an attribute of plan or plan factory?
 * ?API (cluda): make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
 * FEATURE (computations): add ``inplace`` parameter to FFT and DHT, which will produce computations that are guaranteed to work inplace.
-* ?FIX (core): check if Signature.bind() is too slow in the kernel call; perhaps we will have to rewrite it taking into account restrictions to Parameter types we have.
 * FEATURE (computations): processing several indices per thread in PureParallel may result in a performance boost, need to check that.
 * FEATURE (computations): add a helper function that transforms a transformation into a ParallelComputation with the same arguments.
 * FEATURE (core): take not only CLUDA Thread as a parameter for computation ``compile``, but also CommandQueue, opencl Context, CUDA Stream and so on.
