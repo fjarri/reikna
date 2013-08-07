@@ -6,6 +6,7 @@ from reikna.cluda import functions
 import reikna.cluda.dtypes as dtypes
 from reikna.cluda import OutOfResourcesError
 from reikna.pureparallel import PureParallel
+from reikna.transformations import copy
 
 TEMPLATE = helpers.template_for(__file__)
 
@@ -494,16 +495,10 @@ class FFT(Computation):
         # because we still have to run transformations.
 
         plan = plan_factory()
-        identity = PureParallel(
-            [Parameter('output', Annotation(output, 'o')),
-            Parameter('input', Annotation(input_, 'i'))],
-            """
-            <%
-                idxs_list = ", ".join(idxs)
-            %>
-            ${output.store_idx}(${idxs_list}, ${input.load_idx}(${idxs_list}));
-            """)
-        plan.computation_call(identity, output, input_)
+
+        copy_trf = copy(input_, out_arr_t=output)
+        copy_comp = PureParallel.from_trf(copy_trf, copy_trf.input)
+        plan.computation_call(copy_comp, output, input_)
 
         return plan
 

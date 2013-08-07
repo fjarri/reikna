@@ -28,21 +28,21 @@ def get_test_computation(arr_t):
         "${output.store_idx}(${idxs[0]}, ${input.load_idx}(${idxs[0]}));")
 
 
-def test_identity(some_thr, any_dtype):
+def test_copy(some_thr, any_dtype):
 
-    input = get_test_array((1000,), any_dtype)
-    input_dev = some_thr.to_device(input)
+    input_ = get_test_array((1000,), any_dtype)
+    input_dev = some_thr.to_device(input_)
     output_dev = some_thr.empty_like(input_dev)
 
     test = get_test_computation(input_dev)
-    identity = tr.identity(input_dev)
+    copy = tr.copy(input_dev)
 
-    test.parameter.input.connect(identity, identity.output, input_prime=identity.input)
-    test.parameter.output.connect(identity, identity.input, output_prime=identity.output)
+    test.parameter.input.connect(copy, copy.output, input_prime=copy.input)
+    test.parameter.output.connect(copy, copy.input, output_prime=copy.output)
     testc = test.compile(some_thr)
 
     testc(output_dev, input_dev)
-    assert diff_is_negligible(output_dev.get(), input)
+    assert diff_is_negligible(output_dev.get(), input_)
 
 
 def test_scale_param(some_thr, any_dtype):
