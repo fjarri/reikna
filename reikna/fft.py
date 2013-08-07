@@ -471,6 +471,16 @@ class FFT(Computation):
 
     .. py:method:: compiled_signature(output:o, input:i, inverse:s)
 
+        ``output`` and ``input`` may be the same array.
+
+        ..
+            The only case where it would matter is when we only have one kernel in the plan,
+            and it has ``inplace_possible==Fales``.
+            Local kernels are always inplace, so it must be a global kernel.
+            But if there is only one global kernel in the list, it will have its
+            ``inplace_possible`` set to ``True`` (see the condition in ``GlobalFFTKernel``).
+            Therefore our FFT is always guaranteed to be inplace.
+
         :param output: an array wit the attributes of ``arr_t``.
         :param input: an array wit the attributes of ``arr_t``.
         :param inverse: a scalar value castable to integer.

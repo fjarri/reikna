@@ -138,21 +138,23 @@ def check_errors(thr, shape_and_axes):
     shape, axes = shape_and_axes
 
     data = get_test_array(shape, dtype)
-    data_dev = thr.to_device(data)
-    res_dev = thr.empty_like(data_dev)
 
-    fft = FFT(data_dev, axes=axes)
+    fft = FFT(data, axes=axes)
     fftc = fft.compile(thr)
 
     # forward transform
-    fftc(res_dev, data_dev)
+    # Testing inplace transformation, because if this works,
+    # then the out of place one will surely work too.
+    data_dev = thr.to_device(data)
+    fftc(data_dev, data_dev)
     fwd_ref = numpy.fft.fftn(data, axes=axes).astype(dtype)
-    assert diff_is_negligible(res_dev.get(), fwd_ref)
+    assert diff_is_negligible(data_dev.get(), fwd_ref)
 
     # inverse transform
-    fftc(res_dev, data_dev, inverse=True)
+    data_dev = thr.to_device(data)
+    fftc(data_dev, data_dev, inverse=True)
     inv_ref = numpy.fft.ifftn(data, axes=axes).astype(dtype)
-    assert diff_is_negligible(res_dev.get(), inv_ref)
+    assert diff_is_negligible(data_dev.get(), inv_ref)
 
 
 def test_trivial(some_thr):
