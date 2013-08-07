@@ -1,28 +1,35 @@
 0.3.6
 =====
 
-* API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
-* ?API (core): make ``device_params`` an attribute of plan or plan factory?
-* ?API (cluda): make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
 * FEATURE (computations): add ``inplace`` parameter to FFT and DHT, which will produce computations that are guaranteed to work inplace.
-* FEATURE (computations): processing several indices per thread in PureParallel may result in a performance boost, need to check that.
-* FEATURE (core): take not only CLUDA Thread as a parameter for computation ``compile``, but also CommandQueue, opencl Context, CUDA Stream and so on.
-* FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
-  it is called again with reduced local size
-* FEATURE (CLUDA): add ``Thread.fork()`` which creates another Thread with the same context and device but different queue.
-  Also, how do we create a ``Thread`` with the same context, but different device?
-  Or how do we create and use a ``Thread`` with several devices?
+
+
+0.3.7
+=====
 
 * FEATURE (CLUDA, core): implement custom structures as types (will also require updating the strides-to-flat-index algorithm)
 * FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
 * ?API (computations): can we improve how Predicates for Reduce are defined?
 * FEATURE (computations): reduction with multiple predicates on a single (or multiple too?) array.
   Basically, the first stage has to be modified to store results in several arrays and then several separate reductions can be performed.
+* FEATURE (computations): allow non-sequential axes in Reduce
+
+
+0.3.8
+=====
 
 * ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
   Basically it's just a synonym for ``load_combined(len(arg.shape))``.
-* FEATURE (computations): allow non-sequential axes in Reduce
 * TEST (computations): add some performance tests for CBRNG
+* API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
+* ?API (core): make ``device_params`` an attribute of plan or plan factory?
+* ?API (cluda): make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
+* FEATURE (core): take not only CLUDA Thread as a parameter for computation ``compile``, but also CommandQueue, opencl Context, CUDA Stream and so on.
+* FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
+  it is called again with reduced local size
+* FEATURE (CLUDA): add ``Thread.fork()`` which creates another Thread with the same context and device but different queue.
+  Also, how do we create a ``Thread`` with the same context, but different device?
+  Or how do we create and use a ``Thread`` with several devices?
 
 * FIX (core): When we connect a transformation, difference in strides between arrays in the connection can be ignored (and probably the transformation's signature changed too; at least we need to decide which strides to use in the exposed node).
   Proposal: leave it as is; make existing transformations "propagate" strides to results; and create a special transformation that only changes strides (or make it a parameter to the identity one).
@@ -35,25 +42,28 @@
 
 * ?FIX (cluda): Is there a way to get number of shared memory banks and warp size from AMD device?
 * ?FIX (cluda): find a way to get ``min_mem_coalesce_width`` for OpenCL
+* ?FIX (cluda): what are we going to do with OpenCL platforms that do not support intra-block interaction?
+  (for example, Apple's implementation)
+
 * FEATURE (cluda): add a mechanism to select the best local size based on occupancy
 * ?API (computations): move some of the functionality to the top level of ``reikna`` module?
 * ?FEATURE (core): add ability to connect several transformation parameters to one node.
   Currently it is impossible because of the chosen interface (kwds do not allow repettitions).
   This can be actually still achieved by connecting additional identity transformations.
 * FEATURE (docs): extend starting page (link to issue tracker, quick links to guides, list of algorithms, quick example)
-* ?FIX (cluda): what are we going to do with OpenCL platforms that do not support intra-block interaction?
-  (for example, Apple's implementation)
+
 * ?FEATURE (core): check for errors in load/stores/param usage when connecting transformations?
   Alternatively, return more meaningful errors when accessing load/store/parameter with the wrong number.
 * ?FEATURE (core): check for errors in load/stores/param usage in kernels?
   Need to see what errors look like in this case.
 * FEATURE (core): check correctness of types in Computation.__call__() if _debug is on
 * ?FEATURE (core): check that types of arrays in the computation signature are supported by GPU (eliminates the need to check it in every computation)
+
 * FEATURE (computations): add matrix-vector and vector-vector multiplication (the latter can probably be implemented just as a specialized ``Reduce``)
+* FEATURE (computations): add better block width finder for small matrices in matrixmul
 * FEATURE (computations): add scan
 * FEATURE (computations): add bitonic sort
 * FEATURE (computations): add filter
-* FEATURE (computations): add better block width finder for small matrices in matrixmul
 * FEATURE (computations): add radix-3,5,7 for FFT
 
 
