@@ -6,7 +6,6 @@
 * ?API (cluda): make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
 * FEATURE (computations): add ``inplace`` parameter to FFT and DHT, which will produce computations that are guaranteed to work inplace.
 * FEATURE (computations): processing several indices per thread in PureParallel may result in a performance boost, need to check that.
-* FEATURE (computations): add a helper function that transforms a transformation into a ParallelComputation with the same arguments.
 * FEATURE (core): take not only CLUDA Thread as a parameter for computation ``compile``, but also CommandQueue, opencl Context, CUDA Stream and so on.
 * FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
   it is called again with reduced local size
