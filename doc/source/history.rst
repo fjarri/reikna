@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.3.6 (current development version)
-===================================
+0.3.6 (9 Aug 2013)
+==================
 
 * ADDED: the first argument to the ``Transformation`` or ``PureParallel`` snippet is now a ``reikna.core.Indices`` object instead of a list.
 
