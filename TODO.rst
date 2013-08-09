@@ -1,9 +1,3 @@
-0.3.6
-=====
-
-* FEATURE (computations): add ``inplace`` parameter to FFT and DHT, which will produce computations that are guaranteed to work inplace.
-
-
 0.3.7
 =====
 
