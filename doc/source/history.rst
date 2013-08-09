@@ -3,6 +3,16 @@ Release history
 ***************
 
 
+0.3.6 (9 Aug 2013)
+==================
+
+* ADDED: the first argument to the ``Transformation`` or ``PureParallel`` snippet is now a ``reikna.core.Indices`` object instead of a list.
+
+* ADDED: classmethod ``PureParallel.from_trf()``, which allows one to create a pure parallel computation out of a transformation.
+
+* FIXED: improved ``Computation.compile()`` performance for complicated computations by precreating transformation templates.
+
+
 0.3.5 (6 Aug 2013)
 ==================
 

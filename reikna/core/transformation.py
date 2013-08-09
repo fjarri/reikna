@@ -87,8 +87,18 @@ class Node:
             return Node(input_ntr=ntr, output_ntr=self.output_ntr)
 
     def get_child_names(self):
-        get_names = lambda ntr: [] if ntr is None else ntr.get_child_names()
-        return get_names(self.output_ntr) + get_names(self.input_ntr)
+        get_names = lambda ntr: ([], []) if ntr is None else ntr.get_child_names()
+        output_before, output_after = get_names(self.output_ntr)
+        input_before, input_after = get_names(self.input_ntr)
+
+        if self.output_ntr is None and self.input_ntr is None:
+            return [], []
+        elif self.output_ntr is None:
+            return input_before, input_after
+        elif self.input_ntr is None:
+            return output_before, output_after
+        else:
+            return output_before + output_after, input_before + input_after
 
     def get_connections(self):
         get_conn = lambda ntr: [] if ntr is None else [ntr]
@@ -132,13 +142,12 @@ class NodeTransformation:
         self.output = trf.signature.parameters[tr_connector].annotation.input
 
     def get_child_names(self):
-        names = []
         # Walking the tree conserving the order of parameters in the transformation.
-        for tr_param in self.trf.signature.parameters.values():
-            node_name = self.node_from_tr[tr_param.name]
-            if node_name != self.connector_node_name:
-                names.append(node_name)
-        return names
+        node_names = [
+            self.node_from_tr[tr_param.name]
+            for tr_param in self.trf.signature.parameters.values()]
+        connector_idx = node_names.index(self.connector_node_name)
+        return node_names[:connector_idx], node_names[connector_idx+1:]
 
     def translate_node_names(self, translator):
         connector_node_name = translator(self.connector_node_name)
@@ -187,21 +196,28 @@ class TransformationTree:
             ignore_in_children = names[i+1:]
 
             node = self.nodes[name]
-            child_names = node.get_child_names()
+            children_before, children_after = node.get_child_names()
 
-            subtree_names = self._get_subtree_names(
-                child_names, ignore_in_children, visited, leaves_only=leaves_only)
-            has_input_subtree = node.input_ntr is not None
-            has_output_subtree = node.output_ntr is not None
-            leaf_node = name in self.leaf_parameters
+            # If the node has a connection yet is still in the leaf parameters
+            # (which means it is an i/o node),
+            # we want to preserve its position in the list of parameters
+            # of the connected transformation.
+            # (It helps to preserve the order of the transformation signature
+            # when PureParallel computation is created out of it, among other things)
+            # This means that we have two subtrees: for the parameters before the connection,
+            # and for the parameters after it.
 
-            name_present = False
-            if not leaves_only or (leaf_node and not has_output_subtree):
+            subtree_before = self._get_subtree_names(
+                children_before, ignore_in_children, visited, leaves_only=leaves_only)
+            subtree_after = self._get_subtree_names(
+                children_after, ignore_in_children, visited, leaves_only=leaves_only)
+
+            if not leaves_only:
                 result.append(name)
-                name_present = True
-            result += subtree_names
-            if not name_present and leaf_node and not has_input_subtree:
+            result += subtree_before
+            if leaves_only and name in self.leaf_parameters:
                 result.append(name)
+            result += subtree_after
 
         return result
 
@@ -365,14 +381,9 @@ class TransformationTree:
 
     def _get_transformation_module(self, annotation, ntr):
 
-        # HACK: Technically, ``module`` attribute is not documented.
-        # The reason it is used here is that I need to keep generation of C names for
-        # index variable in one place, and the template is the best choice
-        # (because they are mostly used there).
         param = Parameter(ntr.connector_node_name, annotation)
-        cnames = index_cnames(param)
 
-        tr_args = [cnames]
+        tr_args = [Indices(param.annotation.type.shape)]
         connection_names = []
         for tr_param in ntr.trf.signature.parameters.values():
             connection_name = ntr.node_from_tr[tr_param.name]
@@ -444,6 +455,29 @@ class TransformationTree:
         return [
             self._get_kernel_argobject(name, self.root_parameters[name].annotation, base=True)
             for name in self.root_names]
+
+
+class Indices:
+    """
+    Encapsulates the information about index variables available for the snippet.
+    """
+
+    def __init__(self, shape):
+        """__init__()""" # hide the signature from Sphinx
+        self._names = index_cnames(shape)
+
+    def __getitem__(self, dim):
+        """
+        Returns the name of the index varibale for the dimension ``dim``.
+        """
+        return self._names[dim]
+
+    def all(self):
+        """
+        Returns the comma-separated list of all index variable names
+        (useful for passing the guiding indices verbatim in a load or store call).
+        """
+        return ', '.join(self._names)
 
 
 class KernelParameter(Type):

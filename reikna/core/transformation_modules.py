@@ -10,13 +10,12 @@ def leaf_name(name):
     return "_leaf_" + name
 
 
-def index_cnames(param):
-    type_ = param.annotation.type
-    return [INDEX_NAME + str(i) for i in range(len(type_.shape))]
+def index_cnames(shape):
+    return [INDEX_NAME + str(i) for i in range(len(shape))]
 
 
 def index_cnames_str(param, qualified=False):
-    names = index_cnames(param)
+    names = index_cnames(param.annotation.type.shape)
     if qualified:
         names = ["VSIZE_T " + name for name in names]
     return ", ".join(names)
@@ -32,7 +31,7 @@ def flat_index_expr(param):
     type_ = param.annotation.type
     item_strides = [stride // type_.dtype.itemsize for stride in type_.strides]
 
-    names = index_cnames(param)
+    names = index_cnames(param.annotation.type.shape)
 
     return " + ".join([
         name + " * " + str(stride)
@@ -67,35 +66,39 @@ def node_connector(output):
         return VALUE_NAME + " ="
 
 
-def module_transformation(output, param, subtree_parameters, tr_snippet, tr_args):
-    return Module.create(
-        """
-        // ${'output' if output else 'input'} transformation node for "${name}"
-        INLINE WITHIN_KERNEL ${'void' if output else connector_ctype} ${prefix}func(
-            ${q_params},
-            ${q_indices}
-            %if output:
-            , ${connector_ctype} ${VALUE_NAME}
-            %endif
-            )
-        {
-            %if not output:
-            ${connector_ctype} ${VALUE_NAME};
-            %endif
-
-            ${tr_snippet(*tr_args)}
-
-            %if not output:
-            return ${VALUE_NAME};
-            %endif
-        }
+_module_transformation = helpers.template_def(
+    ['prefix'],
+    """
+    // ${'output' if output else 'input'} transformation node for "${name}"
+    INLINE WITHIN_KERNEL ${'void' if output else connector_ctype} ${prefix}func(
+        ${q_params},
+        ${q_indices}
         %if output:
-        #define ${prefix}(${nq_indices}, ${VALUE_NAME}) ${prefix}func(\\
-            ${nq_params}, ${nq_indices}, ${VALUE_NAME})
-        %else:
-        #define ${prefix}(${nq_indices}) ${prefix}func(${nq_params}, ${nq_indices})
+        , ${connector_ctype} ${VALUE_NAME}
         %endif
-        """,
+        )
+    {
+        %if not output:
+        ${connector_ctype} ${VALUE_NAME};
+        %endif
+
+        ${tr_snippet(*tr_args)}
+
+        %if not output:
+        return ${VALUE_NAME};
+        %endif
+    }
+    %if output:
+    #define ${prefix}(${nq_indices}, ${VALUE_NAME}) ${prefix}func(\\
+        ${nq_params}, ${nq_indices}, ${VALUE_NAME})
+    %else:
+    #define ${prefix}(${nq_indices}) ${prefix}func(${nq_params}, ${nq_indices})
+    %endif
+    """)
+
+def module_transformation(output, param, subtree_parameters, tr_snippet, tr_args):
+    return Module(
+        _module_transformation,
         render_kwds=dict(
             output=output,
             name=param.name,
@@ -109,16 +112,20 @@ def module_transformation(output, param, subtree_parameters, tr_snippet, tr_args
             tr_args=tr_args))
 
 
+_module_leaf_macro = helpers.template_def(
+    ['prefix'],
+    """
+    // leaf ${'output' if output else 'input'} macro for "${name}"
+    %if output:
+    #define ${prefix}(${index_str}, ${VALUE_NAME}) ${lname}[${index_expr}] = (${VALUE_NAME})
+    %else:
+    #define ${prefix}(${index_str}) (${lname}[${index_expr}])
+    %endif
+    """)
+
 def module_leaf_macro(output, param):
-    return Module.create(
-        """
-        // leaf ${'output' if output else 'input'} macro for "${name}"
-        %if output:
-        #define ${prefix}(${index_str}, ${VALUE_NAME}) ${lname}[${index_expr}] = (${VALUE_NAME})
-        %else:
-        #define ${prefix}(${index_str}) (${lname}[${index_expr}])
-        %endif
-        """,
+    return Module(
+        _module_leaf_macro,
         render_kwds=dict(
             output=output,
             name=param.name,
@@ -128,15 +135,20 @@ def module_leaf_macro(output, param):
             index_expr=flat_index_expr(param)))
 
 
+_module_same_indices = helpers.template_def(
+    ['prefix'],
+    """
+    // ${'output' if output else 'input'} for a transformation for "${name}"
+    %if output:
+    #define ${prefix}(${VALUE_NAME}) ${module_idx}(${nq_indices}, ${VALUE_NAME})
+    %else:
+    #define ${prefix} ${module_idx}(${nq_indices})
+    %endif
+    """)
+
 def module_same_indices(output, param, subtree_parameters, module_idx):
-    return Module.create("""
-        // ${'output' if output else 'input'} for a transformation for "${name}"
-        %if output:
-        #define ${prefix}(${VALUE_NAME}) ${module_idx}(${nq_indices}, ${VALUE_NAME})
-        %else:
-        #define ${prefix} ${module_idx}(${nq_indices})
-        %endif
-        """,
+    return Module(
+        _module_same_indices,
         render_kwds=dict(
             output=output,
             name=param.name,
@@ -146,65 +158,68 @@ def module_same_indices(output, param, subtree_parameters, module_idx):
             nq_params=param_cnames_str(subtree_parameters)))
 
 
-def module_combined(output, param, subtree_parameters, module_idx):
-
-    snippet_disassemble_combined = Snippet.create(
-        lambda shape, slices, indices, combined_indices: """
-        %for combined_index, slice_len in enumerate(slices):
+_snippet_disassemble_combined = Snippet.create(
+    lambda shape, slices, indices, combined_indices: """
+    %for combined_index, slice_len in enumerate(slices):
+    <%
+        index_start = sum(slices[:combined_index])
+        index_end = index_start + slice_len
+    %>
+        %for index in range(index_start, index_end):
         <%
-            index_start = sum(slices[:combined_index])
-            index_end = index_start + slice_len
+            stride = product(shape[index+1:index_end])
         %>
-            %for index in range(index_start, index_end):
-            <%
-                stride = product(shape[index+1:index_end])
-            %>
-            VSIZE_T ${indices[index]} = ${combined_indices[combined_index]} / ${stride};
-            ${combined_indices[combined_index]} -= ${indices[index]} * ${stride};
-            %endfor
+        VSIZE_T ${indices[index]} = ${combined_indices[combined_index]} / ${stride};
+        ${combined_indices[combined_index]} -= ${indices[index]} * ${stride};
         %endfor
-        """,
-        render_kwds=dict(product=helpers.product))
+    %endfor
+    """,
+    render_kwds=dict(product=helpers.product))
 
-    return Module.create(
-        lambda prefix, slices: """
-        <%
-            combined_indices=['_c_idx' + str(i) for i in range(len(slices))]
-            q_combined_indices=", ".join(['VSIZE_T ' + ind for ind in combined_indices])
-            nq_combined_indices=", ".join(combined_indices)
-        %>
-        INLINE WITHIN_KERNEL ${'void' if output else connector_ctype} ${prefix}func(
-            ${q_params},
-            ${q_combined_indices}
-            %if output:
-            , ${connector_ctype} ${VALUE_NAME}
-            %endif
-            )
-        {
-            ${disassemble(shape, slices, indices, combined_indices)}
-            %if output:
-            ${module_idx}(${nq_indices}, ${VALUE_NAME});
-            %else:
-            return ${module_idx}(${nq_indices});
-            %endif
-        }
+_module_combined = helpers.template_def(
+    ['prefix', 'slices'],
+    """
+    <%
+        combined_indices=['_c_idx' + str(i) for i in range(len(slices))]
+        q_combined_indices=", ".join(['VSIZE_T ' + ind for ind in combined_indices])
+        nq_combined_indices=", ".join(combined_indices)
+    %>
+    INLINE WITHIN_KERNEL ${'void' if output else connector_ctype} ${prefix}func(
+        ${q_params},
+        ${q_combined_indices}
         %if output:
-        #define ${prefix}(${nq_combined_indices}, ${VALUE_NAME}) ${prefix}func(\\
-            ${nq_params}, ${nq_combined_indices}, ${VALUE_NAME})
-        %else:
-        #define ${prefix}(${nq_combined_indices}) ${prefix}func(\\
-            ${nq_params}, ${nq_combined_indices})
+        , ${connector_ctype} ${VALUE_NAME}
         %endif
-        """,
+        )
+    {
+        ${disassemble(shape, slices, indices, combined_indices)}
+        %if output:
+        ${module_idx}(${nq_indices}, ${VALUE_NAME});
+        %else:
+        return ${module_idx}(${nq_indices});
+        %endif
+    }
+    %if output:
+    #define ${prefix}(${nq_combined_indices}, ${VALUE_NAME}) ${prefix}func(\\
+        ${nq_params}, ${nq_combined_indices}, ${VALUE_NAME})
+    %else:
+    #define ${prefix}(${nq_combined_indices}) ${prefix}func(\\
+        ${nq_params}, ${nq_combined_indices})
+    %endif
+    """)
+
+def module_combined(output, param, subtree_parameters, module_idx):
+    return Module(
+        _module_combined,
         render_kwds=dict(
             output=output,
             VALUE_NAME=VALUE_NAME,
             shape=param.annotation.type.shape,
             module_idx=module_idx,
-            disassemble=snippet_disassemble_combined,
+            disassemble=_snippet_disassemble_combined,
             connector_ctype=param.annotation.type.ctype,
             nq_indices=index_cnames_str(param),
             q_indices=index_cnames_str(param, qualified=True),
             q_params=param_cnames_str(subtree_parameters, qualified=True),
             nq_params=param_cnames_str(subtree_parameters),
-            indices=index_cnames(param)))
+            indices=index_cnames(param.annotation.type.shape)))

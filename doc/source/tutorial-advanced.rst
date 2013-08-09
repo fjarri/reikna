@@ -64,6 +64,7 @@ In our example ``out2`` has length 80, so the current index is checked before th
 **Parameter objects.**
 The transformation example above has some hardcoded stuff, for example the type of parameters (``float``), or their shapes (``100`` and ``80``).
 These can be accessed from argument objects ``out1``, ``in1`` etc; they all have the type :py:class:`~reikna.core.transformation.KernelParameter`.
+In addition, the transformation code gets an :py:class:`~reikna.core.Indices` object with the name ``idxs``, which allows one to manipulate index names directly.
 
 
 .. _tutorial-advanced-computation:

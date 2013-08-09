@@ -7,12 +7,20 @@ import reikna.cluda.functions as functions
 from reikna.core import Transformation, Parameter, Annotation, Type
 
 
-def identity(arr_t):
+def copy(arr_t, out_arr_t=None):
     """
     Returns an identity transformation (1 output, 1 input): ``output = input``.
+    Output array type ``out_arr_t`` may have different strides,
+    but must have the same shape and data type.
     """
+    if out_arr_t is None:
+        out_arr_t = arr_t
+    else:
+        if out_arr_t.shape != arr_t.shape or out_arr_t.dtype != arr_t.dtype:
+            raise ValueError("Input and output arrays must have the same shape and data type")
+
     return Transformation(
-        [Parameter('output', Annotation(arr_t, 'o')),
+        [Parameter('output', Annotation(out_arr_t, 'o')),
         Parameter('input', Annotation(arr_t, 'i'))],
         "${output.store_same}(${input.load_same});")
 
