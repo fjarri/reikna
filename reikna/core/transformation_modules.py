@@ -170,7 +170,9 @@ _snippet_disassemble_combined = Snippet.create(
             stride = product(shape[index+1:index_end])
         %>
         VSIZE_T ${indices[index]} = ${combined_indices[combined_index]} / ${stride};
+        %if index != index_end - 1:
         ${combined_indices[combined_index]} -= ${indices[index]} * ${stride};
+        %endif
         %endfor
     %endfor
     """,
