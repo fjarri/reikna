@@ -82,12 +82,15 @@
 from __future__ import print_function
 from logging import error
 import weakref
+import sys
 
 from reikna.cluda import OutOfResourcesError, find_devices
 from reikna.helpers import product
 from reikna.cluda.kernel import render_prelude, render_template_source
 from reikna.cluda.vsize import VirtualSizes
 from reikna.cluda.tempalloc import ZeroOffsetManager
+
+_input = input if sys.version_info[0] >= 3 else raw_input
 
 
 def get_id():
@@ -177,7 +180,7 @@ class Thread:
                 print(
                     "Choose the platform [{default_pnum}]:".format(default_pnum=default_pnum),
                     end='')
-                selected_pnum = int(raw_input())
+                selected_pnum = int(_input())
                 if selected_pnum == '':
                     selected_pnum = default_pnum
 
@@ -195,7 +198,7 @@ class Thread:
                 print(
                     "Choose the device [{default_dnum}]:".format(default_dnum=default_dnum),
                     end='')
-                selected_dnum = int(raw_input())
+                selected_dnum = int(_input())
                 if selected_dnum == '':
                     selected_dnum = default_dnum
 
