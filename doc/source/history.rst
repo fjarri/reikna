@@ -6,7 +6,9 @@ Release history
 0.3.7 (current development version)
 ===================================
 
-Under construction.
+* FIXED: bug in the interactive ``Thread`` creation (reported by James Bergstra).
+
+* FIXED: Py3-incompatibility in the interactive ``Thread`` creation.
 
 
 0.3.6 (9 Aug 2013)
