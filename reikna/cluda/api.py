@@ -180,9 +180,11 @@ class Thread:
                 print(
                     "Choose the platform [{default_pnum}]:".format(default_pnum=default_pnum),
                     end='')
-                selected_pnum = int(_input())
+                selected_pnum = _input()
                 if selected_pnum == '':
                     selected_pnum = default_pnum
+                else:
+                    selected_pnum = int(selected_pnum)
 
             platform = platforms[selected_pnum]
             dnums = sorted(devices[selected_pnum])
@@ -198,9 +200,11 @@ class Thread:
                 print(
                     "Choose the device [{default_dnum}]:".format(default_dnum=default_dnum),
                     end='')
-                selected_dnum = int(_input())
+                selected_dnum = _input()
                 if selected_dnum == '':
                     selected_dnum = default_dnum
+                else:
+                    selected_dnum = int(selected_dnum)
 
         else:
             selected_pnum = sorted(devices.keys())[0]
