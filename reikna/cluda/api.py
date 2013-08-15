@@ -177,7 +177,7 @@ class Thread:
                 print(
                     "Choose the platform [{default_pnum}]:".format(default_pnum=default_pnum),
                     end='')
-                selected_pnum = raw_input()
+                selected_pnum = int(raw_input())
                 if selected_pnum == '':
                     selected_pnum = default_pnum
 
@@ -195,7 +195,7 @@ class Thread:
                 print(
                     "Choose the device [{default_dnum}]:".format(default_dnum=default_dnum),
                     end='')
-                selected_dnum = raw_input()
+                selected_dnum = int(raw_input())
                 if selected_dnum == '':
                     selected_dnum = default_dnum
 
