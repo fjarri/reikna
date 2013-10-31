@@ -62,6 +62,7 @@
 * FEATURE (computations): add bitonic sort
 * FEATURE (computations): add filter
 * FEATURE (computations): add radix-3,5,7 for FFT
+* FEATURE (computations): commonly required linalg functions: diagonalisation, inversion, decomposition, determinant of matrices
 
 
 1.*
