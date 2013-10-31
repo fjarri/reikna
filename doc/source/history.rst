@@ -10,6 +10,8 @@ Release history
 
 * FIXED: Py3-incompatibility in the interactive ``Thread`` creation.
 
+* FIXED: some code paths in virtual size finding algorithm could result in a type error.
+
 
 0.3.6 (9 Aug 2013)
 ==================
