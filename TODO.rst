@@ -55,6 +55,10 @@
   Need to see what errors look like in this case.
 * FEATURE (core): check correctness of types in Computation.__call__() if _debug is on
 * ?FEATURE (core): check that types of arrays in the computation signature are supported by GPU (eliminates the need to check it in every computation)
+* FEATURE (core): add group identifier to temporary allocations, with the guarantee that the allocations with different groups are not packed.
+  This may be used to ensure that buffers to be used on different devices are not packed,
+  which may be bad since OpenCL tries to preemptively move allocations from device to device.
+  It'll help when Threads start to support several devices.
 
 * FEATURE (computations): add matrix-vector and vector-vector multiplication (the latter can probably be implemented just as a specialized ``Reduce``)
 * FEATURE (computations): add better block width finder for small matrices in matrixmul
