@@ -121,7 +121,7 @@ def test_nested_array(thr):
       ${struct} res;
 
       res.struct_arr[0].val1 = i + 0;
-      res.struct_arr[2].val1 = i + 1;
+      res.struct_arr[1].val1 = i + 1;
 
       res.regular_arr[0] = i + 2;
       res.regular_arr[1] = i + 3;
@@ -136,9 +136,14 @@ def test_nested_array(thr):
 
     test = program.test
 
-    a_dev = thr.array(128, dtype)
-    test(a_dev, global_size=128)
+    a_dev = thr.array(64, dtype)
+    test(a_dev, global_size=64)
     a = a_dev.get()
 
-    assert (a['struct_arr'][0]['val1'] == 0).all()
+    idxs = numpy.arange(64)
+    assert (a['struct_arr'][:,0]['val1'] == idxs + 0).all()
+    assert (a['struct_arr'][:,1]['val1'] == idxs + 1).all()
+    assert (a['regular_arr'][:,0] == idxs + 2).all()
+    assert (a['regular_arr'][:,1] == idxs + 3).all()
+    assert (a['regular_arr'][:,2] == idxs + 4).all()
 
