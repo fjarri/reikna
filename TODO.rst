@@ -48,7 +48,7 @@
 * ?FEATURE (core): add ability to connect several transformation parameters to one node.
   Currently it is impossible because of the chosen interface (kwds do not allow repettitions).
   This can be actually still achieved by connecting additional identity transformations.
-* FEATURE (docs): extend starting page (link to issue tracker, quick links to guides, list of algorithms, quick example)
+* FEATURE (docs): extend starting page (quick links to guides, list of algorithms, quick example)
 
 * ?FEATURE (core): check for errors in load/stores/param usage when connecting transformations?
   Alternatively, return more meaningful errors when accessing load/store/parameter with the wrong number.

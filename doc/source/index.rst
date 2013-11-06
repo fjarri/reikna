@@ -11,7 +11,20 @@ The main design goals are:
 * separation of the preparation and execution stage, maximizing the performance of the execution stage at the expense of the preparation stage (in other words, aiming at large simulations)
 * partial abstraction from Cuda/OpenCL
 
-``Reikna`` is hosted `on GitHub <http://github.com/Manticore/reikna>`_, issues should be filed there too.
+The installation is as simple as
+
+::
+
+    $ pip install reikna
+
+Community resources
+===================
+
+* `Source repository <http://github.com/Manticore/reikna>`_ on GitHub;
+
+* `Issue tracker <http://github.com/Manticore/reikna/issues>`_, *ibid*;
+
+* `Discussion forum <https://groups.google.com/d/forum/reikna>`_ on Google Groups.
 
 ********
 Contents
