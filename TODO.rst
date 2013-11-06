@@ -4,7 +4,7 @@
 * FIX (test): test collection runs extremely slowly, especially for Intel device.
 * ?FIX (test): FFT tests run with fast math and complex64, and this is too imprecise on the Intel device, which causes them to fail.
 * ?FIX (core): perhaps we should memoize parametrized modules too: for example, FFT produces dozens of modules for load and store (because it calls them in a loop).
-* FEATURE (CLUDA, core): implement custom structures as types (will also require updating the strides-to-flat-index algorithm)
+* FIX (core): investigate if the strides-to-flat-index algorithm requires updating with the new support of custom dtypes (see FIXME in ``transformation_modules``).
 * FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
 * ?API (computations): can we improve how Predicates for Reduce are defined?
 * FEATURE (computations): reduction with multiple predicates on a single (or multiple too?) array.

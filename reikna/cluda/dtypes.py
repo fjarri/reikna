@@ -1,4 +1,5 @@
 import numpy
+from reikna.cluda.api_discovery import cuda_id, ocl_id
 
 
 _DTYPE_TO_CTYPE = {}
@@ -180,3 +181,146 @@ def _fill_dtype_registry(respect_windows=True):
     _register_dtype(numpy.complex128, "double2")
 
 _fill_dtype_registry()
+
+
+def _get_ctype(api_id, dtype, alignment=None):
+    """
+    A recursive helper function for ``_get_struct_ctype``.
+    Returns a tuple consisting of a string with the C type definition
+    for a given ``dtype``, and the corresponding array suffix
+    (if ``dtype`` is not an array, it is an empty string).
+    If ``alignment`` is not ``None``, an explicit alignment (in bytes)
+    will be specified in the resulting declaration.
+    """
+
+    if alignment is not None:
+        if api_id == cuda_id():
+            alignment_str = "__align__(" + str(alignment) + ")"
+        elif api_id == ocl_id():
+            alignment_str = "__attribute__ ((aligned(" + str(alignment) + ")))"
+        else:
+            raise ValueError("Unknown API ID: " + str(api_id))
+    else:
+        alignment_str = ""
+
+    if len(dtype.shape) == 0:
+        base_dtype = dtype
+        dtype_shape = tuple()
+    else:
+        base_dtype = dtype.base
+        dtype_shape = dtype.shape
+
+    if base_dtype.names == None:
+        type_str = ctype(base_dtype)
+    else:
+        lines = ["struct {"]
+        for i, name in enumerate(base_dtype.names):
+            elem_dtype, elem_offset = base_dtype.fields[name]
+            if i == len(base_dtype.names) - 1:
+                # If it is the last field of the struct, its alignment does not matter ---
+                # the enompassing struct's one will override it anyway.
+                alignment = None
+            else:
+                alignment = base_dtype.fields[base_dtype.names[i+1]][1] - elem_offset
+                if alignment <= elem_dtype.itemsize:
+                    alignment = None
+
+            decl, suffix = _get_ctype(api_id, elem_dtype, alignment)
+
+            # Add indentation to make nested structures easier to read
+            decl = "\n".join("    " + line for line in decl.split("\n"))
+
+            lines.append(decl + " " + name + suffix + ";")
+
+        lines.append("}")
+        type_str = "\n".join(lines)
+
+    if len(dtype_shape) == 0:
+        array_suffix = ""
+    else:
+        array_suffix = "".join("[" + str(d) + "]" for d in dtype_shape)
+
+    return type_str + " " + alignment_str, array_suffix
+
+
+def _get_struct_ctype(api_id, dtype):
+    """
+    Returns a string with the C type definition for a given ``dtype``.
+    """
+
+    expected_itemsize = sum(dt.itemsize for dt, _ in dtype.fields.values())
+    if dtype.itemsize > expected_itemsize:
+        alignment = dtype.itemsize
+    else:
+        alignment = None
+
+    if len(dtype.shape) > 0:
+        raise ValueError("The root structure cannot be an array")
+
+    decl, _ = _get_ctype(api_id, dtype, alignment=alignment)
+
+    return decl
+
+
+def adjust_alignment(thr, dtype):
+    """
+    Returns a new data type object with the same fields as in ``dtype``
+    and the field offsets set by the compiler in ``thr``.
+    All existing non-standard offsets in ``dtype`` are ignored.
+    """
+
+    if dtype.names is None:
+        return dtype
+
+    adjusted_dtypes = [
+        adjust_alignment(thr, dtype.fields[name][0])
+        for name in dtype.names]
+
+    new_dtype = numpy.dtype(dict(
+        names=dtype.names,
+        formats=adjusted_dtypes))
+
+    struct = get_struct_module(thr, new_dtype)
+
+    program = thr.compile(
+    """
+    #define my_offsetof(type, field) ((size_t)(&((type *)0)->field))
+
+    KERNEL void test(GLOBAL_MEM int *dest)
+    {
+      %for i, name in enumerate(dtype.names):
+      dest[${i}] = my_offsetof(${struct}, ${name});
+      %endfor
+      dest[${len(dtype.names)}] = sizeof(${struct});
+    }
+    """, render_kwds=dict(
+        struct=struct,
+        dtype=new_dtype))
+
+    offsets = thr.array(len(dtype.names) + 1, numpy.int32)
+    test = program.test
+    test(offsets, global_size=1)
+    offsets = offsets.get()
+
+    return numpy.dtype(dict(
+        names=dtype.names,
+        formats=adjusted_dtypes,
+        offsets=offsets[:-1],
+        itemsize=offsets[-1]))
+
+
+def get_struct_module(thr, dtype):
+    """
+    Returns a :py:class:`~reikna.cluda.Module` object with the ``typedef`` of a struct
+    corresponding to the given ``dtype`` (with its name set to the module prefix).
+    This includes the alignment required to produce field offsets specified in ``dtype``.
+    If ``dtype`` is a simple type, ``ValueError`` is thrown.
+    """
+    if dtype.names is None:
+        raise ValueError(str(dtype) + "is a simple type and does not require a module.")
+
+    # Root level import creates an import loop.
+    from reikna.cluda.kernel import Module
+
+    struct = _get_struct_ctype(thr.api.get_id(), dtype)
+    return Module.create("typedef " + struct + " ${prefix};")

@@ -6,6 +6,8 @@ Release history
 0.3.7 (current development version)
 ===================================
 
+* ADDED: module generator for nested dtypes (:py:func:`~reikna.cluda.dtypes.get_struct_module`) and a function to get natural field offsets for a given API/device (:py:func:`~reikna.cluda.dtypes.adjust_alignment`).
+
 * FIXED: bug in the interactive ``Thread`` creation (reported by James Bergstra).
 
 * FIXED: Py3-incompatibility in the interactive ``Thread`` creation.
