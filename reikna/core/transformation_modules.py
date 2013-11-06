@@ -22,13 +22,18 @@ def index_cnames_str(param, qualified=False):
 
 
 def flat_index_expr(param):
-    # FIXME: Assuming that all strides are multiples of dtype.itemsize,
-    # which is true as long as we use primitive types from numpy.
-    # This can change with custom structures, and we will have
-    # to cast device pointer to bytes and back.
-    # Need to investigate what happens in this case on some concrete example.
 
     type_ = param.annotation.type
+
+    # FIXME: Assuming that all strides are multiples of dtype.itemsize.
+    # This can change with custom strides, and we will have
+    # to cast device pointer to bytes and back.
+    # Need to investigate what happens in this case on some concrete example.
+    if not all(stride % type_.dtype.itemsize == 0 for stride in type_.strides):
+        raise ValueError(
+            "Some of the strides " + str(type_.strides) +
+            "are not multiples of the itemsize" + str(type_.dtype.itemsize))
+
     item_strides = [stride // type_.dtype.itemsize for stride in type_.strides]
 
     names = index_cnames(param.annotation.type.shape)

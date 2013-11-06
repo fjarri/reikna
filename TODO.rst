@@ -4,7 +4,6 @@
 * FIX (test): test collection runs extremely slowly, especially for Intel device.
 * ?FIX (test): FFT tests run with fast math and complex64, and this is too imprecise on the Intel device, which causes them to fail.
 * ?FIX (core): perhaps we should memoize parametrized modules too: for example, FFT produces dozens of modules for load and store (because it calls them in a loop).
-* FIX (core): investigate if the strides-to-flat-index algorithm requires updating with the new support of custom dtypes (see FIXME in ``transformation_modules``).
 * FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
 * ?API (computations): can we improve how Predicates for Reduce are defined?
 * FEATURE (computations): reduction with multiple predicates on a single (or multiple too?) array.
@@ -41,6 +40,8 @@
 * ?FIX (cluda): find a way to get ``min_mem_coalesce_width`` for OpenCL
 * ?FIX (cluda): what are we going to do with OpenCL platforms that do not support intra-block interaction?
   (for example, Apple's implementation)
+* ?FIX (core): investigate if the strides-to-flat-index algorithm requires updating to support strides which are not multiples of ``dtype.itemsize`` (see ``flat_index_expr()``).
+  Currently we have a ``ValueError`` there.
 
 * FEATURE (cluda): add a mechanism to select the best local size based on occupancy
 * ?API (computations): move some of the functionality to the top level of ``reikna`` module?
