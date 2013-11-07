@@ -418,9 +418,9 @@ class Thread:
 
         if not self._released:
             self._release_specific()
-            self._device = None
-            self._queue = None
-            self._context = None
+            del self._device
+            del self._queue
+            del self._context
             self._released = True
 
 
