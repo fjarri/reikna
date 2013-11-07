@@ -190,7 +190,7 @@ def test_sequence(thr, sequence_shape_and_axes):
     check_errors(thr, sequence_shape_and_axes)
 
 
-def check_performance(thr_and_double, shape_and_axes):
+def check_performance(thr_and_double, shape_and_axes, fast_math):
     thr, double = thr_and_double
 
     shape, axes = shape_and_axes
@@ -201,7 +201,7 @@ def check_performance(thr_and_double, shape_and_axes):
     res_dev = thr.empty_like(data_dev)
 
     fft = FFT(data_dev, axes=axes)
-    fftc = fft.compile(thr)
+    fftc = fft.compile(thr, fast_math=fast_math)
 
     attempts = 10
     t1 = time.time()
@@ -219,11 +219,11 @@ def check_performance(thr_and_double, shape_and_axes):
 
 @pytest.mark.perf
 @pytest.mark.returns('GFLOPS')
-def test_power_of_2_performance(thr_and_double, perf_shape_and_axes):
-    return check_performance(thr_and_double, perf_shape_and_axes)
+def test_power_of_2_performance(thr_and_double, perf_shape_and_axes, fast_math):
+    return check_performance(thr_and_double, perf_shape_and_axes, fast_math)
 
 
 @pytest.mark.perf
 @pytest.mark.returns('GFLOPS')
-def test_non_power_of_2_performance(thr_and_double, non2problem_perf_shape_and_axes):
-    return check_performance(thr_and_double, non2problem_perf_shape_and_axes)
+def test_non_power_of_2_performance(thr_and_double, non2problem_perf_shape_and_axes, fast_math):
+    return check_performance(thr_and_double, non2problem_perf_shape_and_axes, fast_math)
