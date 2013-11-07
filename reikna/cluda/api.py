@@ -235,13 +235,6 @@ class Thread:
             pack_on_alloc=temp_alloc_params['pack_on_alloc'],
             pack_on_free=temp_alloc_params['pack_on_free'])
 
-    def override_device_params(self, **kwds):
-        for kwd in kwds:
-            if hasattr(self.device_params, kwd):
-                setattr(self.device_params, kwd, kwds[kwd])
-            else:
-                raise ValueError("Device parameter " + str(kwd) + " does not exist")
-
     def allocate(self, size):
         """
         Creates an untyped memory allocation object of type :py:class:`Buffer` with size ``size``.

@@ -212,6 +212,31 @@ class TestVirtualSizes:
             mng=self.max_num_groups, mwis=self.max_work_item_sizes)
 
 
+class override_device_params:
+    """
+    Some of the tests here need to make thread/workgroup number limits
+    in DeviceParameters of the thread lower, so that they are easier to test.
+
+    This context manager hacks into the Thread and replaces the ``device_params`` attribute.
+    Since threads are reused, the old device_params must be restored on exit.
+    """
+
+    def __init__(self, thr, **kwds):
+        self._thr = thr
+        self._kwds = kwds
+
+    def __enter__(self):
+        self._old_device_params = self._thr.device_params
+        device_params = self._thr.api.DeviceParameters(self._thr._device)
+        for kwd, val in self._kwds.items():
+            setattr(device_params, kwd, val)
+        self._thr.device_params = device_params
+        return self._thr
+
+    def __exit__(self, *args):
+        self._thr.device_params = self._old_device_params
+
+
 def test_ids(thr, testvs):
     """
     Test that virtual IDs are correct for each thread.
@@ -219,27 +244,26 @@ def test_ids(thr, testvs):
     if not testvs.is_supported_by(thr):
         pytest.skip()
 
-    thr.override_device_params(
-        max_num_groups=testvs.max_num_groups,
-        max_work_item_sizes=testvs.max_work_item_sizes,
-        warp_size=2)
-
     ref = ReferenceIds(testvs.global_size, testvs.local_size)
 
-    get_ids = thr.compile_static("""
-    KERNEL void get_ids(
-        GLOBAL_MEM int *local_ids,
-        GLOBAL_MEM int *group_ids,
-        GLOBAL_MEM int *global_ids,
-        int vdim)
-    {
-        VIRTUAL_SKIP_THREADS;
-        const VSIZE_T i = virtual_global_flat_id();
-        local_ids[i] = virtual_local_id(vdim);
-        group_ids[i] = virtual_group_id(vdim);
-        global_ids[i] = virtual_global_id(vdim);
-    }
-    """, 'get_ids', testvs.global_size, local_size=testvs.local_size)
+    with override_device_params(
+            thr, max_num_groups=testvs.max_num_groups,
+            max_work_item_sizes=testvs.max_work_item_sizes, warp_size=2) as limited_thr:
+
+        get_ids = limited_thr.compile_static("""
+        KERNEL void get_ids(
+            GLOBAL_MEM int *local_ids,
+            GLOBAL_MEM int *group_ids,
+            GLOBAL_MEM int *global_ids,
+            int vdim)
+        {
+            VIRTUAL_SKIP_THREADS;
+            const VSIZE_T i = virtual_global_flat_id();
+            local_ids[i] = virtual_local_id(vdim);
+            group_ids[i] = virtual_group_id(vdim);
+            global_ids[i] = virtual_global_id(vdim);
+        }
+        """, 'get_ids', testvs.global_size, local_size=testvs.local_size)
 
     local_ids = thr.array(ref.global_size, numpy.int32)
     group_ids = thr.array(ref.global_size, numpy.int32)
@@ -262,31 +286,30 @@ def test_sizes(thr, testvs):
     if not testvs.is_supported_by(thr):
         pytest.skip()
 
-    thr.override_device_params(
-        max_num_groups=testvs.max_num_groups,
-        max_work_item_sizes=testvs.max_work_item_sizes,
-        warp_size=2)
-
     ref = ReferenceIds(testvs.global_size, testvs.local_size)
     vdims = len(testvs.global_size)
 
-    get_sizes = thr.compile_static("""
-    KERNEL void get_sizes(GLOBAL_MEM int *sizes)
-    {
-        if (virtual_global_id(0) > 0) return;
+    with override_device_params(
+        thr, max_num_groups=testvs.max_num_groups,
+        max_work_item_sizes=testvs.max_work_item_sizes, warp_size=2) as limited_thr:
 
-        for (int i = 0; i < ${vdims}; i++)
+        get_sizes = limited_thr.compile_static("""
+        KERNEL void get_sizes(GLOBAL_MEM int *sizes)
         {
-            sizes[i] = virtual_local_size(i);
-            sizes[i + ${vdims}] = virtual_num_groups(i);
-            sizes[i + ${vdims * 2}] = virtual_global_size(i);
+            if (virtual_global_id(0) > 0) return;
+
+            for (int i = 0; i < ${vdims}; i++)
+            {
+                sizes[i] = virtual_local_size(i);
+                sizes[i + ${vdims}] = virtual_num_groups(i);
+                sizes[i + ${vdims * 2}] = virtual_global_size(i);
+            }
+            sizes[${vdims * 3}] = virtual_global_flat_size();
         }
-        sizes[${vdims * 3}] = virtual_global_flat_size();
-    }
-    """,
-        'get_sizes',
-        testvs.global_size, local_size=testvs.local_size,
-        render_kwds=dict(vdims=vdims))
+        """,
+            'get_sizes',
+            testvs.global_size, local_size=testvs.local_size,
+            render_kwds=dict(vdims=vdims))
 
     sizes = thr.array(vdims * 3 + 1, numpy.int32)
     get_sizes(sizes)
@@ -312,15 +335,14 @@ def test_incorrect_sizes(thr, incorrect_testvs):
     """
     Test that for sizes which exceed the thread capability, the exception is raised.
     """
-    thr.override_device_params(
-        max_num_groups=incorrect_testvs.max_num_groups,
-        max_work_item_sizes=incorrect_testvs.max_work_item_sizes,
-        warp_size=2)
+    with override_device_params(
+        thr, max_num_groups=incorrect_testvs.max_num_groups,
+        max_work_item_sizes=incorrect_testvs.max_work_item_sizes, warp_size=2) as limited_thr:
 
-    with pytest.raises(ValueError):
-        kernel = thr.compile_static("""
-        KERNEL void test(GLOBAL_MEM int *temp)
-        {
-            temp[0] = 1;
-        }
-        """, 'test', incorrect_testvs.global_size, local_size=incorrect_testvs.local_size)
+        with pytest.raises(ValueError):
+            kernel = thr.compile_static("""
+            KERNEL void test(GLOBAL_MEM int *temp)
+            {
+                temp[0] = 1;
+            }
+            """, 'test', incorrect_testvs.global_size, local_size=incorrect_testvs.local_size)
