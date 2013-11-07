@@ -14,6 +14,9 @@ Release history
 
 * ADDED: module generator for nested dtypes (:py:func:`~reikna.cluda.dtypes.get_struct_module`) and a function to get natural field offsets for a given API/device (:py:func:`~reikna.cluda.dtypes.adjust_alignment`).
 
+* ADDED: ``fast_math`` keyword parameter in :py:meth:`~reikna.core.Computation.compile`.
+  In other words, now ``fast_math`` can be set per computation.
+
 * FIXED: bug in the interactive ``Thread`` creation (reported by James Bergstra).
 
 * FIXED: Py3-incompatibility in the interactive ``Thread`` creation.
