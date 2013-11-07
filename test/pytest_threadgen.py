@@ -28,11 +28,10 @@ class ThreadParams:
     Encapsulates a set of parameters necessary to create a test Thread.
     """
 
-    def __init__(self, api, pnum, dnum, fast_math=None):
+    def __init__(self, api, pnum, dnum):
         self.api_id = api.get_id()
         self.pnum = pnum
         self.dnum = dnum
-        self.fast_math = fast_math
 
         self._api = api
 
@@ -44,11 +43,10 @@ class ThreadParams:
 
         self.device_params = api.DeviceParameters(self._device)
 
-        fm_suffix = {True:",fm", False:",nofm", None:""}[fast_math]
         self.device_id = "{api},{pnum},{dnum}".format(api=api.get_id(), pnum=pnum, dnum=dnum)
         self.device_full_name = platform_name + ", " + device_name
 
-        self.id = self.device_id + fm_suffix
+        self.id = self.device_id
 
         # if we import it in the header, it messes up with coverage results
         import reikna.cluda as cluda
@@ -56,14 +54,10 @@ class ThreadParams:
         self.cuda = (api.get_id() == cluda.cuda_id())
 
     def create_thread(self):
-        kwds = {}
-        if self.fast_math is not None:
-            kwds['fast_math'] = self.fast_math
-
-        return self._api.Thread(self._device, **kwds)
+        return self._api.Thread(self._device)
 
     def __key(self):
-        return (self.api_id, self.pnum, self.dnum, self.fast_math)
+        return (self.api_id, self.pnum, self.dnum)
 
     def __eq__(x, y):
         return x.__key() == y.__key()
@@ -112,7 +106,7 @@ class ThreadManager:
 _thread_manager = ThreadManager()
 
 
-def get_threads(config, vary_fast_math=False):
+def get_threads(config):
     """
     Create a list of thread creators, based on command line options and their availability.
     """
@@ -120,12 +114,6 @@ def get_threads(config, vary_fast_math=False):
     from reikna.cluda import find_devices
 
     apis, _ = get_apis(config)
-
-    if vary_fast_math:
-        fm = config.option.fast_math
-        fms = dict(both=[False, True], no=[False], yes=[True])[fm]
-    else:
-        fms = [None]
 
     tps = []
     for api in apis:
@@ -140,8 +128,7 @@ def get_threads(config, vary_fast_math=False):
         for pnum in sorted(devices.keys()):
             dnums = sorted(devices[pnum])
             for dnum in dnums:
-                for fm in fms:
-                    tps.append(ThreadParams(api, pnum, dnum, fast_math=fm))
+                tps.append(ThreadParams(api, pnum, dnum))
 
     return tps, [str(tp) for tp in tps]
 
@@ -166,7 +153,7 @@ def pair_thread_with_doubles(metafunc, tp):
 
 
 def get_thread_tuples(metafunc, get_remainders):
-    tps, tp_ids = get_threads(metafunc.config, vary_fast_math=True)
+    tps, tp_ids = get_threads(metafunc.config)
     tuples = []
     ids = []
     for tp, tp_id in zip(tps, tp_ids):

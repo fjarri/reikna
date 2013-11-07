@@ -15,8 +15,8 @@ def pytest_addoption(parser):
         help="Use doubles: no/yes/supported",
         default="supported", choices=["no", "yes", "supported"])
     parser.addoption("--fast-math", dest="fast_math", action="store",
-        help="Use fast math: no/yes/both",
-        default="yes", choices=["no", "yes", "both"])
+        help="Use fast math (where applicable): no/yes/both",
+        default="no", choices=["no", "yes", "both"])
     parser.addoption("--device-include-mask", action="append",
         help="Run tests on matching devices only",
         default=[])
@@ -51,6 +51,13 @@ def pytest_report_header(config):
 
 
 def pytest_generate_tests(metafunc):
+
+    if 'fast_math' in metafunc.funcargnames:
+        fm = config.option.fast_math
+        fms = dict(both=[False, True], no=[False], yes=[True])[fm]
+        fm_ids = [{False:'nofm', True:'fm'}[fm] for fm in fms]
+        metafunc.parametrize('fast_math', fms, ids=fm_ids)
+
     if 'thr_and_double' in metafunc.funcargnames:
         parametrize_thread_tuple(metafunc, 'thr_and_double', pair_thread_with_doubles)
 

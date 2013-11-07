@@ -67,9 +67,9 @@ Second, there is a set of macros attached to any kernel depending on the API it 
 
     If defined, specifies that the kernel is being compiled for CUDA API.
 
-.. c:macro:: THREAD_FAST_MATH
+.. c:macro:: COMPILE_FAST_MATH
 
-    If defined, specifies that the :py:class:`~reikna.cluda.api.Thread` for which the kernel is being compiled was created with the key ``fast_math``.
+    If defined, specifies that the compilation for this kernel was requested with ``fast_math == True``.
 
 .. c:macro:: LOCAL_BARRIER
 

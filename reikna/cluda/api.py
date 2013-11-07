@@ -118,7 +118,6 @@ class Thread:
 
     :param cqd: a ``Context``, ``Device`` or ``Stream``/``CommandQueue`` object to base on.
         If a context is passed, a new stream/queue will be created internally.
-    :param fast_math: whether to enable fast mathematical operations during compilation.
     :param async: whether to execute all operations with this thread asynchronously
         (you would generally want to set it to ``False`` only for profiling purposes).
 
@@ -218,11 +217,10 @@ class Thread:
             thread_kwds = {}
         return cls(platforms[selected_pnum].get_devices()[selected_dnum], **thread_kwds)
 
-    def __init__(self, cqd, fast_math=True, async=True, temp_alloc=None):
+    def __init__(self, cqd, async=True, temp_alloc=None):
 
         self._released = False
         self._async = async
-        self._fast_math = fast_math
 
         self._context, self._queue, self._device, self._owns_context = self._process_cqd(cqd)
 
@@ -345,30 +343,31 @@ class Thread:
         if not self._async:
             self.synchronize()
 
-    def _create_program(self, src):
+    def _create_program(self, src, fast_math=False):
         try:
-            program = self._compile(src)
+            program = self._compile(src, fast_math=fast_math)
         except:
             listing = "\n".join([str(i+1) + ":" + l for i, l in enumerate(src.split('\n'))])
             error("Failed to compile:\n" + listing)
             raise
         return program
 
-    def compile(self, template_src, render_args=None, render_kwds=None):
+    def compile(self, template_src, render_args=None, render_kwds=None, fast_math=False):
         """
         Creates a module object from the given template.
 
         :param template_src: Mako template source to render
         :param render_kwds: an iterable with positional arguments to pass to the template.
         :param render_kwds: a dictionary with keyword parameters to pass to the template.
+        :param fast_math: whether to enable fast mathematical operations during compilation.
         :returns: a :py:class:`Program` object.
         """
         src = render_template_source(
             template_src, render_args=render_args, render_kwds=render_kwds)
-        return Program(self, src)
+        return Program(self, src, fast_math=fast_math)
 
     def compile_static(self, template_src, name, global_size,
-            local_size=None, render_args=None, render_kwds=None):
+            local_size=None, render_args=None, render_kwds=None, fast_math=False):
         """
         Creates a kernel object with fixed call sizes,
         which allows to overcome some backend limitations.
@@ -389,10 +388,12 @@ class Thread:
             to the template.
         :param render_kwds: a dictionary with additional parameters
             to be used while rendering the template.
+        :param fast_math: whether to enable fast mathematical operations during compilation.
         :returns: a :py:class:`StaticKernel` object.
         """
         return StaticKernel(self, template_src, name, global_size,
-            local_size=local_size, render_args=render_args, render_kwds=render_kwds)
+            local_size=local_size, render_args=render_args, render_kwds=render_kwds,
+            fast_math=fast_math)
 
     def _release_specific(self):
         """
@@ -435,19 +436,19 @@ class Program:
         Contains :py:class:`Kernel` object for the kernel ``kernel_name``.
     """
 
-    def __init__(self, thr, src, static=False):
+    def __init__(self, thr, src, static=False, fast_math=False):
         """__init__()""" # hide the signature from Sphinx
 
         self._thr = thr
         self._static = static
 
-        prelude = render_prelude(self._thr)
+        prelude = render_prelude(self._thr, fast_math=fast_math)
 
         # Casting source code to ASCII explicitly
         # New versions of Mako produce Unicode output by default,
         # and it makes the compiler unhappy
         self.source = str(prelude + src)
-        self._program = thr._create_program(self.source)
+        self._program = thr._create_program(self.source, fast_math=fast_math)
 
     def __getattr__(self, name):
         return self._thr.api.Kernel(self._thr, self._program, name, static=self._static)
@@ -517,7 +518,7 @@ class StaticKernel:
     """
 
     def __init__(self, thr, template_src, name, global_size, local_size=None,
-            render_args=None, render_kwds=None):
+            render_args=None, render_kwds=None, fast_math=False):
         """__init__()""" # hide the signature from Sphinx
 
         self._thr = thr
@@ -537,7 +538,8 @@ class StaticKernel:
             global_size, virtual_local_size=local_size)
         stub_vsize_funcs = stub_vs.vsize_functions
 
-        stub_program = Program(self._thr, stub_vsize_funcs + main_src, static=True)
+        stub_program = Program(self._thr, stub_vsize_funcs + main_src,
+            static=True, fast_math=fast_math)
         stub_kernel = getattr(stub_program, name)
         max_work_group_size = stub_kernel.max_work_group_size
 
@@ -547,7 +549,8 @@ class StaticKernel:
             thr.device_params, max_work_group_size,
             global_size, virtual_local_size=local_size)
         vsize_funcs = vs.vsize_functions
-        self._program = Program(self._thr, vsize_funcs + main_src, static=True)
+        self._program = Program(self._thr, vsize_funcs + main_src, static=True,
+            fast_math=fast_math)
         self._kernel = getattr(self._program, name)
 
         self.virtual_local_size = vs.virtual_local_size

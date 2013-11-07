@@ -8,6 +8,10 @@ Release history
 
 * CHANGED: ``supports_dtype()`` method moved from :py:class:`~reikna.cluda.api.Thread` to :py:class:`~reikna.cluda.api.DeviceParameters`.
 
+* CHANGED: ``fast_math`` keyword parameter moved from :py:class:`~reikna.cluda.api.Thread` constructor to :py:meth:`~reikna.cluda.api.Thread.compile` and :py:meth:`~reikna.cluda.api.Thread.compile_static`.
+  It is also ``False`` by default, instead of ``True``.
+  Correspondingly, ``THREAD_FAST_MATH`` macro was renamed to :c:macro:`COMPILE_FAST_MATH`.
+
 * ADDED: module generator for nested dtypes (:py:func:`~reikna.cluda.dtypes.get_struct_module`) and a function to get natural field offsets for a given API/device (:py:func:`~reikna.cluda.dtypes.adjust_alignment`).
 
 * FIXED: bug in the interactive ``Thread`` creation (reported by James Bergstra).

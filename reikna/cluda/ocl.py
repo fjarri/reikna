@@ -54,8 +54,8 @@ class Thread(api_base.Thread):
     def synchronize(self):
         self._queue.finish()
 
-    def _compile(self, src):
-        options = "-cl-mad-enable -cl-fast-relaxed-math" if self._fast_math else ""
+    def _compile(self, src, fast_math=False):
+        options = "-cl-mad-enable -cl-fast-relaxed-math" if fast_math else ""
         return cl.Program(self._context, src).build(options=options)
 
 
