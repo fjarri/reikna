@@ -53,7 +53,7 @@ def pytest_report_header(config):
 def pytest_generate_tests(metafunc):
 
     if 'fast_math' in metafunc.funcargnames:
-        fm = config.option.fast_math
+        fm = metafunc.config.option.fast_math
         fms = dict(both=[False, True], no=[False], yes=[True])[fm]
         fm_ids = [{False:'nofm', True:'fm'}[fm] for fm in fms]
         metafunc.parametrize('fast_math', fms, ids=fm_ids)
