@@ -19,8 +19,8 @@ class CBRNG(Computation):
     :param generators_dim: the number of dimensions (counting from the end)
         which will use independent generators.
         For example, if ``randoms_arr`` has the shape ``(100, 200, 300)`` and
-        ``generators_dim`` is ``2``, then every sub-array ``(100, :, :)``
-        will use an independent generator.
+        ``generators_dim`` is ``2``, then in every sub-array ``(j, :, :)``,
+        ``j = 0 .. 99``, every element will use an independent generator.
     :param sampler: a :py:class:`~reikna.cbrng.samplers.Sampler` object.
     :param seed: ``None`` for random seed, or an integer.
 
