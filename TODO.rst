@@ -1,7 +1,6 @@
 0.3.7
 =====
 
-* ?FIX (core): perhaps we should memoize parametrized modules too: for example, FFT produces dozens of modules for load and store (because it calls them in a loop).
 * FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
 * ?API (computations): can we improve how Predicates for Reduce are defined?
 * FEATURE (computations): reduction with multiple predicates on a single (or multiple too?) array.
@@ -40,6 +39,7 @@
   (for example, Apple's implementation)
 * ?FIX (core): investigate if the strides-to-flat-index algorithm requires updating to support strides which are not multiples of ``dtype.itemsize`` (see ``flat_index_expr()``).
   Currently we have a ``ValueError`` there.
+* ?FIX (core): perhaps we should memoize parametrized modules too: for example, FFT produces dozens of modules for load and store (because it calls them in a loop).
 
 * FEATURE (cluda): add a mechanism to select the best local size based on occupancy
 * ?API (computations): move some of the functionality to the top level of ``reikna`` module?
