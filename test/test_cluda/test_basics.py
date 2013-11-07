@@ -113,7 +113,7 @@ def test_dtype_support(thr, dtype):
 
     N = 256
 
-    if not thr.supports_dtype(dtype):
+    if not thr.device_params.supports_dtype(dtype):
         pytest.skip()
 
     mul = functions.mul(dtype, dtype)

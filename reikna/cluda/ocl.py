@@ -32,13 +32,6 @@ class Thread(api_base.Thread):
         else:
             return ValueError("The value provided is not Device, Context or CommandQueue")
 
-    def supports_dtype(self, dtype):
-        if dtypes.is_double(dtype):
-            extensions = self._context.devices[0].extensions
-            return "cl_khr_fp64" in extensions or "cl_amd_fp64" in extensions
-        else:
-            return True
-
     def allocate(self, size):
         return cl.Buffer(self._context, cl.mem_flags.READ_WRITE, size=size)
 
@@ -69,6 +62,8 @@ class Thread(api_base.Thread):
 class DeviceParameters:
 
     def __init__(self, device):
+
+        self._device = device
 
         if device.platform.name == 'Apple' and device.type == cl.device_type.CPU:
         # Apple is being funny again.
@@ -108,6 +103,13 @@ class DeviceParameters:
 
         self.min_mem_coalesce_width = {4: 16, 8: 16, 16: 8}
         self.local_mem_size = device.local_mem_size
+
+    def supports_dtype(self, dtype):
+        if dtypes.is_double(dtype):
+            extensions = self._device.extensions
+            return "cl_khr_fp64" in extensions or "cl_amd_fp64" in extensions
+        else:
+            return True
 
 
 class Kernel(api_base.Kernel):

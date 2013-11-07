@@ -84,13 +84,6 @@ class Thread(api_base.Thread):
         else:
             return ValueError("The value provided is not Device, Context or Stream")
 
-    def supports_dtype(self, dtype):
-        if dtypes.is_double(dtype):
-            major, minor = self._device.compute_capability()
-            return (major == 1 and minor == 3) or major >= 2
-        else:
-            return True
-
     def allocate(self, size):
         return Buffer(size)
 
@@ -141,6 +134,7 @@ class DeviceParameters:
 
     def __init__(self, device):
 
+        self._device = device
         self.max_work_group_size = device.max_threads_per_block
         self.max_work_item_sizes = [
             device.max_block_dim_x,
@@ -161,6 +155,13 @@ class DeviceParameters:
         self.min_mem_coalesce_width = {
             size:devdata.align_words(word_size=size) for size in [4, 8, 16]}
         self.local_mem_size = device.max_shared_memory_per_block
+
+    def supports_dtype(self, dtype):
+        if dtypes.is_double(dtype):
+            major, minor = self._device.compute_capability()
+            return (major == 1 and minor == 3) or major >= 2
+        else:
+            return True
 
 
 def find_local_size(global_size, max_work_item_sizes, max_work_group_size):

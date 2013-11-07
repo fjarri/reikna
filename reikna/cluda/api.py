@@ -58,6 +58,10 @@
         Dictionary ``{word_size:elements}``, where ``elements`` is the number of elements
         with size ``word_size`` in global memory that allow coalesced access.
 
+    .. py:method:: supports_dtype(self, dtype)
+
+        Checks if given ``numpy`` dtype can be used in kernels compiled using this thread.
+
 .. py:class:: Platform
 
     A vendor-specific implementation of the GPGPU API.
@@ -239,12 +243,6 @@ class Thread:
                 setattr(self.device_params, kwd, kwds[kwd])
             else:
                 raise ValueError("Device parameter " + str(kwd) + " does not exist")
-
-    def supports_dtype(self, dtype):
-        """
-        Checks if given ``numpy`` dtype can be used in kernels compiled using this thread.
-        """
-        raise NotImplementedError()
 
     def allocate(self, size):
         """
