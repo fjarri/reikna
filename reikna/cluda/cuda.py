@@ -70,6 +70,10 @@ class Thread(api_base.Thread):
 
     api = sys.modules[__name__]
 
+    def __init__(self, *args, **kwds):
+        api_base.Thread.__init__(self, *args, **kwds)
+        self._active = True
+
     def _process_cqd(self, cqd):
         if isinstance(cqd, cuda.Device):
             context = cqd.make_context()
@@ -121,9 +125,19 @@ class Thread(api_base.Thread):
         options = ['-use_fast_math'] if self._fast_math else []
         return SourceModule(src, no_extern_c=True, options=options)
 
+    def _cuda_push(self):
+        assert not self._active
+        self._context.push()
+        self._active = True
+
+    def _cuda_pop(self):
+        assert self._active
+        cuda.Context.pop()
+        self._active = False
+
     def _release_specific(self):
         # If we own the context, it is our responsibility to pop() it
-        if self._owns_context:
+        if self._owns_context and self._active:
             cuda.Context.pop()
 
     def __del__(self):
