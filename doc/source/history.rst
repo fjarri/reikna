@@ -16,6 +16,8 @@ Release history
 
 * FIXED: some code paths in virtual size finding algorithm could result in a type error.
 
+* FIXED: improved the speed of test collection by reusing ``Thread`` objects.
+
 
 0.3.6 (9 Aug 2013)
 ==================

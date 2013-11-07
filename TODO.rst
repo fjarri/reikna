@@ -1,7 +1,6 @@
 0.3.7
 =====
 
-* FIX (test): test collection runs extremely slowly, especially for Intel device.
 * ?FIX (test): FFT tests run with fast math and complex64, and this is too imprecise on the Intel device, which causes them to fail.
 * ?FIX (core): perhaps we should memoize parametrized modules too: for example, FFT produces dozens of modules for load and store (because it calls them in a loop).
 * FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.

@@ -23,38 +23,101 @@ def get_apis(config):
     return apis, api_ids
 
 
+class ThreadParams:
+    """
+    Encapsulates a set of parameters necessary to create a test Thread.
+    """
+
+    def __init__(self, api, pnum, dnum, fast_math=None):
+        self.api_id = api.get_id()
+        self.pnum = pnum
+        self.dnum = dnum
+        self.fast_math = fast_math
+
+        self._api = api
+
+        platform = api.get_platforms()[pnum]
+        self._device = platform.get_devices()[dnum]
+
+        platform_name = platform.name
+        device_name = self._device.name
+
+        self.device_params = api.DeviceParameters(self._device)
+
+        fm_suffix = {True:",fm", False:",nofm", None:""}[fast_math]
+        self.device_id = "{api},{pnum},{dnum}".format(api=api.get_id(), pnum=pnum, dnum=dnum)
+        self.device_full_name = platform_name + ", " + device_name
+
+        self.id = self.device_id + fm_suffix
+
+        # if we import it in the header, it messes up with coverage results
+        import reikna.cluda as cluda
+
+        self.cuda = (api.get_id() == cluda.cuda_id())
+
+    def create_thread(self):
+        kwds = {}
+        if self.fast_math is not None:
+            kwds['fast_math'] = self.fast_math
+
+        return self._api.Thread(self._device, **kwds)
+
+    def __key(self):
+        return (self.api_id, self.pnum, self.dnum, self.fast_math)
+
+    def __eq__(x, y):
+        return x.__key() == y.__key()
+
+    def __hash__(self):
+        return hash(self.__key())
+
+    def __str__(self):
+        return self.id
+
+
+class ThreadManager:
+    """
+    Caches Thread instances and handles push/pop mechanics of CUDA Threads properly.
+    """
+
+    def __init__(self):
+        self._threads = {}
+
+    def _create(self, thread_params):
+
+        thread = thread_params.create_thread()
+
+        # The context is in the stack right after creation, need to pop it.
+        if thread_params.cuda:
+            thread._cuda_pop()
+
+        self._threads[thread_params] = thread
+
+    def get(self, thread_params):
+
+        if thread_params not in self._threads:
+            self._create(thread_params)
+
+        thread = self._threads[thread_params]
+        if thread_params.cuda:
+            thread._cuda_push()
+
+        return thread
+
+    def release(self, thread_params):
+        thread = self._threads[thread_params]
+        if thread_params.cuda:
+            thread._cuda_pop()
+
+_thread_manager = ThreadManager()
+
+
 def get_threads(config, vary_fast_math=False):
     """
     Create a list of thread creators, based on command line options and their availability.
     """
     # if we import it in the header, it messes up with coverage results
     from reikna.cluda import find_devices
-
-    class ThrCreator:
-        def __init__(self, api, pnum, dnum, fast_math=None):
-            platform = api.get_platforms()[pnum]
-            device = platform.get_devices()[dnum]
-
-            fm_suffix = {True:",fm", False:",nofm", None:""}[fast_math]
-            self.device_id = api.get_id() + "," + str(pnum) + "," + str(dnum)
-            self.platform_name = platform.name
-            self.device_name = device.name
-            self.id = self.device_id + fm_suffix
-
-            kwds = {}
-            if fast_math is not None:
-                kwds['fast_math'] = fast_math
-
-            self.create = lambda: api.Thread(device, **kwds)
-
-            thr = self.create()
-            self.supports_double = thr.supports_dtype(numpy.float64)
-
-        def __call__(self):
-            return self.create()
-
-        def __str__(self):
-            return self.id
 
     apis, _ = get_apis(config)
 
@@ -64,7 +127,7 @@ def get_threads(config, vary_fast_math=False):
     else:
         fms = [None]
 
-    tcs = []
+    tps = []
     for api in apis:
         devices = find_devices(
             api,
@@ -78,12 +141,12 @@ def get_threads(config, vary_fast_math=False):
             dnums = sorted(devices[pnum])
             for dnum in dnums:
                 for fm in fms:
-                    tcs.append(ThrCreator(api, pnum, dnum, fast_math=fm))
+                    tps.append(ThreadParams(api, pnum, dnum, fast_math=fm))
 
-    return tcs, [str(tc) for tc in tcs]
+    return tps, [str(tp) for tp in tps]
 
 
-def pair_thread_with_doubles(metafunc, tc):
+def pair_thread_with_doubles(metafunc, tp):
     d = metafunc.config.option.double
     ds = lambda dv: 'dp' if dv else 'sp'
 
@@ -91,7 +154,7 @@ def pair_thread_with_doubles(metafunc, tc):
     ids = []
     if d == "supported":
         for dv in [False, True]:
-            if not dv or tc().supports_dtype(numpy.float64):
+            if not dv or tp.device_params.supports_dtype(numpy.float64):
                 vals.append((dv,))
                 ids.append(ds(dv))
     else:
@@ -99,18 +162,18 @@ def pair_thread_with_doubles(metafunc, tc):
         vals.append((dv,))
         ids.append(ds(dv))
 
-    return [tc] * len(vals), vals, ids
+    return [tp] * len(vals), vals, ids
 
 
 def get_thread_tuples(metafunc, get_remainders):
-    tcs, tc_ids = get_threads(metafunc.config, vary_fast_math=True)
+    tps, tp_ids = get_threads(metafunc.config, vary_fast_math=True)
     tuples = []
     ids = []
-    for tc, tc_id in zip(tcs, tc_ids):
-        new_tcs, remainders, rem_ids = get_remainders(metafunc, tc)
-        for new_tc, remainder, rem_id in zip(new_tcs, remainders, rem_ids):
-            tuples.append((new_tc,) + remainder if isinstance(remainder, tuple) else (remainder,))
-            ids.append(tc_id + "," + rem_id)
+    for tp, tp_id in zip(tps, tp_ids):
+        new_tps, remainders, rem_ids = get_remainders(metafunc, tp)
+        for new_tp, remainder, rem_id in zip(new_tps, remainders, rem_ids):
+            tuples.append((new_tp,) + remainder if isinstance(remainder, tuple) else (remainder,))
+            ids.append(tp_id + "," + rem_id)
 
     # For tuples of 1 element (i.e. the thread itself), just use this element as a parameter
     tuples = [t[0] if len(t) == 1 else t for t in tuples]
@@ -124,20 +187,20 @@ def create_thread_in_tuple(request):
     """
     params = request.param
     if isinstance(params, tuple):
-        tc = params[0]
+        tp = params[0]
         remainder = tuple(params[1:])
     else:
-        tc = params
+        tp = params
         remainder = tuple()
 
-    thr = tc()
+    thr = _thread_manager.get(tp)
 
     def finalizer():
         # Py.Test holds the reference to the created funcarg/fixture,
         # which interferes with ``__del__`` functionality.
         # This method forcefully frees critical resources explicitly
         # (rendering the object unusable).
-        thr.release()
+        _thread_manager.release(tp)
         # just in case there is some stuff left
         gc.collect()
 
