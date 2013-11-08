@@ -104,17 +104,17 @@ With the code above, the rendered module will produce the code
 
 ::
 
-    WITHIN_KERNEL int _module0(int x)
+    WITHIN_KERNEL int _module0_(int x)
     {
         return x + 1 + 2;
     }
 
-and the ``add`` keyword in the ``render_kwds`` gets its value changed to ``_module0``.
+and the ``add`` keyword in the ``render_kwds`` gets its value changed to ``_module0_``.
 Then the main code is rendered and appended to the previously renderd parts, giving
 
 ::
 
-    WITHIN_KERNEL int _module0(int x)
+    WITHIN_KERNEL int _module0_(int x)
     {
         return x + 1;
     }
@@ -123,7 +123,7 @@ Then the main code is rendered and appended to the previously renderd parts, giv
     {
         const SIZE_T idx = get_global_id(0);
         int a = arr[idx];
-        arr[idx] = _module0(x);
+        arr[idx] = _module0_(x);
     }
 
 which is then passed to the compiler.
