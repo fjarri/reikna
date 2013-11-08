@@ -183,7 +183,7 @@ def _fill_dtype_registry(respect_windows=True):
 _fill_dtype_registry()
 
 
-def _get_ctype(api_id, dtype, alignment=None):
+def _get_ctype(dtype, alignment=None):
     """
     A recursive helper function for ``_get_struct_ctype``.
     Returns a tuple consisting of a string with the C type definition
@@ -194,12 +194,7 @@ def _get_ctype(api_id, dtype, alignment=None):
     """
 
     if alignment is not None:
-        if api_id == cuda_id():
-            alignment_str = "__align__(" + str(alignment) + ")"
-        elif api_id == ocl_id():
-            alignment_str = "__attribute__ ((aligned(" + str(alignment) + ")))"
-        else:
-            raise ValueError("Unknown API ID: " + str(api_id))
+        alignment_str = "ALIGN(" + str(alignment) + ")"
     else:
         alignment_str = ""
 
@@ -225,7 +220,7 @@ def _get_ctype(api_id, dtype, alignment=None):
                 if alignment <= elem_dtype.itemsize:
                     alignment = None
 
-            decl, suffix = _get_ctype(api_id, elem_dtype, alignment)
+            decl, suffix = _get_ctype(elem_dtype, alignment)
 
             # Add indentation to make nested structures easier to read
             decl = "\n".join("    " + line for line in decl.split("\n"))
@@ -243,7 +238,7 @@ def _get_ctype(api_id, dtype, alignment=None):
     return type_str + " " + alignment_str, array_suffix
 
 
-def _get_struct_ctype(api_id, dtype):
+def _get_struct_ctype(dtype):
     """
     Returns a string with the C type definition for a given ``dtype``.
     """
@@ -257,7 +252,7 @@ def _get_struct_ctype(api_id, dtype):
     if len(dtype.shape) > 0:
         raise ValueError("The root structure cannot be an array")
 
-    decl, _ = _get_ctype(api_id, dtype, alignment=alignment)
+    decl, _ = _get_ctype(dtype, alignment=alignment)
 
     return decl
 
@@ -280,7 +275,7 @@ def adjust_alignment(thr, dtype):
         names=dtype.names,
         formats=adjusted_dtypes))
 
-    struct = get_struct_module(thr, new_dtype)
+    struct = get_struct_module(new_dtype)
 
     program = thr.compile(
     """
@@ -309,7 +304,7 @@ def adjust_alignment(thr, dtype):
         itemsize=offsets[-1]))
 
 
-def get_struct_module(thr, dtype):
+def get_struct_module(dtype):
     """
     Returns a :py:class:`~reikna.cluda.Module` object with the ``typedef`` of a struct
     corresponding to the given ``dtype`` (with its name set to the module prefix).
@@ -322,5 +317,5 @@ def get_struct_module(thr, dtype):
     # Root level import creates an import loop.
     from reikna.cluda.kernel import Module
 
-    struct = _get_struct_ctype(thr.api.get_id(), dtype)
+    struct = _get_struct_ctype(dtype)
     return Module.create("typedef " + struct + " ${prefix};")

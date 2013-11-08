@@ -17,6 +17,8 @@ Release history
 * ADDED: ``fast_math`` keyword parameter in :py:meth:`~reikna.core.Computation.compile`.
   In other words, now ``fast_math`` can be set per computation.
 
+* ADDED: :c:macro:`ALIGN` macro is available in CLUDA kernels.
+
 * FIXED: bug in the interactive ``Thread`` creation (reported by James Bergstra).
 
 * FIXED: Py3-incompatibility in the interactive ``Thread`` creation.

@@ -29,7 +29,7 @@ def check_struct_fill(thr, dtype):
     Fill every field of the given ``dtype`` with its number and check the results.
     This helps to detect issues with alignment in the struct.
     """
-    struct = dtypes.get_struct_module(thr, dtype)
+    struct = dtypes.get_struct_module(dtype)
 
     program = thr.compile(
     """
@@ -111,7 +111,7 @@ def test_nested_array(thr):
         formats=[numpy.int32, numpy.dtype((dtype_nested, 2)), numpy.dtype((numpy.int16, 3))]))
 
     dtype = dtypes.adjust_alignment(thr, dtype)
-    struct = dtypes.get_struct_module(thr, dtype)
+    struct = dtypes.get_struct_module(dtype)
 
     program = thr.compile(
     """
@@ -146,4 +146,3 @@ def test_nested_array(thr):
     assert (a['regular_arr'][:,0] == idxs + 2).all()
     assert (a['regular_arr'][:,1] == idxs + 3).all()
     assert (a['regular_arr'][:,2] == idxs + 4).all()
-

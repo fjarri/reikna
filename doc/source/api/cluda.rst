@@ -127,6 +127,17 @@ Second, there is a set of macros attached to any kernel depending on the API it 
     what the backend is using, while ``VSIZE_T`` is a separate type and can be made larger
     than ``SIZE_T`` in the future if necessary.
 
+.. c:macro:: ALIGN(int)
+
+    Used to specify an explicit alignment (in bytes) for fields in structures, as
+
+    ::
+
+        typedef struct {
+            char ALIGN(4) a;
+            int b;
+        } MY_STRUCT;
+
 .. c:macro:: VIRTUAL_SKIP_THREADS
 
     This macro should start any kernel compiled with :py:meth:`~reikna.cluda.api.Thread.compile_static`.
