@@ -291,6 +291,9 @@ def adjust_alignment(thr, dtype):
     test(offsets, global_size=1)
     offsets = offsets.get()
 
+    # Casting to Python ints, becase numpy ints as dtype offsets make it unhashable.
+    offsets = [int(offset) for offset in offsets]
+
     return numpy.dtype(dict(
         names=dtype.names,
         formats=adjusted_dtypes,
