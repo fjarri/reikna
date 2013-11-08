@@ -53,6 +53,8 @@ As a result, the code that gets compiled is
         arr[idx] = x + 1;
     }
 
+If the snippet is used without parentheses (e.g. ``${add}``), it is equivalent to calling it without arguments (``${add()}``).
+
 The root code that gets passed to :py:meth:`~reikna.cluda.api.Thread.compile` can be viewed as a snippet with an empty signature.
 
 
@@ -128,6 +130,11 @@ Then the main code is rendered and appended to the previously renderd parts, giv
 
 which is then passed to the compiler.
 If your module's template def does not take any arguments except for ``prefix``, you can call it in the parent template just as ``${add}`` (without empty parentheses).
+
+.. warning::
+
+    Note that ``add`` in this case is not a string, it is an object that has ``__str__()`` defined.
+    If you want to concatenate a module prefix with some other string, you have to either call ``str()`` explicitly (``str(add) + "abc"``), or concatenate it inside a template (``${add} abc``).
 
 Modules can reference snippets in their ``render_kwds``, which, in turn, can reference other modules.
 This produces a tree-like structure with the snippet made from the code passed by user at the root.

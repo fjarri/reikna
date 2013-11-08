@@ -137,6 +137,9 @@ class RenderableSnippet:
     def __call__(self, *args):
         return render_template(self.template_def, *args, **self.render_kwds)
 
+    def __str__(self):
+        return self()
+
 
 class RenderableModule:
 
