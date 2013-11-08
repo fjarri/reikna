@@ -44,11 +44,15 @@ def flat_index_expr(param):
 
 
 def param_cname(param, qualified=False):
+    # Note that if ``param`` has a struct type,
+    # its .annotation.type.ctype attribute can be a module.
+    # In that case ``str()`` has to be called explicitly for ``ctype``
+    # to get the module prefix.
     name = "_leaf_" + param.name
     if qualified:
         ctype = param.annotation.type.ctype
         if param.annotation.array:
-            return "GLOBAL_MEM " + ctype + " *" + name
+            return "GLOBAL_MEM " + str(ctype) + " *" + name
         else:
             return ctype + " " + name
     else:
@@ -59,9 +63,17 @@ def param_cnames_str(parameters, qualified=False):
     return ", ".join([param_cname(p, qualified=qualified) for p in parameters])
 
 
+_snippet_kernel_declaration = helpers.template_def(
+    [],
+    "KERNEL void ${kernel_name}(${param_cnames_str(parameters, qualified=True)})")
+
 def kernel_declaration(kernel_name, parameters):
-    return "KERNEL void {kernel_name}({cnames_str})".format(
-        kernel_name=kernel_name, cnames_str=param_cnames_str(parameters, qualified=True))
+    return Snippet(
+        _snippet_kernel_declaration,
+        render_kwds=dict(
+            param_cnames_str=param_cnames_str,
+            kernel_name=kernel_name,
+            parameters=parameters))
 
 
 def node_connector(output):
@@ -76,7 +88,7 @@ _module_transformation = helpers.template_def(
     """
     // ${'output' if output else 'input'} transformation node for "${name}"
     INLINE WITHIN_KERNEL ${'void' if output else connector_ctype} ${prefix}func(
-        ${q_params},
+        ${param_cnames_str(subtree_parameters, qualified=True)},
         ${q_indices}
         %if output:
         , ${connector_ctype} ${VALUE_NAME}
@@ -107,7 +119,7 @@ def module_transformation(output, param, subtree_parameters, tr_snippet, tr_args
         render_kwds=dict(
             output=output,
             name=param.name,
-            q_params=param_cnames_str(subtree_parameters, qualified=True),
+            param_cnames_str=param_cnames_str, subtree_parameters=subtree_parameters,
             q_indices=index_cnames_str(param, qualified=True),
             VALUE_NAME=VALUE_NAME,
             nq_params=param_cnames_str(subtree_parameters),
@@ -192,7 +204,7 @@ _module_combined = helpers.template_def(
         nq_combined_indices=", ".join(combined_indices)
     %>
     INLINE WITHIN_KERNEL ${'void' if output else connector_ctype} ${prefix}func(
-        ${q_params},
+        ${param_cnames_str(subtree_parameters, qualified=True)},
         ${q_combined_indices}
         %if output:
         , ${connector_ctype} ${VALUE_NAME}
@@ -227,6 +239,6 @@ def module_combined(output, param, subtree_parameters, module_idx):
             connector_ctype=param.annotation.type.ctype,
             nq_indices=index_cnames_str(param),
             q_indices=index_cnames_str(param, qualified=True),
-            q_params=param_cnames_str(subtree_parameters, qualified=True),
+            param_cnames_str=param_cnames_str, subtree_parameters=subtree_parameters,
             nq_params=param_cnames_str(subtree_parameters),
             indices=index_cnames(param.annotation.type.shape)))

@@ -19,6 +19,8 @@ Release history
 
 * ADDED: :c:macro:`ALIGN` macro is available in CLUDA kernels.
 
+* ADDED: support for struct types as ``Computation`` arguments (for them, the ``ctypes`` attributes contain the corresponding module obtained with :py:func:`~reikna.cluda.dtypes.ctype_module`).
+
 * FIXED: bug in the interactive ``Thread`` creation (reported by James Bergstra).
 
 * FIXED: Py3-incompatibility in the interactive ``Thread`` creation.
