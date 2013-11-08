@@ -2,7 +2,7 @@
 typedef ${ctype} ${prefix}value;
 #define ${prefix}RANDOMS_PER_CALL ${randoms_per_call}
 
-typedef struct ${prefix}_RESULT
+typedef struct
 {
     ${ctype} v[${randoms_per_call}];
 } ${prefix}RESULT;

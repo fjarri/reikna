@@ -10,13 +10,10 @@ ${kernel_declaration}
 
     const VSIZE_T idx = virtual_global_id(0);
 
-    ${bijection.module}KEY key = ${keygen.module}key_from_int(idx);
+    ${bijection.key_ctype} key = ${keygen.module}key_from_int(idx);
 
-    ${bijection.module}COUNTER counter;
-
-    %for i in range(bijection.counter_words):
-    counter.v[${i}] = ${counters.load_combined_idx(counters_slices)}(idx, ${i});
-    %endfor
+    ${bijection.counter_ctype} counter =
+        ${counters.load_combined_idx(counters_slices)}(idx);
 
     ${bijection.module}STATE state = ${bijection.module}make_state(key, counter);
 
@@ -37,9 +34,7 @@ ${kernel_declaration}
     %endfor
     %endif
 
-    ${bijection.module}COUNTER next_ctr = ${bijection.module}get_next_unused_counter(state);
-    %for i in range(bijection.counter_words):
-    ${counters.store_combined_idx(counters_slices)}(idx, ${i}, state.counter.v[${i}]);
-    %endfor
+    ${bijection.counter_ctype} next_ctr = ${bijection.module}get_next_unused_counter(state);
+    ${counters.store_combined_idx(counters_slices)}(idx, state.counter);
 }
 </%def>
