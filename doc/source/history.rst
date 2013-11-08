@@ -12,7 +12,7 @@ Release history
   It is also ``False`` by default, instead of ``True``.
   Correspondingly, ``THREAD_FAST_MATH`` macro was renamed to :c:macro:`COMPILE_FAST_MATH`.
 
-* ADDED: module generator for nested dtypes (:py:func:`~reikna.cluda.dtypes.get_struct_module`) and a function to get natural field offsets for a given API/device (:py:func:`~reikna.cluda.dtypes.adjust_alignment`).
+* ADDED: module generator for nested dtypes (:py:func:`~reikna.cluda.dtypes.ctype_module`) and a function to get natural field offsets for a given API/device (:py:func:`~reikna.cluda.dtypes.adjust_alignment`).
 
 * ADDED: ``fast_math`` keyword parameter in :py:meth:`~reikna.core.Computation.compile`.
   In other words, now ``fast_math`` can be set per computation.

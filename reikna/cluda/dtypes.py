@@ -81,12 +81,6 @@ def normalize_types(dtypes):
     """
     return [normalize_type(dtype) for dtype in dtypes]
 
-def ctype(dtype):
-    """
-    Returns C type name corresponding to given ``dtype``.
-    """
-    return _DTYPE_TO_CTYPE[normalize_type(dtype)]
-
 def complex_for(dtype):
     """
     Returns complex dtype corresponding to given floating point ``dtype``.
@@ -183,7 +177,7 @@ def _fill_dtype_registry(respect_windows=True):
 _fill_dtype_registry()
 
 
-def _get_ctype(dtype, alignment=None):
+def _get_struct_ctype_rec(dtype, alignment=None):
     """
     A recursive helper function for ``_get_struct_ctype``.
     Returns a tuple consisting of a string with the C type definition
@@ -220,7 +214,7 @@ def _get_ctype(dtype, alignment=None):
                 if alignment <= elem_dtype.itemsize:
                     alignment = None
 
-            decl, suffix = _get_ctype(elem_dtype, alignment)
+            decl, suffix = _get_struct_ctype_rec(elem_dtype, alignment)
 
             # Add indentation to make nested structures easier to read
             decl = "\n".join("    " + line for line in decl.split("\n"))
@@ -252,7 +246,7 @@ def _get_struct_ctype(dtype):
     if len(dtype.shape) > 0:
         raise ValueError("The root structure cannot be an array")
 
-    decl, _ = _get_ctype(dtype, alignment=alignment)
+    decl, _ = _get_struct_ctype_rec(dtype, alignment=alignment)
 
     return decl
 
@@ -275,7 +269,7 @@ def adjust_alignment(thr, dtype):
         names=dtype.names,
         formats=adjusted_dtypes))
 
-    struct = get_struct_module(new_dtype)
+    struct = ctype_module(new_dtype)
 
     program = thr.compile(
     """
@@ -304,18 +298,26 @@ def adjust_alignment(thr, dtype):
         itemsize=offsets[-1]))
 
 
-def get_struct_module(dtype):
+def ctype(dtype):
     """
-    Returns a :py:class:`~reikna.cluda.Module` object with the ``typedef`` of a struct
-    corresponding to the given ``dtype`` (with its name set to the module prefix).
+    For a built-in C type, returns a string with the name of the type.
+    """
+    return _DTYPE_TO_CTYPE[normalize_type(dtype)]
+
+
+def ctype_module(dtype):
+    """
+    For a struct type, returns a :py:class:`~reikna.cluda.Module` object
+    with the ``typedef`` of a struct corresponding to the given ``dtype``
+    (with its name set to the module prefix);
+    falls back to :py:func:`~reikna.cluda.dtypes.ctype` otherwise.
     This includes the alignment required to produce field offsets specified in ``dtype``.
-    If ``dtype`` is a simple type, ``ValueError`` is thrown.
     """
     if dtype.names is None:
-        raise ValueError(str(dtype) + "is a simple type and does not require a module.")
+        return ctype(dtype)
+    else:
+        # Root level import creates an import loop.
+        from reikna.cluda.kernel import Module
 
-    # Root level import creates an import loop.
-    from reikna.cluda.kernel import Module
-
-    struct = _get_struct_ctype(dtype)
-    return Module.create("typedef " + struct + " ${prefix};")
+        struct = _get_struct_ctype(dtype)
+        return Module.create("typedef " + struct + " ${prefix};")
