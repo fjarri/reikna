@@ -2,7 +2,8 @@ import numpy
 from reikna.cluda.api_discovery import cuda_id, ocl_id
 
 
-_DTYPE_TO_CTYPE = {}
+_DTYPE_TO_BUILTIN_CTYPE = {}
+_DTYPE_TO_CTYPE_MODULE = {}
 
 
 def is_complex(dtype):
@@ -136,7 +137,7 @@ def c_constant(val, dtype=None):
 
 def _register_dtype(dtype, ctype_str):
     dtype = normalize_type(dtype)
-    _DTYPE_TO_CTYPE[dtype] = ctype_str
+    _DTYPE_TO_BUILTIN_CTYPE[dtype] = ctype_str
 
 # Taken from compyte.dtypes
 def _fill_dtype_registry(respect_windows=True):
@@ -305,7 +306,7 @@ def ctype(dtype):
     """
     For a built-in C type, returns a string with the name of the type.
     """
-    return _DTYPE_TO_CTYPE[normalize_type(dtype)]
+    return _DTYPE_TO_BUILTIN_CTYPE[normalize_type(dtype)]
 
 
 def ctype_module(dtype):
@@ -314,7 +315,13 @@ def ctype_module(dtype):
     with the ``typedef`` of a struct corresponding to the given ``dtype``
     (with its name set to the module prefix);
     falls back to :py:func:`~reikna.cluda.dtypes.ctype` otherwise.
-    This includes the alignment required to produce field offsets specified in ``dtype``.
+    The structure definition includes the alignment required
+    to produce field offsets specified in ``dtype``.
+
+    Modules are cached and the function returns a single module instance for equal ``dtype``'s.
+    Therefore inside a kernel it will be rendered with the same prefix everywhere it is used.
+    This results in a behavior characteristic for a structural type system,
+    same as for the basic dtype-ctype conversion.
     """
     if dtype.names is None:
         return ctype(dtype)
@@ -322,5 +329,11 @@ def ctype_module(dtype):
         # Root level import creates an import loop.
         from reikna.cluda.kernel import Module
 
-        struct = _get_struct_ctype(dtype)
-        return Module.create("typedef " + struct + " ${prefix};")
+        if dtype not in _DTYPE_TO_CTYPE_MODULE:
+            struct = _get_struct_ctype(dtype)
+            module = Module.create("typedef " + struct + " ${prefix};")
+            _DTYPE_TO_CTYPE_MODULE[dtype] = module
+        else:
+            module = _DTYPE_TO_CTYPE_MODULE[dtype]
+
+        return module
