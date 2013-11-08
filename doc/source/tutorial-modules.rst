@@ -207,7 +207,7 @@ Nontrivial example
 ==================
 
 Modules were introduced to help split big kernels into small reusable pieces which in ``CUDA`` or ``OpenCL`` program would be put into different source or header files.
-For example, a random number generator may be assembled from a function generating random integers, a function transforming these integers into random numbers with a certain distribution, and a :py:class:`reikna.pureparallel.PureParallel` computation calling these functions and saving results to global memory.
+For example, a random number generator may be assembled from a function generating random integers, a function transforming these integers into random numbers with a certain distribution, and a :py:class:`~reikna.pureparallel.PureParallel` computation calling these functions and saving results to global memory.
 These two functions can be extracted into separate modules, so that a user could call them from some custom kernel if he does not need to store the intermediate results.
 
 Going further with this example, one notices that functions that produce randoms with sophisticated distributions are often based on simpler distributions.
