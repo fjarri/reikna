@@ -178,80 +178,6 @@ def _fill_dtype_registry(respect_windows=True):
 _fill_dtype_registry()
 
 
-def _get_struct_ctype_rec(dtype, alignment=None):
-    """
-    A recursive helper function for ``_get_struct_ctype``.
-    Returns a tuple consisting of a string with the C type definition
-    for a given ``dtype``, and the corresponding array suffix
-    (if ``dtype`` is not an array, it is an empty string).
-    If ``alignment`` is not ``None``, an explicit alignment (in bytes)
-    will be specified in the resulting declaration.
-    """
-
-    if alignment is not None:
-        alignment_str = "ALIGN(" + str(alignment) + ")"
-    else:
-        alignment_str = ""
-
-    if len(dtype.shape) == 0:
-        base_dtype = dtype
-        dtype_shape = tuple()
-    else:
-        base_dtype = dtype.base
-        dtype_shape = dtype.shape
-
-    if base_dtype.names == None:
-        type_str = ctype(base_dtype)
-    else:
-        lines = ["struct {"]
-        for i, name in enumerate(base_dtype.names):
-            elem_dtype, elem_offset = base_dtype.fields[name]
-            if i == len(base_dtype.names) - 1:
-                # If it is the last field of the struct, its alignment does not matter ---
-                # the enompassing struct's one will override it anyway.
-                alignment = None
-            else:
-                alignment = base_dtype.fields[base_dtype.names[i+1]][1] - elem_offset
-                if alignment <= elem_dtype.itemsize:
-                    alignment = None
-
-            decl, suffix = _get_struct_ctype_rec(elem_dtype, alignment)
-
-            # Add indentation to make nested structures easier to read
-            decl = "\n".join("    " + line for line in decl.split("\n"))
-
-            lines.append(decl + " " + name + suffix + ";")
-
-        lines.append("}")
-        type_str = "\n".join(lines)
-
-    if len(dtype_shape) == 0:
-        array_suffix = ""
-    else:
-        array_suffix = "".join("[" + str(d) + "]" for d in dtype_shape)
-
-    return type_str + " " + alignment_str, array_suffix
-
-
-def _get_struct_ctype(dtype):
-    """
-    Returns a string with the C type definition for a given ``dtype``.
-    """
-
-    expected_itemsize = sum(dt.itemsize for dt, _ in dtype.fields.values())
-    if dtype.itemsize > expected_itemsize:
-        alignment = dtype.itemsize
-    else:
-        alignment = None
-
-    if len(dtype.shape) > 0:
-        raise ValueError("The root structure cannot be an array")
-
-    decl, _ = _get_struct_ctype_rec(dtype, alignment=alignment)
-
-    return decl
-
-
 def adjust_alignment(thr, dtype):
     """
     Returns a new data type object with the same fields as in ``dtype``
@@ -309,6 +235,70 @@ def ctype(dtype):
     return _DTYPE_TO_BUILTIN_CTYPE[normalize_type(dtype)]
 
 
+def _alignment_str(alignment):
+    if alignment is not None:
+        return "ALIGN(" + str(alignment) + ")"
+    else:
+        return ""
+
+
+def _get_struct_module(dtype):
+    """
+    Builds and returns a module with the C type definition for a given ``dtype``,
+    possibly using modules for nested structures.
+    """
+    if dtype.names is None:
+        raise ValueError("dtype must be a struct type")
+
+    if len(dtype.shape) > 0:
+        raise ValueError("The data type cannot be an array")
+
+    lines = ["typedef struct {"]
+    kwds = {}
+    for i, name in enumerate(dtype.names):
+        elem_dtype, elem_offset = dtype.fields[name]
+
+        if len(elem_dtype.shape) == 0:
+            base_elem_dtype = elem_dtype
+            elem_dtype_shape = tuple()
+        else:
+            base_elem_dtype = elem_dtype.base
+            elem_dtype_shape = elem_dtype.shape
+
+        if i == len(dtype.names) - 1:
+            # If it is the last field of the struct, its alignment does not matter ---
+            # the enompassing struct's one will override it anyway.
+            alignment = None
+        else:
+            alignment = dtype.fields[dtype.names[i+1]][1] - elem_offset
+            if alignment <= elem_dtype.itemsize:
+                alignment = None
+
+        if len(elem_dtype_shape) == 0:
+            array_suffix = ""
+        else:
+            array_suffix = "".join("[" + str(d) + "]" for d in elem_dtype_shape)
+
+        typename_var = "typename" + str(i)
+        lines.append(
+            "    ${" + typename_var + "} " + _alignment_str(alignment) + " " +
+            name + array_suffix + ";")
+        kwds[typename_var] = ctype_module(base_elem_dtype)
+
+    expected_itemsize = sum(dt.itemsize for dt, _ in dtype.fields.values())
+    if dtype.itemsize > expected_itemsize:
+        alignment = dtype.itemsize
+    else:
+        alignment = None
+
+    lines.append("} " + _alignment_str(alignment) + " ${prefix};")
+
+    # Root level import creates an import loop.
+    from reikna.cluda.kernel import Module
+
+    return Module.create("\n".join(lines), render_kwds=kwds)
+
+
 def ctype_module(dtype):
     """
     For a struct type, returns a :py:class:`~reikna.cluda.Module` object
@@ -326,12 +316,8 @@ def ctype_module(dtype):
     if dtype.names is None:
         return ctype(dtype)
     else:
-        # Root level import creates an import loop.
-        from reikna.cluda.kernel import Module
-
         if dtype not in _DTYPE_TO_CTYPE_MODULE:
-            struct = _get_struct_ctype(dtype)
-            module = Module.create("typedef " + struct + " ${prefix};")
+            module = _get_struct_module(dtype)
             _DTYPE_TO_CTYPE_MODULE[dtype] = module
         else:
             module = _DTYPE_TO_CTYPE_MODULE[dtype]

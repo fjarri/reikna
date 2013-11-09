@@ -184,3 +184,40 @@ def test_structural_typing(some_thr):
         struct1=struct1,
         struct2=struct2))
 
+
+def test_structural_typing_nested(some_thr):
+    """
+    Check that the structural typing behavior works for nested structures.
+    In other words, a nested dtype gets represented by the same module as
+    an equal top-level dtype.
+    """
+    dtype_nested = numpy.dtype([('val1', numpy.int32), ('val2', numpy.float32)])
+    dtype = numpy.dtype([
+        ('val1', numpy.int32), ('val2', numpy.float32),
+        ('nested', dtype_nested)])
+
+    struct_nested = dtypes.ctype_module(dtype_nested)
+    struct = dtypes.ctype_module(dtype)
+
+    program = some_thr.compile(
+    """
+    KERNEL void test(GLOBAL_MEM float *dest)
+    {
+      const SIZE_T i = get_global_id(0);
+      ${struct_nested} temp_nested;
+      ${struct} temp;
+
+      temp_nested.val1 = 0;
+      temp_nested.val2 = 1;
+
+      // If the nested structure has a different type from temp_nested,
+      // this will give a compilation error.
+      temp.nested = temp_nested;
+      temp.val1 = 0;
+      temp.val2 = 1;
+
+      dest[i] = temp.val1 + temp.val2 + temp.nested.val1 + temp.nested.val2;
+    }
+    """, render_kwds=dict(
+        struct=struct,
+        struct_nested=struct_nested))
