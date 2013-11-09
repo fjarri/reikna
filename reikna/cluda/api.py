@@ -222,6 +222,11 @@ class Thread:
         self._released = False
         self._async = async
 
+        # Make the fields initialized even in case _prcess_cqd() raises an exception.
+        self._context = None
+        self._queue = None
+        self._device = None
+        self._owns_context = False
         self._context, self._queue, self._device, self._owns_context = self._process_cqd(cqd)
 
         self.device_params = self.api.DeviceParameters(self._device)
