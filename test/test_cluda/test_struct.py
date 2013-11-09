@@ -146,3 +146,41 @@ def test_nested_array(thr):
     assert (a['regular_arr'][:,0] == idxs + 2).all()
     assert (a['regular_arr'][:,1] == idxs + 3).all()
     assert (a['regular_arr'][:,2] == idxs + 4).all()
+
+
+def test_structural_typing(some_thr):
+    """
+    Checks that ``ctype_module`` for equal dtype objects result in the same module object
+    (which means that these two types will actually be rendered as a single type).
+    """
+    dtype = numpy.dtype([('val1', numpy.int32), ('val2', numpy.float32)])
+
+    struct1 = dtypes.ctype_module(dtype)
+    struct2 = dtypes.ctype_module(dtype)
+
+    # Check that these reference the same object
+    assert struct1 is struct2
+
+    # Just in case, compile a test kernel
+    program = some_thr.compile(
+    """
+    KERNEL void test(GLOBAL_MEM float *dest)
+    {
+      const SIZE_T i = get_global_id(0);
+      ${struct1} temp1;
+      ${struct2} temp2;
+
+      temp1.val1 = 0;
+      temp1.val2 = 1;
+
+      // If struct1 and struct2 correspond to different types,
+      // this will give a compilation error,
+      // because C has a nominative typing system.
+      temp2 = temp1;
+
+      dest[i] = temp2.val1 + temp2.val2;
+    }
+    """, render_kwds=dict(
+        struct1=struct1,
+        struct2=struct2))
+
