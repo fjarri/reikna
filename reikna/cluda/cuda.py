@@ -139,6 +139,8 @@ class Thread(api_base.Thread):
         # If we own the context, it is our responsibility to pop() it
         if self._owns_context and self._active:
             cuda.Context.pop()
+        if self._owns_context:
+            self._context.detach()
 
     def __del__(self):
         self.release()
