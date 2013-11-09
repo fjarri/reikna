@@ -10,14 +10,14 @@ ${kernel_declaration}
 
     const VSIZE_T idx = virtual_global_id(0);
 
-    ${bijection.key_ctype} key = ${keygen.module}key_from_int(idx);
+    ${bijection.module}Key key = ${keygen.module}key_from_int(idx);
 
-    ${bijection.counter_ctype} counter =
+    ${bijection.module}Counter counter =
         ${counters.load_combined_idx(counters_slices)}(idx);
 
-    ${bijection.module}STATE state = ${bijection.module}make_state(key, counter);
+    ${bijection.module}State state = ${bijection.module}make_state(key, counter);
 
-    ${sampler.module}RESULT result;
+    ${sampler.module}Result result;
     for (VSIZE_T i = 0; i < ${batch // randoms_per_call}; i++)
     {
         result = ${sampler.module}sample(&state);
@@ -34,7 +34,7 @@ ${kernel_declaration}
     %endfor
     %endif
 
-    ${bijection.counter_ctype} next_ctr = ${bijection.module}get_next_unused_counter(state);
+    ${bijection.module}Counter next_ctr = ${bijection.module}get_next_unused_counter(state);
     ${counters.store_combined_idx(counters_slices)}(idx, state.counter);
 }
 </%def>

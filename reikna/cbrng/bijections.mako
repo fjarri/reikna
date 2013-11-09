@@ -1,4 +1,10 @@
-<%def name="common_declarations(prefix, counter_ctype)">
+<%def name="common_declarations(prefix, word_ctype, key_words, counter_words, key_ctype, counter_ctype)">
+#define ${prefix}KEY_WORDS ${key_words}
+#define ${prefix}COUNTER_WORDS ${counter_words}
+#define ${prefix}Word ${word_ctype}
+#define ${prefix}Key ${key_ctype}
+#define ${prefix}Counter ${counter_ctype}
+
 WITHIN_KERNEL ${counter_ctype} ${prefix}make_counter_from_int(int x)
 {
     ${counter_ctype} result;
@@ -11,7 +17,7 @@ WITHIN_KERNEL ${counter_ctype} ${prefix}make_counter_from_int(int x)
 </%def>
 
 
-<%def name="raw_samplers(prefix, word_dtype, word_ctype, key_ctype, counter_ctype, counter_words)">
+<%def name="raw_samplers(prefix, word_dtype, word_ctype, counter_words, key_ctype, counter_ctype)">
 <%
     counter_uints32 = counter_words * (word_dtype.itemsize // 4)
     uint32 = dtypes.ctype(numpy.uint32)
@@ -30,10 +36,10 @@ typedef struct ${prefix}
         ${uint32} buffer_uint32[${counter_uints32}];
     };
     int buffer_uint32_cursor;
-} ${prefix}STATE;
+} ${prefix}State;
 
 
-WITHIN_KERNEL void ${prefix}bump_counter(${prefix}STATE *state)
+WITHIN_KERNEL void ${prefix}bump_counter(${prefix}State *state)
 {
     %for i in range(counter_words - 1, 0, -1):
     state->counter.v[${i}] += 1;
@@ -46,7 +52,7 @@ WITHIN_KERNEL void ${prefix}bump_counter(${prefix}STATE *state)
     %endfor
 }
 
-WITHIN_KERNEL ${counter_ctype} ${prefix}get_next_unused_counter(${prefix}STATE state)
+WITHIN_KERNEL ${counter_ctype} ${prefix}get_next_unused_counter(${prefix}State state)
 {
     if (state.buffer_uint32_cursor > 0)
     {
@@ -55,14 +61,14 @@ WITHIN_KERNEL ${counter_ctype} ${prefix}get_next_unused_counter(${prefix}STATE s
     return state.counter;
 }
 
-WITHIN_KERNEL void ${prefix}refill_buffer(${prefix}STATE *state)
+WITHIN_KERNEL void ${prefix}refill_buffer(${prefix}State *state)
 {
     state->buffer = ${prefix}bijection(state->key, state->counter);
 }
 
-WITHIN_KERNEL ${prefix}STATE ${prefix}make_state(${key_ctype} key, ${counter_ctype} counter)
+WITHIN_KERNEL ${prefix}State ${prefix}make_state(${key_ctype} key, ${counter_ctype} counter)
 {
-    ${prefix}STATE state;
+    ${prefix}State state;
     state.key = key;
     state.counter = counter;
     state.buffer_uint32_cursor = 0;
@@ -70,7 +76,7 @@ WITHIN_KERNEL ${prefix}STATE ${prefix}make_state(${key_ctype} key, ${counter_cty
     return state;
 }
 
-WITHIN_KERNEL ${uint32} ${prefix}get_raw_uint32(${prefix}STATE *state)
+WITHIN_KERNEL ${uint32} ${prefix}get_raw_uint32(${prefix}State *state)
 {
     if (state->buffer_uint32_cursor == ${counter_uints32})
     {
@@ -84,7 +90,7 @@ WITHIN_KERNEL ${uint32} ${prefix}get_raw_uint32(${prefix}STATE *state)
     return state->buffer_uint32[cur];
 }
 
-WITHIN_KERNEL ${uint64} ${prefix}get_raw_uint64(${prefix}STATE *state)
+WITHIN_KERNEL ${uint64} ${prefix}get_raw_uint64(${prefix}State *state)
 {
     if (state->buffer_uint32_cursor >= ${counter_uints32} - 1)
     {
@@ -107,7 +113,7 @@ WITHIN_KERNEL ${uint64} ${prefix}get_raw_uint64(${prefix}STATE *state)
 
 
 <%def name="threefry(prefix)">
-${common_declarations(prefix, counter_ctype)}
+${common_declarations(prefix, word_ctype, key_words, counter_words, key_ctype, counter_ctype)}
 
 WITHIN_KERNEL INLINE ${word_ctype} ${prefix}threefry_rotate(${word_ctype} x, ${word_ctype} lshift)
 {
@@ -174,12 +180,12 @@ WITHIN_KERNEL ${counter_ctype} ${prefix}bijection(
     return X;
 }
 
-${raw_samplers(prefix, word_dtype, word_ctype, key_ctype, counter_ctype, counter_words)}
+${raw_samplers(prefix, word_dtype, word_ctype, counter_words, key_ctype, counter_ctype)}
 </%def>
 
 
 <%def name="philox(prefix)">
-${common_declarations(prefix, counter_ctype)}
+${common_declarations(prefix, word_ctype, key_words, counter_words, key_ctype, counter_ctype)}
 
 WITHIN_KERNEL INLINE ${word_ctype} ${prefix}mulhilo(
     ${word_ctype} *hip, ${word_ctype} a, ${word_ctype} b)
@@ -245,5 +251,5 @@ WITHIN_KERNEL ${counter_ctype} ${prefix}bijection(
     return X;
 }
 
-${raw_samplers(prefix, word_dtype, word_ctype, key_ctype, counter_ctype, counter_words)}
+${raw_samplers(prefix, word_dtype, word_ctype, counter_words, key_ctype, counter_ctype)}
 </%def>

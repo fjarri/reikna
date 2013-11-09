@@ -12,6 +12,10 @@ Release history
   It is also ``False`` by default, instead of ``True``.
   Correspondingly, ``THREAD_FAST_MATH`` macro was renamed to :c:macro:`COMPILE_FAST_MATH`.
 
+* CHANGED: CBRNG modules are using the dtype-to-ctype support.
+  Correspondingly, the C types for keys and counters can be obtained by calling :py:func:`~reikna.cluda.dtypes.ctype_module` on :py:attr:`~reikna.cbrng.bijections.Bijection.key_dtype` and :py:attr:`~reikna.cbrng.bijections.Bijection.counter_dtype` attributes.
+  The module wrappers still define their types, but their names are using a different naming convention now.
+
 * ADDED: module generator for nested dtypes (:py:func:`~reikna.cluda.dtypes.ctype_module`) and a function to get natural field offsets for a given API/device (:py:func:`~reikna.cluda.dtypes.adjust_alignment`).
 
 * ADDED: ``fast_math`` keyword parameter in :py:meth:`~reikna.core.Computation.compile`.

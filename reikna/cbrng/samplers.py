@@ -33,17 +33,17 @@ class Sampler:
 
         Contains the value of :py:attr:`randoms_per_call`.
 
-    .. c:type:: value
+    .. c:type:: Value
 
         Contains the type corresponding to :py:attr:`dtype`.
 
-    .. c:type:: RESULT
+    .. c:type:: Result
 
         Describes the sampling result.
 
         .. c:member:: value v[RANDOMS_PER_CALL]
 
-    .. c:type:: RESULT sample(STATE *state)
+    .. c:type:: Result sample(State *state)
 
         Performs the sampling, updating the state.
     """
@@ -89,13 +89,13 @@ def uniform_integer(bijection, dtype, low, high=None):
 
     num = high - low
     if num <= 2 ** 32:
-        raw_dtype = numpy.uint32
-        raw_func = 'get_raw_uint32'
-        max_num = 2 ** 32
+        raw_dtype = numpy.dtype('uint32')
     else:
-        raw_dtype = numpy.uint64
-        raw_func = 'get_raw_uint64'
-        max_num = 2 ** 64
+        raw_dtype = numpy.dtype('uint64')
+
+    raw_func = bijection.raw_functions[raw_dtype]
+    max_num = 2 ** (raw_dtype.itemsize * 8)
+
     raw_ctype = dtypes.ctype(dtypes.normalize_type(raw_dtype))
 
     module = Module(

@@ -69,14 +69,14 @@ def test_kernel_bijection(thr, test_bijection):
 
     rng_kernel = thr.compile_static(
         """
-        KERNEL void test(GLOBAL_MEM ${bijection.counter_ctype} *dest, int ctr)
+        KERNEL void test(GLOBAL_MEM ${bijection.module}Counter *dest, int ctr)
         {
             VIRTUAL_SKIP_THREADS;
             const VSIZE_T idx = virtual_global_id(0);
 
-            ${bijection.key_ctype} key = ${keygen.module}key_from_int(idx);
-            ${bijection.counter_ctype} counter = ${bijection.module}make_counter_from_int(ctr);
-            ${bijection.counter_ctype} result = ${bijection.module}bijection(key, counter);
+            ${bijection.module}Key key = ${keygen.module}key_from_int(idx);
+            ${bijection.module}Counter counter = ${bijection.module}make_counter_from_int(ctr);
+            ${bijection.module}Counter result = ${bijection.module}bijection(key, counter);
 
             dest[idx] = result;
         }
@@ -112,11 +112,11 @@ def check_kernel_sampler(thr, sampler, extent=None, mean=None, std=None):
             VIRTUAL_SKIP_THREADS;
             const VSIZE_T idx = virtual_global_id(0);
 
-            ${bijection.key_ctype} key = ${keygen.module}key_from_int(idx);
-            ${bijection.counter_ctype} ctr = ${bijection.module}make_counter_from_int(ctr_start);
-            ${bijection.module}STATE st = ${bijection.module}make_state(key, ctr);
+            ${bijection.module}Key key = ${keygen.module}key_from_int(idx);
+            ${bijection.module}Counter ctr = ${bijection.module}make_counter_from_int(ctr_start);
+            ${bijection.module}State st = ${bijection.module}make_state(key, ctr);
 
-            ${sampler.module}RESULT res;
+            ${sampler.module}Result res;
 
             for(int j = 0; j < ${batch}; j++)
             {
@@ -127,7 +127,7 @@ def check_kernel_sampler(thr, sampler, extent=None, mean=None, std=None):
                 %endfor
             }
 
-            ${bijection.counter_ctype} next_ctr = ${bijection.module}get_next_unused_counter(st);
+            ${bijection.module}Counter next_ctr = ${bijection.module}get_next_unused_counter(st);
         }
         """,
         'test', size,

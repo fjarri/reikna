@@ -13,7 +13,7 @@ class KeyGenerator:
 
         A module with the key generator function:
 
-    .. c:function:: KEY key_from_int(int idx)
+    .. c:function:: Key key_from_int(int idx)
 
         Generates and returns a key, suitable for the bijection which was given to the constructor.
     """
@@ -82,9 +82,9 @@ class KeyGenerator:
                 full_key['v'][i // 2] += key[i] << (32 if i % 2 == 0 else 0)
 
         module = Module.create("""
-            WITHIN_KERNEL ${bijection.key_ctype} ${prefix}key_from_int(int idx)
+            WITHIN_KERNEL ${bijection.module}Key ${prefix}key_from_int(int idx)
             {
-                ${bijection.key_ctype} result;
+                ${bijection.module}Key result;
 
                 %for i in range(bijection.key_words):
                 result.v[${i}] = ${key['v'][i]}

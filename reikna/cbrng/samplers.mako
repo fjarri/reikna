@@ -1,20 +1,20 @@
 <%def name="result_struct(prefix, ctype, randoms_per_call)">
-typedef ${ctype} ${prefix}value;
+#define ${prefix}Value ${ctype};
 #define ${prefix}RANDOMS_PER_CALL ${randoms_per_call}
 
 typedef struct
 {
     ${ctype} v[${randoms_per_call}];
-} ${prefix}RESULT;
+} ${prefix}Result;
 </%def>
 
 
 <%def name="uniform_integer(prefix)">
 ${result_struct(prefix, ctype, 1)}
 
-WITHIN_KERNEL ${prefix}RESULT ${prefix}sample(${bijection.module}STATE *state)
+WITHIN_KERNEL ${prefix}Result ${prefix}sample(${bijection.module}State *state)
 {
-    ${prefix}RESULT result;
+    ${prefix}Result result;
     ${raw_ctype} non_offset = 0;
 
     %if max_num % num == 0:
@@ -41,9 +41,9 @@ WITHIN_KERNEL ${prefix}RESULT ${prefix}sample(${bijection.module}STATE *state)
 <%def name="uniform_float(prefix)">
 ${result_struct(prefix, ctype, 1)}
 
-WITHIN_KERNEL ${prefix}RESULT ${prefix}sample(${bijection.module}STATE *state)
+WITHIN_KERNEL ${prefix}Result ${prefix}sample(${bijection.module}State *state)
 {
-    ${prefix}RESULT result;
+    ${prefix}Result result;
     ${ctype} normalized = (${ctype})${bijection.module}${raw_func}(state) / ${raw_max};
     result.v[0] = normalized * (${size}) + (${low});
     return result;
@@ -54,11 +54,11 @@ WITHIN_KERNEL ${prefix}RESULT ${prefix}sample(${bijection.module}STATE *state)
 <%def name="normal_bm(prefix)">
 ${result_struct(prefix, ctype, 2)}
 
-WITHIN_KERNEL ${prefix}RESULT ${prefix}sample(${bijection.module}STATE *state)
+WITHIN_KERNEL ${prefix}Result ${prefix}sample(${bijection.module}State *state)
 {
-    ${prefix}RESULT result;
-    ${uf.module}RESULT r1 = ${uf.module}sample(state);
-    ${uf.module}RESULT r2 = ${uf.module}sample(state);
+    ${prefix}Result result;
+    ${uf.module}Result r1 = ${uf.module}sample(state);
+    ${uf.module}Result r2 = ${uf.module}sample(state);
     ${ctype} u1 = r1.v[0];
     ${ctype} u2 = r2.v[0];
 
@@ -77,16 +77,16 @@ WITHIN_KERNEL ${prefix}RESULT ${prefix}sample(${bijection.module}STATE *state)
 <%def name="gamma(prefix)">
 ${result_struct(prefix, ctype, 1)}
 
-WITHIN_KERNEL ${prefix}RESULT ${prefix}sample(${bijection.module}STATE *state)
+WITHIN_KERNEL ${prefix}Result ${prefix}sample(${bijection.module}State *state)
 {
     <%
         d = shape - 1. / 3
         c = 1 / numpy.sqrt(9 * d)
     %>
 
-    ${prefix}RESULT result;
-    ${uf.module}RESULT rand_float;
-    ${nbm.module}RESULT rand_normal;
+    ${prefix}Result result;
+    ${uf.module}Result rand_float;
+    ${nbm.module}Result rand_normal;
     bool normals_need_regen = true;
 
     const ${ctype} d = ${dtypes.c_constant(d, dtype)};
