@@ -1,7 +1,6 @@
 0.3.7
 =====
 
-* FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
 * ?API (computations): can we improve how Predicates for Reduce are defined?
 * FEATURE (computations): reduction with multiple predicates on a single (or multiple too?) array.
   Basically, the first stage has to be modified to store results in several arrays and then several separate reductions can be performed.
@@ -11,6 +10,7 @@
 0.3.8
 =====
 
+* FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
 * ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
   Basically it's just a synonym for ``load_combined(len(arg.shape))``.
 * TEST (computations): add some performance tests for CBRNG
