@@ -147,9 +147,6 @@ def check_distribution(arr, extent=None, mean=None, std=None):
         assert arr.min() >= extent[0]
         assert arr.max() <= extent[1]
 
-    print
-    print arr.mean(), arr.std()
-
     if mean is not None and std is not None:
         # expected mean and std of the mean of the sample array
         m_mean = mean
@@ -212,7 +209,7 @@ def test_uniform_float(thr_and_double):
 def test_normal_bm(thr_and_double):
     thr, double = thr_and_double
     dtype = numpy.float64 if double else numpy.float32
-    mean, std = 0, 10
+    mean, std = -2, 10
     bijection = philox(64, 4)
     sampler = normal_bm(bijection, dtype, mean=mean, std=std)
     check_kernel_sampler(thr, sampler, mean=mean, std=std)
