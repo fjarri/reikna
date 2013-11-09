@@ -7,6 +7,17 @@ from reikna.cluda import Module
 TEMPLATE = helpers.template_for(__file__)
 
 
+def create_struct_types(word_dtype, key_words, counter_words):
+
+    key_dtype = numpy.dtype([('v', (word_dtype, (key_words,)))])
+    key_ctype = dtypes.ctype_module(key_dtype)
+
+    counter_dtype = numpy.dtype([('v', (word_dtype, (counter_words,)))])
+    counter_ctype = dtypes.ctype_module(counter_dtype)
+
+    return key_dtype, key_ctype, counter_dtype, counter_ctype
+
+
 class Bijection:
     """
     Contains a CBRNG bijection module and accompanying metadata.
@@ -89,15 +100,24 @@ class Bijection:
 
         Returns uniformly distributed unsigned 64-bit word and updates the state.
     """
-    def __init__(self, module, dtype, counter_words, key_words):
+    def __init__(self, module, word_dtype, key_dtype, key_ctype,
+            counter_dtype, counter_ctype, process=lambda x: x):
         """__init__()""" # hide the signature from Sphinx
-        self.module = module
-        self.dtype = dtypes.normalize_type(dtype)
-        self.counter_words = counter_words
-        self.key_words = key_words
+
+        self.module = process(module)
+        self.word_dtype = word_dtype
+
+        self.key_words = key_dtype.fields['v'][0].shape[0]
+        self.counter_words = counter_dtype.fields['v'][0].shape[0]
+
+        self.counter_dtype = counter_dtype
+        self.key_dtype = key_dtype
+        self.counter_ctype = process(counter_ctype)
+        self.key_ctype = process(key_ctype)
 
     def __process_modules__(self, process):
-        return Bijection(process(self.module), self.dtype, self.counter_words, self.key_words)
+        return Bijection(self.module, self.word_dtype, self.key_dtype, self.key_ctype,
+            self.counter_dtype, self.counter_ctype, process=process)
 
 
 def threefry(bitness, counter_words, rounds=20):
@@ -168,18 +188,21 @@ def threefry(bitness, counter_words, rounds=20):
 
     assert 1 <= rounds <= 72
 
-    dtype = dtypes.normalize_type(numpy.uint32 if bitness == 32 else numpy.uint64)
+    word_dtype = dtypes.normalize_type(numpy.uint32 if bitness == 32 else numpy.uint64)
     key_words = counter_words
+    key_dtype, key_ctype, counter_dtype, counter_ctype = create_struct_types(
+        word_dtype, key_words, counter_words)
 
     module = Module(
         TEMPLATE.get_def("threefry"),
         render_kwds=dict(
-            dtype=dtype, ctype=dtypes.ctype(dtype),
-            counter_words=counter_words, key_words=key_words, rounds=rounds,
-            rotation_constants=ROTATION_CONSTANTS[(bitness, counter_words)],
+            word_dtype=word_dtype, word_ctype=dtypes.ctype(word_dtype),
+            key_words=key_words, counter_words=counter_words,
+            key_ctype=key_ctype, counter_ctype=counter_ctype,
+            rounds=rounds, rotation_constants=ROTATION_CONSTANTS[(bitness, counter_words)],
             parity_constant=PARITY_CONSTANTS[bitness]))
 
-    return Bijection(module, dtype, counter_words, key_words)
+    return Bijection(module, word_dtype, key_dtype, key_ctype, counter_dtype, counter_ctype)
 
 
 def philox(bitness, counter_words, rounds=10):
@@ -212,16 +235,18 @@ def philox(bitness, counter_words, rounds=10):
     }
 
     assert 1 <= rounds <= 12
-    dtype = dtypes.normalize_type(numpy.uint32 if bitness == 32 else numpy.uint64)
+    word_dtype = dtypes.normalize_type(numpy.uint32 if bitness == 32 else numpy.uint64)
     key_words = counter_words // 2
+    key_dtype, key_ctype, counter_dtype, counter_ctype = create_struct_types(
+        word_dtype, key_words, counter_words)
 
     module = Module(
         TEMPLATE.get_def("philox"),
         render_kwds=dict(
-            dtype=dtype, ctype=dtypes.ctype(dtype),
-            counter_words=counter_words,
-            key_words=key_words, rounds=rounds,
-            w_constants=W_CONSTANTS[bitness],
+            word_dtype=word_dtype, word_ctype=dtypes.ctype(word_dtype),
+            key_words=key_words, counter_words=counter_words,
+            key_ctype=key_ctype, counter_ctype=counter_ctype,
+            rounds=rounds, w_constants=W_CONSTANTS[bitness],
             m_constants=M_CONSTANTS[(bitness, counter_words)]))
 
-    return Bijection(module, dtype, counter_words, key_words)
+    return Bijection(module, word_dtype, key_dtype, key_ctype, counter_dtype, counter_ctype)

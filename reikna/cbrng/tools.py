@@ -42,13 +42,13 @@ class KeyGenerator:
         """
 
         if reserve_id_space:
-            if bijection.key_words == 1 and bijection.dtype.itemsize == 4:
+            if bijection.key_words == 1 and bijection.word_dtype.itemsize == 4:
             # It's too hard to compress both global and thread-dependent part
             # in a single 32-bit word.
             # Let the user handle this himself.
                 raise ValueError("Cannor reserve ID space in a 32-bit key")
 
-            if bijection.dtype.itemsize == 4:
+            if bijection.word_dtype.itemsize == 4:
                 key_words32 = bijection.key_words - 1
             else:
                 if bijection.key_words > 1:
@@ -58,7 +58,7 @@ class KeyGenerator:
                     # We use first 32 bit for the key, and the remaining 32 bit for a thread identifier.
                     key_words32 = 1
         else:
-            key_words32 = bijection.key_words * (bijection.dtype.itemsize // 4)
+            key_words32 = bijection.key_words * (bijection.word_dtype.itemsize // 4)
 
         if isinstance(seed, numpy.ndarray):
             # explicit key was provided
@@ -74,20 +74,20 @@ class KeyGenerator:
             for i in range(key_words32 * 2):
                 key[i // 2] += key16[i] << (16 if i % 2 == 0 else 0)
 
-        full_key = numpy.zeros(bijection.key_words, bijection.dtype)
-        if bijection.dtype.itemsize == 4:
-            full_key[:key_words32] = key
+        full_key = numpy.zeros(1, bijection.key_dtype)[0]
+        if bijection.word_dtype.itemsize == 4:
+            full_key['v'][:key_words32] = key
         else:
             for i in range(key_words32):
-                full_key[i // 2] += key[i] << (32 if i % 2 == 0 else 0)
+                full_key['v'][i // 2] += key[i] << (32 if i % 2 == 0 else 0)
 
         module = Module.create("""
-            WITHIN_KERNEL ${bijection.module}KEY ${prefix}key_from_int(int idx)
+            WITHIN_KERNEL ${bijection.key_ctype} ${prefix}key_from_int(int idx)
             {
-                ${bijection.module}KEY result;
+                ${bijection.key_ctype} result;
 
                 %for i in range(bijection.key_words):
-                result.v[${i}] = ${key[i]}
+                result.v[${i}] = ${key['v'][i]}
                     %if i == bijection.key_words - 1:
                     + idx
                     %endif
@@ -109,5 +109,5 @@ class KeyGenerator:
         Uses the same algorithm as the module.
         """
         key = self._base_key.copy()
-        key[-1] += numpy.cast[key.dtype](idx)
+        key['v'][-1] += numpy.cast[key.dtype.fields['v'][0].base](idx)
         return key
