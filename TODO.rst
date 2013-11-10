@@ -4,7 +4,6 @@
 * ?API (computations): can we improve how Predicates for Reduce are defined?
 * FEATURE (computations): reduction with multiple predicates on a single (or multiple too?) array.
   Basically, the first stage has to be modified to store results in several arrays and then several separate reductions can be performed.
-* FEATURE (computations): allow non-sequential axes in Reduce
 
 
 0.3.8

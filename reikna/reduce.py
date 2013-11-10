@@ -42,7 +42,9 @@ class Reduce(Computation):
 
     :param arr_t: an array-like defining the initial array.
     :param predicate: a :py:class:`~reikna.reduce.Predicate` object.
-    :param axes: a list of sequential axes to reduce over.
+    :param axes: a list of non-repeating axes to reduce over.
+        If ``None``, the whole array will be reduced
+        (in which case the shape of the output array is ``(1,)``).
 
     .. py:method:: compiled_signature(output:o, input:i)
 
@@ -53,17 +55,36 @@ class Reduce(Computation):
 
     def __init__(self, arr_t, predicate, axes=None):
 
+        dims = len(arr_t.shape)
+
         if axes is None:
-            axes = list(range(len(arr_t.shape)))
+            axes = tuple(range(dims))
+        else:
+            axes = tuple(sorted(helpers.wrap_in_tuple(axes)))
 
-        # we require sequential axes
-        assert list(axes) == list(range(axes[0], axes[-1] + 1))
-        output_shape = arr_t.shape[:axes[0]] + arr_t.shape[axes[-1]+1:]
-        if len(output_shape) == 0:
+        if len(set(axes)) != len(axes):
+            raise ValueError("Cannot reduce twice over the same axis")
+
+        if min(axes) < 0 or max(axes) >= dims:
+            raise ValueError("Axes numbers are out of bounds")
+
+        remaining_axes = tuple(a for a in range(dims) if a not in axes)
+
+        # Currently zero-dimensional arrays are not supported,
+        # so we use a 1-element array instead.
+        self._real_output_shape = tuple(arr_t.shape[a] for a in remaining_axes)
+        if len(self._real_output_shape) == 0:
             output_shape = (1,)
+            self._scalar_output = True
+        else:
+            output_shape = self._real_output_shape
+            self._scalar_output = False
 
-        self._axis_start = axes[0]
-        self._axis_end = axes[-1]
+        if axes == tuple(range(dims - len(axes), dims)):
+            self._transpose_axes = None
+        else:
+            self._transpose_axes = remaining_axes + axes
+
         self._predicate = predicate
 
         Computation.__init__(self, [
@@ -77,32 +98,23 @@ class Reduce(Computation):
         # FIXME: may fail if the user passes particularly sophisticated operation
         max_reduce_power = device_params.max_work_group_size
 
-        axis_start = self._axis_start
-        axis_end = self._axis_end
-
-        if axis_end == len(input_.shape) - 1:
+        if self._transpose_axes is None:
             # normal reduction
             cur_input = input_
         else:
-            initial_axes = tuple(range(len(input_.shape)))
-            tr_axes = (
-                initial_axes[:axis_start] +
-                initial_axes[axis_end+1:] +
-                initial_axes[axis_start:axis_end+1])
-
-            transpose = Transpose(input_, axes=tr_axes)
+            transpose = Transpose(input_, axes=self._transpose_axes)
             tr_output = plan.temp_array_like(transpose.parameter.output)
             plan.computation_call(transpose, tr_output, input_)
 
             cur_input = tr_output
-            axis_start = len(input_.shape) - 1 - (axis_end - axis_start)
-            axis_end = len(input_.shape) - 1
+
+        axis_start = len(self._real_output_shape)
+        axis_end = len(input_.shape) - 1
 
         input_slices = (axis_start, axis_end - axis_start + 1)
 
-        external_shape = cur_input.shape[:axis_start]
         part_size = helpers.product(cur_input.shape[axis_start:])
-        final_size = helpers.product(external_shape)
+        final_size = helpers.product(cur_input.shape[:axis_start])
 
         while part_size > 1:
 
