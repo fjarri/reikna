@@ -1,7 +1,7 @@
 <%def name="prelude()">
 
-%if thread_fast_math:
-#define THREAD_FAST_MATH
+%if compile_fast_math:
+#define COMPILE_FAST_MATH
 %endif
 
 %if api == 'cuda':
@@ -18,6 +18,9 @@
     #define INLINE __forceinline__
     #define SIZE_T unsigned int
     #define VSIZE_T unsigned int
+
+    // used to align fields in structures
+    #define ALIGN(bytes) __align__(bytes)
 
     <%
         dimnames = ['x', 'y', 'z']
@@ -84,6 +87,9 @@
     #define INLINE inline
     #define SIZE_T size_t
     #define VSIZE_T size_t
+
+    // used to align fields in structures
+    #define ALIGN(bytes) __attribute__ ((aligned(bytes)))
 
     #if defined(cl_khr_fp64)
     #pragma OPENCL EXTENSION cl_khr_fp64: enable

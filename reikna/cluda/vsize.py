@@ -214,7 +214,7 @@ def find_bounding_shape(virtual_size, available_shape):
         else:
             return tuple(bounding_shape)
 
-    return available_shape
+    return tuple(available_shape)
 
 
 class ShapeGroups:

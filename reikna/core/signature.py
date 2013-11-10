@@ -21,7 +21,8 @@ class Type:
 
     .. py:attribute:: ctype
 
-        A string with the name of C type corresponding to :py:attr:`dtype`.
+        A string with the name of C type corresponding to :py:attr:`dtype`,
+        or a module if it is a struct type.
 
     .. py:attribute:: strides
 
@@ -32,7 +33,7 @@ class Type:
         self.shape = tuple() if shape is None else wrap_in_tuple(shape)
         self.size = product(self.shape)
         self.dtype = dtypes.normalize_type(dtype)
-        self.ctype = dtypes.ctype(self.dtype)
+        self.ctype = dtypes.ctype_module(self.dtype)
         if strides is None:
             self.strides = tuple([
                 self.dtype.itemsize * product(self.shape[i+1:]) for i in range(len(self.shape))])
@@ -93,6 +94,11 @@ class Type:
         else:
             return "Type({dtype})".format(dtype=self.dtype)
 
+    def __process_modules__(self, process):
+        tp = Type(self.dtype, shape=self.shape, strides=self.strides)
+        tp.ctype = process(tp.ctype)
+        return tp
+
 
 class Annotation:
     """
@@ -144,6 +150,11 @@ class Annotation:
         else:
             return "Annotation({dtype})".format(dtype=self.type.dtype)
 
+    def __process_modules__(self, process):
+        ann = Annotation(self.type, role=self.role)
+        ann.type = process(ann.type)
+        return ann
+
 
 class Parameter(funcsigs.Parameter):
     """
@@ -180,6 +191,9 @@ class Parameter(funcsigs.Parameter):
     def __eq__(self, other):
         return (self.name == other.name and self.annotation == other.annotation
             and self.default == other.default)
+
+    def __process_modules__(self, process):
+        return Parameter(self.name, process(self.annotation), default=self.default)
 
 
 class Signature(funcsigs.Signature):

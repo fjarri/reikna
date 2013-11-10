@@ -3,6 +3,45 @@ Release history
 ***************
 
 
+0.5.0 (current development version)
+===================================
+
+Under construction.
+
+
+0.4.0 (10 Nov 2013)
+===================
+
+* CHANGED: ``supports_dtype()`` method moved from :py:class:`~reikna.cluda.api.Thread` to :py:class:`~reikna.cluda.api.DeviceParameters`.
+
+* CHANGED: ``fast_math`` keyword parameter moved from :py:class:`~reikna.cluda.api.Thread` constructor to :py:meth:`~reikna.cluda.api.Thread.compile` and :py:meth:`~reikna.cluda.api.Thread.compile_static`.
+  It is also ``False`` by default, instead of ``True``.
+  Correspondingly, ``THREAD_FAST_MATH`` macro was renamed to :c:macro:`COMPILE_FAST_MATH`.
+
+* CHANGED: CBRNG modules are using the dtype-to-ctype support.
+  Correspondingly, the C types for keys and counters can be obtained by calling :py:func:`~reikna.cluda.dtypes.ctype_module` on :py:attr:`~reikna.cbrng.bijections.Bijection.key_dtype` and :py:attr:`~reikna.cbrng.bijections.Bijection.counter_dtype` attributes.
+  The module wrappers still define their types, but their names are using a different naming convention now.
+
+* ADDED: module generator for nested dtypes (:py:func:`~reikna.cluda.dtypes.ctype_module`) and a function to get natural field offsets for a given API/device (:py:func:`~reikna.cluda.dtypes.adjust_alignment`).
+
+* ADDED: ``fast_math`` keyword parameter in :py:meth:`~reikna.core.Computation.compile`.
+  In other words, now ``fast_math`` can be set per computation.
+
+* ADDED: :c:macro:`ALIGN` macro is available in CLUDA kernels.
+
+* ADDED: support for struct types as ``Computation`` arguments (for them, the ``ctypes`` attributes contain the corresponding module obtained with :py:func:`~reikna.cluda.dtypes.ctype_module`).
+
+* ADDED: support for non-sequential axes in :py:class:`~reikna.reduce.Reduce`.
+
+* FIXED: bug in the interactive ``Thread`` creation (reported by James Bergstra).
+
+* FIXED: Py3-incompatibility in the interactive ``Thread`` creation.
+
+* FIXED: some code paths in virtual size finding algorithm could result in a type error.
+
+* FIXED: improved the speed of test collection by reusing ``Thread`` objects.
+
+
 0.3.6 (9 Aug 2013)
 ==================
 

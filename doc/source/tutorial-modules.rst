@@ -53,6 +53,8 @@ As a result, the code that gets compiled is
         arr[idx] = x + 1;
     }
 
+If the snippet is used without parentheses (e.g. ``${add}``), it is equivalent to calling it without arguments (``${add()}``).
+
 The root code that gets passed to :py:meth:`~reikna.cluda.api.Thread.compile` can be viewed as a snippet with an empty signature.
 
 
@@ -104,17 +106,17 @@ With the code above, the rendered module will produce the code
 
 ::
 
-    WITHIN_KERNEL int _module0(int x)
+    WITHIN_KERNEL int _module0_(int x)
     {
         return x + 1 + 2;
     }
 
-and the ``add`` keyword in the ``render_kwds`` gets its value changed to ``_module0``.
+and the ``add`` keyword in the ``render_kwds`` gets its value changed to ``_module0_``.
 Then the main code is rendered and appended to the previously renderd parts, giving
 
 ::
 
-    WITHIN_KERNEL int _module0(int x)
+    WITHIN_KERNEL int _module0_(int x)
     {
         return x + 1;
     }
@@ -123,11 +125,16 @@ Then the main code is rendered and appended to the previously renderd parts, giv
     {
         const SIZE_T idx = get_global_id(0);
         int a = arr[idx];
-        arr[idx] = _module0(x);
+        arr[idx] = _module0_(x);
     }
 
 which is then passed to the compiler.
 If your module's template def does not take any arguments except for ``prefix``, you can call it in the parent template just as ``${add}`` (without empty parentheses).
+
+.. warning::
+
+    Note that ``add`` in this case is not a string, it is an object that has ``__str__()`` defined.
+    If you want to concatenate a module prefix with some other string, you have to either call ``str()`` explicitly (``str(add) + "abc"``), or concatenate it inside a template (``${add} abc``).
 
 Modules can reference snippets in their ``render_kwds``, which, in turn, can reference other modules.
 This produces a tree-like structure with the snippet made from the code passed by user at the root.
@@ -207,7 +214,7 @@ Nontrivial example
 ==================
 
 Modules were introduced to help split big kernels into small reusable pieces which in ``CUDA`` or ``OpenCL`` program would be put into different source or header files.
-For example, a random number generator may be assembled from a function generating random integers, a function transforming these integers into random numbers with a certain distribution, and a :py:class:`reikna.pureparallel.PureParallel` computation calling these functions and saving results to global memory.
+For example, a random number generator may be assembled from a function generating random integers, a function transforming these integers into random numbers with a certain distribution, and a :py:class:`~reikna.pureparallel.PureParallel` computation calling these functions and saving results to global memory.
 These two functions can be extracted into separate modules, so that a user could call them from some custom kernel if he does not need to store the intermediate results.
 
 Going further with this example, one notices that functions that produce randoms with sophisticated distributions are often based on simpler distributions.

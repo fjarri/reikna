@@ -1,24 +1,13 @@
-<%def name="structure_declarations(prefix, dtype, counter_words, key_words)">
-<%
-    ctype = dtypes.ctype(dtype)
-%>
-#define ${prefix}COUNTER_WORDS ${counter_words}
+<%def name="common_declarations(prefix, word_ctype, key_words, counter_words, key_ctype, counter_ctype)">
 #define ${prefix}KEY_WORDS ${key_words}
-typedef ${ctype} ${prefix}WORD;
+#define ${prefix}COUNTER_WORDS ${counter_words}
+#define ${prefix}Word ${word_ctype}
+#define ${prefix}Key ${key_ctype}
+#define ${prefix}Counter ${counter_ctype}
 
-typedef struct ${prefix}_COUNTER
+WITHIN_KERNEL ${counter_ctype} ${prefix}make_counter_from_int(int x)
 {
-    ${ctype} v[${counter_words}];
-} ${prefix}COUNTER;
-
-typedef struct ${prefix}_KEY
-{
-    ${ctype} v[${key_words}];
-} ${prefix}KEY;
-
-WITHIN_KERNEL ${prefix}COUNTER ${prefix}make_counter_from_int(int x)
-{
-    ${prefix}COUNTER result;
+    ${counter_ctype} result;
     %for i in range(counter_words - 1):
     result.v[${i}] = 0;
     %endfor
@@ -28,10 +17,9 @@ WITHIN_KERNEL ${prefix}COUNTER ${prefix}make_counter_from_int(int x)
 </%def>
 
 
-<%def name="raw_samplers(prefix, dtype, counter_words)">
+<%def name="raw_samplers(prefix, word_dtype, word_ctype, counter_words, key_ctype, counter_ctype)">
 <%
-    ctype = dtypes.ctype(dtype)
-    counter_uints32 = counter_words * (dtype.itemsize // 4)
+    counter_uints32 = counter_words * (word_dtype.itemsize // 4)
     uint32 = dtypes.ctype(numpy.uint32)
     uint64 = dtypes.ctype(numpy.uint64)
 %>
@@ -39,19 +27,19 @@ WITHIN_KERNEL ${prefix}COUNTER ${prefix}make_counter_from_int(int x)
 typedef ${uint32} ${prefix}uint32;
 typedef ${uint64} ${prefix}uint64;
 
-typedef struct ${prefix}_STATE
+typedef struct ${prefix}
 {
-    ${prefix}KEY key;
-    ${prefix}COUNTER counter;
+    ${key_ctype} key;
+    ${counter_ctype} counter;
     union {
-        ${prefix}COUNTER buffer;
+        ${counter_ctype} buffer;
         ${uint32} buffer_uint32[${counter_uints32}];
     };
     int buffer_uint32_cursor;
-} ${prefix}STATE;
+} ${prefix}State;
 
 
-WITHIN_KERNEL void ${prefix}bump_counter(${prefix}STATE *state)
+WITHIN_KERNEL void ${prefix}bump_counter(${prefix}State *state)
 {
     %for i in range(counter_words - 1, 0, -1):
     state->counter.v[${i}] += 1;
@@ -64,7 +52,7 @@ WITHIN_KERNEL void ${prefix}bump_counter(${prefix}STATE *state)
     %endfor
 }
 
-WITHIN_KERNEL ${prefix}COUNTER ${prefix}get_next_unused_counter(${prefix}STATE state)
+WITHIN_KERNEL ${counter_ctype} ${prefix}get_next_unused_counter(${prefix}State state)
 {
     if (state.buffer_uint32_cursor > 0)
     {
@@ -73,14 +61,14 @@ WITHIN_KERNEL ${prefix}COUNTER ${prefix}get_next_unused_counter(${prefix}STATE s
     return state.counter;
 }
 
-WITHIN_KERNEL void ${prefix}refill_buffer(${prefix}STATE *state)
+WITHIN_KERNEL void ${prefix}refill_buffer(${prefix}State *state)
 {
     state->buffer = ${prefix}bijection(state->key, state->counter);
 }
 
-WITHIN_KERNEL ${prefix}STATE ${prefix}make_state(${prefix}KEY key, ${prefix}COUNTER counter)
+WITHIN_KERNEL ${prefix}State ${prefix}make_state(${key_ctype} key, ${counter_ctype} counter)
 {
-    ${prefix}STATE state;
+    ${prefix}State state;
     state.key = key;
     state.counter = counter;
     state.buffer_uint32_cursor = 0;
@@ -88,7 +76,7 @@ WITHIN_KERNEL ${prefix}STATE ${prefix}make_state(${prefix}KEY key, ${prefix}COUN
     return state;
 }
 
-WITHIN_KERNEL ${uint32} ${prefix}get_raw_uint32(${prefix}STATE *state)
+WITHIN_KERNEL ${uint32} ${prefix}get_raw_uint32(${prefix}State *state)
 {
     if (state->buffer_uint32_cursor == ${counter_uints32})
     {
@@ -102,7 +90,7 @@ WITHIN_KERNEL ${uint32} ${prefix}get_raw_uint32(${prefix}STATE *state)
     return state->buffer_uint32[cur];
 }
 
-WITHIN_KERNEL ${uint64} ${prefix}get_raw_uint64(${prefix}STATE *state)
+WITHIN_KERNEL ${uint64} ${prefix}get_raw_uint64(${prefix}State *state)
 {
     if (state->buffer_uint32_cursor >= ${counter_uints32} - 1)
     {
@@ -113,7 +101,7 @@ WITHIN_KERNEL ${uint64} ${prefix}get_raw_uint64(${prefix}STATE *state)
 
     int cur = state->buffer_uint32_cursor;
     state->buffer_uint32_cursor += 2;
-    %if dtype.itemsize == 8:
+    %if word_dtype.itemsize == 8:
     return state->buffer.v[cur / 2];
     %else:
     ${uint32} hi = state->buffer_uint32[cur];
@@ -125,34 +113,32 @@ WITHIN_KERNEL ${uint64} ${prefix}get_raw_uint64(${prefix}STATE *state)
 
 
 <%def name="threefry(prefix)">
-${structure_declarations(prefix, dtype, counter_words, key_words)}
+${common_declarations(prefix, word_ctype, key_words, counter_words, key_ctype, counter_ctype)}
 
-WITHIN_KERNEL INLINE ${ctype} ${prefix}threefry_rotate(${ctype} x, ${ctype} lshift)
+WITHIN_KERNEL INLINE ${word_ctype} ${prefix}threefry_rotate(${word_ctype} x, ${word_ctype} lshift)
 {
 #ifdef CUDA
-    return (x << lshift) | (x >> (${dtype.itemsize * 8} - lshift));
+    return (x << lshift) | (x >> (${word_dtype.itemsize * 8} - lshift));
 #else
     return rotate(x, lshift);
 #endif
 }
 
-WITHIN_KERNEL ${prefix}COUNTER ${prefix}bijection(const ${prefix}KEY key, const ${prefix}COUNTER counter)
+WITHIN_KERNEL ${counter_ctype} ${prefix}bijection(
+    const ${key_ctype} key, const ${counter_ctype} counter)
 {
     // Prepare the key
     %for i in range(counter_words):
-    const ${ctype} key${i} = key.v[${i}];
+    const ${word_ctype} key${i} = key.v[${i}];
     %endfor
 
-    const ${ctype} key${counter_words} = ${parity_constant}
+    const ${word_ctype} key${counter_words} = ${parity_constant}
     %for i in range(counter_words):
         ^ key${i}
     %endfor
         ;
 
-    ${prefix}COUNTER X;
-    %for i in range(counter_words):
-    X.v[${i}] = counter.v[${i}];
-    %endfor
+    ${counter_ctype} X = counter;
 
     // Insert initial key before round 0
     %for i in range(counter_words):
@@ -194,47 +180,46 @@ WITHIN_KERNEL ${prefix}COUNTER ${prefix}bijection(const ${prefix}KEY key, const 
     return X;
 }
 
-${raw_samplers(prefix, dtype, counter_words)}
+${raw_samplers(prefix, word_dtype, word_ctype, counter_words, key_ctype, counter_ctype)}
 </%def>
 
 
 <%def name="philox(prefix)">
-${structure_declarations(prefix, dtype, counter_words, key_words)}
+${common_declarations(prefix, word_ctype, key_words, counter_words, key_ctype, counter_ctype)}
 
-WITHIN_KERNEL INLINE ${ctype} ${prefix}mulhilo(${ctype} *hip, ${ctype} a, ${ctype} b)
+WITHIN_KERNEL INLINE ${word_ctype} ${prefix}mulhilo(
+    ${word_ctype} *hip, ${word_ctype} a, ${word_ctype} b)
 {
-%if dtype.itemsize == 4:
+%if word_dtype.itemsize == 4:
 <%
     d_ctype = dtypes.ctype(numpy.uint64)
 %>
     ${d_ctype} product = ((${d_ctype})a)*((${d_ctype})b);
-    *hip = product >> ${dtype.itemsize * 8};
-    return (${ctype})product;
+    *hip = product >> ${word_dtype.itemsize * 8};
+    return (${word_ctype})product;
 %else:
 #ifdef CUDA
     *hip = __umul64hi(a, b);
 #else
     *hip = mul_hi(a, b);
 #endif
-    return a*b;
+    return a * b;
 %endif
 }
 
-WITHIN_KERNEL ${prefix}COUNTER ${prefix}bijection(const ${prefix}KEY key, const ${prefix}COUNTER counter)
+WITHIN_KERNEL ${counter_ctype} ${prefix}bijection(
+    const ${key_ctype} key, const ${counter_ctype} counter)
 {
-    ${prefix}COUNTER X;
-    %for i in range(counter_words):
-    X.v[${i}] = counter.v[${i}];
-    %endfor
+    ${counter_ctype} X = counter;
 
     %for i in range(counter_words // 2):
-    ${ctype} key${i} = key.v[${i}];
+    ${word_ctype} key${i} = key.v[${i}];
     %endfor
 
     %if counter_words == 2:
-    ${ctype} hi, lo;
+    ${word_ctype} hi, lo;
     %else:
-    ${ctype} hi0, lo0, hi1, lo1;
+    ${word_ctype} hi0, lo0, hi1, lo1;
     %endif
 
     %for rnd in range(rounds):
@@ -266,5 +251,5 @@ WITHIN_KERNEL ${prefix}COUNTER ${prefix}bijection(const ${prefix}KEY key, const 
     return X;
 }
 
-${raw_samplers(prefix, dtype, counter_words)}
+${raw_samplers(prefix, word_dtype, word_ctype, counter_words, key_ctype, counter_ctype)}
 </%def>

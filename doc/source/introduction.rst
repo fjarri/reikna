@@ -9,10 +9,10 @@ For more details see :ref:`basic <tutorial-basic>` and :ref:`advanced <tutorial-
 CLUDA
 =====
 
-CLUDA is an abstraction layer on top of ``PyCUDA``/``PyOpenCL``.
+CLUDA is an abstraction layer on top of PyCUDA/PyOpenCL.
 Its main purpose is to separate the rest of ``reikna`` from the difference in their APIs, but it can be used by itself too for some simple tasks.
 
-Consider the following example, which is very similar to the one from the index page on PyCuda documentation:
+Consider the following example, which is very similar to the one from the index page on PyCUDA documentation:
 
 .. testcode:: cluda_simple_example
 

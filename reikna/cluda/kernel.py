@@ -10,9 +10,9 @@ from reikna.cluda import dtypes
 TEMPLATE = template_for(__file__)
 
 
-def render_prelude(thr):
+def render_prelude(thr, fast_math=False):
     return TEMPLATE.get_def('prelude').render(
-        api=thr.api.get_id(), thread_fast_math=thr._fast_math)
+        api=thr.api.get_id(), compile_fast_math=fast_math)
 
 
 def render_template(template, *args, **kwds):
@@ -136,6 +136,9 @@ class RenderableSnippet:
 
     def __call__(self, *args):
         return render_template(self.template_def, *args, **self.render_kwds)
+
+    def __str__(self):
+        return self()
 
 
 class RenderableModule:

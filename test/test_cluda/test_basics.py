@@ -22,7 +22,7 @@ TEST_DTYPES = [
 pytest_funcarg__thr_and_global_size = create_thread_in_tuple
 
 
-def pair_thread_with_gs(metafunc, tc):
+def pair_thread_with_gs(metafunc, tp):
     global_sizes = [
         (100,), (2000,), (1153,),
         (10, 10), (150, 250), (137, 547),
@@ -34,16 +34,14 @@ def pair_thread_with_gs(metafunc, tc):
     for gs in global_sizes:
 
         # If the thread will not support these limits, skip
-        thr = tc()
-        mgs = thr.device_params.max_num_groups
-        del thr
+        mgs = tp.device_params.max_num_groups
         if len(gs) > len(mgs) or (len(mgs) > 2 and len(gs) > 2 and mgs[2] < gs[2]):
             continue
 
         rem_ids.append(str(gs))
         vals.append((gs,))
 
-    return [tc] * len(vals), vals, rem_ids
+    return [tp] * len(vals), vals, rem_ids
 
 
 def pytest_generate_tests(metafunc):
@@ -113,7 +111,7 @@ def test_dtype_support(thr, dtype):
 
     N = 256
 
-    if not thr.supports_dtype(dtype):
+    if not thr.device_params.supports_dtype(dtype):
         pytest.skip()
 
     mul = functions.mul(dtype, dtype)

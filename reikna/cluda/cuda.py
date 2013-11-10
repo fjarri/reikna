@@ -70,6 +70,10 @@ class Thread(api_base.Thread):
 
     api = sys.modules[__name__]
 
+    def __init__(self, *args, **kwds):
+        api_base.Thread.__init__(self, *args, **kwds)
+        self._active = True
+
     def _process_cqd(self, cqd):
         if isinstance(cqd, cuda.Device):
             context = cqd.make_context()
@@ -78,24 +82,17 @@ class Thread(api_base.Thread):
         elif isinstance(cqd, cuda.Context) or cqd is None:
             return cqd, cuda.Stream(), cqd.get_device(), False
         elif isinstance(cqd, cuda.Stream):
-            # There's no function in PyCuda to get the current context,
+            # There's no function in PyCUDA to get the current context,
             # but we do not really need it anyway.
             return None, cqd, cuda.Context.get_device(), False
         else:
             return ValueError("The value provided is not Device, Context or Stream")
 
-    def supports_dtype(self, dtype):
-        if dtypes.is_double(dtype):
-            major, minor = self._device.compute_capability()
-            return (major == 1 and minor == 3) or major >= 2
-        else:
-            return True
-
     def allocate(self, size):
         return Buffer(size)
 
     def array(self, shape, dtype, strides=None, allocator=None):
-        # In PyCuda, the default allocator is not None, but a default alloc object
+        # In PyCUDA, the default allocator is not None, but a default alloc object
         kwds = {}
         if strides is not None:
             kwds['strides'] = strides
@@ -124,14 +121,26 @@ class Thread(api_base.Thread):
     def synchronize(self):
         self._queue.synchronize()
 
-    def _compile(self, src):
-        options = ['-use_fast_math'] if self._fast_math else []
+    def _compile(self, src, fast_math=False):
+        options = ['-use_fast_math'] if fast_math else []
         return SourceModule(src, no_extern_c=True, options=options)
+
+    def _cuda_push(self):
+        assert not self._active
+        self._context.push()
+        self._active = True
+
+    def _cuda_pop(self):
+        assert self._active
+        cuda.Context.pop()
+        self._active = False
 
     def _release_specific(self):
         # If we own the context, it is our responsibility to pop() it
-        if self._owns_context:
+        if self._owns_context and self._active:
             cuda.Context.pop()
+        if self._owns_context:
+            self._context.detach()
 
     def __del__(self):
         self.release()
@@ -141,6 +150,7 @@ class DeviceParameters:
 
     def __init__(self, device):
 
+        self._device = device
         self.max_work_group_size = device.max_threads_per_block
         self.max_work_item_sizes = [
             device.max_block_dim_x,
@@ -161,6 +171,13 @@ class DeviceParameters:
         self.min_mem_coalesce_width = {
             size:devdata.align_words(word_size=size) for size in [4, 8, 16]}
         self.local_mem_size = device.max_shared_memory_per_block
+
+    def supports_dtype(self, dtype):
+        if dtypes.is_double(dtype):
+            major, minor = self._device.compute_capability()
+            return (major == 1 and minor == 3) or major >= 2
+        else:
+            return True
 
 
 def find_local_size(global_size, max_work_item_sizes, max_work_group_size):

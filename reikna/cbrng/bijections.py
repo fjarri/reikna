@@ -7,22 +7,50 @@ from reikna.cluda import Module
 TEMPLATE = helpers.template_for(__file__)
 
 
+def create_struct_types(word_dtype, key_words, counter_words):
+
+    key_dtype = numpy.dtype([('v', (word_dtype, (key_words,)))])
+    key_ctype = dtypes.ctype_module(key_dtype)
+
+    counter_dtype = numpy.dtype([('v', (word_dtype, (counter_words,)))])
+    counter_ctype = dtypes.ctype_module(counter_dtype)
+
+    return key_dtype, key_ctype, counter_dtype, counter_ctype
+
+
 class Bijection:
     """
     Contains a CBRNG bijection module and accompanying metadata.
     Supports ``__process_modules__`` protocol.
 
-    .. py:attribute:: dtype
+    .. py:attribute:: word_dtype
 
         The data type of the integer word used by the generator.
+
+    .. py:attribute:: key_words
+
+        The number of words used by the key.
 
     .. py:attribute:: counter_words
 
         The number of words used by the counter.
 
-    .. py:attribute:: key_words
+    .. py:attribute:: key_dtype
 
-        The number of words used by the key.
+        The ``numpy.dtype`` object representing a bijection key.
+        Contains a single array field ``v`` with ``key_words`` of ``word_dtype`` elements.
+
+    .. py:attribute:: counter_dtype
+
+        The ``numpy.dtype`` object representing a bijection counter.
+        Contains a single array field ``v`` with ``key_words`` of ``word_dtype`` elements.
+
+    .. py:attribute:: raw_functions
+
+        A dictionary ``dtype:function_name`` of available functions ``function_name``
+        in :py:attr:`module` that produce a random full-range integer ``dtype``
+        from a :c:type:`State`, advancing it.
+        Available functions: :c:func:`get_raw_uint32`, :c:func:`get_raw_uint64`.
 
     .. py:attribute:: module
 
@@ -37,67 +65,84 @@ class Bijection:
 
         Contains the value of :py:attr:`key_words`.
 
-    .. c:type:: word
+    .. c:type:: Word
 
-        Contains the type corresponding to :py:attr:`dtype`.
+        Contains the type corresponding to :py:attr:`word_dtype`.
 
-    .. c:type:: COUNTER
-
-        Describes the bijection counter, or its output.
-
-        .. c:member:: word v[COUNTER_WORDS]
-
-    .. c:type:: KEY
+    .. c:type:: Key
 
         Describes the bijection key.
+        Alias for the structure generated from :py:attr:`key_dtype`.
 
-        .. c:member:: word v[KEY_WORDS]
+        .. c:member:: Word v[KEY_WORDS]
 
-    .. c:function:: COUNTER make_counter_from_int(int x)
+    .. c:type:: Counter
+
+        Describes the bijection counter, or its output.
+        Alias for the structure generated from :py:attr:`counter_dtype`.
+
+        .. c:member:: Word v[COUNTER_WORDS]
+
+    .. c:function:: Counter make_counter_from_int(int x)
 
         Creates a counter object from an integer.
 
-    .. c:function:: COUNTER bijection(KEY key, COUNTER counter)
+    .. c:function:: Counter bijection(Key key, Counter counter)
 
         The main bijection function.
 
-    .. c:type:: STATE
+    .. c:type:: State
 
         A structure containing the CBRNG state which is used by :py:mod:`~reikna.cbrng.samplers`.
 
-    .. c:type:: uint32
-
-        A type of unigned 32-bit word.
-
-    .. c:type:: uint64
-
-        A type of unigned 64-bit word.
-
-    .. c:function:: STATE make_state(KEY key, COUNTER counter)
+    .. c:function:: State make_state(Key key, Counter counter)
 
         Creates a new state object.
 
-    .. c:function:: COUNTER get_next_unused_counter(STATE state)
+    .. c:function:: Counter get_next_unused_counter(State state)
 
         Extracts a counter which has not been used in random sampling.
 
-    .. c:function:: uint32 get_raw_uint32(STATE *state)
+    .. c:type:: uint32
+
+        A type of unsigned 32-bit word, corresponds to ``numpy.uint32``.
+
+    .. c:type:: uint64
+
+        A type of unsigned 64-bit word, corresponds to ``numpy.uint64``.
+
+    .. c:function:: uint32 get_raw_uint32(State *state)
 
         Returns uniformly distributed unsigned 32-bit word and updates the state.
 
-    .. c:function:: uint64 get_raw_uint64(STATE *state)
+    .. c:function:: uint64 get_raw_uint64(State *state)
 
         Returns uniformly distributed unsigned 64-bit word and updates the state.
     """
-    def __init__(self, module, dtype, counter_words, key_words):
+    def __init__(self, module, word_dtype, key_dtype, counter_dtype):
         """__init__()""" # hide the signature from Sphinx
+
         self.module = module
-        self.dtype = dtypes.normalize_type(dtype)
-        self.counter_words = counter_words
-        self.key_words = key_words
+        self.word_dtype = word_dtype
+
+        self.key_words = key_dtype.fields['v'][0].shape[0]
+        self.counter_words = counter_dtype.fields['v'][0].shape[0]
+
+        self.counter_dtype = counter_dtype
+        self.key_dtype = key_dtype
+
+        # Compensate for the mysterious distinction numpy makes between
+        # a predefined dtype and a generic dtype.
+        self.raw_functions = {
+            numpy.uint32: 'get_raw_uint32',
+            numpy.dtype('uint32'): 'get_raw_uint32',
+            numpy.uint64: 'get_raw_uint64',
+            numpy.dtype('uint64'): 'get_raw_uint64',
+        }
 
     def __process_modules__(self, process):
-        return Bijection(process(self.module), self.dtype, self.counter_words, self.key_words)
+        return Bijection(
+            process(self.module), self.word_dtype, self.key_dtype, self.counter_dtype)
 
 
 def threefry(bitness, counter_words, rounds=20):
@@ -168,18 +213,21 @@ def threefry(bitness, counter_words, rounds=20):
 
     assert 1 <= rounds <= 72
 
-    dtype = dtypes.normalize_type(numpy.uint32 if bitness == 32 else numpy.uint64)
+    word_dtype = dtypes.normalize_type(numpy.uint32 if bitness == 32 else numpy.uint64)
     key_words = counter_words
+    key_dtype, key_ctype, counter_dtype, counter_ctype = create_struct_types(
+        word_dtype, key_words, counter_words)
 
     module = Module(
         TEMPLATE.get_def("threefry"),
         render_kwds=dict(
-            dtype=dtype, ctype=dtypes.ctype(dtype),
-            counter_words=counter_words, key_words=key_words, rounds=rounds,
-            rotation_constants=ROTATION_CONSTANTS[(bitness, counter_words)],
+            word_dtype=word_dtype, word_ctype=dtypes.ctype(word_dtype),
+            key_words=key_words, counter_words=counter_words,
+            key_ctype=key_ctype, counter_ctype=counter_ctype,
+            rounds=rounds, rotation_constants=ROTATION_CONSTANTS[(bitness, counter_words)],
             parity_constant=PARITY_CONSTANTS[bitness]))
 
-    return Bijection(module, dtype, counter_words, key_words)
+    return Bijection(module, word_dtype, key_dtype, counter_dtype)
 
 
 def philox(bitness, counter_words, rounds=10):
@@ -212,16 +260,18 @@ def philox(bitness, counter_words, rounds=10):
     }
 
     assert 1 <= rounds <= 12
-    dtype = dtypes.normalize_type(numpy.uint32 if bitness == 32 else numpy.uint64)
+    word_dtype = dtypes.normalize_type(numpy.uint32 if bitness == 32 else numpy.uint64)
     key_words = counter_words // 2
+    key_dtype, key_ctype, counter_dtype, counter_ctype = create_struct_types(
+        word_dtype, key_words, counter_words)
 
     module = Module(
         TEMPLATE.get_def("philox"),
         render_kwds=dict(
-            dtype=dtype, ctype=dtypes.ctype(dtype),
-            counter_words=counter_words,
-            key_words=key_words, rounds=rounds,
-            w_constants=W_CONSTANTS[bitness],
+            word_dtype=word_dtype, word_ctype=dtypes.ctype(word_dtype),
+            key_words=key_words, counter_words=counter_words,
+            key_ctype=key_ctype, counter_ctype=counter_ctype,
+            rounds=rounds, w_constants=W_CONSTANTS[bitness],
             m_constants=M_CONSTANTS[(bitness, counter_words)]))
 
-    return Bijection(module, dtype, counter_words, key_words)
+    return Bijection(module, word_dtype, key_dtype, counter_dtype)

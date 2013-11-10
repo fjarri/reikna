@@ -35,7 +35,7 @@ class TestBijection:
     def reference(self, counters, keygen):
         result = numpy.empty_like(counters)
         for i in range(counters.shape[0]):
-            result[i] = self._reference_func(counters[i], keygen(i))
+            result[i] = self._reference_func(counters[i]['v'], keygen(i)['v'])
         return result
 
     def __str__(self):
@@ -65,40 +65,35 @@ def test_kernel_bijection(thr, test_bijection):
 
     bijection = test_bijection.bijection
     keygen = KeyGenerator.create(bijection, seed=seed, reserve_id_space=False)
-    counters_ref = numpy.zeros((size, bijection.counter_words), bijection.dtype)
+    counters_ref = numpy.zeros(size, bijection.counter_dtype)
 
     rng_kernel = thr.compile_static(
         """
-        <%
-            ctype = dtypes.ctype(bijection.dtype)
-        %>
-        KERNEL void test(GLOBAL_MEM ${ctype} *dest, int ctr)
+        KERNEL void test(GLOBAL_MEM ${bijection.module}Counter *dest, int ctr)
         {
             VIRTUAL_SKIP_THREADS;
             const VSIZE_T idx = virtual_global_id(0);
 
-            ${bijection.module}KEY key = ${keygen.module}key_from_int(idx);
-            ${bijection.module}COUNTER counter = ${bijection.module}make_counter_from_int(ctr);
-            ${bijection.module}COUNTER result = ${bijection.module}bijection(key, counter);
+            ${bijection.module}Key key = ${keygen.module}key_from_int(idx);
+            ${bijection.module}Counter counter = ${bijection.module}make_counter_from_int(ctr);
+            ${bijection.module}Counter result = ${bijection.module}bijection(key, counter);
 
-            %for i in range(bijection.counter_words):
-            dest[idx * ${bijection.counter_words} + ${i}] = result.v[${i}];
-            %endfor
+            dest[idx] = result;
         }
         """,
         'test', size,
         render_kwds=dict(bijection=bijection, keygen=keygen))
 
-    dest = thr.array((size, bijection.counter_words), bijection.dtype)
+    dest = thr.array(size, bijection.counter_dtype)
 
     rng_kernel(dest, numpy.int32(0))
     dest_ref = test_bijection.reference(counters_ref, keygen.reference)
-    assert diff_is_negligible(dest.get(), dest_ref)
+    assert (dest.get() == dest_ref).all()
 
     rng_kernel(dest, numpy.int32(1))
-    counters_ref[:,-1] += 1
+    counters_ref['v'][:,-1] = 1
     dest_ref = test_bijection.reference(counters_ref, keygen.reference)
-    assert diff_is_negligible(dest.get(), dest_ref)
+    assert (dest.get() == dest_ref).all()
 
 
 def check_kernel_sampler(thr, sampler, extent=None, mean=None, std=None):
@@ -117,13 +112,13 @@ def check_kernel_sampler(thr, sampler, extent=None, mean=None, std=None):
             VIRTUAL_SKIP_THREADS;
             const VSIZE_T idx = virtual_global_id(0);
 
-            ${bijection.module}KEY key = ${keygen.module}key_from_int(idx);
-            ${bijection.module}COUNTER ctr = ${bijection.module}make_counter_from_int(ctr_start);
-            ${bijection.module}STATE st = ${bijection.module}make_state(key, ctr);
+            ${bijection.module}Key key = ${keygen.module}key_from_int(idx);
+            ${bijection.module}Counter ctr = ${bijection.module}make_counter_from_int(ctr_start);
+            ${bijection.module}State st = ${bijection.module}make_state(key, ctr);
 
-            ${sampler.module}RESULT res;
+            ${sampler.module}Result res;
 
-            for(VSIZE_T j = 0; j < ${batch}; j++)
+            for(int j = 0; j < ${batch}; j++)
             {
                 res = ${sampler.module}sample(&st);
 
@@ -132,7 +127,7 @@ def check_kernel_sampler(thr, sampler, extent=None, mean=None, std=None):
                 %endfor
             }
 
-            ${bijection.module}COUNTER next_ctr = ${bijection.module}get_next_unused_counter(st);
+            ${bijection.module}Counter next_ctr = ${bijection.module}get_next_unused_counter(st);
         }
         """,
         'test', size,
@@ -250,7 +245,7 @@ def test_computation_general(thr_and_double):
     thr, double = thr_and_double
     dtype = numpy.float64 if double else numpy.float32
     mean, std = -2, 10
-    bijection = threefry(64, 4)
+    bijection = philox(64, 4)
     sampler = normal_bm(bijection, dtype, mean=mean, std=std)
 
     rng = CBRNG(Type(dtype, shape=(batch, size)), 1, sampler)

@@ -19,8 +19,8 @@ class CBRNG(Computation):
     :param generators_dim: the number of dimensions (counting from the end)
         which will use independent generators.
         For example, if ``randoms_arr`` has the shape ``(100, 200, 300)`` and
-        ``generators_dim`` is ``2``, then every sub-array ``(100, :, :)``
-        will use an independent generator.
+        ``generators_dim`` is ``2``, then in every sub-array ``(j, :, :)``,
+        ``j = 0 .. 99``, every element will use an independent generator.
     :param sampler: a :py:class:`~reikna.cbrng.samplers.Sampler` object.
     :param seed: ``None`` for random seed, or an integer.
 
@@ -50,9 +50,7 @@ class CBRNG(Computation):
         counters_size = randoms_arr.shape[-generators_dim:]
 
         self._generators_dim = generators_dim
-        self._counters_t = Type(
-            sampler.bijection.dtype,
-            shape=counters_size + (sampler.bijection.counter_words,))
+        self._counters_t = Type(sampler.bijection.counter_dtype, shape=counters_size)
 
         Computation.__init__(self, [
             Parameter('counters', Annotation(self._counters_t, 'io')),
@@ -71,12 +69,12 @@ class CBRNG(Computation):
         plan.kernel_call(
             TEMPLATE.get_def('cbrng'),
             [counters, randoms],
-            global_size=helpers.product(counters.shape[:-1]),
+            global_size=helpers.product(counters.shape),
             render_kwds=dict(
                 sampler=self._sampler,
                 keygen=self._keygen,
                 batch=helpers.product(randoms.shape[:-self._generators_dim]),
-                counters_slices=[self._generators_dim, 1],
+                counters_slices=[self._generators_dim],
                 randoms_slices=[
                     len(randoms.shape) - self._generators_dim,
                     self._generators_dim]))

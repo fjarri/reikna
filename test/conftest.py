@@ -15,8 +15,8 @@ def pytest_addoption(parser):
         help="Use doubles: no/yes/supported",
         default="supported", choices=["no", "yes", "supported"])
     parser.addoption("--fast-math", dest="fast_math", action="store",
-        help="Use fast math: no/yes/both",
-        default="yes", choices=["no", "yes", "both"])
+        help="Use fast math (where applicable): no/yes/both",
+        default="no", choices=["no", "yes", "both"])
     parser.addoption("--device-include-mask", action="append",
         help="Run tests on matching devices only",
         default=[])
@@ -40,8 +40,8 @@ pytest_funcarg__some_thr = create_thread_in_tuple
 
 
 def pytest_report_header(config):
-    ccs, cc_ids = get_threads(config)
-    devices = {cc.device_id:(cc.platform_name + ", " + cc.device_name) for cc in ccs}
+    tps, tp_ids = get_threads(config)
+    devices = {tp.device_id:tp.device_full_name for tp in tps}
     if len(devices) == 0:
         raise ValueError("No devices match the criteria")
 
@@ -51,17 +51,24 @@ def pytest_report_header(config):
 
 
 def pytest_generate_tests(metafunc):
+
+    if 'fast_math' in metafunc.funcargnames:
+        fm = metafunc.config.option.fast_math
+        fms = dict(both=[False, True], no=[False], yes=[True])[fm]
+        fm_ids = [{False:'nofm', True:'fm'}[fm] for fm in fms]
+        metafunc.parametrize('fast_math', fms, ids=fm_ids)
+
     if 'thr_and_double' in metafunc.funcargnames:
         parametrize_thread_tuple(metafunc, 'thr_and_double', pair_thread_with_doubles)
 
     if 'thr' in metafunc.funcargnames:
-        ccs, cc_ids = get_threads(metafunc.config)
-        metafunc.parametrize('thr', ccs, ids=cc_ids, indirect=True)
+        tps, tp_ids = get_threads(metafunc.config)
+        metafunc.parametrize('thr', tps, ids=tp_ids, indirect=True)
 
     if 'some_thr' in metafunc.funcargnames:
         # Just some thread for tests that only check thread-independent stuff.
-        ccs, cc_ids = get_threads(metafunc.config)
-        metafunc.parametrize('some_thr', [ccs[0]], ids=[cc_ids[0]], indirect=True)
+        tps, tp_ids = get_threads(metafunc.config)
+        metafunc.parametrize('some_thr', [tps[0]], ids=[tp_ids[0]], indirect=True)
 
     if 'cluda_api' in metafunc.funcargnames:
         apis, api_ids = get_apis(metafunc.config)

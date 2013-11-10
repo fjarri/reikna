@@ -58,3 +58,20 @@ def test_nondefault_function(thr):
     rdc(b_dev, a_dev)
 
     assert diff_is_negligible(b_dev.get(), b_ref)
+
+
+def test_nonsequential_axes(thr):
+
+    shape = (50, 40, 30, 20)
+    a = get_test_array(shape, numpy.int64)
+    a_dev = thr.to_device(a)
+    b_ref = a.sum(0).sum(1) # sum over axes 0 and 2 of the initial array
+
+    rd = Reduce(a_dev, predicate_sum(numpy.int64), axes=(0,2))
+
+    b_dev = thr.empty_like(rd.parameter.output)
+
+    rdc = rd.compile(thr)
+    rdc(b_dev, a_dev)
+
+    assert diff_is_negligible(b_dev.get(), b_ref)
