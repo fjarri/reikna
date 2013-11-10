@@ -82,7 +82,7 @@ class Thread(api_base.Thread):
         elif isinstance(cqd, cuda.Context) or cqd is None:
             return cqd, cuda.Stream(), cqd.get_device(), False
         elif isinstance(cqd, cuda.Stream):
-            # There's no function in PyCuda to get the current context,
+            # There's no function in PyCUDA to get the current context,
             # but we do not really need it anyway.
             return None, cqd, cuda.Context.get_device(), False
         else:
@@ -92,7 +92,7 @@ class Thread(api_base.Thread):
         return Buffer(size)
 
     def array(self, shape, dtype, strides=None, allocator=None):
-        # In PyCuda, the default allocator is not None, but a default alloc object
+        # In PyCUDA, the default allocator is not None, but a default alloc object
         kwds = {}
         if strides is not None:
             kwds['strides'] = strides
