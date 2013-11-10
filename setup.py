@@ -86,8 +86,8 @@ git_revision = "{git_revision}"
 release = {released}
 '''
 
-    VERSION = (0, 3, 7)
-    RELEASED = False
+    VERSION = (0, 4, 0)
+    RELEASED = True
 
     version_str = '%d.%d.%d' % VERSION
     full_version_str = version_str
