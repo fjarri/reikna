@@ -23,6 +23,10 @@
 * FEATURE (CLUDA): add ``Thread.fork()`` which creates another Thread with the same context and device but different queue.
   Also, how do we create a ``Thread`` with the same context, but different device?
   Or how do we create and use a ``Thread`` with several devices?
+* ?FEATURE (core): How do we treat cases of arrays with shape ()?
+  For example, ``Reduce`` may use these for output in case of full reduction
+  (currently it sets the shape to (1,) in such cases).
+  It is possible to work with them like with actual zero shape arrays, but then load_idx()/store_idx() modules must be modified to allow that.
 
 * FIX (core): When we connect a transformation, difference in strides between arrays in the connection can be ignored (and probably the transformation's signature changed too; at least we need to decide which strides to use in the exposed node).
   Proposal: leave it as is; make existing transformations "propagate" strides to results; and create a special transformation that only changes strides (or make it a parameter to the identity one).
