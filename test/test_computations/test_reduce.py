@@ -67,11 +67,7 @@ def test_nonsequential_axes(thr):
     a_dev = thr.to_device(a)
     b_ref = a.sum(0).sum(1) # sum over axes 0 and 2 of the initial array
 
-    predicate = Predicate(
-        Snippet.create(lambda v1, v2: "return ${v1} + ${v2};"),
-        dtypes.c_constant(dtypes.cast(a.dtype)(0)))
-
-    rd = Reduce(a_dev, predicate, axes=(0,2))
+    rd = Reduce(a_dev, predicate_sum(numpy.int64), axes=(0,2))
 
     b_dev = thr.empty_like(rd.parameter.output)
 
