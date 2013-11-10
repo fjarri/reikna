@@ -1,14 +1,23 @@
-0.3.7
+0.5.0
 =====
 
-* ?API (computations): can we improve how Predicates for Reduce are defined?
-* FEATURE (computations): reduction with multiple predicates on a single (or multiple too?) array.
+* API (computations): the neutral value in a Predicate for Reduce must be a numpy.dtype'd value, not a string.
+* FIX (cluda): alignment property in ``ctype_module`` is now used as if it defined the total size of a structure.
+  In general, it's not.
+  For example, ``[('val1', numpy.int32), ('val2', numpy.int32), ('pad', numpy.int8)]`` will fail ``test_adjusted_alignment``, because it will set ``ALIGN`` to 12, when 4 is needed.
+* FIX (core): chicken and egg problem with alignment of custom dtypes in Computations.
+  On the one hand, a Computation object is intended to be thread/device-independent,
+  so we shouldn't really call ``adjust_alignment()`` and then feed the resulting dtype to Computation.
+  On the other hand, if a struct dtype which needs to be aligned is used, ``adjust_alignment()`` has to be called for it during ``Computation.compile()``.
+  We can do it easily for parameters, but what if this dtype is used somewhere in the module tree?
+  For example, in a Predicate for Reduce.
+  Search module tree recursively for dtype objects?
+  Some device-dependent caching of ``adjust_alignment()`` results will probably have to be implemented as well.
+* FEATURE: write an example analogous to demo-struct-reduce from PyOpenCL.
+  Probably a Reduce for a custom dtype + transformations to and from the target array dtype.
+  (Must solve the problem with custom dtypes as Computation paramters first).
+* ?FEATURE (computations): reduction with multiple predicates on a single (or multiple too?) array.
   Basically, the first stage has to be modified to store results in several arrays and then several separate reductions can be performed.
-
-
-0.3.8
-=====
-
 * FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
 * ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
   Basically it's just a synonym for ``load_combined(len(arg.shape))``.
