@@ -3,8 +3,14 @@ Release history
 ***************
 
 
-0.3.7 (current development version)
+0.5.0 (current development version)
 ===================================
+
+Under construction.
+
+
+0.4.0 (10 Nov 2013)
+===================
 
 * CHANGED: ``supports_dtype()`` method moved from :py:class:`~reikna.cluda.api.Thread` to :py:class:`~reikna.cluda.api.DeviceParameters`.
 
