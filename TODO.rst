@@ -21,6 +21,7 @@
 * FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
 * ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
   Basically it's just a synonym for ``load_combined(len(arg.shape))``.
+* FIX (cbrng): use sincos from ``cluda.functions`` in the normal_bm sampler.
 * TEST (computations): add some performance tests for CBRNG
 * API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
 * ?API (core): make ``device_params`` an attribute of plan or plan factory?
