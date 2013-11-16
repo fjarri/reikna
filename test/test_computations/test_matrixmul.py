@@ -157,6 +157,13 @@ def test_dtypes(thr_and_double, arg_dtypes):
     check_errors(thr, (30, 40, 50), dtype1, (30, 50, 60), dtype2)
 
 
+def test_out_arr_shape():
+    a = numpy.empty((1, 22, 33), numpy.float32)
+    b = numpy.empty((2, 3, 33, 44), numpy.float32)
+    dot = MatrixMul(a, b)
+    assert dot.parameter.output.shape == (2, 3, 22, 44)
+
+
 def check_performance(thr_and_double, perf_shape,
         bwo=None, transposed_a=False, transposed_b=False):
 
