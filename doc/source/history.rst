@@ -6,7 +6,7 @@ Release history
 0.5.0 (current development version)
 ===================================
 
-Under construction.
+* CHANGED: added ``transposed_a`` and ``transposed_b`` keyword parameters to :py:class:`~reikna.matrixmul.MatrixMul`.
 
 
 0.4.0 (10 Nov 2013)

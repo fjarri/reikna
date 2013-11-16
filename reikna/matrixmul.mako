@@ -19,26 +19,46 @@ ${kernel_declaration}
     const VSIZE_T matrix_num = virtual_global_id(0);
 
     %if batched_a:
-    VSIZE_T A_num = matrix_num;
+    const VSIZE_T A_num = matrix_num;
     %else:
-    VSIZE_T A_num = 0;
+    const VSIZE_T A_num = 0;
     %endif
 
     %if batched_b:
-    VSIZE_T B_num = matrix_num;
+    const VSIZE_T B_num = matrix_num;
     %else:
-    VSIZE_T B_num = 0;
+    const VSIZE_T B_num = 0;
     %endif
 
-    VSIZE_T C_num = matrix_num;
+    const VSIZE_T C_num = matrix_num;
 
     // Csub is used to store the element of the block sub-matrix
     // that is computed by the thread
     ${output.ctype} Csub = ${dtypes.zero_ctr(output.dtype)};
 
-    VSIZE_T c_x = ${block_width} * bx + tx;
-    VSIZE_T c_y = ${block_width} * by + ty;
-    bool in_c = (c_y < ${a_height} && c_x < ${b_width});
+    const VSIZE_T c_x = ${block_width} * bx + tx;
+    const VSIZE_T c_y = ${block_width} * by + ty;
+    const bool in_c = (c_y < ${output.shape[-2]} && c_x < ${output.shape[-1]});
+
+    <% a_step_dim = 'a_y' if transposed_a else 'a_x' %>
+    %if transposed_a:
+    const VSIZE_T a_x = by * ${block_width} + tx;
+    VSIZE_T a_y = ty;
+    %else:
+    const VSIZE_T a_y = by * ${block_width} + ty;
+    VSIZE_T a_x = tx;
+    %endif
+
+    <% b_step_dim = 'b_x' if transposed_b else 'b_y' %>
+    %if transposed_b:
+    const VSIZE_T b_y = bx * ${block_width} + ty;
+    VSIZE_T b_x = tx;
+    %else:
+    const VSIZE_T b_x = bx * ${block_width} + tx;
+    VSIZE_T b_y = ty;
+    %endif
+
+    const int store_idx = ty * ${block_width} + tx;
 
     // Loop over all the sub-matrices of A and B
     // required to compute the block sub-matrix
@@ -47,15 +67,13 @@ ${kernel_declaration}
         // Load the matrices from device memory
         // to shared memory; each thread loads
         // one element of each matrix
-        VSIZE_T a_x = step * ${block_width} + tx;
-        VSIZE_T a_y = by * ${block_width} + ty;
-        VSIZE_T b_x = bx * ${block_width} + tx;
-        VSIZE_T b_y = step * ${block_width} + ty;
 
-        As[ty * ${block_width} + tx] = (a_x < ${a_width} && a_y < ${a_height})
-            ? ${a.load_combined_idx(a_slices)}(A_num, a_y, a_x) : ${dtypes.zero_ctr(a.dtype)};
-        Bs[ty * ${block_width} + tx] = (b_x < ${b_width} && b_y < ${a_width})
-            ? ${b.load_combined_idx(b_slices)}(B_num, b_y, b_x) : ${dtypes.zero_ctr(b.dtype)};
+        As[store_idx] = (a_x < ${a.shape[-1]} && a_y < ${a.shape[-2]})
+            ? ${a.load_combined_idx(a_slices)}(A_num, a_y, a_x)
+            : ${dtypes.zero_ctr(a.dtype)};
+        Bs[store_idx] = (b_x < ${b.shape[-1]} && b_y < ${b.shape[-2]})
+            ? ${b.load_combined_idx(b_slices)}(B_num, b_y, b_x)
+            : ${dtypes.zero_ctr(b.dtype)};
 
         LOCAL_BARRIER;
 
@@ -65,10 +83,25 @@ ${kernel_declaration}
         if (in_c)
         {
             for (unsigned int k = 0; k < ${block_width}; k++)
-                Csub = Csub + ${mul}(As[ty * ${block_width} + k], Bs[k * ${block_width} + tx]);
+                Csub = Csub + ${mul}(
+                    %if transposed_a:
+                    As[k * ${block_width} + ty],
+                    %else:
+                    As[ty * ${block_width} + k],
+                    %endif
+
+                    %if transposed_b:
+                    Bs[tx * ${block_width} + k]
+                    %else:
+                    Bs[k * ${block_width} + tx]
+                    %endif
+                    );
         }
 
         LOCAL_BARRIER;
+
+        ${a_step_dim} += ${block_width};
+        ${b_step_dim} += ${block_width};
     }
 
     // Write the block sub-matrix to device memory;

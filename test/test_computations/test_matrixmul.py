@@ -79,6 +79,27 @@ def ref_dot(a, b):
     return out
 
 
+def check_errors(thr, a_shape, a_dtype, b_shape, b_dtype, transposed_a=False, transposed_b=False):
+    a = get_test_array(a_shape, a_dtype)
+    b = get_test_array(b_shape, b_dtype)
+
+    a_ref = a.T if transposed_a else a
+    b_ref = b.T if transposed_b else b
+
+    res_ref = ref_dot(a_ref, b_ref)
+
+    a_dev = thr.to_device(a)
+    b_dev = thr.to_device(b)
+    res_dev = thr.empty_like(res_ref)
+
+    dot = MatrixMul(a_dev, b_dev, out_arr=res_dev,
+        transposed_a=transposed_a, transposed_b=transposed_b)
+    dotc = dot.compile(thr)
+    dotc(res_dev, a_dev, b_dev)
+
+    assert diff_is_negligible(res_dev.get(), res_ref)
+
+
 def test_errors(thr_and_double, shapes, arg_dtypes):
 
     thr, double = thr_and_double
@@ -89,19 +110,29 @@ def test_errors(thr_and_double, shapes, arg_dtypes):
     dtype1 = dtypes.complex_for(dtype) if c1 else dtype
     dtype2 = dtypes.complex_for(dtype) if c2 else dtype
 
-    a = get_test_array(s1, dtype1)
-    b = get_test_array(s2, dtype2)
-    res_ref = ref_dot(a, b)
+    check_errors(thr, s1, dtype1, s2, dtype2)
 
-    a_dev = thr.to_device(a)
-    b_dev = thr.to_device(b)
-    res_dev = thr.empty_like(res_ref)
 
-    dot = MatrixMul(a_dev, b_dev, out_arr=res_dev)
-    dotc = dot.compile(thr)
-    dotc(res_dev, a_dev, b_dev)
+transposed_sizes = [(100, 200, 300), (3, 4, 5), (64, 23, 79)]
+@pytest.mark.parametrize('transposed_size',
+    transposed_sizes, ids=[str(x) for x in transposed_sizes])
+@pytest.mark.parametrize('transposed_a', [False, True], ids=['A.T', 'A'])
+@pytest.mark.parametrize('transposed_b', [False, True], ids=['B.T', 'B'])
+def test_transposed(thr, transposed_size, transposed_a, transposed_b):
+    a_size, convolution_size, b_size = transposed_size
 
-    assert diff_is_negligible(res_dev.get(), res_ref)
+    if transposed_a:
+        a_shape = (convolution_size, a_size)
+    else:
+        a_shape = (a_size, convolution_size)
+
+    if transposed_b:
+        b_shape = (b_size, convolution_size)
+    else:
+        b_shape = (convolution_size, b_size)
+
+    check_errors(thr, a_shape, numpy.float32, b_shape, numpy.float32,
+        transposed_a=transposed_a, transposed_b=transposed_b)
 
 
 def check_performance(thr_and_double, shape1, shape2, bwo):

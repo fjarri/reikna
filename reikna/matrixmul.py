@@ -22,6 +22,10 @@ class MatrixMul(Computation):
         will be derived from ``a_arr`` and ``b_arr``.
     :param block_width_override: if provided, it will used as a block size of
         the multiplication kernel.
+    :param transposed_a: if ``True``, the first matrix will be transposed
+        before the multiplication.
+    :param transposed_b: if ``True``, the second matrix will be transposed
+        before the multiplication.
 
     .. py:method:: compiled_signature(output:o, matrix_a:i, matrix_b:i)
 
@@ -30,7 +34,8 @@ class MatrixMul(Computation):
         :param matrix_b: the second argument.
     """
 
-    def __init__(self, a_arr, b_arr, out_arr=None, block_width_override=None):
+    def __init__(self, a_arr, b_arr, out_arr=None, block_width_override=None,
+            transposed_a=False, transposed_b=False):
 
         if len(a_arr.shape) == 1:
             a_arr = Type(a_arr.dtype, shape=(1,) + a_arr.shape)
@@ -38,15 +43,20 @@ class MatrixMul(Computation):
         if len(b_arr.shape) == 1:
             b_arr = Type(b_arr.dtype, shape=b_arr.shape + (1,))
 
+        a_batch_shape = a_arr.shape[:-2]
+        b_batch_shape = b_arr.shape[:-2]
+        a_outer_size = a_arr.shape[-1 if transposed_a else -2]
+        convolution_size = a_arr.shape[-2 if transposed_a else -1]
+        b_outer_size = b_arr.shape[-2 if transposed_b else -1]
+
         if out_arr is None:
             out_dtype = dtypes.result_type(a_arr.dtype, b_arr.dtype)
 
-            a_batch = helpers.product(a_arr.shape[:-2])
-            batch_len = max(len(a_arr.shape[:-2]), len(b_arr.shape[:-2]))
-            batch_shape = b_arr.shape[:-2] if a_batch == 1 else a_arr.shape[:-2]
+            batch_len = max(len(a_batch_shape), len(b_batch_shape))
+            batch_shape = b_batch_shape if product(a_batch_shape) == 1 else a_batch_shape
             batch_shape = (1,) * (batch_len - len(batch_shape)) + batch_shape
 
-            out_shape = batch_shape + (a_arr.shape[-2], b_arr.shape[-1])
+            out_shape = batch_shape + (a_outer_size, b_outer_size)
 
             out_arr = Type(out_dtype, shape=out_shape)
 
@@ -56,6 +66,11 @@ class MatrixMul(Computation):
             Parameter('matrix_b', Annotation(b_arr, 'i'))])
 
         self._block_width_override = block_width_override
+        self._a_outer_size = a_outer_size
+        self._convolution_size = convolution_size
+        self._b_outer_size = b_outer_size
+        self._transposed_a = transposed_a
+        self._transposed_b = transposed_b
 
     def _build_plan(self, plan_factory, device_params, output, matrix_a, matrix_b):
         bwo = self._block_width_override
@@ -66,9 +81,6 @@ class MatrixMul(Computation):
             nbanks = device_params.local_mem_banks
             block_widths = [2 ** n for n in range(helpers.log2(nbanks), -1, -1)]
 
-        a_height = matrix_a.shape[-2]
-        a_width = matrix_a.shape[-1]
-        b_width = matrix_b.shape[-1]
         a_batch = helpers.product(matrix_a.shape[:-2])
         b_batch = helpers.product(matrix_b.shape[:-2])
         batch = max(a_batch, b_batch)
@@ -80,16 +92,15 @@ class MatrixMul(Computation):
             if block_width ** 2 > device_params.max_work_group_size:
                 continue
 
-            num_steps = helpers.min_blocks(a_width, block_width)
-            blocks_per_matrix = helpers.min_blocks(a_height, block_width)
-            grid_width = helpers.min_blocks(b_width, block_width)
+            num_steps = helpers.min_blocks(self._convolution_size, block_width)
+            a_blocks = helpers.min_blocks(self._a_outer_size, block_width)
+            b_blocks = helpers.min_blocks(self._b_outer_size, block_width)
 
             render_kwds = dict(
                 batched_a=(a_batch != 1),
                 batched_b=(b_batch != 1),
-                a_height=a_height,
-                b_width=b_width,
-                a_width=a_width,
+                transposed_a=self._transposed_a,
+                transposed_b=self._transposed_b,
                 num_steps=num_steps,
                 a_slices=(len(matrix_a.shape) - 2, 1, 1),
                 b_slices=(len(matrix_b.shape) - 2, 1, 1),
@@ -103,8 +114,8 @@ class MatrixMul(Computation):
                     [output, matrix_a, matrix_b],
                     global_size=(
                         batch,
-                        blocks_per_matrix * block_width,
-                        grid_width * block_width),
+                        a_blocks * block_width,
+                        b_blocks * block_width),
                     local_size=(1, block_width, block_width),
                     render_kwds=render_kwds)
             except OutOfResourcesError:
