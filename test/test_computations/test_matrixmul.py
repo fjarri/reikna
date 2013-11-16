@@ -25,7 +25,7 @@ def pytest_generate_tests(metafunc):
         perf_shapes = []
 
         for size in sizes:
-            perf_shapes.append((mem_limit // size, size))
+            perf_shapes.append((mem_limit // size ** 2, size))
 
         ids = []
         for batch, size in perf_shapes:
