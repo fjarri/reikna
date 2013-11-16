@@ -53,7 +53,7 @@ class MatrixMul(Computation):
             out_dtype = dtypes.result_type(a_arr.dtype, b_arr.dtype)
 
             batch_len = max(len(a_batch_shape), len(b_batch_shape))
-            batch_shape = b_batch_shape if product(a_batch_shape) == 1 else a_batch_shape
+            batch_shape = b_batch_shape if helpers.product(a_batch_shape) == 1 else a_batch_shape
             batch_shape = (1,) * (batch_len - len(batch_shape)) + batch_shape
 
             out_shape = batch_shape + (a_outer_size, b_outer_size)
