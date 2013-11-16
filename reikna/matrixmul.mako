@@ -9,8 +9,8 @@ ${kernel_declaration}
     // and creating two views for dynamic char* array does not work.
     // Can cause problems if atype/btype have constructors (they will be called in each thread),
     // but as long as we are using POD types, we will be fine.
-    LOCAL_MEM ${a.ctype} As[${block_width ** 2}];
-    LOCAL_MEM ${b.ctype} Bs[${block_width ** 2}];
+    LOCAL_MEM ${a.ctype} As[${block_width ** 2} + ${block_width}];
+    LOCAL_MEM ${b.ctype} Bs[${block_width ** 2} + ${block_width}];
 
     const VSIZE_T bx = virtual_group_id(2);
     const VSIZE_T by = virtual_group_id(1);
@@ -58,7 +58,7 @@ ${kernel_declaration}
     VSIZE_T b_y = ty;
     %endif
 
-    const int store_idx = ty * ${block_width} + tx;
+    const int store_idx = ty * (${block_width} + 1) + tx;
 
     // Loop over all the sub-matrices of A and B
     // required to compute the block sub-matrix
@@ -85,15 +85,15 @@ ${kernel_declaration}
             for (unsigned int k = 0; k < ${block_width}; k++)
                 Csub = Csub + ${mul}(
                     %if transposed_a:
-                    As[k * ${block_width} + ty],
+                    As[k * (${block_width} + 1) + ty],
                     %else:
-                    As[ty * ${block_width} + k],
+                    As[ty * (${block_width} + 1) + k],
                     %endif
 
                     %if transposed_b:
-                    Bs[tx * ${block_width} + k]
+                    Bs[tx * (${block_width} + 1) + k]
                     %else:
-                    Bs[k * ${block_width} + tx]
+                    Bs[k * (${block_width} + 1) + tx]
                     %endif
                     );
         }
