@@ -128,7 +128,7 @@ class Reduce(Computation):
 
         while part_size > 1:
 
-            if part_size >= max_reduce_power:
+            if part_size > max_reduce_power:
                 block_size = max_reduce_power
                 blocks_per_part = helpers.min_blocks(part_size, block_size)
                 cur_output = plan.temp_array(

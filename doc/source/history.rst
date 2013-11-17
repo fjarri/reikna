@@ -14,6 +14,8 @@ Release history
 
 * CHANGED: :py:class:`~reikna.reduce.Predicate` now takes a dtype'd value as ``empty``, not a string.
 
+* FIXED: a bug in :py:class:`~reikna.reduce.Reduce`, which lead to incorrect results in cases when the reduction power is exactly equal to the maximum one.
+
 
 0.4.0 (10 Nov 2013)
 ===================
