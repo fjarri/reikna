@@ -19,6 +19,7 @@
   it is called again with reduced local size
 * ?FIX (core): perhaps we should memoize parametrized modules too: for example, FFT produces dozens of modules for load and store (because it calls them in a loop).
 * ?FIX (computations): for some reason, struct Reduce with nested dtypes does not work: crash for OpenCL, weird compilation error for CUDA.
+  Namely, they do not like constructions like ``type v = {0, {0}, 0}``.
   Need to build MREs and investigate; if resolved, update test_reduce/test_structure_type.
 
 
