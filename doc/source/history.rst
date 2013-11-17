@@ -6,6 +6,8 @@ Release history
 0.5.0 (current development version)
 ===================================
 
+* ADDED: struct dtypes support in :py:func:`~reikna.cluda.dtypes.c_constant`.
+
 * CHANGED: added ``transposed_a`` and ``transposed_b`` keyword parameters to :py:class:`~reikna.matrixmul.MatrixMul`.
 
 

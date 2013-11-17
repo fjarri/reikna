@@ -120,12 +120,22 @@ def cast(dtype):
 def c_constant(val, dtype=None):
     """
     Returns a C-style numerical constant.
+    If ``val`` has a struct dtype, the generated constant will have the form ``{ ... }``
+    and can be used as an initializer for a variable.
     """
-    if dtype is None:
-        dtype = detect_type(val)
+    if hasattr(val, 'dtype'):
+        if dtype is not None:
+            raise ValueError('The provided value already has a dtype')
+        dtype = val.dtype
     else:
-        dtype = normalize_type(dtype)
-    val = numpy.cast[dtype](val)
+        if dtype is None:
+            dtype = detect_type(val)
+        else:
+            dtype = normalize_type(dtype)
+        val = numpy.cast[dtype](val)
+
+    if dtype.names is not None:
+        return "{" + ", ".join([c_constant(val[name]) for name in dtype.names]) + "}"
 
     if is_complex(dtype):
         return "COMPLEX_CTR(" + ctype(dtype) + ")(" + \
