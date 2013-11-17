@@ -5,18 +5,6 @@ import reikna.cluda as cluda
 import reikna.cluda.dtypes as dtypes
 
 
-def flatten_dtype(dtype, prefix=[]):
-
-    if dtype.names is None:
-        return [(prefix, dtype)]
-    else:
-        result = []
-        for name in dtype.names:
-            nested_dtype, offset = dtype.fields[name]
-            result += flatten_dtype(nested_dtype, prefix=prefix + [name])
-        return result
-
-
 def extract_field(arr, path):
     if len(path) == 0:
         return arr
@@ -38,7 +26,7 @@ def check_struct_fill(thr, dtype):
       const SIZE_T i = get_global_id(0);
       ${struct} res;
 
-      %for i, field_info in enumerate(flatten_dtype(dtype)):
+      %for i, field_info in enumerate(dtypes.flatten_dtype(dtype)):
       res.${".".join(field_info[0])} = ${i};
       %endfor
 
@@ -46,8 +34,7 @@ def check_struct_fill(thr, dtype):
     }
     """, render_kwds=dict(
         struct=struct,
-        dtype=dtype,
-        flatten_dtype=flatten_dtype))
+        dtype=dtype))
 
     test = program.test
 
@@ -55,7 +42,7 @@ def check_struct_fill(thr, dtype):
     test(a_dev, global_size=128)
     a = a_dev.get()
 
-    for i, field_info in enumerate(flatten_dtype(dtype)):
+    for i, field_info in enumerate(dtypes.flatten_dtype(dtype)):
         path, _ = field_info
         assert (extract_field(a, path) == i).all()
 
@@ -131,8 +118,7 @@ def test_nested_array(thr):
     }
     """, render_kwds=dict(
         struct=struct,
-        dtype=dtype,
-        flatten_dtype=flatten_dtype))
+        dtype=dtype))
 
     test = program.test
 

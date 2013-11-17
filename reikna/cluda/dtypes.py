@@ -329,3 +329,24 @@ def ctype_module(dtype):
             module = _DTYPE_TO_CTYPE_MODULE[dtype]
 
         return module
+
+
+def _flatten_dtype(dtype, prefix=[]):
+
+    if dtype.names is None:
+        return [(prefix, dtype)]
+    else:
+        result = []
+        for name in dtype.names:
+            nested_dtype, _ = dtype.fields[name]
+            result += _flatten_dtype(nested_dtype, prefix=prefix + [name])
+        return result
+
+
+def flatten_dtype(dtype):
+    """
+    Returns a list of tuples ``(path, dtype)`` for each of the basic dtypes in
+    a (possibly nested) ``dtype``.
+    ``path`` is a list of field names leading to the corresponding element.
+    """
+    return _flatten_dtype(dtype)
