@@ -1,6 +1,8 @@
 0.4.1
 =====
 
+* FIX (computations): Reduce performance seems to be extremely low.
+  Need to investigate.
 * FIX (cbrng): use sincos from ``cluda.functions`` in the normal_bm sampler.
 * TEST (computations): add some performance tests for CBRNG
 * ?FEATURE (core): How do we treat cases of arrays with shape ()?
