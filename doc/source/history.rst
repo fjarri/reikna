@@ -10,6 +10,8 @@ Release history
 
 * CHANGED: added ``transposed_a`` and ``transposed_b`` keyword parameters to :py:class:`~reikna.matrixmul.MatrixMul`.
 
+* CHANGED: :py:class:`~reikna.core.transformation.KernelParameter` is not derived from :py:class:`~reikna.core.Type` anymore (although it still retains the corresponding attributes).
+
 
 0.4.0 (10 Nov 2013)
 ===================
