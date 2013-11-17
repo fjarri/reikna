@@ -140,7 +140,6 @@ def test_summation(thr):
     thr.synchronize()
     t2 = time.time()
 
-    #print rdc._kernel_calls[-1]._kernel._program.source
     assert diff_is_negligible(b_dev.get(), b_ref)
 
     return (t2 - t1) / attempts, perf_size
