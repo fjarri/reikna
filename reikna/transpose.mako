@@ -21,8 +21,6 @@ ${kernel_declaration}
 	VSIZE_T gid_x = virtual_group_id(2);
 	VSIZE_T gid_y = virtual_group_id(1);
 
-	//unsigned int batch_num = gid_y / ${blocks_per_matrix};
-	//gid_y = gid_y % ${blocks_per_matrix};
 	VSIZE_T batch_num = virtual_global_id(0);
 
 	VSIZE_T xBlock = ${block_width} * gid_x;
