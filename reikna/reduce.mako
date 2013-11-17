@@ -13,7 +13,7 @@
 
 INLINE WITHIN_KERNEL ${ctype} reduction_op(${ctype} input1, ${ctype} input2)
 {
-    ${predicate.operation('input1', 'input2')}
+    ${operation('input1', 'input2')}
 }
 
 ${kernel_declaration}
@@ -27,9 +27,10 @@ ${kernel_declaration}
     VSIZE_T part_num = virtual_global_id(0);
 
     VSIZE_T index_in_part = ${block_size} * bid + tid;
+    const ${ctype} empty = ${dtypes.c_constant(empty)};
 
     if(bid == ${blocks_per_part} - 1 && tid >= ${last_block_size})
-        local_mem[tid] = ${predicate.empty};
+        local_mem[tid] = empty;
     else
         local_mem[tid] = ${input.load_combined_idx(input_slices)}(part_num, index_in_part);
 

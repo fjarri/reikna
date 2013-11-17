@@ -1,3 +1,5 @@
+import numpy
+
 from reikna.cluda import Snippet
 import reikna.helpers as helpers
 from reikna.cluda import dtypes
@@ -13,7 +15,7 @@ class Predicate:
 
     :param operation: a :py:class:`~reikna.cluda.Snippet` object with two parameters
         which will take the names of two arguments to join.
-    :param empty: a string with the empty value of the argument
+    :param empty: a numpy scalar with the empty value of the argument
         (the one which, being joined by another argument, does not change it).
     """
 
@@ -31,7 +33,7 @@ def predicate_sum(dtype):
     """
     return Predicate(
         Snippet.create(lambda v1, v2: "return ${v1} + ${v2};"),
-        dtypes.c_constant(dtypes.cast(dtype)(0)))
+        numpy.zeros(1, dtype)[0])
 
 
 class Reduce(Computation):
@@ -68,6 +70,13 @@ class Reduce(Computation):
         if min(axes) < 0 or max(axes) >= dims:
             raise ValueError("Axes numbers are out of bounds")
 
+        if hasattr(predicate.empty, 'dtype'):
+            if arr_t.dtype != predicate.empty.dtype:
+                raise ValueError("The predicate and the array must use the same data type")
+            empty = predicate.empty
+        else:
+            empty = dtypes.cast(arr_t.dtype)(predicate.empty)
+
         remaining_axes = tuple(a for a in range(dims) if a not in axes)
 
         # Currently zero-dimensional arrays are not supported,
@@ -85,7 +94,8 @@ class Reduce(Computation):
         else:
             self._transpose_axes = remaining_axes + axes
 
-        self._predicate = predicate
+        self._operation = predicate.operation
+        self._empty = empty
 
         Computation.__init__(self, [
             Parameter('output', Annotation(Type(arr_t.dtype, shape=output_shape), 'o')),
@@ -140,7 +150,8 @@ class Reduce(Computation):
                 last_block_size=last_block_size,
                 log2=helpers.log2, block_size=block_size,
                 warp_size=device_params.warp_size,
-                predicate=self._predicate,
+                empty=self._empty,
+                operation=self._operation,
                 input_slices=input_slices,
                 output_slices=output_slices)
 

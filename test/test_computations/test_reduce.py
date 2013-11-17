@@ -48,7 +48,7 @@ def test_nondefault_function(thr):
 
     predicate = Predicate(
         Snippet.create(lambda v1, v2: "return ${v1} + ${v2};"),
-        dtypes.c_constant(dtypes.cast(a.dtype)(0)))
+        0)
 
     rd = Reduce(a_dev, predicate, axes=(0,))
 

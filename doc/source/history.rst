@@ -12,6 +12,8 @@ Release history
 
 * CHANGED: :py:class:`~reikna.core.transformation.KernelParameter` is not derived from :py:class:`~reikna.core.Type` anymore (although it still retains the corresponding attributes).
 
+* CHANGED: :py:class:`~reikna.reduce.Predicate` now takes a dtype'd value as ``empty``, not a string.
+
 
 0.4.0 (10 Nov 2013)
 ===================
