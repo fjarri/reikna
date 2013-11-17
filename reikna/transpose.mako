@@ -1,4 +1,10 @@
 <%def name="transpose(kernel_declaration, output, input)">
+<%
+	fields = dtypes.flatten_dtype(output.dtype)
+	paths = [('.' if len(path) > 0 else '') + '.'.join(path) for path, _ in fields]
+	ctypes = [dtypes.ctype(dtype) for _, dtype in fields]
+	suffixes = ['_' + '_'.join(path) for path, _ in fields]
+%>
 ${kernel_declaration}
 {
 	VIRTUAL_SKIP_THREADS;
@@ -13,7 +19,13 @@ ${kernel_declaration}
 	//   array starts in a different bank - so reading from shared memory
 	//   doesn't cause bank conflicts when writing the transpose out to global
 	//   memory.
-	LOCAL_MEM ${output.ctype} block[(${block_width} + 1) * ${block_width}];
+
+	// We are using separate local memory arrays for each field of a nested dtype:
+	// - to avoid bank conflicts for large structs
+	// - to avoid crashes on some platforms that cannot handle local memory arrays of structs
+	%for ctype, suffix in zip(ctypes, suffixes):
+	LOCAL_MEM ${ctype} block${suffix}[(${block_width} + 1) * ${block_width}];
+	%endfor
 
 	VSIZE_T lid_x = virtual_local_id(2);
 	VSIZE_T lid_y = virtual_local_id(1);
@@ -31,15 +43,27 @@ ${kernel_declaration}
 	VSIZE_T index_transpose = lid_x * (${block_width} + 1) + lid_y;
 
 	if(xIndex < ${input_width} && yIndex < ${input_height})
-		block[index_block] = ${input.load_combined_idx(input_slices)}(
-			batch_num, yIndex, xIndex);
+	{
+		const ${output.ctype} val =
+			${input.load_combined_idx(input_slices)}(batch_num, yIndex, xIndex);
+		%for path, suffix in zip(paths, suffixes):
+		block${suffix}[index_block] = val${path};
+		%endfor
+	}
 
 	LOCAL_BARRIER;
 
 	if(xBlock + lid_y < ${input_width} && yBlock + lid_x < ${input_height})
+	{
+		${output.ctype} val;
+
+		%for path, suffix in zip(paths, suffixes):
+		val${path} = block${suffix}[index_transpose];
+		%endfor
+
 		${output.store_combined_idx(output_slices)}(
-			batch_num, xBlock + lid_y, yBlock + lid_x,
-			block[index_transpose]);
+			batch_num, xBlock + lid_y, yBlock + lid_x, val);
+	}
 }
 
 </%def>
