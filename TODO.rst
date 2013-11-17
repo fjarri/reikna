@@ -18,6 +18,8 @@
 * FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
   it is called again with reduced local size
 * ?FIX (core): perhaps we should memoize parametrized modules too: for example, FFT produces dozens of modules for load and store (because it calls them in a loop).
+* ?FIX (computations): for some reason, struct Reduce with nested dtypes does not work: crash for OpenCL, weird compilation error for CUDA.
+  Need to build MREs and investigate; if resolved, update test_reduce/test_structure_type.
 
 
 0.5.0

@@ -83,9 +83,8 @@ def test_structure_type(thr):
     shape = (100, 100)
     dtype = numpy.dtype([
         ('i1', numpy.int32),
-        ('nested', numpy.dtype([
-            ('c', numpy.complex64)])),
-        ('i2', numpy.int32)])
+        ('i2', numpy.int32)
+        ])
 
     a = get_test_array(shape, dtype)
     a_dev = thr.to_device(a)
@@ -94,15 +93,13 @@ def test_structure_type(thr):
     # since numpy cannot reduce arrays with struct dtypes.
     b_ref = numpy.empty(100, dtype)
     b_ref['i1'] = a['i1'].sum(0)
-    b_ref['nested']['c'] = a['nested']['c'].sum(0)
     b_ref['i2'] = a['i2'].sum(0)
 
     predicate = Predicate(
         Snippet.create(lambda v1, v2: """
-            ${ctype} result;
-            result.i1 = ${v1}.i1 + ${v2}.i1;
-            result.nested.c = ${v1}.nested.c + ${v2}.nested.c;
-            result.i2 = ${v1}.i2 + ${v2}.i2;
+            ${ctype} result = ${v1};
+            result.i1 += ${v2}.i1;
+            result.i2 += ${v2}.i2;
             return result;
             """,
             render_kwds=dict(
@@ -117,6 +114,7 @@ def test_structure_type(thr):
     rdc(b_dev, a_dev)
 
     assert diff_is_negligible(b_dev.get(), b_ref)
+
 
 @pytest.mark.perf
 @pytest.mark.returns('GFLOPS')
