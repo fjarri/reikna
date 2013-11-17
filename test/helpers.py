@@ -46,6 +46,10 @@ def float_diff(m, m_ref):
     return numpy.linalg.norm(m - m_ref) / numpy.linalg.norm(m_ref)
 
 def diff_is_negligible(m, m_ref):
+
+    if m.dtype.names is not None:
+        return all(diff_is_negligible(m[name], m_ref[name]) for name in m.dtype.names)
+
     assert m.dtype == m_ref.dtype
 
     if dtypes.is_integer(m.dtype):
