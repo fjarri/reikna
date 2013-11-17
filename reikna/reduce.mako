@@ -59,10 +59,8 @@ ${kernel_declaration}
     LOCAL_MEM volatile ${ctype} *smem = local_mem;
     #endif
 
-    ${ctype} ttt;
     %for reduction_pow in range(min(log2_warp_size, log2_block_size - 1), -1, -1):
-        ttt = reduction_op(smem[tid], smem[tid + ${2 ** reduction_pow}]);
-        smem[tid] = ttt;
+        smem[tid] = reduction_op(smem[tid], smem[tid + ${2 ** reduction_pow}]);
     %endfor
     }
     %endif
