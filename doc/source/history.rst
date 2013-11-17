@@ -10,7 +10,7 @@ Release history
 
 * ADDED: :py:func:`~reikna.cluda.dtypes.flatten_dtype` helper function.
 
-* CHANGED: added ``transposed_a`` and ``transposed_b`` keyword parameters to :py:class:`~reikna.matrixmul.MatrixMul`.
+* ADDED: added ``transposed_a`` and ``transposed_b`` keyword parameters to :py:class:`~reikna.matrixmul.MatrixMul`.
 
 * CHANGED: :py:class:`~reikna.core.transformation.KernelParameter` is not derived from :py:class:`~reikna.core.Type` anymore (although it still retains the corresponding attributes).
 
