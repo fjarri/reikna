@@ -116,3 +116,33 @@ def test_structure_type(thr):
     rdc(b_dev, a_dev)
 
     assert diff_is_negligible(b_dev.get(), b_ref)
+
+@pytest.mark.perf
+@pytest.mark.returns('GFLOPS')
+def test_summation(thr):
+
+    perf_size = 2 ** 20
+    dtype = numpy.int64
+
+    a = get_test_array(perf_size, dtype)
+    a_dev = thr.to_device(a)
+
+    rd = Reduce(a, predicate_sum(dtype))
+
+    b_dev = thr.empty_like(rd.parameter.output)
+    b_ref = numpy.array([a.sum()], dtype)
+
+    rdc = rd.compile(thr)
+
+    attempts = 10
+    t1 = time.time()
+    for i in range(attempts):
+        rdc(b_dev, a_dev)
+    thr.synchronize()
+    t2 = time.time()
+
+    #print rdc._kernel_calls[-1]._kernel._program.source
+    assert diff_is_negligible(b_dev.get(), b_ref)
+
+    return (t2 - t1) / attempts, perf_size
+
