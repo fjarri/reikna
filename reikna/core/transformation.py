@@ -480,10 +480,8 @@ class Indices:
         return ', '.join(self._names)
 
 
-class KernelParameter(Type):
+class KernelParameter:
     """
-    Bases: :py:class:`~reikna.core.Type`
-
     Providing an interface for accessing kernel arguments in a template.
     Depending on the parameter type, and whether it is used
     inside a computation or a transformation template,
@@ -492,6 +490,13 @@ class KernelParameter(Type):
     .. py:attribute:: name
 
         Parameter name
+
+    .. py:attribute:: shape
+    .. py:attribute:: dtype
+    .. py:attribute:: ctype
+    .. py:attribute:: strides
+
+        Same as in :py:class:`~reikna.core.Type`.
 
     .. py:method:: __str__()
 
@@ -536,7 +541,12 @@ class KernelParameter(Type):
             load_combined_idx=None, store_combined_idx=None):
         """__init__()""" # hide the signature from Sphinx
 
-        Type.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
+        self._type = type_
+
+        self.shape = type_.shape
+        self.strides = type_.strides
+        self.dtype = type_.dtype
+        self.ctype = type_.ctype
 
         self._leaf_name = leaf_name(name)
         self.name = name
@@ -563,7 +573,7 @@ class KernelParameter(Type):
             if hasattr(self, attr):
                 kwds[attr] = process(getattr(self, attr))
 
-        return KernelParameter(self.name, self, **kwds)
+        return KernelParameter(self.name, process(self._type), **kwds)
 
     def __repr__(self):
         attrs = dict(

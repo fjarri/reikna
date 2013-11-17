@@ -120,11 +120,17 @@ def cast(dtype):
 def c_constant(val, dtype=None):
     """
     Returns a C-style numerical constant.
+    If ``val`` has a struct dtype, the generated constant will have the form ``{ ... }``
+    and can be used as an initializer for a variable.
     """
     if dtype is None:
         dtype = detect_type(val)
     else:
         dtype = normalize_type(dtype)
+
+    if dtype.names is not None:
+        return "{" + ", ".join([c_constant(val[name]) for name in dtype.names]) + "}"
+
     val = numpy.cast[dtype](val)
 
     if is_complex(dtype):
@@ -323,3 +329,24 @@ def ctype_module(dtype):
             module = _DTYPE_TO_CTYPE_MODULE[dtype]
 
         return module
+
+
+def _flatten_dtype(dtype, prefix=[]):
+
+    if dtype.names is None:
+        return [(prefix, dtype)]
+    else:
+        result = []
+        for name in dtype.names:
+            nested_dtype, _ = dtype.fields[name]
+            result += _flatten_dtype(nested_dtype, prefix=prefix + [name])
+        return result
+
+
+def flatten_dtype(dtype):
+    """
+    Returns a list of tuples ``(path, dtype)`` for each of the basic dtypes in
+    a (possibly nested) ``dtype``.
+    ``path`` is a list of field names leading to the corresponding element.
+    """
+    return _flatten_dtype(dtype)

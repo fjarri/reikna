@@ -1,3 +1,4 @@
+import time
 import itertools
 
 import numpy
@@ -48,7 +49,7 @@ def test_nondefault_function(thr):
 
     predicate = Predicate(
         Snippet.create(lambda v1, v2: "return ${v1} + ${v2};"),
-        dtypes.c_constant(dtypes.cast(a.dtype)(0)))
+        0)
 
     rd = Reduce(a_dev, predicate, axes=(0,))
 
@@ -75,3 +76,72 @@ def test_nonsequential_axes(thr):
     rdc(b_dev, a_dev)
 
     assert diff_is_negligible(b_dev.get(), b_ref)
+
+
+def test_structure_type(thr):
+
+    shape = (100, 100)
+    dtype = numpy.dtype([
+        ('i1', numpy.int32),
+        ('i2', numpy.int32)
+        ])
+
+    a = get_test_array(shape, dtype)
+    a_dev = thr.to_device(a)
+
+    # Have to construct the resulting array manually,
+    # since numpy cannot reduce arrays with struct dtypes.
+    b_ref = numpy.empty(100, dtype)
+    b_ref['i1'] = a['i1'].sum(0)
+    b_ref['i2'] = a['i2'].sum(0)
+
+    predicate = Predicate(
+        Snippet.create(lambda v1, v2: """
+            ${ctype} result = ${v1};
+            result.i1 += ${v2}.i1;
+            result.i2 += ${v2}.i2;
+            return result;
+            """,
+            render_kwds=dict(
+                ctype=dtypes.ctype_module(dtype))),
+        numpy.zeros(1, dtype)[0])
+
+    rd = Reduce(a_dev, predicate, axes=(0,))
+
+    b_dev = thr.empty_like(rd.parameter.output)
+
+    rdc = rd.compile(thr)
+    rdc(b_dev, a_dev)
+
+    assert diff_is_negligible(b_dev.get(), b_ref)
+
+
+@pytest.mark.perf
+@pytest.mark.returns('GFLOPS')
+def test_summation(thr):
+
+    perf_size = 2 ** 20
+    dtype = numpy.int64
+
+    a = get_test_array(perf_size, dtype)
+    a_dev = thr.to_device(a)
+
+    rd = Reduce(a, predicate_sum(dtype))
+
+    b_dev = thr.empty_like(rd.parameter.output)
+    b_ref = numpy.array([a.sum()], dtype)
+
+    rdc = rd.compile(thr)
+
+    attempts = 10
+    t1 = time.time()
+    for i in range(attempts):
+        rdc(b_dev, a_dev)
+    thr.synchronize()
+    t2 = time.time()
+
+    #print rdc._kernel_calls[-1]._kernel._program.source
+    assert diff_is_negligible(b_dev.get(), b_ref)
+
+    return (t2 - t1) / attempts, perf_size
+

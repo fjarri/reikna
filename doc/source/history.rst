@@ -6,7 +6,19 @@ Release history
 0.5.0 (current development version)
 ===================================
 
+* ADDED: struct dtypes support in :py:func:`~reikna.cluda.dtypes.c_constant`.
+
+* ADDED: :py:func:`~reikna.cluda.dtypes.flatten_dtype` helper function.
+
 * CHANGED: added ``transposed_a`` and ``transposed_b`` keyword parameters to :py:class:`~reikna.matrixmul.MatrixMul`.
+
+* CHANGED: :py:class:`~reikna.core.transformation.KernelParameter` is not derived from :py:class:`~reikna.core.Type` anymore (although it still retains the corresponding attributes).
+
+* CHANGED: :py:class:`~reikna.reduce.Predicate` now takes a dtype'd value as ``empty``, not a string.
+
+* FIXED: a bug in :py:class:`~reikna.reduce.Reduce`, which lead to incorrect results in cases when the reduction power is exactly equal to the maximum one.
+
+* FIXED: :py:class:`~reikna.transpose.Transpose` now works correctly for struct dtypes.
 
 
 0.4.0 (10 Nov 2013)

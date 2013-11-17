@@ -1,7 +1,8 @@
 0.4.1
 =====
 
-* API (computations): the neutral value in a Predicate for Reduce must be a numpy.dtype'd value, not a string.
+* FIX (computations): Reduce performance seems to be extremely low.
+  Need to investigate.
 * FIX (cbrng): use sincos from ``cluda.functions`` in the normal_bm sampler.
 * TEST (computations): add some performance tests for CBRNG
 * ?FEATURE (core): How do we treat cases of arrays with shape ()?
@@ -19,6 +20,9 @@
 * FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
   it is called again with reduced local size
 * ?FIX (core): perhaps we should memoize parametrized modules too: for example, FFT produces dozens of modules for load and store (because it calls them in a loop).
+* ?FIX (computations): for some reason, struct Reduce with nested dtypes does not work: crash for OpenCL, weird compilation error for CUDA.
+  Namely, they do not like constructions like ``type v = {0, {0}, 0}``.
+  Need to build MREs and investigate; if resolved, update test_reduce/test_structure_type.
 
 
 0.5.0
