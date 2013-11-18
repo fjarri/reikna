@@ -25,22 +25,49 @@ ${kernel_declaration}
     LOCAL_MEM ${ct} local_mem${suffix}[${smem_size}];
     %endfor
 
-    VSIZE_T tid = virtual_local_id(1);
-    VSIZE_T bid = virtual_group_id(1);
-    VSIZE_T part_num = virtual_global_id(0);
+    const VSIZE_T tid = virtual_local_id(1);
+    const VSIZE_T bid = virtual_group_id(1);
+    const VSIZE_T part_num = virtual_global_id(0);
 
-    VSIZE_T index_in_part = ${block_size} * bid + tid;
+    const VSIZE_T index_in_part = ${block_size * seq_size} * bid + tid;
     const ${ctype} empty = ${dtypes.c_constant(empty)};
 
     ${ctype} v;
-    if(bid == ${blocks_per_part} - 1 && tid >= ${last_block_size})
-        v = empty;
-    else
-        v = ${input.load_combined_idx(input_slices)}(part_num, index_in_part);
+    %for i in range(seq_size):
+    <%
+        conds = []
+        if blocks_per_part > 1:
+            conds.append("bid <" + str(blocks_per_part - 1))
+        if last_block_size > i * block_size:
+            conds.append("tid < " + str(last_block_size - i * block_size))
+    %>
+        %if len(conds) > 0:
+        if(${" || ".join(conds)})
+        %endif
+        {
+            const ${ctype} t =
+                ${input.load_combined_idx(input_slices)}(
+                    part_num, index_in_part + ${i * block_size});
+            ## Do not call reduction_op() if it is not necessary.
+            ## May matter if it has complicated logic.
+            %if i == 0:
+            v = t;
+            %else:
+            v = reduction_op(v, t);
+            %endif
+        }
+        %if i == 0:
+        else
+        {
+            v = empty;
+        }
+        %endif
+
+    %endfor
+
     %for path, suffix in zip(paths, suffixes):
     local_mem${suffix}[tid] = v${path};
     %endfor
-
     LOCAL_BARRIER;
 
     // We could use the volatile trick here and execute the last several iterations
