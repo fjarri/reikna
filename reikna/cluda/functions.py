@@ -81,6 +81,20 @@ def conj(dtype):
         render_kwds=dict(dtype=dtype))
 
 
+def polar_unit(dtype):
+    """
+    Returns a :py:class:`~reikna.cluda.Module` with a function of one argument
+    that returns a complex number ``(cos(theta), sin(theta))``
+    for a value ``theta`` of type ``dtype`` (must be a real data type).
+    """
+    if not dtypes.is_real(dtype):
+        raise NotImplementedError("polar_unit() of " + str(dtype) + " is not supported")
+
+    return Module(
+        TEMPLATE.get_def('polar_unit'),
+        render_kwds=dict(dtype=dtype))
+
+
 def norm(dtype):
     """
     Returns a :py:class:`~reikna.cluda.Module` with a function of one argument
@@ -101,9 +115,13 @@ def exp(dtype):
     if dtypes.is_integer(dtype):
         raise NotImplementedError("exp() of " + str(dtype) + " is not supported")
 
+    if dtypes.is_real(dtype):
+        polar_unit_ = None
+    else:
+        polar_unit_ = polar_unit(dtypes.real_for(dtype))
     return Module(
         TEMPLATE.get_def('exp'),
-        render_kwds=dict(dtype=dtype))
+        render_kwds=dict(dtype=dtype, polar_unit_=polar_unit_))
 
 
 def polar(dtype):
@@ -117,4 +135,4 @@ def polar(dtype):
 
     return Module(
         TEMPLATE.get_def('polar'),
-        render_kwds=dict(dtype=dtype))
+        render_kwds=dict(dtype=dtype, polar_unit_=polar_unit(dtype)))

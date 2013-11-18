@@ -14,6 +14,8 @@ Release history
 
 * ADDED: algorithm cascading to :py:class:`~reikna.reduce.Reduce`, leading to 3-4 times increase in performance.
 
+* ADDED: :py:func:`~reikna.cluda.functions.polar_unit` function module in CLUDA.
+
 * CHANGED: :py:class:`~reikna.core.transformation.KernelParameter` is not derived from :py:class:`~reikna.core.Type` anymore (although it still retains the corresponding attributes).
 
 * CHANGED: :py:class:`~reikna.reduce.Predicate` now takes a dtype'd value as ``empty``, not a string.
