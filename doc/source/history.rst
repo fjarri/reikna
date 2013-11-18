@@ -6,6 +6,10 @@ Release history
 0.5.0 (current development version)
 ===================================
 
+* CHANGED: :py:class:`~reikna.core.transformation.KernelParameter` is not derived from :py:class:`~reikna.core.Type` anymore (although it still retains the corresponding attributes).
+
+* CHANGED: :py:class:`~reikna.reduce.Predicate` now takes a dtype'd value as ``empty``, not a string.
+
 * ADDED: struct dtypes support in :py:func:`~reikna.cluda.dtypes.c_constant`.
 
 * ADDED: :py:func:`~reikna.cluda.dtypes.flatten_dtype` helper function.
@@ -15,10 +19,6 @@ Release history
 * ADDED: algorithm cascading to :py:class:`~reikna.reduce.Reduce`, leading to 3-4 times increase in performance.
 
 * ADDED: :py:func:`~reikna.cluda.functions.polar_unit` function module in CLUDA.
-
-* CHANGED: :py:class:`~reikna.core.transformation.KernelParameter` is not derived from :py:class:`~reikna.core.Type` anymore (although it still retains the corresponding attributes).
-
-* CHANGED: :py:class:`~reikna.reduce.Predicate` now takes a dtype'd value as ``empty``, not a string.
 
 * FIXED: a bug in :py:class:`~reikna.reduce.Reduce`, which lead to incorrect results in cases when the reduction power is exactly equal to the maximum one.
 
