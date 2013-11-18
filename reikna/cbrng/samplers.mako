@@ -63,12 +63,11 @@ WITHIN_KERNEL ${prefix}Result ${prefix}sample(${bijection.module}State *state)
     ${ctype} u2 = r2.v[0];
 
     ${ctype} ang = ${dtypes.c_constant(2.0 * numpy.pi, dtype)} * u2;
-    ${ctype} c_ang = cos(ang);
-    ${ctype} s_ang = sin(ang);
+    ${c_ctype} cos_sin = ${polar_unit}(ang);
     ${ctype} coeff = sqrt(${dtypes.c_constant(-2.0, dtype)} * log(u1)) * (${std});
 
-    result.v[0] = coeff * c_ang + (${mean});
-    result.v[1] = coeff * s_ang + (${mean});
+    result.v[0] = coeff * cos_sin.x + (${mean});
+    result.v[1] = coeff * cos_sin.y + (${mean});
     return result;
 }
 </%def>

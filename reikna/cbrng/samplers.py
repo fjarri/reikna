@@ -3,6 +3,7 @@ import numpy
 import reikna.helpers as helpers
 import reikna.cluda.dtypes as dtypes
 from reikna.cluda import Module
+import reikna.cluda.functions as functions
 
 TEMPLATE = helpers.template_for(__file__)
 
@@ -151,7 +152,10 @@ def normal_bm(bijection, dtype, mean=0, std=1):
     module = Module(
         TEMPLATE.get_def("normal_bm"),
         render_kwds=dict(
-            dtype=dtype, ctype=ctype, bijection=bijection,
+            dtype=dtype, ctype=ctype,
+            c_ctype=dtypes.ctype(dtypes.complex_for(dtype)),
+            polar_unit=functions.polar_unit(dtype),
+            bijection=bijection,
             mean=dtypes.c_constant(mean, dtype),
             std=dtypes.c_constant(std, dtype),
             uf=uf))
