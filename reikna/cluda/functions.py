@@ -34,7 +34,7 @@ def derive_out_dtype(out_dtype, *in_dtypes):
 
 def cast(out_dtype, in_dtype):
     """
-    Returns a :py:class:`~reikna.cluda.Module`
+    Returns a :py:class:`~reikna.cluda.Module` with a function of one argument
     that casts values of ``in_dtype`` to ``out_dtype``.
     """
     return Module(
@@ -45,8 +45,8 @@ def cast(out_dtype, in_dtype):
 def mul(*in_dtypes, **kwds):
     """mul(*in_dtypes, out_dtype=None)
 
-    Returns a :py:class:`~reikna.cluda.Module`
-    that multiplies values of types ``in_dtypes``.
+    Returns a :py:class:`~reikna.cluda.Module`  with a function of
+    ``len(in_dtypes)`` arguments that multiplies values of types ``in_dtypes``.
     If ``out_dtype`` is given, it will be set as a return type for this function.
     """
     assert set(kwds.keys()).issubset(['out_dtype'])
@@ -58,7 +58,7 @@ def mul(*in_dtypes, **kwds):
 
 def div(in_dtype1, in_dtype2, out_dtype=None):
     """
-    Returns a :py:class:`~reikna.cluda.Module`
+    Returns a :py:class:`~reikna.cluda.Module` with a function of two arguments
     that divides values of ``in_dtype1`` and ``in_dtype2``.
     If ``out_dtype`` is given, it will be set as a return type for this function.
     """
@@ -70,7 +70,7 @@ def div(in_dtype1, in_dtype2, out_dtype=None):
 
 def conj(dtype):
     """
-    Returns a :py:class:`~reikna.cluda.Module`
+    Returns a :py:class:`~reikna.cluda.Module` with a function of one argument
     that conjugates the value of type ``dtype`` (must be a complex data type).
     """
     if not dtypes.is_complex(dtype):
@@ -83,8 +83,8 @@ def conj(dtype):
 
 def norm(dtype):
     """
-    Returns a :py:class:`~reikna.cluda.Module`
-    that returns the norm of the value of type ``dtype``
+    Returns a :py:class:`~reikna.cluda.Module` with a function of one argument
+    that returns the 2-norm of the value of type ``dtype``
     (product by the complex conjugate if the value is complex, square otherwise).
     """
     return Module(
@@ -94,7 +94,7 @@ def norm(dtype):
 
 def exp(dtype):
     """
-    Returns a :py:class:`~reikna.cluda.Module`
+    Returns a :py:class:`~reikna.cluda.Module` with a function of one argument
     that exponentiates the value of type ``dtype``
     (must be a real or complex data type).
     """
@@ -108,8 +108,8 @@ def exp(dtype):
 
 def polar(dtype):
     """
-    Returns a :py:class:`~reikna.cluda.Module`
-    that calculates ``rho * exp(i * theta)``
+    Returns a :py:class:`~reikna.cluda.Module` with a function of two arguments
+    that returns the complex-valued ``rho * exp(i * theta)``
     for values ``rho, theta`` of type ``dtype`` (must be a real data type).
     """
     if not dtypes.is_real(dtype):
