@@ -1,26 +1,10 @@
-0.4.1
+0.5.0
 =====
 
 * ?FEATURE (core): How do we treat cases of arrays with shape ()?
   For example, ``Reduce`` may use these for output in case of full reduction
   (currently it sets the shape to (1,) in such cases).
   It is possible to work with them like with actual zero shape arrays, but then load_idx()/store_idx() modules must be modified to allow that.
-
-* FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
-* ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
-  Basically it's just a synonym for ``load_combined(len(arg.shape))``.
-* API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
-* FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
-  it is called again with reduced local size
-* ?FIX (core): perhaps we should memoize parametrized modules too: for example, FFT produces dozens of modules for load and store (because it calls them in a loop).
-* ?FIX (computations): for some reason, struct Reduce with nested dtypes does not work with OpenCL on OSX --- the initialization ``type v = {0, {0}, 0}`` produces incorrect results (per-field initialization works correctly).
-  CUDA and OCL on Linux work correctly.
-* ?FIX (computations): investigate fails in cbrng/normal_bm and fft tests that only happen when ``fast_math`` is set to ``False``.
-
-
-0.5.0
-=====
-
 * FIX (core): chicken and egg problem with alignment of custom dtypes in Computations.
   On the one hand, a Computation object is intended to be thread/device-independent,
   so we shouldn't really call ``adjust_alignment()`` and then feed the resulting dtype to Computation.
@@ -29,6 +13,23 @@
   For example, in a Predicate for Reduce.
   Search module tree recursively for dtype objects?
   Some device-dependent caching of ``adjust_alignment()`` results will probably have to be implemented as well.
+* FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
+
+
+0.6.0
+=====
+
+* ?FIX (computations): for some reason, struct Reduce with nested dtypes does not work with OpenCL on OSX --- the initialization ``type v = {0, {0}, 0}`` produces incorrect results (per-field initialization works correctly).
+  CUDA and OCL on Linux work correctly.
+* ?FIX (computations): investigate fails in cbrng/normal_bm and fft tests that only happen when ``fast_math`` is set to ``False``.
+
+* ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
+  Basically it's just a synonym for ``load_combined(len(arg.shape))``.
+* API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
+* FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
+  it is called again with reduced local size
+* ?FIX (core): perhaps we should memoize parametrized modules too: for example, FFT produces dozens of modules for load and store (because it calls them in a loop).
+
 * FEATURE: write an example analogous to demo-struct-reduce from PyOpenCL.
   Probably a Reduce for a custom dtype + transformations to and from the target array dtype.
   (Must solve the problem with custom dtypes as Computation paramters first).
