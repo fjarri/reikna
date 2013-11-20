@@ -1,6 +1,7 @@
 import itertools
 import numpy
 import pytest
+import time
 
 from helpers import *
 from test_computations.cbrng_ref import philox as philox_ref
@@ -13,6 +14,59 @@ from reikna.cbrng.bijections import threefry, philox
 from reikna.cbrng.tools import KeyGenerator
 from reikna.cbrng.samplers import uniform_integer, uniform_float, normal_bm, gamma
 import reikna.cluda.dtypes as dtypes
+
+
+def uniform_discrete_mean_and_std(min, max):
+    return (min + max) / 2., numpy.sqrt(((max - min + 1) ** 2 - 1.) / 12)
+
+
+def uniform_mean_and_std(min, max):
+    return (min + max) / 2., (max - min) / numpy.sqrt(12)
+
+
+class TestUniformInteger:
+    def __init__(self, bijection, min_, max_):
+        self.extent = (min_, max_)
+        self.mean, self.std = uniform_discrete_mean_and_std(*self.extent)
+        self.name = 'uniform_integer'
+        self.sampler = uniform_integer(bijection, numpy.int32, min_, max_ + 1)
+
+class TestUniformFloat:
+    def __init__(self, bijection, min_, max_):
+        self.extent = (min_, max_)
+        self.mean, self.std = uniform_mean_and_std(*self.extent)
+        self.bijection = bijection
+        self.name = 'uniform_float'
+
+    def get_sampler(self, double):
+        dtype = numpy.float64 if double else numpy.float32
+        return uniform_float(self.bijection, dtype, self.extent[0], self.extent[1])
+
+class TestNormalBM:
+    def __init__(self, bijection, mean, std):
+        self.extent = None
+        self.mean = mean
+        self.std = std
+        self.bijection = bijection
+        self.name = 'normal_bm'
+
+    def get_sampler(self, double):
+        dtype = numpy.float64 if double else numpy.float32
+        return normal_bm(self.bijection, dtype, mean=self.mean, std=self.std)
+
+class TestGamma:
+    def __init__(self, bijection, shape, scale):
+        self._shape = shape
+        self._scale = scale
+        self.mean = shape * scale
+        self.std = numpy.sqrt(shape) * scale
+        self.extent = None
+        self.bijection = bijection
+        self.name = 'gamma'
+
+    def get_sampler(self, double):
+        dtype = numpy.float64 if double else numpy.float32
+        return gamma(self.bijection, dtype, shape=self._shape, scale=self._scale)
 
 
 class TestBijection:
@@ -56,6 +110,22 @@ def pytest_generate_tests(metafunc):
             ids.append(str(val))
 
         metafunc.parametrize('test_bijection', vals, ids=ids)
+
+    if 'test_sampler_int' in metafunc.funcargnames:
+        bijection = philox(64, 4)
+        vals = [
+            TestUniformInteger(bijection, -10, 98)]
+        ids = [test.name for test in vals]
+        metafunc.parametrize('test_sampler_int', vals, ids=ids)
+
+    if 'test_sampler_float' in metafunc.funcargnames:
+        bijection = philox(64, 4)
+        vals = [
+            TestUniformFloat(bijection, -5, 7.7),
+            TestNormalBM(bijection, -2, 10),
+            TestGamma(bijection, 3, 10)]
+        ids = [test.name for test in vals]
+        metafunc.parametrize('test_sampler_float', vals, ids=ids)
 
 
 def test_kernel_bijection(thr, test_bijection):
@@ -164,14 +234,6 @@ def check_distribution(arr, extent=None, mean=None, std=None):
         assert diff < 5 * v_std # about 1e-6 chance of fail
 
 
-def uniform_discrete_mean_and_std(min, max):
-    return (min + max) / 2., numpy.sqrt(((max - min + 1) ** 2 - 1.) / 12)
-
-
-def uniform_mean_and_std(min, max):
-    return (min + max) / 2., (max - min) / numpy.sqrt(12)
-
-
 def test_32_to_64_bit(thr):
     extent = (0, 2**63-1)
     mean, std = uniform_discrete_mean_and_std(*extent)
@@ -188,42 +250,15 @@ def test_64_to_32_bit(thr):
     check_kernel_sampler(thr, sampler, extent=extent, mean=mean, std=std)
 
 
-def test_uniform_integer(thr):
-    extent = (-10, 98)
-    mean, std = uniform_discrete_mean_and_std(*extent)
-    bijection = philox(64, 4)
-    sampler = uniform_integer(bijection, numpy.int32, extent[0], extent[1] + 1)
-    check_kernel_sampler(thr, sampler, extent=extent, mean=mean, std=std)
+def test_kernel_sampler_int(thr, test_sampler_int):
+    check_kernel_sampler(thr, test_sampler_int.sampler,
+        extent=test_sampler_int.extent, mean=test_sampler_int.mean, std=test_sampler_int.std)
 
-
-def test_uniform_float(thr_and_double):
+def test_kernel_sampler_float(thr_and_double, test_sampler_float):
     thr, double = thr_and_double
-    dtype = numpy.float64 if double else numpy.float32
-    extent = (-5, 7.7)
-    mean, std = uniform_mean_and_std(*extent)
-    bijection = philox(64, 4)
-    sampler = uniform_float(bijection, dtype, extent[0], extent[1])
-    check_kernel_sampler(thr, sampler, extent=extent, mean=mean, std=std)
-
-
-def test_normal_bm(thr_and_double):
-    thr, double = thr_and_double
-    dtype = numpy.float64 if double else numpy.float32
-    mean, std = -2, 10
-    bijection = philox(64, 4)
-    sampler = normal_bm(bijection, dtype, mean=mean, std=std)
-    check_kernel_sampler(thr, sampler, mean=mean, std=std)
-
-
-def test_gamma(thr_and_double):
-    thr, double = thr_and_double
-    dtype = numpy.float64 if double else numpy.float32
-    shape, scale = 3, 10
-    mean = shape * scale
-    std = numpy.sqrt(shape) * scale
-    bijection = philox(64, 4)
-    sampler = gamma(bijection, dtype, shape=shape, scale=scale)
-    check_kernel_sampler(thr, sampler, mean=mean, std=std)
+    check_kernel_sampler(thr, test_sampler_float.get_sampler(double),
+        extent=test_sampler_float.extent,
+        mean=test_sampler_float.mean, std=test_sampler_float.std)
 
 
 def check_computation(thr, rng, extent=None, mean=None, std=None):
@@ -262,3 +297,33 @@ def test_computation_convenience(thr):
     rng = CBRNG.uniform_integer(Type(numpy.int32, shape=(batch, size)), 1,
         sampler_kwds=dict(low=extent[0], high=extent[1] + 1))
     check_computation(thr, rng, extent=extent, mean=mean, std=std)
+
+
+@pytest.mark.perf
+@pytest.mark.returns('GB/s')
+def test_computation_performance(thr_and_double, fast_math, test_sampler_float):
+
+    thr, double = thr_and_double
+
+    size = 2 ** 15
+    batch = 2 ** 6
+
+    sampler = test_sampler_float.get_sampler(double)
+
+    rng = CBRNG(Type(sampler.dtype, shape=(batch, size)), 1, sampler)
+
+    dest_dev = thr.empty_like(rng.parameter.randoms)
+    counters = rng.create_counters()
+    counters_dev = thr.to_device(counters)
+    rngc = rng.compile(thr, fast_math=fast_math)
+
+    attempts = 10
+    times = []
+    for i in range(attempts):
+        t1 = time.time()
+        rngc(counters_dev, dest_dev)
+        thr.synchronize()
+        times.append(time.time() - t1)
+
+    byte_size = size * batch * sampler.dtype.itemsize
+    return min(times), byte_size

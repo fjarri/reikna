@@ -1,7 +1,6 @@
 0.4.1
 =====
 
-* TEST (computations): add some performance tests for CBRNG
 * ?FEATURE (core): How do we treat cases of arrays with shape ()?
   For example, ``Reduce`` may use these for output in case of full reduction
   (currently it sets the shape to (1,) in such cases).
