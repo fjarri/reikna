@@ -13,9 +13,8 @@
 * FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
   it is called again with reduced local size
 * ?FIX (core): perhaps we should memoize parametrized modules too: for example, FFT produces dozens of modules for load and store (because it calls them in a loop).
-* ?FIX (computations): for some reason, struct Reduce with nested dtypes does not work: crash for OpenCL, weird compilation error for CUDA.
-  Namely, they do not like constructions like ``type v = {0, {0}, 0}``.
-  Need to build MREs and investigate; if resolved, update test_reduce/test_structure_type.
+* ?FIX (computations): for some reason, struct Reduce with nested dtypes does not work with OpenCL on OSX --- the initialization ``type v = {0, {0}, 0}`` produces incorrect results (per-field initialization works correctly).
+  CUDA and OCL on Linux work correctly.
 * ?FIX (computations): investigate fails in cbrng/normal_bm and fft tests that only happen when ``fast_math`` is set to ``False``.
 
 
