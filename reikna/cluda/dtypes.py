@@ -310,7 +310,10 @@ def _get_struct_module(dtype, ignore_alignment=False):
     if not ignore_alignment:
         struct_alignment, field_alignments = _find_alignments(dtype)
 
-    lines = ["typedef struct {"]
+    # FIXME: the tag (${prefix}_) is not necessary, but it helps to avoid
+    # CUDA bug #1409907 (nested struct initialization like
+    # "mystruct x = {0, {0, 0}, 0};" fails to compile)
+    lines = ["typedef struct ${prefix}_ {"]
     kwds = {}
     for name in dtype.names:
         elem_dtype, elem_offset = dtype.fields[name]
