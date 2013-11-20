@@ -7,9 +7,6 @@
   (currently it sets the shape to (1,) in such cases).
   It is possible to work with them like with actual zero shape arrays, but then load_idx()/store_idx() modules must be modified to allow that.
 
-* FIX (cluda): alignment property in ``ctype_module`` is now used as if it defined the total size of a structure.
-  In general, it's not.
-  For example, ``[('val1', numpy.int32), ('val2', numpy.int32), ('pad', numpy.int8)]`` will fail ``test_adjusted_alignment``, because it will set ``ALIGN`` to 12, when 4 is needed.
 * FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
 * ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
   Basically it's just a synonym for ``load_combined(len(arg.shape))``.

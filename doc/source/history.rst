@@ -10,6 +10,11 @@ Release history
 
 * CHANGED: :py:class:`~reikna.reduce.Predicate` now takes a dtype'd value as ``empty``, not a string.
 
+* CHANGED: The logic of processing struct dtypes was reworked, and `adjust_alignment` was removed.
+  Instead, one should use :py:func:`~reikna.cluda.dtypes.adjust_offsets` (which does not take a ``Thread`` parameter) to get a dtype with the offsets and itemsize equal to those a compiler would set.
+  On the other hand, :py:func:`~reikna.cluda.dtypes.ctype_module` attempts to set the alignments such that the field offsets are the same as in the given numpy dtype
+  (unless ``ignore_alignments`` flag is set).
+
 * ADDED: struct dtypes support in :py:func:`~reikna.cluda.dtypes.c_constant`.
 
 * ADDED: :py:func:`~reikna.cluda.dtypes.flatten_dtype` helper function.
@@ -40,7 +45,7 @@ Release history
   Correspondingly, the C types for keys and counters can be obtained by calling :py:func:`~reikna.cluda.dtypes.ctype_module` on :py:attr:`~reikna.cbrng.bijections.Bijection.key_dtype` and :py:attr:`~reikna.cbrng.bijections.Bijection.counter_dtype` attributes.
   The module wrappers still define their types, but their names are using a different naming convention now.
 
-* ADDED: module generator for nested dtypes (:py:func:`~reikna.cluda.dtypes.ctype_module`) and a function to get natural field offsets for a given API/device (:py:func:`~reikna.cluda.dtypes.adjust_alignment`).
+* ADDED: module generator for nested dtypes (:py:func:`~reikna.cluda.dtypes.ctype_module`) and a function to get natural field offsets for a given API/device (``adjust_alignment``).
 
 * ADDED: ``fast_math`` keyword parameter in :py:meth:`~reikna.core.Computation.compile`.
   In other words, now ``fast_math`` can be set per computation.

@@ -1,4 +1,7 @@
+from fractions import gcd
+
 import numpy
+from reikna.helpers import bounding_power_of_2, log2, min_blocks
 from reikna.cluda.api_discovery import cuda_id, ocl_id
 
 
@@ -184,56 +187,6 @@ def _fill_dtype_registry(respect_windows=True):
 _fill_dtype_registry()
 
 
-def adjust_alignment(thr, dtype):
-    """
-    Returns a new data type object with the same fields as in ``dtype``
-    and the field offsets set by the compiler in ``thr``.
-    All existing non-standard offsets in ``dtype`` are ignored.
-    """
-
-    if dtype.names is None:
-        return dtype
-
-    adjusted_dtypes = [
-        adjust_alignment(thr, dtype.fields[name][0])
-        for name in dtype.names]
-
-    new_dtype = numpy.dtype(dict(
-        names=dtype.names,
-        formats=adjusted_dtypes))
-
-    struct = ctype_module(new_dtype)
-
-    program = thr.compile(
-    """
-    #define my_offsetof(type, field) ((size_t)(&((type *)0)->field))
-
-    KERNEL void test(GLOBAL_MEM int *dest)
-    {
-      %for i, name in enumerate(dtype.names):
-      dest[${i}] = my_offsetof(${struct}, ${name});
-      %endfor
-      dest[${len(dtype.names)}] = sizeof(${struct});
-    }
-    """, render_kwds=dict(
-        struct=struct,
-        dtype=new_dtype))
-
-    offsets = thr.array(len(dtype.names) + 1, numpy.int32)
-    test = program.test
-    test(offsets, global_size=1)
-    offsets = offsets.get()
-
-    # Casting to Python ints, becase numpy ints as dtype offsets make it unhashable.
-    offsets = [int(offset) for offset in offsets]
-
-    return numpy.dtype(dict(
-        names=dtype.names,
-        formats=adjusted_dtypes,
-        offsets=offsets[:-1],
-        itemsize=offsets[-1]))
-
-
 def ctype(dtype):
     """
     For a built-in C type, returns a string with the name of the type.
@@ -248,20 +201,118 @@ def _alignment_str(alignment):
         return ""
 
 
-def _get_struct_module(dtype):
+def _lcm(*nums):
+    """
+    Returns the least common multiple of ``nums``.
+    """
+    if len(nums) == 1:
+        return nums[0]
+    elif len(nums) == 2:
+        return nums[0] * nums[1] // gcd(nums[0], nums[1])
+    else:
+        return _lcm(nums[0], _lcm(*nums[1:]))
+
+
+def _struct_alignment(alignments):
+    """
+    Returns the minimum alignment for a structure given alignments for its fields.
+    According to the C standard, it the lowest common multiple of the alignments
+    of all of the members of the struct rounded up to the nearest power of two.
+    """
+    return bounding_power_of_2(_lcm(*alignments))
+
+
+def _find_minimal_alignment(offset, base_alignment, prev_end):
+    """
+    Returns the minimal alignment that must be set for a field with
+    ``base_alignment`` (the one inherent to the type),
+    so that the compiler positioned it at ``offset`` given that the previous field
+    ends at the position ``prev_end``.
+    """
+    # Essentially, we need to find the minimal k such that:
+    # 1) offset = m * base_alignment * 2**k, where m > 0 and k >= 0;
+    #    (by definition of alignment)
+    # 2) offset - prev_offset < base_alignment * 2**k
+    #    (otherwise the compiler can just as well take m' = m - 1).
+    alignment = base_alignment
+    while True:
+        if offset % alignment != 0:
+            raise ValueError(
+                ("Field cannot be positioned at offset {offset}, "
+                "since it is not multiple of the minimal alignment {alignment}").format(
+                    offset=offset, alignment=alignment))
+        if alignment > offset:
+            raise ValueError(
+                "Could not find a suitable alignment for the field at offset {offset}".format(
+                    offset=offset))
+        if offset - prev_end >= alignment:
+            alignment *= 2
+            continue
+
+        return alignment
+
+
+def _find_alignments(dtype):
+    """
+    Returns a tuple (base_alignment, field_alignments) for the given dtype, where:
+
+    ``field_alignments`` is a dictionary ``{name:alignment}`` with base alignments
+    for every field of ``dtype``.
+
+    ``base_alignment`` is the base alignment for the whole C type corresponding to ``dtype``.
+    """
+
+    # FIXME: for vector types with 3 components the alignment is 4*component_size.
+    # But we do not support these at the moment anyway.
+    if dtype.names is None:
+        return dtype.base.itemsize, None
+
+    field_alignments = {}
+    explicit_alignments = []
+    for i, name in enumerate(dtype.names):
+        elem_dtype, elem_offset = dtype.fields[name]
+        base_elem_dtype = elem_dtype.base
+
+        base_alignment, _ = _find_alignments(base_elem_dtype)
+
+        if i == 0:
+            # The alignment of the first element does not matter, its offset is 0
+            explicit_alignments.append(base_alignment)
+            field_alignments[name] = None
+        else:
+            prev_dtype, prev_offset = dtype.fields[dtype.names[i-1]]
+            prev_end = prev_offset + prev_dtype.itemsize
+            alignment = _find_minimal_alignment(elem_offset, base_alignment, prev_end)
+
+            explicit_alignments.append(alignment)
+            field_alignments[name] = alignment if alignment != base_alignment else None
+
+    struct_alignment = _struct_alignment(explicit_alignments)
+    last_dtype, last_offset = dtype.fields[dtype.names[-1]]
+    last_end = last_offset + last_dtype.itemsize
+    struct_alignment = _find_minimal_alignment(dtype.itemsize, struct_alignment, last_end)
+
+    return struct_alignment, field_alignments
+
+
+def _get_struct_module(dtype, ignore_alignment=False):
     """
     Builds and returns a module with the C type definition for a given ``dtype``,
     possibly using modules for nested structures.
     """
+
     if dtype.names is None:
         raise ValueError("dtype must be a struct type")
 
     if len(dtype.shape) > 0:
         raise ValueError("The data type cannot be an array")
 
+    if not ignore_alignment:
+        struct_alignment, field_alignments = _find_alignments(dtype)
+
     lines = ["typedef struct {"]
     kwds = {}
-    for i, name in enumerate(dtype.names):
+    for name in dtype.names:
         elem_dtype, elem_offset = dtype.fields[name]
 
         if len(elem_dtype.shape) == 0:
@@ -271,33 +322,21 @@ def _get_struct_module(dtype):
             base_elem_dtype = elem_dtype.base
             elem_dtype_shape = elem_dtype.shape
 
-        if i == len(dtype.names) - 1:
-            # If it is the last field of the struct, its alignment does not matter ---
-            # the enompassing struct's one will override it anyway.
-            alignment = None
-        else:
-            alignment = dtype.fields[dtype.names[i+1]][1] - elem_offset
-            if alignment <= elem_dtype.itemsize:
-                alignment = None
-
         if len(elem_dtype_shape) == 0:
             array_suffix = ""
         else:
             array_suffix = "".join("[" + str(d) + "]" for d in elem_dtype_shape)
 
-        typename_var = "typename" + str(i)
+        typename_var = "typename_" + name
+        field_alignment = None if ignore_alignment else field_alignments[name]
         lines.append(
-            "    ${" + typename_var + "} " + _alignment_str(alignment) + " " +
+            "    ${" + typename_var + "} " +
+            _alignment_str(field_alignment) + " " +
             name + array_suffix + ";")
-        kwds[typename_var] = ctype_module(base_elem_dtype)
+        kwds[typename_var] = ctype_module(base_elem_dtype, ignore_alignment=ignore_alignment)
 
-    expected_itemsize = sum(dt.itemsize for dt, _ in dtype.fields.values())
-    if dtype.itemsize > expected_itemsize:
-        alignment = dtype.itemsize
-    else:
-        alignment = None
-
-    lines.append("} " + _alignment_str(alignment) + " ${prefix};")
+    struct_alignment = None if ignore_alignment else struct_alignment
+    lines.append("} " + _alignment_str(struct_alignment) + " ${prefix};")
 
     # Root level import creates an import loop.
     from reikna.cluda.kernel import Module
@@ -305,7 +344,7 @@ def _get_struct_module(dtype):
     return Module.create("\n".join(lines), render_kwds=kwds)
 
 
-def ctype_module(dtype):
+def ctype_module(dtype, ignore_alignment=False):
     """
     For a struct type, returns a :py:class:`~reikna.cluda.Module` object
     with the ``typedef`` of a struct corresponding to the given ``dtype``
@@ -318,17 +357,68 @@ def ctype_module(dtype):
     Therefore inside a kernel it will be rendered with the same prefix everywhere it is used.
     This results in a behavior characteristic for a structural type system,
     same as for the basic dtype-ctype conversion.
+
+    .. note::
+
+       For a struct ``dtype``, ``ctype_module`` will attempt to set alignments such that
+       the rendered structure has the same itemsize and field offsets as the ``dtype``.
+       If it is not possible, a ``ValueError`` will be raised.
+
+       If ``ignore_alignment`` is ``True``, all alignment modifiers will be omitted.
+       As a result, the the field offsets of ``dtype`` may differ from the ones
+       chosen by the compiler.
+       Set it only if you intend to use the structure internally in a kernel.
+
+       Offsets can be adjusted automatically to the ones that are guaranteed to work
+       with the help of :py:func:`~reikna.cluda.dtypes.adjust_offsets`.
     """
     if dtype.names is None:
         return ctype(dtype)
     else:
         if dtype not in _DTYPE_TO_CTYPE_MODULE:
-            module = _get_struct_module(dtype)
+            module = _get_struct_module(dtype, ignore_alignment=ignore_alignment)
             _DTYPE_TO_CTYPE_MODULE[dtype] = module
         else:
             module = _DTYPE_TO_CTYPE_MODULE[dtype]
 
         return module
+
+
+def adjust_offsets(dtype):
+    """
+    Returns a new struct dtype with the field offsets changed to the ones a compiler would use
+    (without being given any explicit alignment qualifiers).
+    """
+    if dtype.names is None:
+        return dtype
+
+    # Adjust offsets of the nested fields
+    adjusted_fields = [
+        adjust_offsets(dtype.fields[name][0])
+        for name in dtype.names]
+
+    # Get base alignments for the nested fields
+    alignments = [_find_alignments(field_dtype)[0] for field_dtype in adjusted_fields]
+
+    # Build offsets for the structure using a procedure
+    # similar to the one a compiler would use
+    offsets = [0]
+    for name, prev_field_dtype, alignment in zip(
+            dtype.names[1:], adjusted_fields[:-1], alignments[1:]):
+        prev_end = offsets[-1] + prev_field_dtype.itemsize
+        offsets.append(min_blocks(prev_end, alignment) * alignment)
+
+    # Find the total itemsize.
+    # According to the standard, it must be a multiple of the minimal alignment.
+    struct_alignment = _struct_alignment(alignments)
+    min_itemsize = offsets[-1] + adjusted_fields[-1].itemsize
+    itemsize = min_blocks(min_itemsize, struct_alignment) * struct_alignment
+
+    return numpy.dtype(dict(
+        names=dtype.names,
+        formats=adjusted_fields,
+        offsets=offsets,
+        itemsize=itemsize))
 
 
 def _flatten_dtype(dtype, prefix=[]):
