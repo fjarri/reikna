@@ -20,6 +20,7 @@
 * ?FIX (computations): for some reason, struct Reduce with nested dtypes does not work: crash for OpenCL, weird compilation error for CUDA.
   Namely, they do not like constructions like ``type v = {0, {0}, 0}``.
   Need to build MREs and investigate; if resolved, update test_reduce/test_structure_type.
+* ?FIX (computations): investigate fails in cbrng/normal_bm and fft tests that only happen when ``fast_math`` is set to ``False``.
 
 
 0.5.0
