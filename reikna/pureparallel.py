@@ -119,9 +119,8 @@ class PureParallel(Computation):
 
         plan.kernel_call(
             template, args,
-            global_size=self._guiding_shape,
+            global_size=(1,) if len(self._guiding_shape) == 0 else self._guiding_shape,
             render_kwds=dict(
-                shape=self._guiding_shape,
                 idxs=idxs,
                 product=helpers.product,
                 snippet=self._snippet))

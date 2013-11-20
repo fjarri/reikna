@@ -1,10 +1,6 @@
 0.5.0
 =====
 
-* ?FEATURE (core): How do we treat cases of arrays with shape ()?
-  For example, ``Reduce`` may use these for output in case of full reduction
-  (currently it sets the shape to (1,) in such cases).
-  It is possible to work with them like with actual zero shape arrays, but then load_idx()/store_idx() modules must be modified to allow that.
 * FIX (core): chicken and egg problem with alignment of custom dtypes in Computations.
   On the one hand, a Computation object is intended to be thread/device-independent,
   so we shouldn't really call ``adjust_alignment()`` and then feed the resulting dtype to Computation.

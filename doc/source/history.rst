@@ -25,6 +25,8 @@ Release history
 
 * ADDED: :py:func:`~reikna.cluda.functions.polar_unit` function module in CLUDA.
 
+* ADDED: support for arrays with 0-dimensional shape as computation and transformation arguments.
+
 * FIXED: a bug in :py:class:`~reikna.reduce.Reduce`, which lead to incorrect results in cases when the reduction power is exactly equal to the maximum one.
 
 * FIXED: :py:class:`~reikna.transpose.Transpose` now works correctly for struct dtypes.

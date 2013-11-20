@@ -93,6 +93,32 @@ def test_guiding_shape(thr):
     assert diff_is_negligible(res_dev.get(), res_ref)
 
 
+def test_zero_length_shape(thr):
+
+    dtype = numpy.float32
+
+    p = PureParallel(
+        [
+            Parameter('output', Annotation(Type(dtype, shape=tuple()), 'o')),
+            Parameter('input', Annotation(Type(dtype, shape=tuple()), 'i'))],
+        """
+        float t = ${input.load_idx}();
+        ${output.store_idx}(t * 2);
+        """,
+        guiding_array=tuple())
+
+    a = get_test_array_like(p.parameter.input)
+    a_dev = thr.to_device(a)
+    res_dev = thr.empty_like(p.parameter.output)
+
+    pc = p.compile(thr)
+    pc(res_dev, a_dev)
+
+    res_ref = (a * 2).astype(dtype)
+
+    assert diff_is_negligible(res_dev.get(), res_ref)
+
+
 def test_trf_with_guiding_input(thr):
     """
     Test the creation of ``PureParallel`` out of a transformation,

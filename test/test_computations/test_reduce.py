@@ -29,10 +29,8 @@ def test_normal(thr, shape, axis):
     rd = Reduce(a, predicate_sum(numpy.int64), axes=(axis,) if axis is not None else None)
 
     b_dev = thr.empty_like(rd.parameter.output)
-
     b_ref = a.sum(axis)
-    if len(b_ref.shape) == 0:
-        b_ref = numpy.array([b_ref], numpy.int64)
+    b_dev = thr.to_device(numpy.ones_like(b_ref))
 
     rdc = rd.compile(thr)
     rdc(b_dev, a_dev)

@@ -78,16 +78,7 @@ class Reduce(Computation):
             empty = dtypes.cast(arr_t.dtype)(predicate.empty)
 
         remaining_axes = tuple(a for a in range(dims) if a not in axes)
-
-        # Currently zero-dimensional arrays are not supported,
-        # so we use a 1-element array instead.
-        self._real_output_shape = tuple(arr_t.shape[a] for a in remaining_axes)
-        if len(self._real_output_shape) == 0:
-            output_shape = (1,)
-            self._scalar_output = True
-        else:
-            output_shape = self._real_output_shape
-            self._scalar_output = False
+        output_shape = tuple(arr_t.shape[a] for a in remaining_axes)
 
         if axes == tuple(range(dims - len(axes), dims)):
             self._transpose_axes = None
@@ -124,7 +115,7 @@ class Reduce(Computation):
 
             cur_input = tr_output
 
-        axis_start = len(self._real_output_shape)
+        axis_start = len(output.shape)
         axis_end = len(input_.shape) - 1
 
         input_slices = (axis_start, axis_end - axis_start + 1)
