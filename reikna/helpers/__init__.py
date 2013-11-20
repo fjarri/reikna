@@ -176,9 +176,12 @@ def log2(num):
 
 def bounding_power_of_2(num):
     """
-    Returns closest number of the form ``2**m`` such it is greater or equal to ``n``.
+    Returns the minimal number of the form ``2**m`` such that it is greater or equal to ``n``.
     """
-    return 2 ** (log2(num - 1) + 1)
+    if num == 1:
+        return 1
+    else:
+        return 2 ** (log2(num - 1) + 1)
 
 
 def factors(num, limit=None):

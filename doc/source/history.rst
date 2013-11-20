@@ -24,6 +24,8 @@ Release history
 
 * FIXED: :py:class:`~reikna.transpose.Transpose` now works correctly for struct dtypes.
 
+* FIXED: :py:class:`~reikna.helpers.bounding_power_of_2` now correctly returns ``1`` instead of ``2`` being given ``1`` as an argument.
+
 
 0.4.0 (10 Nov 2013)
 ===================
