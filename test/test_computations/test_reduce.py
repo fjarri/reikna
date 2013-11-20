@@ -122,11 +122,11 @@ def test_structure_type(thr):
 
 
 @pytest.mark.perf
-@pytest.mark.returns('GFLOPS')
+@pytest.mark.returns('GB/s')
 def test_summation(thr):
 
-    perf_size = 2 ** 20
-    dtype = numpy.int64
+    perf_size = 2 ** 22
+    dtype = dtypes.normalize_type(numpy.int64)
 
     a = get_test_array(perf_size, dtype)
     a_dev = thr.to_device(a)
@@ -139,13 +139,14 @@ def test_summation(thr):
     rdc = rd.compile(thr)
 
     attempts = 10
-    t1 = time.time()
+    times = []
     for i in range(attempts):
+        t1 = time.time()
         rdc(b_dev, a_dev)
-    thr.synchronize()
-    t2 = time.time()
+        thr.synchronize()
+        times.append(time.time() - t1)
 
     assert diff_is_negligible(b_dev.get(), b_ref)
 
-    return (t2 - t1) / attempts, perf_size
+    return min(times), perf_size * dtype.itemsize
 
