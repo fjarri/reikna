@@ -31,6 +31,8 @@ Release history
 
 * FIXED: :py:class:`~reikna.helpers.bounding_power_of_2` now correctly returns ``1`` instead of ``2`` being given ``1`` as an argument.
 
+* FIXED: :py:meth:`~reikna.cluda.api.Thread.compile_static` local size finding algorithm is much less prone to failure now.
+
 
 0.4.0 (10 Nov 2013)
 ===================

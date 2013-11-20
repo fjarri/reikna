@@ -529,28 +529,34 @@ class StaticKernel:
         main_src = render_template_source(
             template_src, render_args=render_args, render_kwds=render_kwds)
 
-        # We need the first approximation of the maximum thread number for a kernel.
-        # Stub virtual size functions instead of real ones will not change it (hopefully).
-        stub_vs = VirtualSizes(
-            thr.device_params, thr.device_params.max_work_group_size,
-            global_size, virtual_local_size=local_size)
-        stub_vsize_funcs = stub_vs.vsize_functions
+        # Since virtual size function require some registers, they affect the maximum local size.
+        # Start from the device's max work group size as the first approximation
+        # and recompile kernels with smaller local sizes until convergence.
+        max_work_group_size = thr.device_params.max_work_group_size
+        while True:
+            vs = VirtualSizes(
+                thr.device_params, max_work_group_size,
+                global_size, virtual_local_size=local_size)
+            vsize_funcs = vs.vsize_functions
+            program = Program(
+                self._thr, vsize_funcs + main_src, static=True,
+                fast_math=fast_math)
+            kernel = getattr(program, name)
 
-        stub_program = Program(self._thr, stub_vsize_funcs + main_src,
-            static=True, fast_math=fast_math)
-        stub_kernel = getattr(stub_program, name)
-        max_work_group_size = stub_kernel.max_work_group_size
+            # Kernel will execute with this local size, use it
+            if kernel.max_work_group_size >= product(vs.real_local_size):
+                break
 
-        # Second pass, compiling the actual kernel
+            # By the contract of VirtualSizes,
+            # product(vs.real_local_size) <= max_work_group_size
+            # Also, since we're still in this loop,
+            # kernel.max_work_group_size < product(vs.real_local_size)
+            # Therefore the new max_work_group_size value is guaranteed
+            # to be smaller than the previous one.
+            max_work_group_size = kernel.max_work_group_size
 
-        vs = VirtualSizes(
-            thr.device_params, max_work_group_size,
-            global_size, virtual_local_size=local_size)
-        vsize_funcs = vs.vsize_functions
-        self._program = Program(self._thr, vsize_funcs + main_src, static=True,
-            fast_math=fast_math)
-        self._kernel = getattr(self._program, name)
-
+        self._program = program
+        self._kernel = kernel
         self.virtual_local_size = vs.virtual_local_size
         self.virtual_global_size = vs.virtual_global_size
         self.local_size = vs.real_local_size
