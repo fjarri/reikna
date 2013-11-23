@@ -92,7 +92,7 @@ _module_transformation = helpers.template_def(
     """
     // ${'output' if output else 'input'} transformation node for "${name}"
     <%
-        value_param = [connector_ctype + ' ' + VALUE_NAME] if output else []
+        value_param = [str(connector_ctype) + ' ' + VALUE_NAME] if output else []
         value = [VALUE_NAME] if output else []
 
         signature = (
@@ -205,7 +205,7 @@ _module_combined = helpers.template_def(
     ['prefix', 'slices'],
     """
     <%
-        value_param = [connector_ctype + ' ' + VALUE_NAME] if output else []
+        value_param = [str(connector_ctype) + ' ' + VALUE_NAME] if output else []
         value = [VALUE_NAME] if output else []
 
         combined_indices = ['_c_idx' + str(i) for i in range(len(slices))]
