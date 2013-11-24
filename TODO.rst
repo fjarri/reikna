@@ -12,33 +12,37 @@
 * FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
 
 
-0.6.0
+0.5.1
 =====
 
 * ?FIX (computations): for some reason, struct Reduce with nested dtypes does not work with OpenCL on OSX --- the initialization ``type v = {0, {0}, 0}`` produces incorrect results (per-field initialization works correctly).
   CUDA and OCL on Linux work correctly.
 * ?FIX (computations): investigate fails in cbrng/normal_bm and fft tests that only happen when ``fast_math`` is set to ``False``.
 
-* ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
-  Basically it's just a synonym for ``load_combined(len(arg.shape))``.
-* API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
-* FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
-  it is called again with reduced local size
-* ?FIX (core): perhaps we should memoize parametrized modules too: for example, FFT produces dozens of modules for load and store (because it calls them in a loop).
-
 * FEATURE: write an example analogous to demo-struct-reduce from PyOpenCL.
   Probably a Reduce for a custom dtype + transformations to and from the target array dtype.
   (Must solve the problem with custom dtypes as Computation paramters first).
 * ?FEATURE (computations): reduction with multiple predicates on a single (or multiple too?) array.
   Basically, the first stage has to be modified to store results in several arrays and then several separate reductions can be performed.
+* FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
+  it is called again with reduced local size
+* ?FIX (core): perhaps we should memoize parametrized modules too: for example, FFT produces dozens of modules for load and store (because it calls them in a loop).
+* ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
+  Basically it's just a synonym for ``load_combined(len(arg.shape))``.
+* API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
+* ?FEATURE: Need to cache the results of Computation.compile().
+  Even inside a single thread it can give a performance boost (e.g. code generation for FFT is especially slow).
+
+
+0.6.0
+=====
+
 * ?API (core): make ``device_params`` an attribute of plan or plan factory?
 * ?API (cluda): make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
 * FEATURE (core): take not only CLUDA Thread as a parameter for computation ``compile``, but also CommandQueue, opencl Context, CUDA Stream and so on.
 * FEATURE (CLUDA): add ``Thread.fork()`` which creates another Thread with the same context and device but different queue.
   Also, how do we create a ``Thread`` with the same context, but different device?
   Or how do we create and use a ``Thread`` with several devices?
-* ?FEATURE: Need to cache the results of Computation.compile().
-  Even inside a single thread it can give a performance boost (e.g. code generation for FFT is especially slow).
 
 * FIX (core): When we connect a transformation, difference in strides between arrays in the connection can be ignored (and probably the transformation's signature changed too; at least we need to decide which strides to use in the exposed node).
   Proposal: leave it as is; make existing transformations "propagate" strides to results; and create a special transformation that only changes strides (or make it a parameter to the identity one).
@@ -81,6 +85,9 @@
 * FEATURE (computations): add filter
 * FEATURE (computations): add radix-3,5,7 for FFT
 * FEATURE (computations): commonly required linalg functions: diagonalisation, inversion, decomposition, determinant of matrices
+* FEATURE (computations): median of an array:
+  1) brute force: sort over an axis and slice;
+  2) O(N): median of medians algorithm (need to investigate whether it is effective on GPU)
 
 
 1.*
