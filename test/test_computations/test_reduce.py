@@ -83,7 +83,7 @@ def test_structure_type(thr):
         ('i1', numpy.uint32),
         ('v', numpy.uint64),
         ('i2', numpy.uint32)
-        ])
+        ]))
 
     a = get_test_array(shape, dtype)
     a_dev = thr.to_device(a)
