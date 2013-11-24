@@ -300,13 +300,6 @@ def _get_struct_module(dtype, ignore_alignment=False):
     Builds and returns a module with the C type definition for a given ``dtype``,
     possibly using modules for nested structures.
     """
-
-    if dtype.names is None:
-        raise ValueError("dtype must be a struct type")
-
-    if len(dtype.shape) > 0:
-        raise ValueError("The data type cannot be an array")
-
     if not ignore_alignment:
         struct_alignment, field_alignments = _find_alignments(dtype)
 
@@ -387,17 +380,21 @@ def ctype_module(dtype, ignore_alignment=False):
         return module
 
 
-def adjust_offsets(dtype):
+def align(dtype):
     """
     Returns a new struct dtype with the field offsets changed to the ones a compiler would use
     (without being given any explicit alignment qualifiers).
+    Ignores all existing explicit itemsizes and offsets.
     """
+    if len(dtype.shape) > 0:
+        return numpy.dtype((align(dtype.base), dtype.shape))
+
     if dtype.names is None:
         return dtype
 
-    # Adjust offsets of the nested fields
+    # Align the nested fields
     adjusted_fields = [
-        adjust_offsets(dtype.fields[name][0])
+        align(dtype.fields[name][0])
         for name in dtype.names]
 
     # Get base alignments for the nested fields
@@ -421,7 +418,8 @@ def adjust_offsets(dtype):
         names=dtype.names,
         formats=adjusted_fields,
         offsets=offsets,
-        itemsize=itemsize))
+        itemsize=itemsize,
+        aligned=True))
 
 
 def _flatten_dtype(dtype, prefix=[]):

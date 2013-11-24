@@ -7,7 +7,7 @@ import reikna.cluda.dtypes as dtypes
 
 def pytest_generate_tests(metafunc):
 
-    if 'dtype_to_adjust' in metafunc.funcargnames:
+    if 'dtype_to_align' in metafunc.funcargnames:
 
         vals = []
         ids = []
@@ -35,7 +35,7 @@ def pytest_generate_tests(metafunc):
         vals.append(dtype)
         ids.append("nested_array")
 
-        metafunc.parametrize('dtype_to_adjust', vals, ids=ids)
+        metafunc.parametrize('dtype_to_align', vals, ids=ids)
 
 
 def extract_field(arr, path):
@@ -80,21 +80,21 @@ def get_offsets_from_device(thr, dtype):
     # Casting to Python ints, becase numpy ints as dtype offsets make it unhashable.
     offsets = [int(offset) for offset in offsets]
 
-    adjusted_dtypes = [
+    aligned_dtypes = [
         get_offsets_from_device(thr, dtype.fields[name][0])
         for name in dtype.names]
 
     return numpy.dtype(dict(
         names=dtype.names,
-        formats=adjusted_dtypes,
+        formats=aligned_dtypes,
         offsets=offsets[:-1],
         itemsize=offsets[-1]))
 
 
-def test_adjust_offsets(thr, dtype_to_adjust):
-    adjusted_dtype = dtypes.adjust_offsets(dtype_to_adjust)
-    empyric_dtype = get_offsets_from_device(thr, dtype_to_adjust)
-    assert adjusted_dtype == empyric_dtype
+def test_align(thr, dtype_to_align):
+    aligned_dtype = dtypes.align(dtype_to_align)
+    empyric_dtype = get_offsets_from_device(thr, dtype_to_align)
+    assert aligned_dtype == empyric_dtype
 
 
 def check_struct_fill(thr, dtype):
@@ -152,7 +152,7 @@ def test_hardcoded_offsets(thr):
     check_struct_fill(thr, dtype)
 
 
-def test_adjusted_alignment(thr):
+def test_align(thr):
     """
     Test the correctness of alignment for field offsets adjusted automatically.
     """
@@ -165,7 +165,7 @@ def test_adjusted_alignment(thr):
         ('val2', numpy.int16),
         ('nested', dtype_nested)])
 
-    dtype = dtypes.adjust_offsets(dtype)
+    dtype = dtypes.align(dtype)
 
     check_struct_fill(thr, dtype)
 
@@ -182,7 +182,7 @@ def test_nested_array(thr):
         names=['pad', 'struct_arr', 'regular_arr'],
         formats=[numpy.int32, numpy.dtype((dtype_nested, 2)), numpy.dtype((numpy.int16, 3))]))
 
-    dtype = dtypes.adjust_offsets(dtype)
+    dtype = dtypes.align(dtype)
     struct = dtypes.ctype_module(dtype)
 
     program = thr.compile(

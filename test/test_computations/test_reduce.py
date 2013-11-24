@@ -79,13 +79,11 @@ def test_nonsequential_axes(thr):
 def test_structure_type(thr):
 
     shape = (100, 100)
-    dtype = numpy.dtype([
+    dtype = dtypes.align(numpy.dtype([
         ('i1', numpy.uint32),
         ('v', numpy.uint64),
         ('i2', numpy.uint32)
         ])
-
-    dtype = dtypes.adjust_offsets(dtype)
 
     a = get_test_array(shape, dtype)
     a_dev = thr.to_device(a)
