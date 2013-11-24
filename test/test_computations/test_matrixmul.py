@@ -17,37 +17,44 @@ def pytest_generate_tests(metafunc):
         ids=["8x8", "16x16", "32x32"]
         metafunc.parametrize('perf_bwo', bwos, ids=ids)
 
-    if 'perf_shapes' in metafunc.funcargnames:
+    if 'perf_shape' in metafunc.funcargnames:
 
-        shapes = []
-        for s in [(64, 64), (256, 256), (1024, 1024)]:
-            shapes.append((s, s))
+        mem_limit = 2 ** 20
+        sizes = [16, 32, 64, 256, 512, 25]
 
-        for s in [(1024, 16, 16), (256, 32, 32), (512, 25, 25)]:
-            shapes.append((s, s[1:]))
-            shapes.append((s, s))
+        perf_shapes = []
+
+        for size in sizes:
+            perf_shapes.append((mem_limit // size ** 2, size))
 
         ids = []
-        for s in shapes:
-            ids.append(str(s[0]) + 'x' + str(s[1]))
+        for batch, size in perf_shapes:
+            ids.append(str(batch) + 'x' + str(size) + "," + str(size))
 
-        metafunc.parametrize('perf_shapes', shapes, ids=ids)
+        metafunc.parametrize('perf_shape', perf_shapes, ids=ids)
 
-    if 'shapes' in metafunc.funcargnames:
+    if 'sizes' in metafunc.funcargnames:
+        sizes = [
+            (15, 17, 3), (122, 5, 1000), (45, 99, 40), (56, 78, 44)]
+        ids = [str(size) for size in sizes]
+        metafunc.parametrize('sizes', sizes, ids=ids)
 
-        shapes = [
-            ((15, 17), (17, 3)),
-            ((122, 5), (5, 1000)),
-            ((45, 99), (30, 99, 40)),
-            ((12, 56, 78), (12, 78, 44))
-        ]
+    if 'batches' in metafunc.funcargnames:
+        batches = [
+            (tuple(), tuple()),
+            (tuple(), (14,)),
+            ((35,), tuple()),
+            ((12,), (12,))]
+        ids = [str(batch) for batch in batches]
+        metafunc.parametrize('batches', batches, ids=ids)
 
-        ids = [str(s1) + 'x' + str(s2) for s1, s2 in shapes]
+    if 'transposed_a' in metafunc.funcargnames:
+        metafunc.parametrize('transposed_a', [False, True], ids=['A', 'A.T'])
 
-        metafunc.parametrize('shapes', shapes, ids=ids)
+    if 'transposed_b' in metafunc.funcargnames:
+        metafunc.parametrize('transposed_b', [False, True], ids=['B', 'B.T'])
 
     if 'arg_dtypes' in metafunc.funcargnames:
-
         arg_dtypes = [(False, False), (False, True), (True, False), (True, True)]
         mark = lambda x: 'c' if x else 'r'
         ids = [mark(t1) + mark(t2) for t1, t2 in arg_dtypes]
@@ -79,45 +86,106 @@ def ref_dot(a, b):
     return out
 
 
-def test_errors(thr_and_double, shapes, arg_dtypes):
+def transpose(m):
+    axes = list(range(len(m.shape)))
+    axes[-1], axes[-2] = axes[-2], axes[-1]
+    return m.transpose(*axes)
 
-    thr, double = thr_and_double
-    s1, s2 = shapes
-    c1, c2 = arg_dtypes
 
-    dtype = numpy.float64 if double else numpy.float32
-    dtype1 = dtypes.complex_for(dtype) if c1 else dtype
-    dtype2 = dtypes.complex_for(dtype) if c2 else dtype
+def check_errors(thr, a_shape, a_dtype, b_shape, b_dtype, transposed_a=False, transposed_b=False):
+    a = get_test_array(a_shape, a_dtype)
+    b = get_test_array(b_shape, b_dtype)
 
-    a = get_test_array(s1, dtype1)
-    b = get_test_array(s2, dtype2)
-    res_ref = ref_dot(a, b)
+    a_ref = transpose(a) if transposed_a else a
+    b_ref = transpose(b) if transposed_b else b
+
+    res_ref = ref_dot(a_ref, b_ref)
 
     a_dev = thr.to_device(a)
     b_dev = thr.to_device(b)
     res_dev = thr.empty_like(res_ref)
 
-    dot = MatrixMul(a_dev, b_dev, out_arr=res_dev)
+    dot = MatrixMul(a_dev, b_dev, out_arr=res_dev,
+        transposed_a=transposed_a, transposed_b=transposed_b)
     dotc = dot.compile(thr)
     dotc(res_dev, a_dev, b_dev)
 
     assert diff_is_negligible(res_dev.get(), res_ref)
 
 
-def check_performance(thr_and_double, shape1, shape2, bwo):
+def test_shapes(thr, batches, sizes):
+
+    a_size, convolution_size, b_size = sizes
+    a_batch, b_batch = batches
+
+    a_shape = (a_size, convolution_size)
+    b_shape = (convolution_size, b_size)
+
+    check_errors(thr, a_batch + a_shape, numpy.float32, b_batch + b_shape, numpy.float32)
+
+
+def test_transposed(thr, sizes, transposed_a, transposed_b):
+
+    a_size, convolution_size, b_size = sizes
+    a_batch = (10,)
+    b_batch = (10,)
+
+    if transposed_a:
+        a_shape = (convolution_size, a_size)
+    else:
+        a_shape = (a_size, convolution_size)
+
+    if transposed_b:
+        b_shape = (b_size, convolution_size)
+    else:
+        b_shape = (convolution_size, b_size)
+
+    check_errors(
+        thr, a_batch + a_shape, numpy.float32, b_batch + b_shape, numpy.float32,
+        transposed_a=transposed_a, transposed_b=transposed_b)
+
+
+def test_dtypes(thr_and_double, arg_dtypes):
+
+    thr, double = thr_and_double
+    c1, c2 = arg_dtypes
+
+    dtype = numpy.float64 if double else numpy.float32
+    dtype1 = dtypes.complex_for(dtype) if c1 else dtype
+    dtype2 = dtypes.complex_for(dtype) if c2 else dtype
+
+    check_errors(thr, (30, 40, 50), dtype1, (30, 50, 60), dtype2)
+
+
+def test_out_arr_shape():
+    a = numpy.empty((1, 22, 33), numpy.float32)
+    b = numpy.empty((2, 3, 33, 44), numpy.float32)
+    dot = MatrixMul(a, b)
+    assert dot.parameter.output.shape == (2, 3, 22, 44)
+
+
+def check_performance(thr_and_double, perf_shape,
+        bwo=None, transposed_a=False, transposed_b=False):
 
     thr, double = thr_and_double
     dtype = numpy.float64 if double else numpy.float32
+    batch, size = perf_shape
 
-    a = get_test_array(shape1, dtype)
-    b = get_test_array(shape2, dtype)
+    shape = (batch, size, size)
+
+    a = get_test_array(shape, dtype)
+    b = get_test_array(shape, dtype)
+
+    a_ref = transpose(a) if transposed_a else a
+    b_ref = transpose(b) if transposed_b else b
 
     a_dev = thr.to_device(a)
     b_dev = thr.to_device(b)
-    res_ref = ref_dot(a, b)
+    res_ref = ref_dot(a_ref, b_ref)
     res_dev = thr.array(res_ref.shape, dtype=dtype)
 
-    dot = MatrixMul(a_dev, b_dev, out_arr=res_dev, block_width_override=bwo)
+    dot = MatrixMul(a_dev, b_dev, out_arr=res_dev, block_width_override=bwo,
+        transposed_a=transposed_a, transposed_b=transposed_b)
 
     try:
         dotc = dot.compile(thr)
@@ -133,16 +201,17 @@ def check_performance(thr_and_double, shape1, shape2, bwo):
 
     assert diff_is_negligible(thr.from_device(res_dev), res_ref)
 
-    return (t2 - t1) / attempts, product(res_ref.shape) * shape1[-1] * 2
+    return (t2 - t1) / attempts, batch * size ** 3 * 2
 
 
 @pytest.mark.perf
 @pytest.mark.returns('GFLOPS')
-def test_performance_shape(thr_and_double, perf_shapes):
-    return check_performance(thr_and_double, perf_shapes[0], perf_shapes[1], None)
+def test_performance_shape(thr_and_double, perf_shape, transposed_a, transposed_b):
+    return check_performance(thr_and_double, perf_shape,
+        transposed_a=transposed_a, transposed_b=transposed_b)
 
 
 @pytest.mark.perf
 @pytest.mark.returns('GFLOPS')
 def test_performance_block_width(thr_and_double, perf_bwo):
-    return check_performance(thr_and_double, (512, 512), (512, 512), perf_bwo)
+    return check_performance(thr_and_double, (4, 512), bwo=perf_bwo)

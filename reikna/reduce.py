@@ -1,3 +1,5 @@
+import numpy
+
 from reikna.cluda import Snippet
 import reikna.helpers as helpers
 from reikna.cluda import dtypes
@@ -13,7 +15,7 @@ class Predicate:
 
     :param operation: a :py:class:`~reikna.cluda.Snippet` object with two parameters
         which will take the names of two arguments to join.
-    :param empty: a string with the empty value of the argument
+    :param empty: a numpy scalar with the empty value of the argument
         (the one which, being joined by another argument, does not change it).
     """
 
@@ -31,7 +33,7 @@ def predicate_sum(dtype):
     """
     return Predicate(
         Snippet.create(lambda v1, v2: "return ${v1} + ${v2};"),
-        dtypes.c_constant(dtypes.cast(dtype)(0)))
+        numpy.zeros(1, dtype)[0])
 
 
 class Reduce(Computation):
@@ -68,24 +70,23 @@ class Reduce(Computation):
         if min(axes) < 0 or max(axes) >= dims:
             raise ValueError("Axes numbers are out of bounds")
 
-        remaining_axes = tuple(a for a in range(dims) if a not in axes)
-
-        # Currently zero-dimensional arrays are not supported,
-        # so we use a 1-element array instead.
-        self._real_output_shape = tuple(arr_t.shape[a] for a in remaining_axes)
-        if len(self._real_output_shape) == 0:
-            output_shape = (1,)
-            self._scalar_output = True
+        if hasattr(predicate.empty, 'dtype'):
+            if arr_t.dtype != predicate.empty.dtype:
+                raise ValueError("The predicate and the array must use the same data type")
+            empty = predicate.empty
         else:
-            output_shape = self._real_output_shape
-            self._scalar_output = False
+            empty = dtypes.cast(arr_t.dtype)(predicate.empty)
+
+        remaining_axes = tuple(a for a in range(dims) if a not in axes)
+        output_shape = tuple(arr_t.shape[a] for a in remaining_axes)
 
         if axes == tuple(range(dims - len(axes), dims)):
             self._transpose_axes = None
         else:
             self._transpose_axes = remaining_axes + axes
 
-        self._predicate = predicate
+        self._operation = predicate.operation
+        self._empty = empty
 
         Computation.__init__(self, [
             Parameter('output', Annotation(Type(arr_t.dtype, shape=output_shape), 'o')),
@@ -95,8 +96,14 @@ class Reduce(Computation):
 
         plan = plan_factory()
 
+        # Using algorithm cascading: sequential reduction, and then the parallel one.
+        # According to Brent's theorem, the optimal sequential size is O(log(n)).
+        # Setting it to the nearest power of 2 to simplify integer operations.
+        max_seq_size = helpers.bounding_power_of_2(helpers.log2(device_params.max_work_group_size))
+
         # FIXME: may fail if the user passes particularly sophisticated operation
-        max_reduce_power = device_params.max_work_group_size
+        max_group_size = device_params.max_work_group_size
+        max_reduce_power = max_group_size * max_seq_size
 
         if self._transpose_axes is None:
             # normal reduction
@@ -108,7 +115,7 @@ class Reduce(Computation):
 
             cur_input = tr_output
 
-        axis_start = len(self._real_output_shape)
+        axis_start = len(output.shape)
         axis_end = len(input_.shape) - 1
 
         input_slices = (axis_start, axis_end - axis_start + 1)
@@ -118,29 +125,37 @@ class Reduce(Computation):
 
         while part_size > 1:
 
-            if part_size >= max_reduce_power:
-                block_size = max_reduce_power
-                blocks_per_part = helpers.min_blocks(part_size, block_size)
+            if part_size > max_reduce_power:
+                seq_size = max_seq_size
+                block_size = max_group_size
+                blocks_per_part = helpers.min_blocks(part_size, block_size * seq_size)
                 cur_output = plan.temp_array(
                     (final_size, blocks_per_part), input_.dtype)
                 output_slices = (1, 1)
             else:
-                block_size = helpers.bounding_power_of_2(part_size)
+                if part_size > max_group_size:
+                    seq_size = helpers.min_blocks(part_size, max_group_size)
+                    block_size = max_group_size
+                else:
+                    seq_size = 1
+                    block_size = helpers.bounding_power_of_2(part_size)
                 blocks_per_part = 1
                 cur_output = output
                 output_slices = (len(cur_output.shape), 0)
 
-            if part_size % block_size != 0:
-                last_block_size = part_size % block_size
+            if part_size % (block_size * seq_size) != 0:
+                last_block_size = part_size % (block_size * seq_size)
             else:
-                last_block_size = block_size
+                last_block_size = block_size * seq_size
 
             render_kwds = dict(
+                seq_size=seq_size,
                 blocks_per_part=blocks_per_part,
                 last_block_size=last_block_size,
                 log2=helpers.log2, block_size=block_size,
                 warp_size=device_params.warp_size,
-                predicate=self._predicate,
+                empty=self._empty,
+                operation=self._operation,
                 input_slices=input_slices,
                 output_slices=output_slices)
 

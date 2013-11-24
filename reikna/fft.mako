@@ -184,7 +184,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, VSIZE_T pos)
 {
     // The modulo of 2 * fft_size_real does not change the result,
     // but greatly improves the precision by keeping the argument of sin()/cos() small.
-    return ${polar}(1, dir_coeff * ${wrap_const(numpy.pi / fft_size_real)} *
+    return ${polar_unit}(dir_coeff * ${wrap_const(numpy.pi / fft_size_real)} *
         ((pos * pos) % (2 * ${fft_size_real})) );
 }
 
@@ -638,7 +638,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, VSIZE_T pos)
             <% ind = z * radix + k %>
             a[${ind}] = ${mul}(
                 a[${ind}],
-                ${polar}(1, ${wrap_const(2 * numpy.pi * k / data_len)} * angf * direction));
+                ${polar_unit}(${wrap_const(2 * numpy.pi * k / data_len)} * angf * direction));
         %endfor
     }
     %endfor
@@ -880,7 +880,7 @@ ${kernel_declaration}
         %for k in range(1, radix1):
         {
             const real_t ang = ${wrap_const(2 * numpy.pi * k / radix)} * xform_local * direction;
-            const complex_t w = ${polar}(1, ang);
+            const complex_t w = ${polar_unit}(ang);
             a[${k}] = ${mul}(a[${k}], w);
         }
         %endfor
@@ -920,7 +920,7 @@ ${kernel_declaration}
         %for t in range(radix1):
         {
             const real_t ang = ang1 * (k + ${(t % radix2) * radix1 + (t // radix2)});
-            const complex_t w = ${polar}(1, ang);
+            const complex_t w = ${polar_unit}(ang);
             a[${t}] = ${mul}(a[${t}], w);
         }
         %endfor

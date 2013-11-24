@@ -1,46 +1,47 @@
-0.5.0
+0.5.1
 =====
 
-* API (computations): the neutral value in a Predicate for Reduce must be a numpy.dtype'd value, not a string.
-* FIX (cluda): alignment property in ``ctype_module`` is now used as if it defined the total size of a structure.
-  In general, it's not.
-  For example, ``[('val1', numpy.int32), ('val2', numpy.int32), ('pad', numpy.int8)]`` will fail ``test_adjusted_alignment``, because it will set ``ALIGN`` to 12, when 4 is needed.
-* FIX (core): chicken and egg problem with alignment of custom dtypes in Computations.
-  On the one hand, a Computation object is intended to be thread/device-independent,
-  so we shouldn't really call ``adjust_alignment()`` and then feed the resulting dtype to Computation.
-  On the other hand, if a struct dtype which needs to be aligned is used, ``adjust_alignment()`` has to be called for it during ``Computation.compile()``.
-  We can do it easily for parameters, but what if this dtype is used somewhere in the module tree?
-  For example, in a Predicate for Reduce.
-  Search module tree recursively for dtype objects?
-  Some device-dependent caching of ``adjust_alignment()`` results will probably have to be implemented as well.
+* ?FIX (computations): for some reason, struct Reduce with nested dtypes does not work with OpenCL on OSX --- the initialization ``type v = {0, {0}, 0}`` produces incorrect results (per-field initialization works correctly).
+  CUDA and OCL on Linux work correctly.
+* ?FIX (computations): investigate fails in cbrng/normal_bm and fft tests that only happen when ``fast_math`` is set to ``False``.
+
 * FEATURE: write an example analogous to demo-struct-reduce from PyOpenCL.
   Probably a Reduce for a custom dtype + transformations to and from the target array dtype.
   (Must solve the problem with custom dtypes as Computation paramters first).
 * ?FEATURE (computations): reduction with multiple predicates on a single (or multiple too?) array.
   Basically, the first stage has to be modified to store results in several arrays and then several separate reductions can be performed.
-* FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
+* FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
+  it is called again with reduced local size
+* ?FIX (core): perhaps we should memoize parametrized modules too: for example, FFT produces dozens of modules for load and store (because it calls them in a loop).
 * ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
   Basically it's just a synonym for ``load_combined(len(arg.shape))``.
-* FIX (cbrng): use sincos from ``cluda.functions`` in the normal_bm sampler.
-* TEST (computations): add some performance tests for CBRNG
 * API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
+* ?FEATURE: Need to cache the results of Computation.compile().
+  Even inside a single thread it can give a performance boost (e.g. code generation for FFT is especially slow).
+* FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
+
+
+0.6.0
+=====
+
 * ?API (core): make ``device_params`` an attribute of plan or plan factory?
 * ?API (cluda): make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
 * FEATURE (core): take not only CLUDA Thread as a parameter for computation ``compile``, but also CommandQueue, opencl Context, CUDA Stream and so on.
-* FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
-  it is called again with reduced local size
 * FEATURE (CLUDA): add ``Thread.fork()`` which creates another Thread with the same context and device but different queue.
   Also, how do we create a ``Thread`` with the same context, but different device?
   Or how do we create and use a ``Thread`` with several devices?
-* ?FEATURE (core): How do we treat cases of arrays with shape ()?
-  For example, ``Reduce`` may use these for output in case of full reduction
-  (currently it sets the shape to (1,) in such cases).
-  It is possible to work with them like with actual zero shape arrays, but then load_idx()/store_idx() modules must be modified to allow that.
 
 * FIX (core): When we connect a transformation, difference in strides between arrays in the connection can be ignored (and probably the transformation's signature changed too; at least we need to decide which strides to use in the exposed node).
   Proposal: leave it as is; make existing transformations "propagate" strides to results; and create a special transformation that only changes strides (or make it a parameter to the identity one).
   Currently strides are not supported by PyCUDA or PyOpenCL, so this will wait.
   Idea: strides can be passes to compile() (in form of actual arrays, as a dictionary).
+* ?FIX (core): investigate if the strides-to-flat-index algorithm requires updating to support strides which are not multiples of ``dtype.itemsize`` (see ``flat_index_expr()``).
+* ?FIX (cluda): currently ``ctype_module()`` will throw an error if dtype is not aligned properly.
+  This guarantees that there's no disagreement between a dtype on numpy side and a struct on device side.
+  But the error thrown may be somewhere deep in the hierarchy and not at the point when a user supplies this dtype.
+  Perhaps add some ``check_alignment()`` function and use it, e.g. in ``reduce.Predicate``?
+* ?FIX (cluda): we'll see what numpy folks say about struct alignment.
+  Perhaps ``dtypes._find_alignment()`` will not be necessary anymore.
 
 
 1.0.0 (production-quality version... hopefully)
@@ -50,14 +51,12 @@
 * ?FIX (cluda): find a way to get ``min_mem_coalesce_width`` for OpenCL
 * ?FIX (cluda): what are we going to do with OpenCL platforms that do not support intra-block interaction?
   (for example, Apple's implementation)
-* ?FIX (core): investigate if the strides-to-flat-index algorithm requires updating to support strides which are not multiples of ``dtype.itemsize`` (see ``flat_index_expr()``).
   Currently we have a ``ValueError`` there.
-* ?FIX (core): perhaps we should memoize parametrized modules too: for example, FFT produces dozens of modules for load and store (because it calls them in a loop).
 
 * FEATURE (cluda): add a mechanism to select the best local size based on occupancy
 * ?API (computations): move some of the functionality to the top level of ``reikna`` module?
 * ?FEATURE (core): add ability to connect several transformation parameters to one node.
-  Currently it is impossible because of the chosen interface (kwds do not allow repettitions).
+  Currently it is impossible because of the chosen interface (kwds do not allow repetitions).
   This can be actually still achieved by connecting additional identity transformations.
 * FEATURE (docs): extend starting page (quick links to guides, list of algorithms, quick example)
 
@@ -79,6 +78,9 @@
 * FEATURE (computations): add filter
 * FEATURE (computations): add radix-3,5,7 for FFT
 * FEATURE (computations): commonly required linalg functions: diagonalisation, inversion, decomposition, determinant of matrices
+* FEATURE (computations): median of an array:
+  1) brute force: sort over an axis and slice;
+  2) O(N): median of medians algorithm (need to investigate whether it is effective on GPU)
 
 
 1.*

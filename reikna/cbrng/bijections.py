@@ -9,10 +9,10 @@ TEMPLATE = helpers.template_for(__file__)
 
 def create_struct_types(word_dtype, key_words, counter_words):
 
-    key_dtype = numpy.dtype([('v', (word_dtype, (key_words,)))])
+    key_dtype = dtypes.align(numpy.dtype([('v', (word_dtype, (key_words,)))]))
     key_ctype = dtypes.ctype_module(key_dtype)
 
-    counter_dtype = numpy.dtype([('v', (word_dtype, (counter_words,)))])
+    counter_dtype = dtypes.align(numpy.dtype([('v', (word_dtype, (counter_words,)))]))
     counter_ctype = dtypes.ctype_module(counter_dtype)
 
     return key_dtype, key_ctype, counter_dtype, counter_ctype

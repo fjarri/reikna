@@ -214,7 +214,7 @@ def get_common_kwds(dtype, device_params):
         wrap_const=lambda x: dtypes.c_constant(x, dtypes.real_for(dtype)),
         min_blocks=helpers.min_blocks,
         mul=functions.mul(dtype, dtype),
-        polar=functions.polar(dtypes.real_for(dtype)),
+        polar_unit=functions.polar_unit(dtypes.real_for(dtype)),
         cdivs=functions.div(dtype, numpy.uint32, out_dtype=dtype))
 
 

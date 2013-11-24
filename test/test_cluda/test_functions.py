@@ -80,6 +80,16 @@ def test_exp(thr, out_code, in_codes):
 
 @pytest.mark.parametrize(
     ('out_code', 'in_codes'),
+    [('c', 'f')])
+def test_polar_unit(thr, out_code, in_codes):
+    out_dtype, in_dtypes = generate_dtypes(out_code, in_codes)
+    check_func(
+        thr, functions.polar_unit(in_dtypes[0]),
+        lambda theta: numpy.exp(1j * theta), out_dtype, in_dtypes)
+
+
+@pytest.mark.parametrize(
+    ('out_code', 'in_codes'),
     [('c', 'ff')])
 def test_polar(thr, out_code, in_codes):
     out_dtype, in_dtypes = generate_dtypes(out_code, in_codes)

@@ -7,7 +7,8 @@ import pytest
 
 # renderers
 renderers = {
-    'GFLOPS': lambda x: "{f:.2f} GFLOPS".format(f=float(x[1]) / x[0] / 1e9)
+    'GFLOPS': lambda x: "{f:.2f} GFLOPS".format(f=float(x[1]) / x[0] / 1e9),
+    'GB/s': lambda x: "{f:.2f} GB/s".format(f=float(x[1]) / x[0] / 2 ** 30)
 }
 
 def pytest_configure(config):

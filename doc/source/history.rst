@@ -3,10 +3,37 @@ Release history
 ***************
 
 
-0.5.0 (current development version)
-===================================
+0.5.0 (25 Nov 2013)
+===================
 
-Under construction.
+* CHANGED: :py:class:`~reikna.core.transformation.KernelParameter` is not derived from :py:class:`~reikna.core.Type` anymore (although it still retains the corresponding attributes).
+
+* CHANGED: :py:class:`~reikna.reduce.Predicate` now takes a dtype'd value as ``empty``, not a string.
+
+* CHANGED: The logic of processing struct dtypes was reworked, and ``adjust_alignment`` was removed.
+  Instead, one should use :py:func:`~reikna.cluda.dtypes.align` (which does not take a ``Thread`` parameter) to get a dtype with the offsets and itemsize equal to those a compiler would set.
+  On the other hand, :py:func:`~reikna.cluda.dtypes.ctype_module` attempts to set the alignments such that the field offsets are the same as in the given numpy dtype
+  (unless ``ignore_alignments`` flag is set).
+
+* ADDED: struct dtypes support in :py:func:`~reikna.cluda.dtypes.c_constant`.
+
+* ADDED: :py:func:`~reikna.cluda.dtypes.flatten_dtype` helper function.
+
+* ADDED: added ``transposed_a`` and ``transposed_b`` keyword parameters to :py:class:`~reikna.matrixmul.MatrixMul`.
+
+* ADDED: algorithm cascading to :py:class:`~reikna.reduce.Reduce`, leading to 3-4 times increase in performance.
+
+* ADDED: :py:func:`~reikna.cluda.functions.polar_unit` function module in CLUDA.
+
+* ADDED: support for arrays with 0-dimensional shape as computation and transformation arguments.
+
+* FIXED: a bug in :py:class:`~reikna.reduce.Reduce`, which lead to incorrect results in cases when the reduction power is exactly equal to the maximum one.
+
+* FIXED: :py:class:`~reikna.transpose.Transpose` now works correctly for struct dtypes.
+
+* FIXED: :py:class:`~reikna.helpers.bounding_power_of_2` now correctly returns ``1`` instead of ``2`` being given ``1`` as an argument.
+
+* FIXED: :py:meth:`~reikna.cluda.api.Thread.compile_static` local size finding algorithm is much less prone to failure now.
 
 
 0.4.0 (10 Nov 2013)
@@ -22,7 +49,7 @@ Under construction.
   Correspondingly, the C types for keys and counters can be obtained by calling :py:func:`~reikna.cluda.dtypes.ctype_module` on :py:attr:`~reikna.cbrng.bijections.Bijection.key_dtype` and :py:attr:`~reikna.cbrng.bijections.Bijection.counter_dtype` attributes.
   The module wrappers still define their types, but their names are using a different naming convention now.
 
-* ADDED: module generator for nested dtypes (:py:func:`~reikna.cluda.dtypes.ctype_module`) and a function to get natural field offsets for a given API/device (:py:func:`~reikna.cluda.dtypes.adjust_alignment`).
+* ADDED: module generator for nested dtypes (:py:func:`~reikna.cluda.dtypes.ctype_module`) and a function to get natural field offsets for a given API/device (``adjust_alignment``).
 
 * ADDED: ``fast_math`` keyword parameter in :py:meth:`~reikna.core.Computation.compile`.
   In other words, now ``fast_math`` can be set per computation.

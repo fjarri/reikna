@@ -128,12 +128,12 @@ WITHIN_KERNEL ${dtypes.ctype(dtype)} ${prefix}(${dtypes.ctype(dtype)} a)
 </%def>
 
 
-<%def name="sincos(prefix, dtype)">
+<%def name="polar_unit(prefix)">
 <%
     c_ctype = dtypes.ctype(dtypes.complex_for(dtype))
     s_ctype = dtypes.ctype(dtype)
 %>
-WITHIN_KERNEL ${c_ctype} sincos${prefix}(${s_ctype} theta)
+WITHIN_KERNEL ${c_ctype} ${prefix}(${s_ctype} theta)
 {
     ${dtypes.ctype(dtypes.complex_for(dtype))} res;
 
@@ -161,16 +161,12 @@ WITHIN_KERNEL ${c_ctype} sincos${prefix}(${s_ctype} theta)
 
 
 <%def name="exp(prefix)">
-%if not dtypes.is_real(dtype):
-${sincos(prefix, dtypes.real_for(dtype))}
-%endif
-
 WITHIN_KERNEL ${dtypes.ctype(dtype)} ${prefix}(${dtypes.ctype(dtype)} a)
 {
     %if dtypes.is_real(dtype):
     return exp(a);
     %else:
-    ${dtypes.ctype(dtype)} res = sincos${prefix}(a.y);
+    ${dtypes.ctype(dtype)} res = ${polar_unit_}(a.y);
     ${dtypes.ctype(dtypes.real_for(dtype))} rho = exp(a.x);
     res.x *= rho;
     res.y *= rho;
@@ -184,13 +180,10 @@ WITHIN_KERNEL ${dtypes.ctype(dtype)} ${prefix}(${dtypes.ctype(dtype)} a)
 <%
     out_dtype = dtypes.complex_for(dtype)
 %>
-
-${sincos(prefix, dtype)}
-
 WITHIN_KERNEL ${dtypes.ctype(out_dtype)} ${prefix}(
     ${dtypes.ctype(dtype)} rho, ${dtypes.ctype(dtype)} theta)
 {
-    ${dtypes.ctype(out_dtype)} res = sincos${prefix}(theta);
+    ${dtypes.ctype(out_dtype)} res = ${polar_unit_}(theta);
     res.x *= rho;
     res.y *= rho;
     return res;
