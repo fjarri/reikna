@@ -10,7 +10,7 @@ Release history
 
 * CHANGED: :py:class:`~reikna.reduce.Predicate` now takes a dtype'd value as ``empty``, not a string.
 
-* CHANGED: The logic of processing struct dtypes was reworked, and `adjust_alignment` was removed.
+* CHANGED: The logic of processing struct dtypes was reworked, and ``adjust_alignment`` was removed.
   Instead, one should use :py:func:`~reikna.cluda.dtypes.adjust_offsets` (which does not take a ``Thread`` parameter) to get a dtype with the offsets and itemsize equal to those a compiler would set.
   On the other hand, :py:func:`~reikna.cluda.dtypes.ctype_module` attempts to set the alignments such that the field offsets are the same as in the given numpy dtype
   (unless ``ignore_alignments`` flag is set).
