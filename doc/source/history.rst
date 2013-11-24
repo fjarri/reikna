@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.5.0 (current development version)
-===================================
+0.5.0 (25 Nov 2013)
+===================
 
 * CHANGED: :py:class:`~reikna.core.transformation.KernelParameter` is not derived from :py:class:`~reikna.core.Type` anymore (although it still retains the corresponding attributes).
 
