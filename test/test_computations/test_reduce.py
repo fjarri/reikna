@@ -81,7 +81,9 @@ def test_structure_type(thr):
     shape = (100, 100)
     dtype = dtypes.align(numpy.dtype([
         ('i1', numpy.uint32),
-        ('v', numpy.uint64),
+        ('nested', numpy.dtype([
+            ('v', numpy.uint64),
+            ])),
         ('i2', numpy.uint32)
         ]))
 
@@ -92,14 +94,14 @@ def test_structure_type(thr):
     # since numpy cannot reduce arrays with struct dtypes.
     b_ref = numpy.empty(100, dtype)
     b_ref['i1'] = a['i1'].sum(0)
-    b_ref['v'] = a['v'].sum(0)
+    b_ref['nested']['v'] = a['nested']['v'].sum(0)
     b_ref['i2'] = a['i2'].sum(0)
 
     predicate = Predicate(
         Snippet.create(lambda v1, v2: """
             ${ctype} result = ${v1};
             result.i1 += ${v2}.i1;
-            result.v += ${v2}.v;
+            result.nested.v += ${v2}.nested.v;
             result.i2 += ${v2}.i2;
             return result;
             """,
