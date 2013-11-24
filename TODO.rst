@@ -1,17 +1,3 @@
-0.5.0
-=====
-
-* FIX (core): chicken and egg problem with alignment of custom dtypes in Computations.
-  On the one hand, a Computation object is intended to be thread/device-independent,
-  so we shouldn't really call ``adjust_alignment()`` and then feed the resulting dtype to Computation.
-  On the other hand, if a struct dtype which needs to be aligned is used, ``adjust_alignment()`` has to be called for it during ``Computation.compile()``.
-  We can do it easily for parameters, but what if this dtype is used somewhere in the module tree?
-  For example, in a Predicate for Reduce.
-  Search module tree recursively for dtype objects?
-  Some device-dependent caching of ``adjust_alignment()`` results will probably have to be implemented as well.
-* FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
-
-
 0.5.1
 =====
 
@@ -32,6 +18,7 @@
 * API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
 * ?FEATURE: Need to cache the results of Computation.compile().
   Even inside a single thread it can give a performance boost (e.g. code generation for FFT is especially slow).
+* FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
 
 
 0.6.0
@@ -49,6 +36,12 @@
   Currently strides are not supported by PyCUDA or PyOpenCL, so this will wait.
   Idea: strides can be passes to compile() (in form of actual arrays, as a dictionary).
 * ?FIX (core): investigate if the strides-to-flat-index algorithm requires updating to support strides which are not multiples of ``dtype.itemsize`` (see ``flat_index_expr()``).
+* ?FIX (cluda): currently ``ctype_module()`` will throw an error if dtype is not aligned properly.
+  This guarantees that there's no disagreement between a dtype on numpy side and a struct on device side.
+  But the error thrown may be somewhere deep in the hierarchy and not at the point when a user supplies this dtype.
+  Perhaps add some ``check_alignment()`` function and use it, e.g. in ``reduce.Predicate``?
+* ?FIX (cluda): we'll see what numpy folks say about struct alignment.
+  Perhaps ``dtypes._find_alignment()`` will not be necessary anymore.
 
 
 1.0.0 (production-quality version... hopefully)
