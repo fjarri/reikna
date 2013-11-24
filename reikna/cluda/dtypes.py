@@ -346,31 +346,48 @@ def ctype_module(dtype, ignore_alignment=False):
     with the ``typedef`` of a struct corresponding to the given ``dtype``
     (with its name set to the module prefix);
     falls back to :py:func:`~reikna.cluda.dtypes.ctype` otherwise.
+
     The structure definition includes the alignment required
-    to produce field offsets specified in ``dtype``.
+    to produce field offsets specified in ``dtype``;
+    therefore, ``dtype`` must be either a simple type, or have
+    proper offsets and dtypes (the ones that can be reporoduced in C
+    using explicit alignment attributes, but without additional padding)
+    and the attribute ``isalignedstruct == True``.
+    An aligned dtype can be produced either by standard means
+    (``aligned`` flag in ``numpy.dtype`` constructor and explicit offsets and itemsizes),
+    or created out of an arbitrary dtype with the help of :py:func:`~reikna.cluda.dtypes.align`.
+
+    If ``ignore_alignment`` is True, all of the above is ignored.
+    The C structures produced will not have any explicit alignment modifiers.
+    As a result, the the field offsets of ``dtype`` may differ from the ones
+    chosen by the compiler.
 
     Modules are cached and the function returns a single module instance for equal ``dtype``'s.
     Therefore inside a kernel it will be rendered with the same prefix everywhere it is used.
     This results in a behavior characteristic for a structural type system,
     same as for the basic dtype-ctype conversion.
 
-    .. note::
+    .. warning::
 
-       For a struct ``dtype``, ``ctype_module`` will attempt to set alignments such that
-       the rendered structure has the same itemsize and field offsets as the ``dtype``.
-       If it is not possible, a ``ValueError`` will be raised.
-
-       If ``ignore_alignment`` is ``True``, all alignment modifiers will be omitted.
-       As a result, the the field offsets of ``dtype`` may differ from the ones
-       chosen by the compiler.
-       Set it only if you intend to use the structure internally in a kernel.
-
-       Offsets can be adjusted automatically to the ones that are guaranteed to work
-       with the help of :py:func:`~reikna.cluda.dtypes.adjust_offsets`.
+        As of ``numpy`` 1.8, the ``isalignedstruct`` attribute is not enough to ensure
+        a mapping between a dtype and a C struct with only the fields that are present in the dtype.
+        Therefore, ``ctype_module`` will make some additional checks and raise ``ValueError``
+        if it is not the case.
     """
     if dtype.names is None:
         return ctype(dtype)
     else:
+        # FIXME: if numpy's ``isalignedstruct`` actually meant that the struct is aligned,
+        # that would be enough.
+        # Unfortunately, it only recognizes base alignments,
+        # and does not check for itemsize consistency.
+        # Therefore, there will be more checking in _get_struct_module.
+        if not ignore_alignment and not dtype.isalignedstruct:
+            raise ValueError("The data type must be an aligned struct")
+
+        if len(dtype.shape) > 0:
+            raise ValueError("The data type cannot be an array")
+
         if dtype not in _DTYPE_TO_CTYPE_MODULE:
             module = _get_struct_module(dtype, ignore_alignment=ignore_alignment)
             _DTYPE_TO_CTYPE_MODULE[dtype] = module

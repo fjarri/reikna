@@ -88,7 +88,8 @@ def get_offsets_from_device(thr, dtype):
         names=dtype.names,
         formats=aligned_dtypes,
         offsets=offsets[:-1],
-        itemsize=offsets[-1]))
+        itemsize=offsets[-1],
+        aligned=True))
 
 
 def test_align(thr, dtype_to_align):
@@ -141,13 +142,15 @@ def test_hardcoded_offsets(thr):
         names=['val1', 'pad'],
         formats=[numpy.int32, numpy.int8],
         offsets=[0, 4],
-        itemsize=8))
+        itemsize=8,
+        aligned=True))
 
     dtype = numpy.dtype(dict(
         names=['val1', 'val2', 'nested'],
         formats=[numpy.int32, numpy.int16, dtype_nested],
         offsets=[0, 4, 8],
-        itemsize=32))
+        itemsize=32,
+        aligned=True))
 
     check_struct_fill(thr, dtype)
 
@@ -224,7 +227,7 @@ def test_structural_typing(some_thr):
     Checks that ``ctype_module`` for equal dtype objects result in the same module object
     (which means that these two types will actually be rendered as a single type).
     """
-    dtype = numpy.dtype([('val1', numpy.int32), ('val2', numpy.float32)])
+    dtype = dtypes.align(numpy.dtype([('val1', numpy.int32), ('val2', numpy.float32)]))
 
     struct1 = dtypes.ctype_module(dtype)
     struct2 = dtypes.ctype_module(dtype)
@@ -262,10 +265,11 @@ def test_structural_typing_nested(some_thr):
     In other words, a nested dtype gets represented by the same module as
     an equal top-level dtype.
     """
-    dtype_nested = numpy.dtype([('val1', numpy.int32), ('val2', numpy.float32)])
-    dtype = numpy.dtype([
+    dtype_nested = dtypes.align(
+        numpy.dtype([('val1', numpy.int32), ('val2', numpy.float32)]))
+    dtype = dtypes.align(numpy.dtype([
         ('val1', numpy.int32), ('val2', numpy.float32),
-        ('nested', dtype_nested)])
+        ('nested', dtype_nested)]))
 
     struct_nested = dtypes.ctype_module(dtype_nested)
     struct = dtypes.ctype_module(dtype)
