@@ -2,6 +2,7 @@ import sys
 from collections import defaultdict
 import itertools
 
+from reikna.cluda import OutOfResourcesError
 from reikna.cluda.kernel import render_template
 from reikna.helpers import product, log2, min_blocks, template_for, wrap_in_tuple, factors
 
@@ -253,7 +254,8 @@ class ShapeGroups:
 
 class VirtualSizes:
 
-    def __init__(self, device_params, max_local_size, virtual_global_size, virtual_local_size=None):
+    def __init__(self, device_params, virtual_global_size,
+            virtual_local_size=None, max_local_size=None):
 
         virtual_global_size = wrap_in_tuple(virtual_global_size)
         if virtual_local_size is not None:
@@ -268,10 +270,20 @@ class VirtualSizes:
         if virtual_local_size is not None:
             virtual_local_size = tuple(reversed(virtual_local_size))
 
-        max_local_size = min(
-            max_local_size,
-            device_params.max_work_group_size,
-            max(device_params.max_work_item_sizes))
+        # Restrict local sizes using the provided explicit limit
+        if max_local_size is not None:
+            max_work_group_size = min(
+                max_local_size,
+                device_params.max_work_group_size,
+                product(device_params.max_work_item_sizes))
+            max_work_item_sizes = [
+                min(max_local_size, mwis) for mwis in device_params.max_work_item_sizes]
+        else:
+            # Assuming:
+            # 1) max_work_group_size <= product(max_work_item_sizes)
+            # 2) max(max_work_item_sizes) <= max_work_group_size
+            max_work_group_size = device_params.max_work_group_size
+            max_work_item_sizes = device_params.max_work_item_sizes
 
         if virtual_local_size is None:
             # FIXME: we can obtain better results by taking occupancy into account here,
@@ -279,14 +291,19 @@ class VirtualSizes:
             flat_global_size = product(virtual_global_size)
             multiple = device_params.warp_size
 
-            if flat_global_size < max_local_size:
+            if flat_global_size < max_work_group_size:
                 flat_local_size = flat_global_size
-            elif max_local_size < multiple:
+            elif max_work_group_size < multiple:
                 flat_local_size = 1
             else:
-                flat_local_size = multiple * (max_local_size // multiple)
+                flat_local_size = multiple * (max_work_group_size // multiple)
 
+            # product(virtual_local_size) == flat_local_size <= max_work_group_size
             virtual_local_size = find_local_size(virtual_global_size, flat_local_size)
+        else:
+            if product(virtual_local_size) > max_work_group_size:
+                raise OutOfResourcesError(
+                    "Requested local size is greater than the maximum " + str(max_work_group_size))
 
         # Global and local sizes supported by CUDA or OpenCL restricted number of dimensions,
         # which may have limited size, so we need to pack our multidimensional sizes.
@@ -297,13 +314,10 @@ class VirtualSizes:
             grs * ls for grs, ls in zip(virtual_grid_size, virtual_local_size))
 
         if product(virtual_grid_size) > product(device_params.max_num_groups):
-            raise ValueError(
+            raise OutOfResourcesError(
                 "Bounding global size " + repr(bounding_global_size) + " is too large")
 
-        if product(virtual_local_size) > product(device_params.max_work_item_sizes):
-            raise ValueError("Local size " + repr(virtual_local_size) + " is too large")
-
-        local_groups = ShapeGroups(virtual_local_size, device_params.max_work_item_sizes)
+        local_groups = ShapeGroups(virtual_local_size, max_work_item_sizes)
         grid_groups = ShapeGroups(virtual_grid_size, device_params.max_num_groups)
 
         # Returning back to the row-major ordering
