@@ -1,10 +1,6 @@
 0.5.1
 =====
 
-* ?FIX (computations): for some reason, struct Reduce with nested dtypes does not work with OpenCL on OSX --- the initialization ``type v = {0, {0}, 0}`` produces incorrect results (per-field initialization works correctly).
-  CUDA and OCL on Linux work correctly.
-* ?FIX (computations): investigate fails in cbrng/normal_bm and fft tests that only happen when ``fast_math`` is set to ``False``.
-
 * FEATURE: write an example analogous to demo-struct-reduce from PyOpenCL.
   Probably a Reduce for a custom dtype + transformations to and from the target array dtype.
   (Must solve the problem with custom dtypes as Computation paramters first).
