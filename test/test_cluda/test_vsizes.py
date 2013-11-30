@@ -2,7 +2,7 @@ import itertools
 
 import pytest
 
-import reikna.cluda as cluda
+from reikna.cluda import OutOfResourcesError
 import reikna.cluda.vsize as vsize
 from reikna.helpers import min_blocks, product
 import reikna.cluda.dtypes as dtypes
@@ -339,7 +339,7 @@ def test_incorrect_sizes(thr, incorrect_testvs):
         thr, max_num_groups=incorrect_testvs.max_num_groups,
         max_work_item_sizes=incorrect_testvs.max_work_item_sizes, warp_size=2) as limited_thr:
 
-        with pytest.raises(ValueError):
+        with pytest.raises(OutOfResourcesError):
             kernel = thr.compile_static("""
             KERNEL void test(GLOBAL_MEM int *temp)
             {

@@ -88,7 +88,7 @@ from logging import error
 import weakref
 import sys
 
-from reikna.cluda import OutOfResourcesError, find_devices
+from reikna.cluda import find_devices
 from reikna.helpers import product
 from reikna.cluda.kernel import render_prelude, render_template_source
 from reikna.cluda.vsize import VirtualSizes
@@ -532,28 +532,35 @@ class StaticKernel:
         # Since virtual size function require some registers, they affect the maximum local size.
         # Start from the device's max work group size as the first approximation
         # and recompile kernels with smaller local sizes until convergence.
-        max_work_group_size = thr.device_params.max_work_group_size
+        max_local_size = thr.device_params.max_work_group_size
+
         while True:
+
+            # Try to find kernel launch parameters for the requested local size.
+            # May raise OutOfResourcesError if it's not possible,
+            # just let it pass to the caller.
             vs = VirtualSizes(
-                thr.device_params, max_work_group_size,
-                global_size, virtual_local_size=local_size)
-            vsize_funcs = vs.vsize_functions
+                thr.device_params, global_size,
+                virtual_local_size=local_size,
+                max_local_size=max_local_size)
+
+            # Try to compile the kernel with the corresponding virtual size functions
             program = Program(
-                self._thr, vsize_funcs + main_src, static=True,
-                fast_math=fast_math)
+                self._thr, vs.vsize_functions + main_src,
+                static=True, fast_math=fast_math)
             kernel = getattr(program, name)
 
-            # Kernel will execute with this local size, use it
             if kernel.max_work_group_size >= product(vs.real_local_size):
+                # Kernel will execute with this local size, use it
                 break
 
             # By the contract of VirtualSizes,
-            # product(vs.real_local_size) <= max_work_group_size
+            # product(vs.real_local_size) <= max_local_size
             # Also, since we're still in this loop,
-            # kernel.max_work_group_size < product(vs.real_local_size)
-            # Therefore the new max_work_group_size value is guaranteed
+            # kernel.max_work_group_size < product(vs.real_local_size).
+            # Therefore the new max_local_size value is guaranteed
             # to be smaller than the previous one.
-            max_work_group_size = kernel.max_work_group_size
+            max_local_size = kernel.max_work_group_size
 
         self._program = program
         self._kernel = kernel
@@ -561,9 +568,6 @@ class StaticKernel:
         self.virtual_global_size = vs.virtual_global_size
         self.local_size = vs.real_local_size
         self.global_size = vs.real_global_size
-
-        if self._kernel.max_work_group_size < product(self.local_size):
-            raise OutOfResourcesError("Not enough registers/local memory for this local size")
 
         self._kernel.prepare(self.global_size, local_size=self.local_size)
 

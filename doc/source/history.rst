@@ -6,7 +6,7 @@ Release history
 0.6.0 (current development version)
 ===================================
 
-Under construction.
+* FIXED: a possible infinite loop in :py:meth:`~reikna.cluda.api.Thread.compile_static` local size finding algorithm.
 
 
 0.5.0 (25 Nov 2013)
