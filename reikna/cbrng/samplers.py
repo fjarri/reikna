@@ -141,28 +141,42 @@ def normal_bm(bijection, dtype, mean=0, std=1):
     """
     Generates normally distributed random numbers with the mean ``mean`` and
     the standard deviation ``std`` using Box-Muller transform.
-    Supported dtypes: ``float(32/64)``.
-    Produces two random numbers per call.
+    Supported dtypes: ``float(32/64)``, ``complex(64/128)``.
+    Produces two random numbers per call for real types and one number for complex types.
     Returns a :py:class:`~reikna.cbrng.samplers.Sampler` object.
+
+    .. note::
+
+        In case of a complex ``dtype``, ``std`` refers to the standard deviation of the
+        complex numbers (same as ``numpy.std()`` returns), not real and imaginary components
+        (which will be normally distributed with the standard deviation ``std / sqrt(2)``).
+        Consequently, while ``mean`` is of type ``dtype``, ``std`` must be real.
     """
 
-    ctype = dtypes.ctype(dtype)
-    uf = uniform_float(bijection, dtype, low=0, high=1)
+    if dtypes.is_complex(dtype):
+        r_dtype = dtypes.real_for(dtype)
+        c_dtype = dtype
+    else:
+        r_dtype = dtype
+        c_dtype = dtypes.complex_for(dtype)
+
+    uf = uniform_float(bijection, r_dtype, low=0, high=1)
 
     module = Module(
         TEMPLATE.get_def("normal_bm"),
         render_kwds=dict(
-            dtype=dtype, ctype=ctype,
-            c_ctype=dtypes.ctype(dtypes.complex_for(dtype)),
-            polar_unit=functions.polar_unit(dtype),
+            complex_res=dtypes.is_complex(dtype),
+            r_dtype=r_dtype, r_ctype=dtypes.ctype(r_dtype),
+            c_dtype=c_dtype, c_ctype=dtypes.ctype(c_dtype),
+            polar_unit=functions.polar_unit(r_dtype),
             bijection=bijection,
-            mean=dtypes.c_constant(mean, dtype),
-            std=dtypes.c_constant(std, dtype),
+            mean=mean,
+            std=std,
             uf=uf))
 
     return Sampler(
         bijection, module, dtype,
-        deterministic=uf.deterministic, randoms_per_call=2)
+        deterministic=uf.deterministic, randoms_per_call=1 if dtypes.is_complex(dtype) else 2)
 
 
 def gamma(bijection, dtype, shape=1, scale=1):
