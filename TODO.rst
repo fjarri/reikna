@@ -66,6 +66,9 @@
   This may be used to ensure that buffers to be used on different devices are not packed,
   which may be bad since OpenCL tries to preemptively move allocations from device to device.
   It'll help when Threads start to support several devices.
+* ?FEATURE (core): allow output parameters to be returned as resusts of a computation, like in numpy ufuncs.
+  1) What do we do with 'io' parameters? Moreover, do we even need them?
+  2) Some mechanics for returning an array of size 1 as a scalar copied to CPU?
 
 * FEATURE (computations): add matrix-vector and vector-vector multiplication (the latter can probably be implemented just as a specialized ``Reduce``)
 * FEATURE (computations): add better block width finder for small matrices in matrixmul
