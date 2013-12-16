@@ -15,6 +15,8 @@
 * ?FEATURE: Need to cache the results of Computation.compile().
   Even inside a single thread it can give a performance boost (e.g. code generation for FFT is especially slow).
 * FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
+* FIX (core): if a computation with an 'io' argument has a nested computation, and uses this 'io' argument as 'i' and 'o' for this nested computation, an assertion is raised in transformation.py.
+  When we have the same argument used first as an 'i' and then as 'o', we should merge the corresponding nodes.
 
 
 0.6.0
@@ -76,7 +78,7 @@
 * FEATURE (computations): add bitonic sort
 * FEATURE (computations): add filter
 * FEATURE (computations): add radix-3,5,7 for FFT
-* FEATURE (computations): commonly required linalg functions: diagonalisation, inversion, decomposition, determinant of matrices
+* FEATURE (computations): commonly required linalg functions: diagonalisation, inversion, decomposition, determinant of matrices, linalg.norm
 * FEATURE (computations): median of an array:
   1) brute force: sort over an axis and slice;
   2) O(N): median of medians algorithm (need to investigate whether it is effective on GPU)
