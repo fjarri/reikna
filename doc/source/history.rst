@@ -8,6 +8,8 @@ Release history
 
 * ADDED: :py:func:`~reikna.cbrng.samplers.normal_bm` now supports complex dtypes.
 
+* FIXED: a nested :py:class:`~reikna.pureparallel.PureParallel` can now take several identical argument objects as arguments.
+
 
 0.5.1 (30 Nov 2013)
 ===================

@@ -34,16 +34,16 @@ class PureParallel(Computation):
 
         Computation.__init__(self, parameters)
 
-        root_parameters = list(self.signature.parameters.keys())
+        self._root_parameters = list(self.signature.parameters.keys())
 
         if isinstance(code, Snippet):
             self._snippet = code
         else:
             self._snippet = Snippet(helpers.template_def(
-                ['idxs'] + root_parameters, code), render_kwds=render_kwds)
+                ['idxs'] + self._root_parameters, code), render_kwds=render_kwds)
 
         if guiding_array is None:
-            guiding_array = root_parameters[0]
+            guiding_array = self._root_parameters[0]
 
         if isinstance(guiding_array, str):
             self._guiding_shape = self.signature.parameters[guiding_array].annotation.type.shape
@@ -98,12 +98,14 @@ class PureParallel(Computation):
 
         plan = plan_factory()
 
-        argnames = [arg.name for arg in args]
-        arglist = ", ".join(argnames)
+        # Using root_parameters to avoid duplicated names
+        # (can happen if this computation is nested and
+        # the same arrays are passed to it as arguments)
+        arglist = ", ".join(self._root_parameters)
         idxs = Indices(self._guiding_shape)
 
         template = helpers.template_def(
-            ['kernel_declaration'] + argnames,
+            ['kernel_declaration'] + self._root_parameters,
             """
             ${kernel_declaration}
             {
