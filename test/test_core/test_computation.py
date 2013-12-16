@@ -165,3 +165,32 @@ def test_same_arguments(some_thr):
 
     assert diff_is_negligible(C, C_ref)
     assert diff_is_negligible(D, D_ref)
+
+
+def test_same_arg_as_i_and_o(some_thr):
+    """
+    Tests that the same 'io' array can be used both as an input and as an output argument
+    of the same nested computation.
+    """
+
+    N = 2000
+    coeff = 2
+    second_coeff = 3
+    A = numpy.ones((N,N)).astype(numpy.complex64) # get_test_array((N, N), numpy.complex64)
+    B = numpy.ones(N).astype(numpy.complex64) # get_test_array(N, numpy.complex64)
+
+    A_dev = some_thr.to_device(A)
+    B_dev = some_thr.to_device(B)
+    C_dev = some_thr.empty_like(A_dev)
+    D_dev = some_thr.empty_like(B_dev)
+
+    d = DummyNested(
+        A_dev, B_dev, numpy.float32, second_coeff, test_same_arg_as_i_and_o=True).compile(some_thr)
+    d(C_dev, D_dev, A_dev, B_dev, coeff)
+    C = C_dev.get()
+    D = D_dev.get()
+
+    C_ref, D_ref = mock_dummy_nested(A, B, coeff, second_coeff, test_same_arg_as_i_and_o=True)
+
+    assert diff_is_negligible(C, C_ref)
+    assert diff_is_negligible(D, D_ref)

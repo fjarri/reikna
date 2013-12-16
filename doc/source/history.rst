@@ -10,6 +10,8 @@ Release history
 
 * FIXED: a nested :py:class:`~reikna.pureparallel.PureParallel` can now take several identical argument objects as arguments.
 
+* FIXED: a nested computation can now take a single input/output argument (e.g. a temporary array) as separate input and output arguments.
+
 
 0.5.1 (30 Nov 2013)
 ===================

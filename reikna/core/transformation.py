@@ -175,9 +175,26 @@ class TransformationTree:
 
         for param in root_parameters:
             self.root_names.append(param.name)
-            if param.name in self.root_parameters:
-                # safety check
-                assert param == self.root_parameters[param.name]
+            if param.name in self.root_parameters and param != self.root_parameters[param.name]:
+                # Could be an 'io' parameter used for separate 'i' and 'o' parameters
+                # in a nested computation.
+                # Need to check types and merge.
+
+                new_ann = param.annotation
+                old_param = self.root_parameters[param.name]
+                old_ann = old_param.annotation
+
+                # FIXME: Not sure when these can be raised
+                assert old_ann.type == new_ann.type
+                assert old_param.default == param.default
+
+                # Given the old_param != param, the only possible combinations of roles are
+                # 'i' and 'o', 'i' and 'io', 'o' and 'io'.
+                # In all cases the resulting role is 'io'.
+                new_param = Parameter(
+                    param.name, Annotation(new_ann.type, 'io'), default=param.default)
+                self.root_parameters[param.name] = new_param
+                self.leaf_parameters[param.name] = new_param
             else:
                 self.nodes[param.name] = Node()
                 self.root_parameters[param.name] = param
