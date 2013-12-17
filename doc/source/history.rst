@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.6.0 (current development version)
-===================================
+0.5.2 (17 Dec 2013)
+===================
 
 * ADDED: :py:func:`~reikna.cbrng.samplers.normal_bm` now supports complex dtypes.
 
