@@ -14,6 +14,8 @@ Release history
 
 * FIXED: a critical bug in :py:class:`~reikna.cbrng.CBRNG` that could lead to the counter array not being updated.
 
+* FIXED: convenience constructors of :py:class:`~reikna.cbrng.CBRNG` can now properly handle ``None`` as ``samplers_kwds``.
+
 
 0.5.1 (30 Nov 2013)
 ===================
