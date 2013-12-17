@@ -12,6 +12,8 @@ Release history
 
 * FIXED: a nested computation can now take a single input/output argument (e.g. a temporary array) as separate input and output arguments.
 
+* FIXED: a critical bug in :py:class:`~reikna.cbrng.CBRNG` that could lead to the counter array not being updated.
+
 
 0.5.1 (30 Nov 2013)
 ===================
