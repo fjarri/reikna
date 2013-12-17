@@ -54,6 +54,18 @@ class TestNormalBM:
         dtype = numpy.float64 if double else numpy.float32
         return normal_bm(self.bijection, dtype, mean=self.mean, std=self.std)
 
+class TestNormalBMComplex:
+    def __init__(self, bijection, mean, std):
+        self.extent = None
+        self.mean = mean
+        self.std = std
+        self.bijection = bijection
+        self.name = 'normal_bm_complex'
+
+    def get_sampler(self, double):
+        dtype = numpy.complex128 if double else numpy.complex64
+        return normal_bm(self.bijection, dtype, mean=self.mean, std=self.std)
+
 class TestGamma:
     def __init__(self, bijection, shape, scale):
         self._shape = shape
@@ -123,6 +135,7 @@ def pytest_generate_tests(metafunc):
         vals = [
             TestUniformFloat(bijection, -5, 7.7),
             TestNormalBM(bijection, -2, 10),
+            TestNormalBMComplex(bijection, -3 + 4j, 7),
             TestGamma(bijection, 3, 10)]
         ids = [test.name for test in vals]
         metafunc.parametrize('test_sampler_float', vals, ids=ids)
@@ -297,6 +310,28 @@ def test_computation_convenience(thr):
     rng = CBRNG.uniform_integer(Type(numpy.int32, shape=(batch, size)), 1,
         sampler_kwds=dict(low=extent[0], high=extent[1] + 1))
     check_computation(thr, rng, extent=extent, mean=mean, std=std)
+
+
+def test_computation_uniqueness(thr):
+    """
+    A regression test for the bug with a non-updating counter.
+    """
+
+    size = 10000
+    batch = 1
+
+    rng = CBRNG.normal_bm(Type(numpy.complex64, shape=(batch, size)), 1)
+
+    dest1_dev = thr.empty_like(rng.parameter.randoms)
+    dest2_dev = thr.empty_like(rng.parameter.randoms)
+    counters = rng.create_counters()
+    counters_dev = thr.to_device(counters)
+    rngc = rng.compile(thr)
+
+    rngc(counters_dev, dest1_dev)
+    rngc(counters_dev, dest2_dev)
+
+    assert not diff_is_negligible(dest1_dev.get(), dest2_dev.get())
 
 
 @pytest.mark.perf

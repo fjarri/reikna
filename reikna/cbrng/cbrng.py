@@ -91,6 +91,8 @@ class _ConvenienceCtr:
 
     def __call__(self, cls, randoms_arr, generators_dim, sampler_kwds=None, seed=None):
         bijection = philox(64, 4)
+        if sampler_kwds is None:
+            sampler_kwds = {}
         sampler = self._sampler_func(bijection, randoms_arr.dtype, **sampler_kwds)
         return cls(randoms_arr, generators_dim, sampler, seed=seed)
 

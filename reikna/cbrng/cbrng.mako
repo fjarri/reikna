@@ -35,6 +35,6 @@ ${kernel_declaration}
     %endif
 
     ${bijection.module}Counter next_ctr = ${bijection.module}get_next_unused_counter(state);
-    ${counters.store_combined_idx(counters_slices)}(idx, state.counter);
+    ${counters.store_combined_idx(counters_slices)}(idx, next_ctr);
 }
 </%def>

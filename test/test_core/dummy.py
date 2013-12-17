@@ -149,10 +149,12 @@ class DummyNested(Computation):
     def __init__(self, arr1, arr2, coeff, second_coeff, same_A_B=False,
             test_computation_adhoc_array=False,
             test_computation_incorrect_role=False,
-            test_computation_incorrect_type=False):
+            test_computation_incorrect_type=False,
+            test_same_arg_as_i_and_o=False):
 
         self._second_coeff = second_coeff
         self._same_A_B = same_A_B
+        self._test_same_arg_as_i_and_o = test_same_arg_as_i_and_o
 
         self._test_computation_adhoc_array = test_computation_adhoc_array
         self._test_computation_incorrect_role = test_computation_incorrect_role
@@ -181,13 +183,21 @@ class DummyNested(Computation):
             (B if self._test_computation_incorrect_role else D_temp),
             (B if self._test_computation_incorrect_type else A),
             0.4, B, coeff)
+
+        if self._test_same_arg_as_i_and_o:
+            _trash = plan.temp_array_like(C) # ignoring this result
+            nested2 = Dummy(A, B, coeff, same_A_B=self._same_A_B)
+            plan.computation_call(nested2, _trash, D_temp, C_temp, D_temp, coeff)
+
         plan.computation_call(nested, C, D, C_temp, 0.4, D_temp, self._second_coeff)
 
         return plan
 
 
-def mock_dummy_nested(a, b, coeff, second_coeff):
+def mock_dummy_nested(a, b, coeff, second_coeff, test_same_arg_as_i_and_o=False):
     c, d = mock_dummy(0.4 * a, b, coeff)
+    if test_same_arg_as_i_and_o:
+        _, d = mock_dummy(c, d, coeff)
     return mock_dummy(0.4 * c, d, second_coeff)
 
 

@@ -3,9 +3,52 @@ import pytest
 
 from helpers import *
 from reikna.pureparallel import PureParallel
-from reikna.core import Parameter, Annotation, Type
+from reikna.core import Parameter, Annotation, Type, Computation
 import reikna.cluda.dtypes as dtypes
 from reikna.transformations import scale_param
+
+
+class NestedPureParallel(Computation):
+
+    def __init__(self, size, dtype):
+
+        Computation.__init__(self, [
+            Parameter('output', Annotation(Type(dtype, shape=size), 'o')),
+            Parameter('input', Annotation(Type(dtype, shape=size), 'i'))])
+
+        self._p = PureParallel([
+                Parameter('output', Annotation(Type(dtype, shape=size), 'o')),
+                Parameter('i1', Annotation(Type(dtype, shape=size), 'i')),
+                Parameter('i2', Annotation(Type(dtype, shape=size), 'i'))],
+            """
+            ${i1.ctype} t1 = ${i1.load_idx}(${idxs[0]});
+            ${i2.ctype} t2 = ${i2.load_idx}(${idxs[0]});
+            ${output.store_idx}(${idxs[0]}, t1 + t2);
+            """)
+
+    def _build_plan(self, plan_factory, device_params, output, input_):
+        plan = plan_factory()
+        plan.computation_call(self._p, output, input_, input_)
+        return plan
+
+
+def test_nested(thr):
+
+    N = 1000
+    dtype = numpy.float32
+
+    p = NestedPureParallel(N, dtype)
+
+    a = get_test_array_like(p.parameter.input)
+    a_dev = thr.to_device(a)
+    res_dev = thr.empty_like(p.parameter.output)
+
+    pc = p.compile(thr)
+    pc(res_dev, a_dev)
+
+    res_ref = a + a
+
+    assert diff_is_negligible(res_dev.get(), res_ref)
 
 
 def test_guiding_input(thr):

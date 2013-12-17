@@ -3,6 +3,20 @@ Release history
 ***************
 
 
+0.5.2 (17 Dec 2013)
+===================
+
+* ADDED: :py:func:`~reikna.cbrng.samplers.normal_bm` now supports complex dtypes.
+
+* FIXED: a nested :py:class:`~reikna.pureparallel.PureParallel` can now take several identical argument objects as arguments.
+
+* FIXED: a nested computation can now take a single input/output argument (e.g. a temporary array) as separate input and output arguments.
+
+* FIXED: a critical bug in :py:class:`~reikna.cbrng.CBRNG` that could lead to the counter array not being updated.
+
+* FIXED: convenience constructors of :py:class:`~reikna.cbrng.CBRNG` can now properly handle ``None`` as ``samplers_kwds``.
+
+
 0.5.1 (30 Nov 2013)
 ===================
 

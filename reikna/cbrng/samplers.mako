@@ -52,22 +52,39 @@ WITHIN_KERNEL ${prefix}Result ${prefix}sample(${bijection.module}State *state)
 
 
 <%def name="normal_bm(prefix)">
-${result_struct(prefix, ctype, 2)}
+<%
+    component_std = std / numpy.sqrt(2) if complex_res else std
+%>
+
+%if complex_res:
+${result_struct(prefix, c_ctype, 1)}
+%else:
+${result_struct(prefix, r_ctype, 2)}
+%endif
 
 WITHIN_KERNEL ${prefix}Result ${prefix}sample(${bijection.module}State *state)
 {
     ${prefix}Result result;
     ${uf.module}Result r1 = ${uf.module}sample(state);
     ${uf.module}Result r2 = ${uf.module}sample(state);
-    ${ctype} u1 = r1.v[0];
-    ${ctype} u2 = r2.v[0];
+    ${r_ctype} u1 = r1.v[0];
+    ${r_ctype} u2 = r2.v[0];
 
-    ${ctype} ang = ${dtypes.c_constant(2.0 * numpy.pi, dtype)} * u2;
+    ${r_ctype} ang = ${dtypes.c_constant(2.0 * numpy.pi, r_dtype)} * u2;
     ${c_ctype} cos_sin = ${polar_unit}(ang);
-    ${ctype} coeff = sqrt(${dtypes.c_constant(-2.0, dtype)} * log(u1)) * (${std});
+    ${r_ctype} coeff = sqrt(${dtypes.c_constant(-2.0, r_dtype)} * log(u1)) * (${component_std});
+    ${c_ctype} c_res = COMPLEX_CTR(${c_ctype})(coeff * cos_sin.x, coeff * cos_sin.y);
 
-    result.v[0] = coeff * cos_sin.x + (${mean});
-    result.v[1] = coeff * cos_sin.y + (${mean});
+    %if complex_res:
+    ${c_ctype} mean = COMPLEX_CTR(${c_ctype})(
+        ${dtypes.c_constant(mean.real)},
+        ${dtypes.c_constant(mean.imag)});
+    result.v[0] = c_res + mean;
+    %else:
+    result.v[0] = c_res.x + (${dtypes.c_constant(mean)});
+    result.v[1] = c_res.y + (${dtypes.c_constant(mean)});
+    %endif
+
     return result;
 }
 </%def>
