@@ -312,6 +312,28 @@ def test_computation_convenience(thr):
     check_computation(thr, rng, extent=extent, mean=mean, std=std)
 
 
+def test_computation_uniqueness(thr):
+    """
+    A regression test for the bug with a non-updating counter.
+    """
+
+    size = 10000
+    batch = 1
+
+    rng = CBRNG.normal_bm(Type(numpy.complex64, shape=(batch, size)), 1)
+
+    dest1_dev = thr.empty_like(rng.parameter.randoms)
+    dest2_dev = thr.empty_like(rng.parameter.randoms)
+    counters = rng.create_counters()
+    counters_dev = thr.to_device(counters)
+    rngc = rng.compile(thr)
+
+    rngc(counters_dev, dest1_dev)
+    rngc(counters_dev, dest2_dev)
+
+    assert not diff_is_negligible(dest1_dev.get(), dest2_dev.get())
+
+
 @pytest.mark.perf
 @pytest.mark.returns('GB/s')
 def test_computation_performance(thr_and_double, fast_math, test_sampler_float):
