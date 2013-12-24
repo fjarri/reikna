@@ -141,7 +141,11 @@ if __name__ == '__main__':
         extras_require=dict(
             pyopencl=["pyopencl>=2013.1"],
             pycuda=["pycuda>=2013.1"],
-            test=["pytest>=2.3", "pytest-cov"]),
+            dev=[
+                "pytest>=2.3",
+                "pytest-cov",
+                "sphinx>=1.2"
+                ]),
         package_data={'reikna': ['*.mako'],
                       'reikna/cluda': ['*.mako'],
                       'reikna/cbrng': ['*.mako']},
