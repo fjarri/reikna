@@ -6,7 +6,7 @@ Release history
 0.6.0 (current development version)
 ===================================
 
-Under construction.
+* FIXED: casting a coefficient in the :py:func:`~reikna.cbrng.samplers.normal_bm` template to a correct dtype.
 
 
 0.5.2 (17 Dec 2013)
