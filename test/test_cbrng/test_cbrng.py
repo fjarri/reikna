@@ -4,8 +4,8 @@ import pytest
 import time
 
 from helpers import *
-from test_cbrng.cbrng_ref import philox as philox_ref
-from test_cbrng.cbrng_ref import threefry as threefry_ref
+from .cbrng_ref import philox as philox_ref
+from .cbrng_ref import threefry as threefry_ref
 
 from reikna.core import Type
 from reikna.helpers import product
