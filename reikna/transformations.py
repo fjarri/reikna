@@ -55,7 +55,7 @@ def scale_const(arr_t, coeff):
 
 def split_complex(input_arr_t):
     """
-    Returns a transformation which splits complex input into two real outputs
+    Returns a transformation that splits complex input into two real outputs
     (2 outputs, 1 input): ``real = Re(input), imag = Im(input)``.
     """
     output_t = Type(dtypes.real_for(input_arr_t.dtype), shape=input_arr_t.shape)
@@ -71,7 +71,7 @@ def split_complex(input_arr_t):
 
 def combine_complex(output_arr_t):
     """
-    Returns a transformation which joins two real inputs into complex output
+    Returns a transformation that joins two real inputs into complex output
     (1 output, 2 inputs): ``output = real + 1j * imag``.
     """
     input_t = Type(dtypes.real_for(output_arr_t.dtype), shape=output_arr_t.shape)
@@ -85,3 +85,55 @@ def combine_complex(output_arr_t):
                 ${real.load_same},
                 ${imag.load_same}));
         """)
+
+
+def norm_const(arr_t, order):
+    """
+    Returns a transformation that calculates the ``order``-norm
+    (1 output, 1 input): ``output = abs(input) ** order``.
+    """
+    if dtypes.is_complex(arr_t.dtype):
+        out_dtype = dtypes.real_for(arr_t.dtype)
+    else:
+        out_dtype = arr_t.dtype
+
+    return Transformation(
+        [
+            Parameter('output', Annotation(Type(out_dtype, arr_t.shape), 'o')),
+            Parameter('input', Annotation(arr_t, 'i'))],
+        """
+        ${input.ctype} val = ${input.load_same};
+        ${output.ctype} norm = ${norm}(val);
+        %if order != 2:
+        norm = pow(norm, ${dtypes.c_constant(order / 2, output.dtype)});
+        %endif
+        ${output.store_same}(norm);
+        """,
+        render_kwds=dict(
+            norm=functions.norm(arr_t.dtype),
+            order=order))
+
+
+def norm_param(arr_t):
+    """
+    Returns a transformation that calculates the ``order``-norm
+    (1 output, 1 input, 1 param): ``output = abs(input) ** order``.
+    """
+    if dtypes.is_complex(arr_t.dtype):
+        out_dtype = dtypes.real_for(arr_t.dtype)
+    else:
+        out_dtype = arr_t.dtype
+
+    return Transformation(
+        [
+            Parameter('output', Annotation(Type(out_dtype, arr_t.shape), 'o')),
+            Parameter('input', Annotation(arr_t, 'i')),
+            Parameter('order', Annotation(Type(out_dtype)))],
+        """
+        ${input.ctype} val = ${input.load_same};
+        ${output.ctype} norm = ${norm}(val);
+        norm = pow(norm, ${order} / 2);
+        ${output.store_same}(norm);
+        """,
+        render_kwds=dict(
+            norm=functions.norm(arr_t.dtype)))

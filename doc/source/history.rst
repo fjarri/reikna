@@ -6,6 +6,8 @@ Release history
 0.6.0 (current development version)
 ===================================
 
+* ADDED: two transformations for norm of an arbitrary order: :py:func:`~reikna.transformations.norm_const` and :py:func:`reikna.transformations.norm_param`.
+
 * FIXED: casting a coefficient in the :py:func:`~reikna.cbrng.samplers.normal_bm` template to a correct dtype.
 
 

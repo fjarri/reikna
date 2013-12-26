@@ -13,12 +13,16 @@ from helpers import *
 
 def pytest_generate_tests(metafunc):
     int_dtypes = [numpy.dtype('int32'), numpy.dtype('int64')]
-    float_dtypes = [numpy.dtype('float32')]
+    real_dtypes = [numpy.dtype('float32')]
     complex_dtypes = [numpy.dtype('complex64')]
 
     if 'any_dtype' in metafunc.funcargnames:
-        dtypes = int_dtypes + float_dtypes + complex_dtypes
+        dtypes = int_dtypes + real_dtypes + complex_dtypes
         metafunc.parametrize('any_dtype', dtypes, ids=[str(x) for x in dtypes])
+
+    if 'rc_dtype' in metafunc.funcargnames:
+        dtypes = real_dtypes + complex_dtypes
+        metafunc.parametrize('rc_dtype', dtypes, ids=[str(x) for x in dtypes])
 
 
 def get_test_computation(arr_t):
@@ -105,3 +109,39 @@ def test_split_combine_complex(some_thr):
     testc(o1_dev, o2_dev, i1_dev, i2_dev)
     assert diff_is_negligible(o1_dev.get(), i1)
     assert diff_is_negligible(o2_dev.get(), i2)
+
+
+@pytest.mark.parametrize('order', [1, 2, 0.5])
+def test_norm_param(some_thr, rc_dtype, order):
+
+    input_ = get_test_array((1000,), rc_dtype)
+    input_dev = some_thr.to_device(input_)
+
+    norm = tr.norm_param(input_dev)
+
+    output_dev = some_thr.empty_like(norm.output)
+
+    test = get_test_computation(output_dev)
+    test.parameter.input.connect(norm, norm.output, input_prime=norm.input, order=norm.order)
+    testc = test.compile(some_thr)
+
+    testc(output_dev, input_dev, order)
+    assert diff_is_negligible(output_dev.get(), numpy.abs(input_) ** order)
+
+
+@pytest.mark.parametrize('order', [1, 2, 0.5])
+def test_norm_const(some_thr, rc_dtype, order):
+
+    input_ = get_test_array((1000,), rc_dtype)
+    input_dev = some_thr.to_device(input_)
+
+    norm = tr.norm_const(input_dev, order)
+
+    output_dev = some_thr.empty_like(norm.output)
+
+    test = get_test_computation(output_dev)
+    test.parameter.input.connect(norm, norm.output, input_prime=norm.input)
+    testc = test.compile(some_thr)
+
+    testc(output_dev, input_dev)
+    assert diff_is_negligible(output_dev.get(), numpy.abs(input_) ** order)
