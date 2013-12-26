@@ -1,9 +1,3 @@
-0.6.0
-=====
-
-* Get rid of 'param' suffix for the transformations
-
-
 0.6.1
 =====
 
