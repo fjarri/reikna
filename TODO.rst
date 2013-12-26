@@ -1,11 +1,16 @@
-0.5.3
+0.6.0
+=====
+
+* Get rid of 'param' suffix for the transformations
+* Move computations to subfolders (and arrange their tests correspondingly)
+
+
+0.6.1
 =====
 
 * FEATURE: write an example analogous to demo-struct-reduce from PyOpenCL.
   Probably a Reduce for a custom dtype + transformations to and from the target array dtype.
   (Must solve the problem with custom dtypes as Computation paramters first).
-* ?FEATURE (computations): reduction with multiple predicates on a single (or multiple too?) array.
-  Basically, the first stage has to be modified to store results in several arrays and then several separate reductions can be performed.
 * FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
   it is called again with reduced local size
 * ?FIX (core): perhaps we should memoize parametrized modules too: for example, FFT produces dozens of modules for load and store (because it calls them in a loop).
@@ -17,7 +22,7 @@
 * FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
 
 
-0.6.0
+0.7.0
 =====
 
 * ?API (core): make ``device_params`` an attribute of plan or plan factory?
