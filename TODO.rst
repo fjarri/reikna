@@ -2,7 +2,6 @@
 =====
 
 * Get rid of 'param' suffix for the transformations
-* Move computations to subfolders (and arrange their tests correspondingly)
 
 
 0.6.1

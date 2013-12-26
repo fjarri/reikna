@@ -2,7 +2,7 @@ import numpy
 import pytest
 
 from helpers import *
-from reikna.norm import EntrywiseNorm
+from reikna.linalg import EntrywiseNorm
 
 
 @pytest.mark.parametrize('dtype', [numpy.float32, numpy.complex64], ids=['float32', 'complex64'])

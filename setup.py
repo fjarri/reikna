@@ -134,7 +134,15 @@ if __name__ == '__main__':
 
     setup(
         name='reikna',
-        packages=['reikna', 'reikna/cluda', 'reikna/core', 'reikna/helpers', 'reikna/cbrng'],
+        packages=[
+            'reikna',
+            'reikna/algorithms',
+            'reikna/cbrng',
+            'reikna/cluda',
+            'reikna/core',
+            'reikna/helpers',
+            'reikna/linalg',
+            ],
         provides=['reikna'],
         requires=requires,
         install_requires=install_requires,
@@ -144,11 +152,15 @@ if __name__ == '__main__':
             dev=[
                 "pytest>=2.3",
                 "pytest-cov",
-                "sphinx>=1.2"
+                "sphinx>=1.2",
                 ]),
-        package_data={'reikna': ['*.mako'],
-                      'reikna/cluda': ['*.mako'],
-                      'reikna/cbrng': ['*.mako']},
+        package_data={
+            'reikna': ['*.mako'],
+            'reikna/algorithms': ['*.mako'],
+            'reikna/cluda': ['*.mako'],
+            'reikna/cbrng': ['*.mako'],
+            'reikna/linalg': ['*.mako'],
+            },
         version=VERSION_STR,
         author='Bogdan Opanchuk',
         author_email='bogdan@opanchuk.net',

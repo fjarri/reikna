@@ -5,7 +5,7 @@ import numpy
 import pytest
 
 from helpers import *
-from reikna.reduce import Reduce, Predicate, predicate_sum
+from reikna.algorithms import Reduce, Predicate, predicate_sum
 from reikna.helpers import template_def
 from reikna.cluda import Snippet
 import reikna.cluda.dtypes as dtypes
