@@ -71,7 +71,7 @@ WITHIN_KERNEL ${prefix}Result ${prefix}sample(${bijection.module}State *state)
     ${r_ctype} u1 = r1.v[0];
     ${r_ctype} u2 = r2.v[0];
 
-    ${r_ctype} ang = ${real(2.0)} * u2;
+    ${r_ctype} ang = ${real(2.0 * numpy.pi)} * u2;
     ${c_ctype} cos_sin = ${polar_unit}(ang);
     ${r_ctype} coeff = sqrt(${real(-2.0)} * log(u1)) * (${real(component_std)});
     ${c_ctype} c_res = COMPLEX_CTR(${c_ctype})(coeff * cos_sin.x, coeff * cos_sin.y);
