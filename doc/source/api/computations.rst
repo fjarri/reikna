@@ -18,6 +18,9 @@ Linear algebra
 .. automodule:: reikna.transpose
     :members:
 
+.. automodule:: reikna.norm
+    :members:
+
 
 Algorithms
 ----------

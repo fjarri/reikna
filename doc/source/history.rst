@@ -8,6 +8,8 @@ Release history
 
 * ADDED: two transformations for norm of an arbitrary order: :py:func:`~reikna.transformations.norm_const` and :py:func:`~reikna.transformations.norm_param`.
 
+* ADDED: :py:class:`~reikna.norm.EntrywiseNorm` computation.
+
 * FIXED: casting a coefficient in the :py:func:`~reikna.cbrng.samplers.normal_bm` template to a correct dtype.
 
 
