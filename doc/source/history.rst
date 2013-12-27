@@ -14,6 +14,8 @@ Release history
 
 * FIXED: casting a coefficient in the :py:func:`~reikna.cbrng.samplers.normal_bm` template to a correct dtype.
 
+* FIXED: not casting a scalar parameter to the computation if it already has the target dtype (since ``numpy.cast`` does not work with struct dtypes, see issue #4148).
+
 
 0.5.2 (17 Dec 2013)
 ===================
