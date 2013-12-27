@@ -18,6 +18,8 @@ Release history
 
 * FIXED: a error in transformation module rendering for scalar parameters with struct dtypes.
 
+* FIXED: normalizing dtypes in several functions from :py:mod:`~reikna.cluda.dtypes` to avoid errors with ``numpy`` dtype shortcuts.
+
 
 0.5.2 (17 Dec 2013)
 ===================

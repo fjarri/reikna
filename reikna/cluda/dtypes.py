@@ -381,6 +381,8 @@ def ctype_module(dtype, ignore_alignment=False):
         Therefore, ``ctype_module`` will make some additional checks and raise ``ValueError``
         if it is not the case.
     """
+    dtype = normalize_type(dtype)
+
     if dtype.names is None:
         return ctype(dtype)
     else:
@@ -410,6 +412,8 @@ def align(dtype):
     (without being given any explicit alignment qualifiers).
     Ignores all existing explicit itemsizes and offsets.
     """
+    dtype = normalize_type(dtype)
+
     if len(dtype.shape) > 0:
         return numpy.dtype((align(dtype.base), dtype.shape))
 
@@ -464,4 +468,5 @@ def flatten_dtype(dtype):
     a (possibly nested) ``dtype``.
     ``path`` is a list of field names leading to the corresponding element.
     """
+    dtype = normalize_type(dtype)
     return _flatten_dtype(dtype)
