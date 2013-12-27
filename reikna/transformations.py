@@ -25,9 +25,37 @@ def copy(arr_t, out_arr_t=None):
         "${output.store_same}(${input.load_same});")
 
 
+def add_param(arr_t, param_dtype):
+    """
+    Returns an addition transformation with a dynamic parameter (1 output, 1 input, 1 scalar):
+    ``output = input + param``.
+    """
+    return Transformation(
+        [Parameter('output', Annotation(arr_t, 'o')),
+        Parameter('input', Annotation(arr_t, 'i')),
+        Parameter('param', Annotation(param_dtype))],
+        "${output.store_same}(${add}(${input.load_same}, ${param}));",
+        render_kwds=dict(add=functions.add(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype)))
+
+
+def add_const(arr_t, param):
+    """
+    Returns an addition transformation with a fixed parameter (1 output, 1 input):
+    ``output = input + param``.
+    """
+    param_dtype = dtypes.detect_type(param)
+    return Transformation(
+        [Parameter('output', Annotation(arr_t, 'o')),
+        Parameter('input', Annotation(arr_t, 'i'))],
+        "${output.store_same}(${add}(${input.load_same}, ${param}));",
+        render_kwds=dict(
+            add=functions.add(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype),
+            param=dtypes.c_constant(param, dtype=param_dtype)))
+
+
 def scale_param(arr_t, coeff_dtype):
     """
-    Returns a scaling transformation with dynamic parameter (1 output, 1 input, 1 scalar):
+    Returns a scaling transformation with a dynamic parameter (1 output, 1 input, 1 scalar):
     ``output = input * coeff``.
     """
     return Transformation(
@@ -40,7 +68,7 @@ def scale_param(arr_t, coeff_dtype):
 
 def scale_const(arr_t, coeff):
     """
-    Returns a scaling transformation with fixed parameter (1 output, 1 input):
+    Returns a scaling transformation with a fixed parameter (1 output, 1 input):
     ``output = input * <coeff>``.
     """
     coeff_dtype = dtypes.detect_type(coeff)
@@ -155,8 +183,7 @@ def broadcast_const(arr_t, val):
     Returns a transformation that broadcasts the given constant to the array output
     (1 output): ``output = val``.
     """
-    if not hasattr(val, 'dtype') or val.dtype != arr_t.dtype:
-        val = dtypes.cast(arr_t.dtype)(val)
+    val = dtypes.cast(arr_t.dtype)(val)
     if len(val.shape) != 0:
         raise ValueError("The constant must be a scalar")
     return Transformation(

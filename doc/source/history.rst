@@ -14,6 +14,8 @@ Release history
 
 * ADDED: broadcasting transformations :py:func:`~reikna.transformations.broadcast_const` and :py:func:`~reikna.transformations.broadcast_param`.
 
+* ADDED: addition transformations :py:func:`~reikna.transformations.add_const` and :py:func:`~reikna.transformations.add_param`.
+
 * ADDED: :py:class:`~reikna.linalg.EntrywiseNorm` computation.
 
 * ADDED: support for multi-dimensional sub-arrays in :py:func:`~reikna.cluda.dtypes.c_constant` and :py:func:`~reikna.cluda.dtypes.flatten_dtype`.
