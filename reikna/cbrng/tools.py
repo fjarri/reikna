@@ -109,5 +109,5 @@ class KeyGenerator:
         Uses the same algorithm as the module.
         """
         key = self._base_key.copy()
-        key['v'][-1] += numpy.cast[key.dtype.fields['v'][0].base](idx)
+        key['v'][-1] += dtypes.cast(key.dtype.fields['v'][0].base)(idx)
         return key

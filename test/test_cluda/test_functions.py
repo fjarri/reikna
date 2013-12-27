@@ -125,7 +125,7 @@ def test_cast(thr, out_code, in_codes):
     out_dtype, in_dtypes = generate_dtypes(out_code, in_codes)
     check_func(
         thr, functions.cast(out_dtype, in_dtypes[0]),
-        numpy.cast[out_dtype], out_dtype, in_dtypes)
+        dtypes.cast(out_dtype), out_dtype, in_dtypes)
 
 
 @pytest.mark.parametrize(
@@ -135,7 +135,7 @@ def test_div(thr, out_code, in_codes):
     out_dtype, in_dtypes = generate_dtypes(out_code, in_codes)
     check_func(
         thr, functions.div(*in_dtypes, out_dtype=out_dtype),
-        lambda x, y: numpy.cast[out_dtype](x / y), out_dtype, in_dtypes)
+        lambda x, y: dtypes.cast(out_dtype)(x / y), out_dtype, in_dtypes)
 
 
 @pytest.mark.parametrize('in_codes', ["ii", "ff", "cc", "cfi", "ifccfi"])

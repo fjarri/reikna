@@ -224,8 +224,6 @@ class Signature(funcsigs.Signature):
                 bound_args.arguments[param.name] = param.default
             elif cast:
                 if not param.annotation.array:
-                    arg = bound_args.arguments[param.name]
-                    type_ = param.annotation.type
-                    if not hasattr(arg, 'dtype') or arg.dtype != type_.dtype:
-                        bound_args.arguments[param.name] = type_(arg)
+                    bound_args.arguments[param.name] = \
+                        param.annotation.type(bound_args.arguments[param.name])
         return bound_args

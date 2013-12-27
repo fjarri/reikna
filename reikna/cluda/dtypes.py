@@ -118,7 +118,14 @@ def cast(dtype):
     """
     Returns function that takes one argument and casts it to ``dtype``.
     """
-    return numpy.cast[dtype]
+    def _cast(val):
+        # Numpy cannot handle casts to struct dtypes (#4148),
+        # so we're avoiding unnecessary casts.
+        if not hasattr(val, 'dtype') or val.dtype != dtype:
+            return numpy.cast[dtype](val)
+        else:
+            return val
+    return _cast
 
 def c_constant(val, dtype=None):
     """
@@ -131,10 +138,10 @@ def c_constant(val, dtype=None):
     else:
         dtype = normalize_type(dtype)
 
+    val = cast(dtype)(val)
+
     if dtype.names is not None:
         return "{" + ", ".join([c_constant(val[name]) for name in dtype.names]) + "}"
-
-    val = numpy.cast[dtype](val)
 
     if is_complex(dtype):
         return "COMPLEX_CTR(" + ctype(dtype) + ")(" + \
