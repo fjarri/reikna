@@ -2,6 +2,7 @@ import numpy
 
 from reikna.cluda import Module
 import reikna.helpers as helpers
+from reikna.cluda import dtypes
 
 
 class KeyGenerator:
