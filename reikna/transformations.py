@@ -137,3 +137,14 @@ def norm_param(arr_t):
         """,
         render_kwds=dict(
             norm=functions.norm(arr_t.dtype)))
+
+
+def ignore(arr_t):
+    """
+    Returns a transformation that ignores the output it is attached to.
+    """
+    return Transformation(
+        [Parameter('input', Annotation(arr_t, 'i'))],
+        """
+        // Ignoring intentionally
+        """)

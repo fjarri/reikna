@@ -10,6 +10,8 @@ Release history
 
 * ADDED: two transformations for norm of an arbitrary order: :py:func:`~reikna.transformations.norm_const` and :py:func:`~reikna.transformations.norm_param`.
 
+* ADDED: stub transformation :py:func:`~reikna.transformations.ignore`.
+
 * ADDED: :py:class:`~reikna.linalg.EntrywiseNorm` computation.
 
 * ADDED: support for multi-dimensional sub-arrays in :py:func:`~reikna.cluda.dtypes.c_constant` and :py:func:`~reikna.cluda.dtypes.flatten_dtype`.
