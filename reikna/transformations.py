@@ -148,3 +148,36 @@ def ignore(arr_t):
         """
         // Ignoring intentionally
         """)
+
+
+def broadcast_const(arr_t, val):
+    """
+    Returns a transformation that broadcasts the given constant to the array output
+    (1 output): ``output = val``.
+    """
+    if not hasattr(val, 'dtype') or val.dtype != arr_t.dtype:
+        val = dtypes.cast(arr_t.dtype)(val)
+    if len(val.shape) != 0:
+        raise ValueError("The constant must be a scalar")
+    return Transformation(
+        [
+            Parameter('output', Annotation(arr_t, 'o'))],
+        """
+        const ${output.ctype} val = ${dtypes.c_constant(val)};
+        ${output.store_same}(val);
+        """,
+        render_kwds=dict(val=val))
+
+
+def broadcast_param(arr_t):
+    """
+    Returns a transformation that broadcasts the free parameter to the array output
+    (1 output, 1 param): ``output = param``.
+    """
+    return Transformation(
+        [
+            Parameter('output', Annotation(arr_t, 'o')),
+            Parameter('param', Annotation(Type(arr_t.dtype)))],
+        """
+        ${output.store_same}(${param});
+        """)

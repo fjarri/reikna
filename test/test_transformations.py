@@ -24,6 +24,43 @@ def pytest_generate_tests(metafunc):
         dtypes = real_dtypes + complex_dtypes
         metafunc.parametrize('rc_dtype', dtypes, ids=[str(x) for x in dtypes])
 
+    if 'dtype_to_broadcast' in metafunc.funcargnames:
+
+        vals = []
+        ids = []
+
+        # a simple dtype
+        vals.append(numpy.float32)
+        ids.append('simple')
+
+        # numpy itemsize == 9, but on device it will be aligned to 4, so the total size will be 12
+        dtype = numpy.dtype([('val1', numpy.int32), ('val2', numpy.int32), ('pad', numpy.int8)])
+        vals.append(dtype)
+        ids.append("small_pad")
+
+        dtype_nested = numpy.dtype([
+            ('val1', numpy.int32), ('pad', numpy.int8)])
+        dtype = numpy.dtype([
+            ('val1', numpy.int32),
+            ('val2', numpy.int16),
+            ('nested', dtype_nested)])
+        vals.append(dtype)
+        ids.append("nested")
+
+        dtype_nested = numpy.dtype(dict(
+            names=['val1', 'pad'],
+            formats=[numpy.int8, numpy.int8]))
+        dtype = numpy.dtype(dict(
+            names=['pad', 'struct_arr', 'regular_arr'],
+            formats=[
+                numpy.int32,
+                numpy.dtype((dtype_nested, 2)),
+                numpy.dtype((numpy.int16, (2, 3)))]))
+        vals.append(dtype)
+        ids.append("nested_array")
+
+        metafunc.parametrize('dtype_to_broadcast', vals, ids=ids)
+
 
 def get_test_computation(arr_t):
     return PureParallel(
@@ -145,3 +182,42 @@ def test_norm_const(some_thr, rc_dtype, order):
 
     testc(output_dev, input_dev)
     assert diff_is_negligible(output_dev.get(), numpy.abs(input_) ** order)
+
+
+def test_broadcast_const(some_thr, dtype_to_broadcast):
+
+    dtype = dtypes.align(dtype_to_broadcast)
+    const = get_test_array(1, dtype)[0]
+
+    output_ref = numpy.empty((1000,), dtype)
+    output_ref[:] = const
+
+    output_dev = some_thr.empty_like(output_ref)
+
+    test = get_test_computation(output_dev)
+    bc = tr.broadcast_const(output_dev, const)
+    test.parameter.input.connect(bc, bc.output)
+    testc = test.compile(some_thr)
+
+    testc(output_dev)
+    assert diff_is_negligible(output_dev.get(), output_ref)
+
+
+def test_broadcast_param(some_thr, dtype_to_broadcast):
+
+    dtype = dtypes.align(dtype_to_broadcast)
+    param = get_test_array(1, dtype)[0]
+
+    output_ref = numpy.empty((1000,), dtype)
+    output_ref[:] = param
+
+    output_dev = some_thr.empty_like(output_ref)
+
+    test = get_test_computation(output_dev)
+    bc = tr.broadcast_param(output_dev)
+    test.parameter.input.connect(bc, bc.output, param=bc.param)
+    testc = test.compile(some_thr)
+    print(testc._kernel_calls[0]._kernel._program.source)
+
+    testc(output_dev, param)
+    assert diff_is_negligible(output_dev.get(), output_ref)
