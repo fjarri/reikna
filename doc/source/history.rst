@@ -3,6 +3,12 @@ Release history
 ***************
 
 
+0.6.1 (current development version)
+===================================
+
+Under construction.
+
+
 0.6.0 (27 Dec 2013)
 ===================
 
