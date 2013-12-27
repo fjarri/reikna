@@ -98,8 +98,8 @@ To achieve this, we connect the scaling transformation to it:
 
 .. testcode:: transformation_example
 
-    tr = transformations.scale_param(comp.parameter.in2, numpy.float32)
-    comp.parameter.in2.connect(tr, tr.output, in2_prime=tr.input, param2=tr.coeff)
+    tr = transformations.mul_param(comp.parameter.in2, numpy.float32)
+    comp.parameter.in2.connect(tr, tr.output, in2_prime=tr.input, param2=tr.param)
 
 The transformation tree now looks like:
 

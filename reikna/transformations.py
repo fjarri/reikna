@@ -53,32 +53,32 @@ def add_const(arr_t, param):
             param=dtypes.c_constant(param, dtype=param_dtype)))
 
 
-def scale_param(arr_t, coeff_dtype):
+def mul_param(arr_t, param_dtype):
     """
     Returns a scaling transformation with a dynamic parameter (1 output, 1 input, 1 scalar):
-    ``output = input * coeff``.
+    ``output = input * param``.
     """
     return Transformation(
         [Parameter('output', Annotation(arr_t, 'o')),
         Parameter('input', Annotation(arr_t, 'i')),
-        Parameter('coeff', Annotation(coeff_dtype))],
-        "${output.store_same}(${mul}(${input.load_same}, ${coeff}));",
-        render_kwds=dict(mul=functions.mul(arr_t.dtype, coeff_dtype, out_dtype=arr_t.dtype)))
+        Parameter('param', Annotation(param_dtype))],
+        "${output.store_same}(${mul}(${input.load_same}, ${param}));",
+        render_kwds=dict(mul=functions.mul(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype)))
 
 
-def scale_const(arr_t, coeff):
+def mul_const(arr_t, param):
     """
     Returns a scaling transformation with a fixed parameter (1 output, 1 input):
-    ``output = input * <coeff>``.
+    ``output = input * param``.
     """
-    coeff_dtype = dtypes.detect_type(coeff)
+    param_dtype = dtypes.detect_type(param)
     return Transformation(
         [Parameter('output', Annotation(arr_t, 'o')),
         Parameter('input', Annotation(arr_t, 'i'))],
-        "${output.store_same}(${mul}(${input.load_same}, ${coeff}));",
+        "${output.store_same}(${mul}(${input.load_same}, ${param}));",
         render_kwds=dict(
-            mul=functions.mul(arr_t.dtype, coeff_dtype, out_dtype=arr_t.dtype),
-            coeff=dtypes.c_constant(coeff, dtype=coeff_dtype)))
+            mul=functions.mul(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype),
+            param=dtypes.c_constant(param, dtype=param_dtype)))
 
 
 def split_complex(input_arr_t):

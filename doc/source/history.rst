@@ -8,6 +8,8 @@ Release history
 
 * CHANGED: some computations were moved to sub-packages: :py:class:`~reikna.algorithms.PureParallel`, :py:class:`~reikna.algorithms.Transpose` and :py:class:`~reikna.algorithms.Reduce` to :py:mod:`reikna.algorithms`, :py:class:`~reikna.linalg.MatrixMul` and :py:class:`~reikna.linalg.EntrywiseNorm` to :py:mod:`reikna.linalg`.
 
+* CHANGED: ``scale_const`` and ``scale_param`` were renamed to :py:func:`~reikna.transformations.mul_const` and :py:func:`~reikna.transformations.mul_param`, and the scalar parameter name of the latter was renamed from ``coeff`` to ``param``.
+
 * ADDED: two transformations for norm of an arbitrary order: :py:func:`~reikna.transformations.norm_const` and :py:func:`~reikna.transformations.norm_param`.
 
 * ADDED: stub transformation :py:func:`~reikna.transformations.ignore`.

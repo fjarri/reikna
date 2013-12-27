@@ -95,10 +95,10 @@ def test_add_param(some_thr, any_dtype):
     output_dev = some_thr.empty_like(input_dev)
 
     test = get_test_computation(input_dev)
-    scale = tr.add_param(input_dev, any_dtype)
+    add = tr.add_param(input_dev, any_dtype)
 
-    test.parameter.input.connect(scale, scale.output, input_prime=scale.input, p1=scale.param)
-    test.parameter.output.connect(scale, scale.input, output_prime=scale.output, p2=scale.param)
+    test.parameter.input.connect(add, add.output, input_prime=add.input, p1=add.param)
+    test.parameter.output.connect(add, add.input, output_prime=add.output, p2=add.param)
     testc = test.compile(some_thr)
 
     testc(output_dev, p1, input_dev, p2)
@@ -114,18 +114,18 @@ def test_add_const(some_thr, any_dtype):
     output_dev = some_thr.empty_like(input_dev)
 
     test = get_test_computation(input_dev)
-    scale1 = tr.add_const(input_dev, p1)
-    scale2 = tr.add_const(input_dev, p2)
+    add1 = tr.add_const(input_dev, p1)
+    add2 = tr.add_const(input_dev, p2)
 
-    test.parameter.input.connect(scale1, scale1.output, input_prime=scale1.input)
-    test.parameter.output.connect(scale2, scale2.input, output_prime=scale2.output)
+    test.parameter.input.connect(add1, add1.output, input_prime=add1.input)
+    test.parameter.output.connect(add2, add2.input, output_prime=add2.output)
     testc = test.compile(some_thr)
 
     testc(output_dev, input_dev)
     assert diff_is_negligible(output_dev.get(), input + p1 + p2)
 
 
-def test_scale_param(some_thr, any_dtype):
+def test_mul_param(some_thr, any_dtype):
 
     input = get_test_array((1000,), any_dtype)
     p1 = get_test_array((1,), any_dtype)[0]
@@ -134,17 +134,17 @@ def test_scale_param(some_thr, any_dtype):
     output_dev = some_thr.empty_like(input_dev)
 
     test = get_test_computation(input_dev)
-    scale = tr.scale_param(input_dev, any_dtype)
+    scale = tr.mul_param(input_dev, any_dtype)
 
-    test.parameter.input.connect(scale, scale.output, input_prime=scale.input, p1=scale.coeff)
-    test.parameter.output.connect(scale, scale.input, output_prime=scale.output, p2=scale.coeff)
+    test.parameter.input.connect(scale, scale.output, input_prime=scale.input, p1=scale.param)
+    test.parameter.output.connect(scale, scale.input, output_prime=scale.output, p2=scale.param)
     testc = test.compile(some_thr)
 
     testc(output_dev, p1, input_dev, p2)
     assert diff_is_negligible(output_dev.get(), input * p1 * p2)
 
 
-def test_scale_const(some_thr, any_dtype):
+def test_mul_const(some_thr, any_dtype):
 
     input = get_test_array((1000,), any_dtype)
     p1 = get_test_array((1,), any_dtype)[0]
@@ -153,8 +153,8 @@ def test_scale_const(some_thr, any_dtype):
     output_dev = some_thr.empty_like(input_dev)
 
     test = get_test_computation(input_dev)
-    scale1 = tr.scale_const(input_dev, p1)
-    scale2 = tr.scale_const(input_dev, p2)
+    scale1 = tr.mul_const(input_dev, p1)
+    scale2 = tr.mul_const(input_dev, p2)
 
     test.parameter.input.connect(scale1, scale1.output, input_prime=scale1.input)
     test.parameter.output.connect(scale2, scale2.input, output_prime=scale2.output)

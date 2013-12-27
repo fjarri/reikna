@@ -9,7 +9,7 @@ from helpers import *
 from reikna.helpers import product
 from reikna.fft import FFT
 import reikna.cluda.dtypes as dtypes
-from reikna.transformations import scale_param
+from reikna.transformations import mul_param
 
 
 def pytest_generate_tests(metafunc):
@@ -172,8 +172,8 @@ def test_trivial(some_thr):
     res_dev = some_thr.empty_like(data_dev)
 
     fft = FFT(data_dev, axes=axes)
-    scale = scale_param(data_dev, numpy.int32)
-    fft.parameter.input.connect(scale, scale.output, input_prime=scale.input, coeff=scale.coeff)
+    scale = mul_param(data_dev, numpy.int32)
+    fft.parameter.input.connect(scale, scale.output, input_prime=scale.input, param=scale.param)
 
     fftc = fft.compile(some_thr)
     fftc(res_dev, data_dev, param)
