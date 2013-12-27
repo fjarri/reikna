@@ -25,7 +25,7 @@ Writing a transformation
 
 Some common transformations are already available from :py:mod:`~reikna.transformations` module.
 But you can create a custom one if you need to.
-Transformations are based on the class :py:class:`~reikna.core.Transformation`, and are very similar to :py:class:`~reikna.pureparallel.PureParallel` instances, with some additional limitations.
+Transformations are based on the class :py:class:`~reikna.core.Transformation`, and are very similar to :py:class:`~reikna.algorithms.PureParallel` instances, with some additional limitations.
 
 Let us consider a (not very useful, but quite involved) example:
 

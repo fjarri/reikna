@@ -2,28 +2,16 @@ Computations
 ============
 
 
-Pure parallel computations
---------------------------
+Algorithms
+----------
 
-.. automodule:: reikna.pureparallel
-    :members:
+.. automodule:: reikna.algorithms
 
 
 Linear algebra
 --------------
 
-.. automodule:: reikna.matrixmul
-    :members:
-
-.. automodule:: reikna.transpose
-    :members:
-
-
-Algorithms
-----------
-
-.. automodule:: reikna.reduce
-    :members:
+.. automodule:: reikna.linalg
 
 
 Fast Fourier transform

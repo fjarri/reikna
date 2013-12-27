@@ -42,6 +42,23 @@ def cast(out_dtype, in_dtype):
         render_kwds=dict(out_dtype=out_dtype, in_dtype=in_dtype))
 
 
+def add(*in_dtypes, **kwds):
+    """add(*in_dtypes, out_dtype=None)
+
+    Returns a :py:class:`~reikna.cluda.Module`  with a function of
+    ``len(in_dtypes)`` arguments that adds values of types ``in_dtypes``.
+    If ``out_dtype`` is given, it will be set as a return type for this function.
+
+    This is necessary since on some platforms the ``+`` operator for a complex and a real number
+    works in an unexpected way (returning ``(a.x + b, a.y + b)`` instead of ``(a.x + b, a.y)``).
+    """
+    assert set(kwds.keys()).issubset(['out_dtype'])
+    out_dtype = derive_out_dtype(kwds.get('out_dtype', None), *in_dtypes)
+    return Module(
+        TEMPLATE.get_def('add_or_mul'),
+        render_kwds=dict(op='add', out_dtype=out_dtype, in_dtypes=in_dtypes))
+
+
 def mul(*in_dtypes, **kwds):
     """mul(*in_dtypes, out_dtype=None)
 
@@ -52,8 +69,8 @@ def mul(*in_dtypes, **kwds):
     assert set(kwds.keys()).issubset(['out_dtype'])
     out_dtype = derive_out_dtype(kwds.get('out_dtype', None), *in_dtypes)
     return Module(
-        TEMPLATE.get_def('mul'),
-        render_kwds=dict(out_dtype=out_dtype, in_dtypes=in_dtypes))
+        TEMPLATE.get_def('add_or_mul'),
+        render_kwds=dict(op='mul', out_dtype=out_dtype, in_dtypes=in_dtypes))
 
 
 def div(in_dtype1, in_dtype2, out_dtype=None):

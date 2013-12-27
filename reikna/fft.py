@@ -5,7 +5,7 @@ from reikna.core import Computation, Parameter, Annotation
 from reikna.cluda import functions
 import reikna.cluda.dtypes as dtypes
 from reikna.cluda import OutOfResourcesError
-from reikna.pureparallel import PureParallel
+from reikna.algorithms import PureParallel
 from reikna.transformations import copy
 
 TEMPLATE = helpers.template_for(__file__)

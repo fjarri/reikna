@@ -7,7 +7,7 @@
     ctype = output.ctype
 
     fields = dtypes.flatten_dtype(output.dtype)
-    paths = [('.' if len(path) > 0 else '') + '.'.join(path) for path, _ in fields]
+    paths = [dtypes.c_path(path) for path, _ in fields]
     ctypes = [dtypes.ctype(dtype) for _, dtype in fields]
     suffixes = ['_' + '_'.join(path) for path, _ in fields]
 %>

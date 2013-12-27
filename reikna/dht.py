@@ -1,10 +1,10 @@
 import numpy
 from numpy.polynomial import Hermite
 
-from reikna.core import Computation, Parameter, Annotation, Type
 import reikna.cluda.dtypes as dtypes
-from reikna.transpose import Transpose
-from reikna.matrixmul import MatrixMul
+from reikna.core import Computation, Parameter, Annotation, Type
+from reikna.algorithms import Transpose
+from reikna.linalg import MatrixMul
 
 
 def factorial(num):

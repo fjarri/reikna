@@ -132,7 +132,7 @@ As an example, we will consider the matrix multiplication.
     import numpy
     from numpy.linalg import norm
     import reikna.cluda as cluda
-    from reikna.matrixmul import MatrixMul
+    from reikna.linalg import MatrixMul
 
     api = cluda.ocl_api()
     thr = api.Thread.create()
@@ -159,7 +159,7 @@ As an example, we will consider the matrix multiplication.
 
     True
 
-Most of the code above should be already familiar, with the exception of the creation of :py:class:`~reikna.matrixmul.MatrixMul` object.
+Most of the code above should be already familiar, with the exception of the creation of :py:class:`~reikna.linalg.MatrixMul` object.
 The computation constructor takes two array-like objects, representing arrays that will participate in the computation.
 After that the computation object has to be compiled.
 The :py:meth:`~reikna.core.Computation.compile` method requires a :py:class:`~reikna.cluda.api.Thread` object, which serves as a source of data about the target API and device, and provides an execution queue.
@@ -180,7 +180,7 @@ Let us change the previous example and connect transformations to it.
     from numpy.linalg import norm
     import reikna.cluda as cluda
     from reikna.core import Type
-    from reikna.matrixmul import MatrixMul
+    from reikna.linalg import MatrixMul
     from reikna.transformations import combine_complex
 
     api = cluda.ocl_api()
@@ -226,7 +226,7 @@ Let us change the previous example and connect transformations to it.
 We have used a pre-created transformation :py:func:`~reikna.transformations.combine_complex` from :py:mod:`reikna.transformations` for simplicity; developing a custom transformation is also possible and described in :ref:`tutorial-advanced-transformation`.
 From the documentation we know that it transforms two inputs into one output; therefore we need to attach it to one of the inputs of ``dot`` (identified by its name), and provide names for two new inputs.
 
-Names to attach to are obtained from the documentation for the particular computation; for :py:class:`~reikna.matrixmul.MatrixMul` these are ``out``, ``a`` and ``b``.
+Names to attach to are obtained from the documentation for the particular computation; for :py:class:`~reikna.linalg.MatrixMul` these are ``out``, ``a`` and ``b``.
 
 In the current example we have attached the transformations to both inputs.
 Note that the computation has a new signature now, and the compiled ``dot`` object now works with split complex numbers.

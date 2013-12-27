@@ -5,7 +5,7 @@ import numpy
 import pytest
 
 from helpers import *
-from reikna.reduce import Reduce, Predicate, predicate_sum
+from reikna.algorithms import Reduce, Predicate, predicate_sum
 from reikna.helpers import template_def
 from reikna.cluda import Snippet
 import reikna.cluda.dtypes as dtypes
@@ -30,7 +30,6 @@ def test_normal(thr, shape, axis):
 
     b_dev = thr.empty_like(rd.parameter.output)
     b_ref = a.sum(axis)
-    b_dev = thr.to_device(numpy.ones_like(b_ref))
 
     rdc = rd.compile(thr)
     rdc(b_dev, a_dev)

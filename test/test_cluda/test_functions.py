@@ -125,7 +125,7 @@ def test_cast(thr, out_code, in_codes):
     out_dtype, in_dtypes = generate_dtypes(out_code, in_codes)
     check_func(
         thr, functions.cast(out_dtype, in_dtypes[0]),
-        numpy.cast[out_dtype], out_dtype, in_dtypes)
+        dtypes.cast(out_dtype), out_dtype, in_dtypes)
 
 
 @pytest.mark.parametrize(
@@ -135,7 +135,7 @@ def test_div(thr, out_code, in_codes):
     out_dtype, in_dtypes = generate_dtypes(out_code, in_codes)
     check_func(
         thr, functions.div(*in_dtypes, out_dtype=out_dtype),
-        lambda x, y: numpy.cast[out_dtype](x / y), out_dtype, in_dtypes)
+        lambda x, y: dtypes.cast(out_dtype)(x / y), out_dtype, in_dtypes)
 
 
 @pytest.mark.parametrize('in_codes', ["ii", "ff", "cc", "cfi", "ifccfi"])
@@ -159,3 +159,26 @@ def test_multiarg_mul(thr, out_code, in_codes):
         mul = functions.mul(*in_dtypes, out_dtype=out_dtype)
 
     check_func(thr, mul, reference_mul, out_dtype, in_dtypes)
+
+
+@pytest.mark.parametrize('in_codes', ["ii", "ff", "cc", "cfi", "ifccfi"])
+@pytest.mark.parametrize('out_code', ["auto", "i", "f", "c"])
+def test_multiarg_add(thr, out_code, in_codes):
+    """
+    Checks multi-argument add() with a variety of data types.
+    """
+
+    out_dtype, in_dtypes = generate_dtypes(out_code, in_codes)
+
+    def reference_add(*args):
+        res = sum(args)
+        if not dtypes.is_complex(out_dtype) and dtypes.is_complex(res.dtype):
+            res = res.real
+        return res.astype(out_dtype)
+
+    # Temporarily catching imaginary part truncation warnings
+    with catch_warnings():
+        filterwarnings("ignore", "", numpy.ComplexWarning)
+        mul = functions.add(*in_dtypes, out_dtype=out_dtype)
+
+    check_func(thr, mul, reference_add, out_dtype, in_dtypes)

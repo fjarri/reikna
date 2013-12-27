@@ -15,8 +15,11 @@ WITHIN_KERNEL ${dtypes.ctype(out_dtype)} ${prefix}(${dtypes.ctype(in_dtype)} x)
 </%def>
 
 
-<%def name="mul(prefix)">
+## Since the processing for addition and multiplication is practically equivalent,
+## they are joined in a single template.
+<%def name="add_or_mul(prefix)">
 <%
+    assert op in ('add', 'mul')
     argnames = ["a" + str(i + 1) for i in range(len(in_dtypes))]
 %>
 WITHIN_KERNEL ${dtypes.ctype(out_dtype)} ${prefix}(
@@ -42,15 +45,27 @@ WITHIN_KERNEL ${dtypes.ctype(out_dtype)} ${prefix}(
         temp_name = "temp" + str(i)
         result_ctr = dtypes.complex_ctr(new_dtype) if dtypes.is_complex(new_dtype) else ""
     %>
-        ${dtypes.ctype(new_dtype)} ${temp_name }= ${result_ctr}(
-        %if not ca and not cb:
-            ${a} * ${b}
-        %elif ca and not cb:
-            ${a}.x * ${b}, ${a}.y * ${b}
-        %elif not ca and cb:
-            ${b}.x * ${a}, ${b}.y * ${a}
-        %else:
-            ${a}.x * ${b}.x - ${a}.y * ${b}.y, ${a}.x * ${b}.y + ${a}.y * ${b}.x
+        ${dtypes.ctype(new_dtype)} ${temp_name} = ${result_ctr}(
+        %if op == 'add':
+            %if not ca and not cb:
+                ${a} + ${b}
+            %elif ca and not cb:
+                ${a}.x + ${b}, ${a}.y
+            %elif not ca and cb:
+                ${b}.x + ${a}, ${b}.y
+            %else:
+                ${a}.x + ${b}.x, ${a}.y + ${b}.y
+            %endif
+        %elif op == 'mul':
+            %if not ca and not cb:
+                ${a} * ${b}
+            %elif ca and not cb:
+                ${a}.x * ${b}, ${a}.y * ${b}
+            %elif not ca and cb:
+                ${b}.x * ${a}, ${b}.y * ${a}
+            %else:
+                ${a}.x * ${b}.x - ${a}.y * ${b}.y, ${a}.x * ${b}.y + ${a}.y * ${b}.x
+            %endif
         %endif
             );
     <%

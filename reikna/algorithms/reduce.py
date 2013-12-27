@@ -4,14 +4,14 @@ from reikna.cluda import Snippet
 import reikna.helpers as helpers
 from reikna.cluda import dtypes
 from reikna.core import Computation, Parameter, Annotation, Type
-from reikna.transpose import Transpose
+from reikna.algorithms import Transpose
 
 TEMPLATE = helpers.template_for(__file__)
 
 
 class Predicate:
     """
-    A predicate used in :py:class:`~reikna.reduce.Reduce`.
+    A predicate used in :py:class:`~reikna.algorithms.Reduce`.
 
     :param operation: a :py:class:`~reikna.cluda.Snippet` object with two parameters
         which will take the names of two arguments to join.
@@ -29,7 +29,7 @@ class Predicate:
 
 def predicate_sum(dtype):
     """
-    Returns a :py:class:`~reikna.reduce.Predicate` object which sums its arguments.
+    Returns a :py:class:`~reikna.algorithms.Predicate` object which sums its arguments.
     """
     return Predicate(
         Snippet.create(lambda v1, v2: "return ${v1} + ${v2};"),
@@ -43,7 +43,7 @@ class Reduce(Computation):
     Reduces the array over given axis using given binary operation.
 
     :param arr_t: an array-like defining the initial array.
-    :param predicate: a :py:class:`~reikna.reduce.Predicate` object.
+    :param predicate: a :py:class:`~reikna.algorithms.Predicate` object.
     :param axes: a list of non-repeating axes to reduce over.
         If ``None``, the whole array will be reduced
         (in which case the shape of the output array is ``(1,)``).

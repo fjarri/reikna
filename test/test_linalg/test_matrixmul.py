@@ -4,7 +4,7 @@ import pytest
 
 from helpers import *
 
-from reikna.matrixmul import MatrixMul
+from reikna.linalg import MatrixMul
 import reikna.cluda.dtypes as dtypes
 from reikna.cluda import OutOfResourcesError
 from reikna.helpers import product

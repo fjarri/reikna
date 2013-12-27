@@ -3,12 +3,44 @@ Release history
 ***************
 
 
+0.6.0 (27 Dec 2013)
+===================
+
+* CHANGED: some computations were moved to sub-packages: :py:class:`~reikna.algorithms.PureParallel`, :py:class:`~reikna.algorithms.Transpose` and :py:class:`~reikna.algorithms.Reduce` to :py:mod:`reikna.algorithms`, :py:class:`~reikna.linalg.MatrixMul` and :py:class:`~reikna.linalg.EntrywiseNorm` to :py:mod:`reikna.linalg`.
+
+* CHANGED: ``scale_const`` and ``scale_param`` were renamed to :py:func:`~reikna.transformations.mul_const` and :py:func:`~reikna.transformations.mul_param`, and the scalar parameter name of the latter was renamed from ``coeff`` to ``param``.
+
+* ADDED: two transformations for norm of an arbitrary order: :py:func:`~reikna.transformations.norm_const` and :py:func:`~reikna.transformations.norm_param`.
+
+* ADDED: stub transformation :py:func:`~reikna.transformations.ignore`.
+
+* ADDED: broadcasting transformations :py:func:`~reikna.transformations.broadcast_const` and :py:func:`~reikna.transformations.broadcast_param`.
+
+* ADDED: addition transformations :py:func:`~reikna.transformations.add_const` and :py:func:`~reikna.transformations.add_param`.
+
+* ADDED: :py:class:`~reikna.linalg.EntrywiseNorm` computation.
+
+* ADDED: support for multi-dimensional sub-arrays in :py:func:`~reikna.cluda.dtypes.c_constant` and :py:func:`~reikna.cluda.dtypes.flatten_dtype`.
+
+* ADDED: helper functions :py:func:`~reikna.cluda.dtypes.extract_field` and :py:func:`~reikna.cluda.dtypes.c_path` to work in conjunction with :py:func:`~reikna.cluda.dtypes.flatten_dtype`.
+
+* ADDED: a function module :py:func:`~reikna.cluda.functions.add`.
+
+* FIXED: casting a coefficient in the :py:func:`~reikna.cbrng.samplers.normal_bm` template to a correct dtype.
+
+* FIXED: :py:func:`~reikna.cluda.dtypes.cast` avoids casting if the value already has the target dtype (since ``numpy.cast`` does not work with struct dtypes, see issue #4148).
+
+* FIXED: a error in transformation module rendering for scalar parameters with struct dtypes.
+
+* FIXED: normalizing dtypes in several functions from :py:mod:`~reikna.cluda.dtypes` to avoid errors with ``numpy`` dtype shortcuts.
+
+
 0.5.2 (17 Dec 2013)
 ===================
 
 * ADDED: :py:func:`~reikna.cbrng.samplers.normal_bm` now supports complex dtypes.
 
-* FIXED: a nested :py:class:`~reikna.pureparallel.PureParallel` can now take several identical argument objects as arguments.
+* FIXED: a nested :py:class:`~reikna.algorithms.PureParallel` can now take several identical argument objects as arguments.
 
 * FIXED: a nested computation can now take a single input/output argument (e.g. a temporary array) as separate input and output arguments.
 
@@ -28,7 +60,7 @@ Release history
 
 * CHANGED: :py:class:`~reikna.core.transformation.KernelParameter` is not derived from :py:class:`~reikna.core.Type` anymore (although it still retains the corresponding attributes).
 
-* CHANGED: :py:class:`~reikna.reduce.Predicate` now takes a dtype'd value as ``empty``, not a string.
+* CHANGED: :py:class:`~reikna.algorithms.Predicate` now takes a dtype'd value as ``empty``, not a string.
 
 * CHANGED: The logic of processing struct dtypes was reworked, and ``adjust_alignment`` was removed.
   Instead, one should use :py:func:`~reikna.cluda.dtypes.align` (which does not take a ``Thread`` parameter) to get a dtype with the offsets and itemsize equal to those a compiler would set.
@@ -39,17 +71,17 @@ Release history
 
 * ADDED: :py:func:`~reikna.cluda.dtypes.flatten_dtype` helper function.
 
-* ADDED: added ``transposed_a`` and ``transposed_b`` keyword parameters to :py:class:`~reikna.matrixmul.MatrixMul`.
+* ADDED: added ``transposed_a`` and ``transposed_b`` keyword parameters to :py:class:`~reikna.linalg.MatrixMul`.
 
-* ADDED: algorithm cascading to :py:class:`~reikna.reduce.Reduce`, leading to 3-4 times increase in performance.
+* ADDED: algorithm cascading to :py:class:`~reikna.algorithms.Reduce`, leading to 3-4 times increase in performance.
 
 * ADDED: :py:func:`~reikna.cluda.functions.polar_unit` function module in CLUDA.
 
 * ADDED: support for arrays with 0-dimensional shape as computation and transformation arguments.
 
-* FIXED: a bug in :py:class:`~reikna.reduce.Reduce`, which lead to incorrect results in cases when the reduction power is exactly equal to the maximum one.
+* FIXED: a bug in :py:class:`~reikna.algorithms.Reduce`, which lead to incorrect results in cases when the reduction power is exactly equal to the maximum one.
 
-* FIXED: :py:class:`~reikna.transpose.Transpose` now works correctly for struct dtypes.
+* FIXED: :py:class:`~reikna.algorithms.Transpose` now works correctly for struct dtypes.
 
 * FIXED: :py:class:`~reikna.helpers.bounding_power_of_2` now correctly returns ``1`` instead of ``2`` being given ``1`` as an argument.
 
@@ -78,7 +110,7 @@ Release history
 
 * ADDED: support for struct types as ``Computation`` arguments (for them, the ``ctypes`` attributes contain the corresponding module obtained with :py:func:`~reikna.cluda.dtypes.ctype_module`).
 
-* ADDED: support for non-sequential axes in :py:class:`~reikna.reduce.Reduce`.
+* ADDED: support for non-sequential axes in :py:class:`~reikna.algorithms.Reduce`.
 
 * FIXED: bug in the interactive ``Thread`` creation (reported by James Bergstra).
 
@@ -194,7 +226,7 @@ Other stuff:
 
 * ADDED: modules can now take positional arguments on instantiation, same as snippets.
 
-* CHANGED: ``Elementwise`` becomes :py:class:`~reikna.pureparallel.PureParallel` (as it is not always elementwise).
+* CHANGED: ``Elementwise`` becomes :py:class:`~reikna.algorithms.PureParallel` (as it is not always elementwise).
 
 * FIXED: incorrect behavior of functions.norm() for non-complex arguments.
 
@@ -289,7 +321,7 @@ Other stuff:
 
 * FIXED: bug in nested computation processing for computation with more than one kernel.
 
-* FIXED: added dependencies between :py:class:`~reikna.matrixmul.MatrixMul` kernel arguments.
+* FIXED: added dependencies between :py:class:`~reikna.linalg.MatrixMul` kernel arguments.
 
 * FIXED: taking into account dependencies between input and output arrays as well as the ones
   between internal allocations --- necessary for nested computations.

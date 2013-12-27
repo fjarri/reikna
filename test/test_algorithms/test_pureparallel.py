@@ -2,10 +2,10 @@ import numpy
 import pytest
 
 from helpers import *
-from reikna.pureparallel import PureParallel
+from reikna.algorithms import PureParallel
 from reikna.core import Parameter, Annotation, Type, Computation
 import reikna.cluda.dtypes as dtypes
-from reikna.transformations import scale_param
+from reikna.transformations import mul_param
 
 
 class NestedPureParallel(Computation):
@@ -173,7 +173,7 @@ def test_trf_with_guiding_input(thr):
     dtype = numpy.float32
 
     arr_t = Type(dtype, shape=N)
-    trf = scale_param(arr_t, dtype)
+    trf = mul_param(arr_t, dtype)
     p = PureParallel.from_trf(trf, trf.input)
 
     # The new PureParallel has to preserve the parameter list of the original transformation.
@@ -200,7 +200,7 @@ def test_trf_with_guiding_output(thr):
     dtype = numpy.float32
 
     arr_t = Type(dtype, shape=N)
-    trf = scale_param(arr_t, dtype)
+    trf = mul_param(arr_t, dtype)
     p = PureParallel.from_trf(trf, trf.output)
 
     # The new PureParallel has to preserve the parameter list of the original transformation.

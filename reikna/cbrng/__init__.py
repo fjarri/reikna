@@ -41,7 +41,7 @@ This state is then passed to, and updated by a :py:class:`~reikna.cbrng.CBRNG` o
 
 
 Kernel API
-----------
+^^^^^^^^^^
 
 .. automodule:: reikna.cbrng.bijections
     :members:

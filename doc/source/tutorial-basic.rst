@@ -30,7 +30,7 @@ Every :py:class:`~reikna.core.Computation` object has a :py:attr:`~reikna.core.C
 It is the same signature object as can be exctracted from any Python function using ``funcsigs.signature`` function (or ``inspect.signature`` from the standard library for Python >= 3.3).
 When the computation object is compiled, the resulting callable will have this exact signature.
 
-The base signature for any computation can be found in its documentation (and, sometimes, can depend on the arguments passed to its constructor --- see, for example, :py:class:`~reikna.pureparallel.PureParallel`).
+The base signature for any computation can be found in its documentation (and, sometimes, can depend on the arguments passed to its constructor --- see, for example, :py:class:`~reikna.algorithms.PureParallel`).
 The signature can change if a user connects transformations to some parameter via :py:meth:`~reikna.core.Computation.connect`; in this case the :py:attr:`~reikna.core.Computation.signature` attribute will change accordingly.
 
 All attached transformations form a tree with roots being the base parameters computation has right after creation, and leaves forming the user-visible signature, which the compiled :py:class:`~reikna.core.computation.ComputationCallable` will have.
@@ -45,7 +45,7 @@ As an example, let us consider a pure parallel computation object with one outpu
     from reikna import cluda
     from reikna.cluda import Snippet
     from reikna.core import Transformation, Type, Annotation, Parameter
-    from reikna.pureparallel import PureParallel
+    from reikna.algorithms import PureParallel
     import reikna.transformations as transformations
 
     arr_t = Type(numpy.float32, shape=128)
@@ -98,8 +98,8 @@ To achieve this, we connect the scaling transformation to it:
 
 .. testcode:: transformation_example
 
-    tr = transformations.scale_param(comp.parameter.in2, numpy.float32)
-    comp.parameter.in2.connect(tr, tr.output, in2_prime=tr.input, param2=tr.coeff)
+    tr = transformations.mul_param(comp.parameter.in2, numpy.float32)
+    comp.parameter.in2.connect(tr, tr.output, in2_prime=tr.input, param2=tr.param)
 
 The transformation tree now looks like:
 
@@ -156,7 +156,7 @@ Transformation restrictions
 There are some limitations of the transformation mechanics:
 
 #. Transformations are purely parallel, that is they cannot use local memory.
-   In fact, they are very much like :py:class:`~reikna.pureparallel.PureParallel` computations,
+   In fact, they are very much like :py:class:`~reikna.algorithms.PureParallel` computations,
    except that the indices they use are defined by the main computation,
    and not set by the GPU driver.
 #. External endpoints of the output transformations cannot point to existing nodes in the transformation tree.

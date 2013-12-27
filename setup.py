@@ -86,7 +86,7 @@ git_revision = "{git_revision}"
 release = {released}
 '''
 
-    VERSION = (0, 5, 2)
+    VERSION = (0, 6, 0)
     RELEASED = True
 
     version_str = '%d.%d.%d' % VERSION
@@ -134,17 +134,33 @@ if __name__ == '__main__':
 
     setup(
         name='reikna',
-        packages=['reikna', 'reikna/cluda', 'reikna/core', 'reikna/helpers', 'reikna/cbrng'],
+        packages=[
+            'reikna',
+            'reikna/algorithms',
+            'reikna/cbrng',
+            'reikna/cluda',
+            'reikna/core',
+            'reikna/helpers',
+            'reikna/linalg',
+            ],
         provides=['reikna'],
         requires=requires,
         install_requires=install_requires,
         extras_require=dict(
             pyopencl=["pyopencl>=2013.1"],
             pycuda=["pycuda>=2013.1"],
-            test=["pytest>=2.3", "pytest-cov"]),
-        package_data={'reikna': ['*.mako'],
-                      'reikna/cluda': ['*.mako'],
-                      'reikna/cbrng': ['*.mako']},
+            dev=[
+                "pytest>=2.3",
+                "pytest-cov",
+                "sphinx>=1.2",
+                ]),
+        package_data={
+            'reikna': ['*.mako'],
+            'reikna/algorithms': ['*.mako'],
+            'reikna/cluda': ['*.mako'],
+            'reikna/cbrng': ['*.mako'],
+            'reikna/linalg': ['*.mako'],
+            },
         version=VERSION_STR,
         author='Bogdan Opanchuk',
         author_email='bogdan@opanchuk.net',

@@ -1,3 +1,4 @@
+import itertools
 from fractions import gcd
 
 import numpy
@@ -118,7 +119,20 @@ def cast(dtype):
     """
     Returns function that takes one argument and casts it to ``dtype``.
     """
-    return numpy.cast[dtype]
+    def _cast(val):
+        # Numpy cannot handle casts to struct dtypes (#4148),
+        # so we're avoiding unnecessary casts.
+        if not hasattr(val, 'dtype') or val.dtype != dtype:
+            return numpy.cast[dtype](val)
+        else:
+            return val
+    return _cast
+
+def _c_constant_arr(val, shape):
+    if len(shape) == 0:
+        return c_constant(val)
+    else:
+        return "{" + ", ".join(_c_constant_arr(val[i], shape[1:]) for i in range(shape[0])) + "}"
 
 def c_constant(val, dtype=None):
     """
@@ -131,10 +145,12 @@ def c_constant(val, dtype=None):
     else:
         dtype = normalize_type(dtype)
 
-    if dtype.names is not None:
-        return "{" + ", ".join([c_constant(val[name]) for name in dtype.names]) + "}"
+    val = cast(dtype)(val)
 
-    val = numpy.cast[dtype](val)
+    if len(val.shape) > 0:
+        return _c_constant_arr(val, val.shape)
+    elif dtype.names is not None:
+        return "{" + ", ".join([c_constant(val[name]) for name in dtype.names]) + "}"
 
     if is_complex(dtype):
         return "COMPLEX_CTR(" + ctype(dtype) + ")(" + \
@@ -374,6 +390,8 @@ def ctype_module(dtype, ignore_alignment=False):
         Therefore, ``ctype_module`` will make some additional checks and raise ``ValueError``
         if it is not the case.
     """
+    dtype = normalize_type(dtype)
+
     if dtype.names is None:
         return ctype(dtype)
     else:
@@ -403,6 +421,8 @@ def align(dtype):
     (without being given any explicit alignment qualifiers).
     Ignores all existing explicit itemsizes and offsets.
     """
+    dtype = normalize_type(dtype)
+
     if len(dtype.shape) > 0:
         return numpy.dtype((align(dtype.base), dtype.shape))
 
@@ -446,8 +466,19 @@ def _flatten_dtype(dtype, prefix=[]):
     else:
         result = []
         for name in dtype.names:
-            nested_dtype, _ = dtype.fields[name]
-            result += _flatten_dtype(nested_dtype, prefix=prefix + [name])
+            elem_dtype, _ = dtype.fields[name]
+            if len(elem_dtype.shape) == 0:
+                base_elem_dtype = elem_dtype
+                elem_dtype_shape = tuple()
+            else:
+                base_elem_dtype = elem_dtype.base
+                elem_dtype_shape = elem_dtype.shape
+
+            if len(elem_dtype_shape) == 0:
+                result += _flatten_dtype(base_elem_dtype, prefix=prefix + [name])
+            else:
+                for idxs in itertools.product(*[range(dim) for dim in elem_dtype_shape]):
+                    result += _flatten_dtype(base_elem_dtype, prefix=prefix + [name] + list(idxs))
         return result
 
 
@@ -455,6 +486,46 @@ def flatten_dtype(dtype):
     """
     Returns a list of tuples ``(path, dtype)`` for each of the basic dtypes in
     a (possibly nested) ``dtype``.
-    ``path`` is a list of field names leading to the corresponding element.
+    ``path`` is a list of field names/array indices leading to the corresponding element.
     """
+    dtype = normalize_type(dtype)
     return _flatten_dtype(dtype)
+
+
+def c_path(path):
+    """
+    Returns a string corresponding to the ``path`` to a struct element in C.
+    The ``path`` is the sequence of field names/array indices returned from
+    :py:func:`~reikna.cluda.dtypes.flatten_dtype`.
+    """
+    return  "".join(
+        (("." + elem) if isinstance(elem, str) else ("[" + str(elem) + "]"))
+        for elem in path)
+
+
+def _extract_field(arr, path, array_idxs):
+    """
+    A helper function for ``extract_field``.
+    Need to collect array indices for dtype sub-array fields since they are attached to the end
+    of the full array index.
+    """
+    if len(path) == 0:
+        if len(array_idxs) == 0:
+            return arr
+        else:
+            slices = tuple(
+                [slice(None, None, None)] * (len(arr.shape) - len(array_idxs)) + array_idxs)
+            return arr[slices]
+    elif isinstance(path[0], str):
+        return _extract_field(arr[path[0]], path[1:], array_idxs)
+    else:
+        return _extract_field(arr, path[1:], array_idxs + [path[0]])
+
+
+def extract_field(arr, path):
+    """
+    Extracts an element from an array of struct dtype.
+    The ``path`` is the sequence of field names/array indices returned from
+    :py:func:`~reikna.cluda.dtypes.flatten_dtype`.
+    """
+    return _extract_field(arr, path, [])
