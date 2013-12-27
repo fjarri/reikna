@@ -496,7 +496,7 @@ def c_path(path):
     """
     Returns a string corresponding to the ``path`` to a struct element in C.
     The ``path`` is the sequence of field names/array indices returned from
-    :py:func:`~reikna.dtypes.flatten_dtype`.
+    :py:func:`~reikna.cluda.dtypes.flatten_dtype`.
     """
     return  "".join(
         (("." + elem) if isinstance(elem, str) else ("[" + str(elem) + "]"))
@@ -526,6 +526,6 @@ def extract_field(arr, path):
     """
     Extracts an element from an array of struct dtype.
     The ``path`` is the sequence of field names/array indices returned from
-    :py:func:`~reikna.dtypes.flatten_dtype`.
+    :py:func:`~reikna.cluda.dtypes.flatten_dtype`.
     """
     return _extract_field(arr, path, [])

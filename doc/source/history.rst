@@ -22,7 +22,7 @@ Release history
 
 * FIXED: casting a coefficient in the :py:func:`~reikna.cbrng.samplers.normal_bm` template to a correct dtype.
 
-* FIXED: :py:func:`~reikna.dtypes.cast` avoids casting if the value already has the target dtype (since ``numpy.cast`` does not work with struct dtypes, see issue #4148).
+* FIXED: :py:func:`~reikna.cluda.dtypes.cast` avoids casting if the value already has the target dtype (since ``numpy.cast`` does not work with struct dtypes, see issue #4148).
 
 * FIXED: a error in transformation module rendering for scalar parameters with struct dtypes.
 
