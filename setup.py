@@ -87,7 +87,7 @@ release = {released}
 '''
 
     VERSION = (0, 6, 0)
-    RELEASED = False
+    RELEASED = True
 
     version_str = '%d.%d.%d' % VERSION
     full_version_str = version_str

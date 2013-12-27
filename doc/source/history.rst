@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.6.0 (current development version)
-===================================
+0.6.0 (27 Dec 2013)
+===================
 
 * CHANGED: some computations were moved to sub-packages: :py:class:`~reikna.algorithms.PureParallel`, :py:class:`~reikna.algorithms.Transpose` and :py:class:`~reikna.algorithms.Reduce` to :py:mod:`reikna.algorithms`, :py:class:`~reikna.linalg.MatrixMul` and :py:class:`~reikna.linalg.EntrywiseNorm` to :py:mod:`reikna.linalg`.
 
