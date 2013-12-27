@@ -16,6 +16,8 @@ Release history
 
 * FIXED: not casting a scalar parameter to the computation if it already has the target dtype (since ``numpy.cast`` does not work with struct dtypes, see issue #4148).
 
+* FIXED: a error in transformation module rendering for scalar parameters with struct dtypes.
+
 
 0.5.2 (17 Dec 2013)
 ===================

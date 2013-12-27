@@ -58,7 +58,7 @@ def param_cname(param, qualified=False):
         if param.annotation.array:
             return "GLOBAL_MEM " + str(ctype) + " *" + name
         else:
-            return ctype + " " + name
+            return str(ctype) + " " + name
     else:
         return name
 
