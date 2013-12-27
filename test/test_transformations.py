@@ -217,7 +217,6 @@ def test_broadcast_param(some_thr, dtype_to_broadcast):
     bc = tr.broadcast_param(output_dev)
     test.parameter.input.connect(bc, bc.output, param=bc.param)
     testc = test.compile(some_thr)
-    print(testc._kernel_calls[0]._kernel._program.source)
 
     testc(output_dev, param)
     assert diff_is_negligible(output_dev.get(), output_ref)
