@@ -31,18 +31,14 @@ def pytest_generate_tests(metafunc):
             formats=[numpy.int8, numpy.int8]))
         dtype = numpy.dtype(dict(
             names=['pad', 'struct_arr', 'regular_arr'],
-            formats=[numpy.int32, numpy.dtype((dtype_nested, 2)), numpy.dtype((numpy.int16, 3))]))
+            formats=[
+                numpy.int32,
+                numpy.dtype((dtype_nested, 2)),
+                numpy.dtype((numpy.int16, (2, 3)))]))
         vals.append(dtype)
         ids.append("nested_array")
 
         metafunc.parametrize('dtype_to_align', vals, ids=ids)
-
-
-def extract_field(arr, path):
-    if len(path) == 0:
-        return arr
-    else:
-        return extract_field(arr[path[0]], path[1:])
 
 
 def get_offsets_from_device(thr, dtype):
@@ -130,7 +126,7 @@ def check_struct_fill(thr, dtype):
 
     for i, field_info in enumerate(dtypes.flatten_dtype(dtype)):
         path, _ = field_info
-        assert (extract_field(a, path) == i).all()
+        assert (dtypes.extract_field(a, path) == i).all()
 
 
 def test_hardcoded_offsets(thr):

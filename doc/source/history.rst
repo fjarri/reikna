@@ -12,6 +12,10 @@ Release history
 
 * ADDED: :py:class:`~reikna.linalg.EntrywiseNorm` computation.
 
+* ADDED: support for multi-dimensional sub-arrays in :py:func:`~reikna.cluda.dtypes.c_constant` and :py:func:`~reikna.cluda.dtypes.flatten_dtype`.
+
+* ADDED: helper functions :py:func:`~reikna.cluda.dtypes.extract_field` and :py:func:`~reikna.cluda.dtypes.c_path` to work in conjunction with :py:func:`~reikna.cluda.dtypes.flatten_dtype`.
+
 * FIXED: casting a coefficient in the :py:func:`~reikna.cbrng.samplers.normal_bm` template to a correct dtype.
 
 * FIXED: :py:func:`~reikna.dtypes.cast` avoids casting if the value already has the target dtype (since ``numpy.cast`` does not work with struct dtypes, see issue #4148).
