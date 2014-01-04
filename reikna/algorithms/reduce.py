@@ -3,6 +3,7 @@ import numpy
 from reikna.cluda import Snippet
 import reikna.helpers as helpers
 from reikna.cluda import dtypes
+from reikna.cluda import OutOfResourcesError
 from reikna.core import Computation, Parameter, Annotation, Type
 from reikna.algorithms import Transpose
 
@@ -92,18 +93,15 @@ class Reduce(Computation):
             Parameter('output', Annotation(Type(arr_t.dtype, shape=output_shape), 'o')),
             Parameter('input', Annotation(arr_t, 'i'))])
 
-    def _build_plan(self, plan_factory, device_params, output, input_):
+    def _build_plan_for_wg_size(self, plan_factory, warp_size, max_wg_size, output, input_):
 
         plan = plan_factory()
 
         # Using algorithm cascading: sequential reduction, and then the parallel one.
         # According to Brent's theorem, the optimal sequential size is O(log(n)).
         # Setting it to the nearest power of 2 to simplify integer operations.
-        max_seq_size = helpers.bounding_power_of_2(helpers.log2(device_params.max_work_group_size))
-
-        # FIXME: may fail if the user passes particularly sophisticated operation
-        max_group_size = device_params.max_work_group_size
-        max_reduce_power = max_group_size * max_seq_size
+        max_seq_size = helpers.bounding_power_of_2(helpers.log2(max_wg_size))
+        max_reduce_power = max_wg_size * max_seq_size
 
         if self._transpose_axes is None:
             # normal reduction
@@ -127,15 +125,15 @@ class Reduce(Computation):
 
             if part_size > max_reduce_power:
                 seq_size = max_seq_size
-                block_size = max_group_size
+                block_size = max_wg_size
                 blocks_per_part = helpers.min_blocks(part_size, block_size * seq_size)
                 cur_output = plan.temp_array(
                     (final_size, blocks_per_part), input_.dtype)
                 output_slices = (1, 1)
             else:
-                if part_size > max_group_size:
-                    seq_size = helpers.min_blocks(part_size, max_group_size)
-                    block_size = max_group_size
+                if part_size > max_wg_size:
+                    seq_size = helpers.min_blocks(part_size, max_wg_size)
+                    block_size = max_wg_size
                 else:
                     seq_size = 1
                     block_size = helpers.bounding_power_of_2(part_size)
@@ -153,7 +151,7 @@ class Reduce(Computation):
                 blocks_per_part=blocks_per_part,
                 last_block_size=last_block_size,
                 log2=helpers.log2, block_size=block_size,
-                warp_size=device_params.warp_size,
+                warp_size=warp_size,
                 empty=self._empty,
                 operation=self._operation,
                 input_slices=input_slices,
@@ -171,3 +169,20 @@ class Reduce(Computation):
             input_slices = output_slices
 
         return plan
+
+    def _build_plan(self, plan_factory, device_params, output, input_):
+
+        max_wg_size = device_params.max_work_group_size
+
+        while max_wg_size >= 1:
+
+            try:
+                plan = self._build_plan_for_wg_size(
+                    plan_factory, device_params.warp_size, max_wg_size, output, input_)
+            except OutOfResourcesError:
+                max_wg_size /= 2
+                continue
+
+            return plan
+
+        raise ValueError("Could not find suitable call parameters for one of the local kernels")
