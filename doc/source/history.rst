@@ -6,7 +6,7 @@ Release history
 0.6.2 (current development version)
 ===================================
 
-Under construction.
+* FIXED: a Py3 compatibility issue in :py:class:`~reikna.algorithms.Reduce` introduced in ``0.6.1``.
 
 
 0.6.1 (4 Feb 2013)
