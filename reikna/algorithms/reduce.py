@@ -180,7 +180,7 @@ class Reduce(Computation):
                 plan = self._build_plan_for_wg_size(
                     plan_factory, device_params.warp_size, max_wg_size, output, input_)
             except OutOfResourcesError:
-                max_wg_size /= 2
+                max_wg_size //= 2
                 continue
 
             return plan
