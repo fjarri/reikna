@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.6.1 (current development version)
-===================================
+0.6.1 (4 Feb 2013)
+==================
 
 * FIXED: :py:class:`~reikna.algorithms.Reduce` can now pick a decreased work group size if the attached transformations are too demanding.
 
