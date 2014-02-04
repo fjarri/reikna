@@ -1,4 +1,4 @@
-0.6.1
+0.6.2
 =====
 
 * FEATURE: write an example analogous to demo-struct-reduce from PyOpenCL.
