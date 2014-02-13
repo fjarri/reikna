@@ -422,7 +422,7 @@ class TransformationTree:
 
         return module_transformation(ntr.output, param, subtree_params, ntr.trf.snippet, tr_args)
 
-    def _get_connection_modules(self, output, name, annotation, base=False):
+    def _get_connection_modules(self, output, name, annotation):
 
         node = self.nodes[name]
         param = Parameter(name, annotation)
@@ -439,25 +439,25 @@ class TransformationTree:
 
         subtree_params = self.get_leaf_parameters([name])
 
-        if not base:
-            m_same = module_same_indices(output, param, subtree_params, m_idx)
+        # FIXME: this module won't work at the base level (that is, not in a trnsformation)
+        # unless 'idx' variables were defined.
+        # This behavior was enabled for PureParallel.from_trf(), which defines these variables.
+        m_same = module_same_indices(output, param, subtree_params, m_idx)
 
         m_combined = module_combined(output, param, subtree_params, m_idx)
 
         return m_idx, m_same, m_combined
 
-    def _get_kernel_argobject(self, name, annotation, base=False):
-        # Takes a base argument name and returns the corresponding Argument object
-        # which can be passed to the main kernel.
-        # If the name is not in base, it is treated as a leaf.
+    def _get_kernel_argobject(self, name, annotation):
+        # Returns a parameter object, which can be passed to the main kernel.
 
         if not annotation.array:
             return KernelParameter(name, annotation.type)
 
         load_idx, load_same, load_combined_idx = self._get_connection_modules(
-            False, name, annotation, base=base)
+            False, name, annotation)
         store_idx, store_same, store_combined_idx = self._get_connection_modules(
-            True, name, annotation, base=base)
+            True, name, annotation)
 
         return KernelParameter(
             name, annotation.type,
@@ -470,7 +470,7 @@ class TransformationTree:
 
     def get_kernel_argobjects(self):
         return [
-            self._get_kernel_argobject(name, self.root_parameters[name].annotation, base=True)
+            self._get_kernel_argobject(name, self.root_parameters[name].annotation)
             for name in self.root_names]
 
 

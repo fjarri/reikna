@@ -5,7 +5,7 @@ from helpers import *
 from reikna.algorithms import PureParallel
 from reikna.core import Parameter, Annotation, Type, Computation
 import reikna.cluda.dtypes as dtypes
-from reikna.transformations import mul_param
+from reikna.transformations import mul_param, copy
 
 
 class NestedPureParallel(Computation):
@@ -214,3 +214,72 @@ def test_trf_with_guiding_output(thr):
     pc(res_dev, a_dev, coeff)
 
     assert diff_is_negligible(res_dev.get(), a * 3)
+
+
+class TestSameArgument(Computation):
+
+    def __init__(self, arr):
+
+        copy_trf = copy(arr, out_arr_t=arr)
+        self._copy_comp = PureParallel.from_trf(copy_trf, copy_trf.input)
+
+        Computation.__init__(self, [
+            Parameter('outer_output', Annotation(arr, 'o')),
+            Parameter('outer_input', Annotation(arr, 'i'))])
+
+    def _build_plan(self, plan_factory, device_params, output, input_):
+        plan = plan_factory()
+        temp = plan.temp_array_like(output)
+        plan.computation_call(self._copy_comp, temp, input_)
+        plan.computation_call(self._copy_comp, temp, temp)
+        plan.computation_call(self._copy_comp, output, temp)
+        return plan
+
+
+def test_same_argument(some_thr):
+    """
+    A regression test for an unexpected interaction of the way PureParallel.from_trf() worked
+    and a logic flaw in processing 'io'-type nodes in a transformation tree.
+
+    from_trf() created a trivial computation with a single 'io' parameter and
+    attached the given transformation to it.
+    This preserved the order of parameters in the resultinc computation
+    (because of how the transformation tree was traversed),
+    and quite nicely relied only on the public API.
+
+    So, for a simple transformation with one input and one output the root PP computation
+    looked like:
+
+        input (io)
+
+    and after attaching the transformation:
+
+        input (i)
+        input (o) ---(tr:input -> tr:output)---> output
+
+    When this computation was used inside another computation and was passed the same argument
+    (e.g. 'temp') both for input and output, during the translation stage
+    this would be transformed to (since 'temp' is passed both to 'input' and 'output')
+
+        temp (i)
+        temp (o) ---(tr:input -> tr:output)---> temp
+
+    because the translation was purely name-based.
+    This resulted in some cryptic errors due to the name clash.
+    Now the masked 'input' should have been mangled instead of translated,
+    producing something like
+
+        temp (i)
+        _nested_input (o) ---(tr:input -> tr:output)---> temp
+
+    but this functionality was not implemented.
+    """
+    arr = get_test_array((1000, 8, 1), numpy.complex64)
+    arr_dev = some_thr.to_device(arr)
+
+    test = TestSameArgument(arr)
+    testc = test.compile(some_thr)
+
+    testc(arr_dev, arr_dev)
+
+    assert diff_is_negligible(arr_dev.get(), arr)

@@ -8,6 +8,8 @@ Release history
 
 * FIXED: a Py3 compatibility issue in :py:class:`~reikna.algorithms.Reduce` introduced in ``0.6.1``.
 
+* FIXED: a bug due to the interaction between the implementation of :py:meth:`~reikna.algorithms.PureParallel.from_trf` and the logic of processing nested computations.
+
 
 0.6.1 (4 Feb 2013)
 ==================
