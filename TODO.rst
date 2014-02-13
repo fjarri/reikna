@@ -52,6 +52,7 @@
 * ?FIX (cluda): what are we going to do with OpenCL platforms that do not support intra-block interaction?
   (for example, Apple's implementation)
   Currently we have a ``ValueError`` there.
+  Perhaps the best solution is to write specialized 'CPU' versions of the computations?
 
 * FEATURE (cluda): add a mechanism to select the best local size based on occupancy
 * ?API (computations): move some of the functionality to the top level of ``reikna`` module?
