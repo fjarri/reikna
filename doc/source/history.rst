@@ -10,6 +10,8 @@ Release history
 
 * FIXED: a bug due to the interaction between the implementation of :py:meth:`~reikna.algorithms.PureParallel.from_trf` and the logic of processing nested computations.
 
+* FIXED: a bug in :py:class:`~reikna.fft.FFT` leading to undefined behavior on some OpenCL platforms.
+
 
 0.6.1 (4 Feb 2013)
 ==================
