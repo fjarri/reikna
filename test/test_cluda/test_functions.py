@@ -67,7 +67,9 @@ def check_func(thr, func_module, reference_func, out_dtype, in_dtypes):
     dest_dev = thr.array(N, out_dtype)
 
     test(dest_dev, *arrays_dev, global_size=N)
-    assert diff_is_negligible(thr.from_device(dest_dev), reference_func(*arrays))
+    assert diff_is_negligible(
+        thr.from_device(dest_dev),
+        reference_func(*arrays).astype(out_dtype))
 
 
 @pytest.mark.parametrize(
