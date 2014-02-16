@@ -141,6 +141,43 @@ def exp(dtype):
         render_kwds=dict(dtype=dtype, polar_unit_=polar_unit_))
 
 
+def pow(dtype, power_dtype=None):
+    """
+    Returns a :py:class:`~reikna.cluda.Module` with a function of two arguments
+    that raises the first argument of type ``dtype`` (must be a real or complex data type)
+    to the power of the second argument (a corresponding real data type or an integer).
+    """
+    if dtypes.is_complex(power_dtype):
+        raise NotImplementedError("pow() with a complex power is not supported")
+
+    if power_dtype is None:
+        if dtypes.is_integer(dtype):
+            raise ValueError("Power dtype must be specified for an integer argument")
+        elif dtypes.is_real(dtype):
+            power_dtype = dtype
+        else:
+            power_dtype = dtypes.real_for(dtype)
+
+    if dtypes.is_complex(dtype):
+        r_dtype = dtypes.real_for(dtype)
+    elif dtypes.is_real(dtype):
+        r_dtype = dtype
+    elif dtypes.is_real(power_dtype):
+        r_dtype = power_dtype
+    else:
+        r_dtype = numpy.float32
+
+    if dtypes.is_integer(dtype) and dtypes.is_real(power_dtype):
+        dtype = power_dtype
+
+    return Module(
+        TEMPLATE.get_def('pow'),
+        render_kwds=dict(
+            dtype=dtype, power_dtype=power_dtype,
+            mul_=mul(dtype, dtype), div_=div(dtype, dtype),
+            polar_=polar(r_dtype)))
+
+
 def polar(dtype):
     """
     Returns a :py:class:`~reikna.cluda.Module` with a function of two arguments

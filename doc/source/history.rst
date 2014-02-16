@@ -6,6 +6,8 @@ Release history
 0.6.2 (current development version)
 ===================================
 
+* ADDED: :py:func:`~reikna.cluda.functions.pow` function module in CLUDA.
+
 * FIXED: a Py3 compatibility issue in :py:class:`~reikna.algorithms.Reduce` introduced in ``0.6.1``.
 
 * FIXED: a bug due to the interaction between the implementation of :py:meth:`~reikna.algorithms.PureParallel.from_trf` and the logic of processing nested computations.

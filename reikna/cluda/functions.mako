@@ -191,6 +191,59 @@ WITHIN_KERNEL ${dtypes.ctype(dtype)} ${prefix}(${dtypes.ctype(dtype)} a)
 </%def>
 
 
+<%def name="pow(prefix)">
+WITHIN_KERNEL ${dtypes.ctype(dtype)} ${prefix}(
+    ${dtypes.ctype(dtype)} a,
+    ${dtypes.ctype(power_dtype)} p)
+{
+    %if dtypes.is_complex(dtype):
+    if (a.x == 0 && a.y == 0)
+        return 0;
+    %else:
+    if (a == 0)
+        return 0;
+    %endif
+
+    %if dtypes.is_real(dtype) and dtypes.is_integer(power_dtype):
+    #ifdef CUDA
+    return pow(a, p);
+    #else
+    return pown(a, p);
+    #endif
+
+    %elif dtypes.is_integer(power_dtype):
+    ${dtypes.ctype(dtype)} one = ${dtypes.c_constant(1, dtype)};
+    if (p == 0)
+    {
+        return one;
+    }
+    else
+    {
+        ${dtypes.ctype(dtype)} res = one;
+        int pp = (p > 0) ? p : -p;
+        for (int i = 0; i < pp; i++)
+            res = ${mul_}(res, a);
+        if (p > 0)
+            return res;
+        else
+            return ${div_}(one, res);
+    }
+
+    %elif dtypes.is_real(dtype):
+    return pow(a, p);
+
+    %else:
+    <%
+        r_ctype = dtypes.ctype(dtypes.real_for(dtype))
+    %>
+    ${r_ctype} r_squared = a.x * a.x + a.y * a.y;
+    ${r_ctype} angle = atan2(a.y, a.x);
+    return ${polar_}(pow(r_squared, p / 2), angle * p);
+    %endif
+}
+</%def>
+
+
 <%def name="polar(prefix)">
 <%
     out_dtype = dtypes.complex_for(dtype)
