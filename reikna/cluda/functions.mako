@@ -198,7 +198,7 @@ WITHIN_KERNEL ${dtypes.ctype(dtype)} ${prefix}(
 {
     %if dtypes.is_complex(dtype):
     if (a.x == 0 && a.y == 0)
-        return 0;
+        return COMPLEX_CTR(${dtypes.ctype(dtype)})(0, 0);
     %else:
     if (a == 0)
         return 0;
