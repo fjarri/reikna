@@ -1,9 +1,6 @@
 0.6.2
 =====
 
-* FEATURE: write an example analogous to demo-struct-reduce from PyOpenCL.
-  Probably a Reduce for a custom dtype + transformations to and from the target array dtype.
-  (Must solve the problem with custom dtypes as Computation paramters first).
 * FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
   it is called again with reduced local size
 * ?FIX (core): perhaps we should memoize parametrized modules too: for example, FFT produces dozens of modules for load and store (because it calls them in a loop).
