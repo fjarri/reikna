@@ -16,7 +16,7 @@ def api_ids():
     Returns a list of identifiers for all known
     (not necessarily available for the current system) APIs.
     """
-    return [cuda_id(), ocl_id()]
+    return [ocl_id(), cuda_id()]
 
 
 def supports_api(api_id):
