@@ -8,6 +8,8 @@ Release history
 
 * ADDED: :py:func:`~reikna.cluda.functions.pow` function module in CLUDA.
 
+* ADDED: a function :py:func:`~reikna.cluda.any_api` that returns some supported GPGPU API module.
+
 * FIXED: a Py3 compatibility issue in :py:class:`~reikna.algorithms.Reduce` introduced in ``0.6.1``.
 
 * FIXED: a bug due to the interaction between the implementation of :py:meth:`~reikna.algorithms.PureParallel.from_trf` and the logic of processing nested computations.

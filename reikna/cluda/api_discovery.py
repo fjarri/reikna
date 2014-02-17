@@ -65,3 +65,14 @@ def ocl_api():
     Returns the ``PyOpenCL``-based API module.
     """
     return get_api(ocl_id())
+
+
+def any_api():
+    """
+    Returns one of the API modules supported by the system or raises an ``Exception``
+    if there are not any.
+    """
+    api_ids = supported_api_ids()
+    if len(api_ids) == 0:
+        raise Exception("No supported GPGPU APIs found")
+    return get_api(api_ids[0])
