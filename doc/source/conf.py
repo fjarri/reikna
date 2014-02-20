@@ -41,7 +41,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'reikna'
-copyright = '2012-2013, Bogdan Opanchuk'
+copyright = '2012-2014, Bogdan Opanchuk'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
