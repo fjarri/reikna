@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.6.2 (current development version)
-===================================
+0.6.2 (20 Feb 2013)
+===================
 
 * ADDED: :py:func:`~reikna.cluda.functions.pow` function module in CLUDA.
 
