@@ -3,6 +3,22 @@ Release history
 ***************
 
 
+0.6.2 (20 Feb 2013)
+===================
+
+* ADDED: :py:func:`~reikna.cluda.functions.pow` function module in CLUDA.
+
+* ADDED: a function :py:func:`~reikna.cluda.any_api` that returns some supported GPGPU API module.
+
+* ADDED: an example of :py:class:`~reikna.algorithms.Reduce` with a custom data type.
+
+* FIXED: a Py3 compatibility issue in :py:class:`~reikna.algorithms.Reduce` introduced in ``0.6.1``.
+
+* FIXED: a bug due to the interaction between the implementation of :py:meth:`~reikna.algorithms.PureParallel.from_trf` and the logic of processing nested computations.
+
+* FIXED: a bug in :py:class:`~reikna.fft.FFT` leading to undefined behavior on some OpenCL platforms.
+
+
 0.6.1 (4 Feb 2013)
 ==================
 

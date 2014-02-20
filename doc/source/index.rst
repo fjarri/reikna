@@ -1,8 +1,6 @@
-*************************************
-Reikna, the pure Python GPGPU library
-*************************************
-
-|documentation_type_subtitle|
+***********************************
+Reikna, a pure Python GPGPU library
+***********************************
 
 ``Reikna`` is a library containing various GPU algorithms built on top of `PyCUDA <http://documen.tician.de/pycuda>`_ and `PyOpenCL <http://documen.tician.de/pyopencl>`_.
 The main design goals are:

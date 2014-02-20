@@ -71,26 +71,20 @@ class PureParallel(Computation):
         if not guiding_param.annotation.array:
             raise ValueError("The parameter serving as a guiding array cannot be a scalar")
 
+        # Transformation snippet is the same as required for PureParallel
+        # In particular, it has arguments like "idxs, arg1, arg2, ...",
+        # and load_same()/store_same() in the snippet will work because the PureParallel
+        # computation defines index variables in its kernel (see _build_plan()).
+        # This is a bit shady, but other variants are even worse
+        # (e.g. creating a trivial computation and attaching this transformation to it
+        # will either produce incorrect parameter order, or will require the usage of an
+        # 'io' parameter, which has its own complications).
+        # FIXME: find a solution which does not create an implicit dependence on
+        # the way transformations are handled.
         res = cls(
-            [Parameter(guiding_param.name, Annotation(guiding_param.annotation.type, 'io'))],
-            Snippet.create(
-                lambda idxs, arr:
-                """
-                ${arr.store_idx}(${idxs.all()}, ${arr.load_idx}(${idxs.all()}));
-                """),
+            list(trf.signature.parameters.values()),
+            trf.snippet,
             guiding_array=guiding_param.name)
-
-        # Relying on the order-preserving properties of connect().
-        # Namely, since the guiding parameter is an i/o one, either output or input part of it
-        # will remain in the signature after the connection,
-        # so the connection will preserve its place relative to the other parameters
-        # of the transformation.
-        connection_kwds = {
-            name:name for name in trf.signature.parameters
-            if name != guiding_param.name}
-        res.connect(
-            guiding_param.name, trf, guiding_param.name,
-            **connection_kwds)
 
         return res
 

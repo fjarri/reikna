@@ -337,15 +337,6 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, VSIZE_T pos)
             ${loads(range(radix), False)}
         %endif
         }
-        else
-        {
-            // This thread processes the area that is beyond actual data
-            // because of ``outer_batch`` being not a multiple of ``xforms_per_workgroup``.
-            // All the parts of local memory it would write, would be ignore anyway.
-            // So we are returning right away.
-            return;
-        }
-
     %elif fft_size >= mem_coalesce_width:
         <%
             num_inner_iter = fft_size // mem_coalesce_width
@@ -509,10 +500,6 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, VSIZE_T pos)
         %else:
             ${stores(range(max_radix))}
         %endif
-        }
-        else
-        {
-            return;
         }
 
     %elif fft_size >= mem_coalesce_width:
@@ -834,13 +821,20 @@ ${kernel_declaration}
 
     const VSIZE_T position_in_stride_in = thread_in_xform + group_in_xform * ${local_batch};
 
-    // Load data
+    ## Technically, if we're not inside a stride-in, we could return right now.
+    ## But some OpenCL implementations have undefined behavior if local barriers
+    ## are not reached by every single thread.
+    ## Therefore we just skip global memory operations if we're not in a stride-in.
     %if stride_in % local_batch != 0:
-    // If the inner batch is not a power of 2, we need to skip some of the threads
-    if (position_in_stride_in >= ${stride_in})
-        return;
+    const int inside_stride_in = (position_in_stride_in < ${stride_in});
+    %else:
+    const int inside_stride_in = 1;
     %endif
 
+    // Load data
+
+    if (inside_stride_in)
+    {
     %for j in range(radix1):
     {
         const VSIZE_T stride_in_number = xform_local + ${j * radix2};
@@ -850,19 +844,22 @@ ${kernel_declaration}
         const VSIZE_T position_in_inner_batch = position % ${inner_batch};
 
         %if pad_in:
-        const complex_t xw = xweight(direction, position_in_fft);
-
-        ## FIXME: the check may only be necessary outside of the cycle
         if (position_in_fft < ${fft_size_real})
         {
         %endif
             a[${j}] = ${input.load_combined_idx(input_slices)}(
                 xform_global, position_in_fft, position_in_inner_batch);
         %if pad_in:
-            a[${j}] = ${mul}(a[${j}], xw);
         }
         else
+        {
             a[${j}] = complex_ctr(0, 0);
+        }
+        %endif
+
+        %if pad_in:
+            const complex_t xw = xweight(direction, position_in_fft);
+            a[${j}] = ${mul}(a[${j}], xw);
         %endif
 
         %if takes_kweights:
@@ -872,6 +869,7 @@ ${kernel_declaration}
         %endif
     }
     %endfor
+    }
 
     fftKernel${radix1}(a, direction);
 
@@ -960,6 +958,8 @@ ${kernel_declaration}
         %endfor
     }
 
+    if (inside_stride_in)
+    {
         const VSIZE_T position_in_stride_out = (group_in_xform * ${local_batch}) % ${stride_out};
         const VSIZE_T stride_out_number = (group_in_xform * ${local_batch}) / ${stride_out};
 
@@ -969,9 +969,11 @@ ${kernel_declaration}
                 position_in_stride_out + thread_id;
             const VSIZE_T position_in_fft = position / ${inner_batch};
             const VSIZE_T position_in_inner_batch = position % ${inner_batch};
+
             %if unpad_out:
             const complex_t xw = xweight(-direction, position_in_fft);
             a[${k}] = ${mul}(a[${k}], xw);
+
             if (position_in_fft < ${fft_size_real})
             %endif
                 ${output.store_combined_idx(output_slices)}(
@@ -979,7 +981,10 @@ ${kernel_declaration}
                     ${cdivs}(a[${k}], norm_coeff));
         }
         %endfor
+    }
     %else:
+    if (inside_stride_in)
+    {
         const VSIZE_T position_in_stride_out = (group_in_xform * ${local_batch} + thread_in_xform) % ${stride_out};
         const VSIZE_T stride_out_number = (group_in_xform * ${local_batch} + thread_in_xform) / ${stride_out};
 
@@ -993,9 +998,11 @@ ${kernel_declaration}
 
             const VSIZE_T position_in_fft = position / ${inner_batch};
             const VSIZE_T position_in_inner_batch = position % ${inner_batch};
+
             %if unpad_out:
             const complex_t xw = xweight(-direction, position_in_fft);
             a[${k}] = ${mul}(a[${k}], xw);
+
             if (position_in_fft < ${fft_size_real})
             %endif
                 ${output.store_combined_idx(output_slices)}(
@@ -1003,6 +1010,7 @@ ${kernel_declaration}
                     ${cdivs}(a[${k}], norm_coeff));
         }
         %endfor
+    }
     %endif
 }
 

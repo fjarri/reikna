@@ -62,12 +62,14 @@ def check_func(thr, func_module, reference_func, out_dtype, in_dtypes):
 
     test = get_func_kernel(thr, func_module, out_dtype, in_dtypes)
 
-    arrays = [get_test_array(N, dt, no_zeros=True) for dt in in_dtypes]
+    arrays = [get_test_array(N, dt, no_zeros=True, high=8) for dt in in_dtypes]
     arrays_dev = map(thr.to_device, arrays)
     dest_dev = thr.array(N, out_dtype)
 
     test(dest_dev, *arrays_dev, global_size=N)
-    assert diff_is_negligible(thr.from_device(dest_dev), reference_func(*arrays))
+    assert diff_is_negligible(
+        thr.from_device(dest_dev),
+        reference_func(*arrays).astype(out_dtype))
 
 
 @pytest.mark.parametrize(
@@ -76,6 +78,22 @@ def check_func(thr, func_module, reference_func, out_dtype, in_dtypes):
 def test_exp(thr, out_code, in_codes):
     out_dtype, in_dtypes = generate_dtypes(out_code, in_codes)
     check_func(thr, functions.exp(in_dtypes[0]), numpy.exp, out_dtype, in_dtypes)
+
+
+@pytest.mark.parametrize(
+    ('out_code', 'in_codes'),
+    [('c', 'c'), ('f', 'f'), ('c', 'ci'), ('f', 'fi'), ('i', 'ii'), ('f', 'if')])
+def test_pow(thr, out_code, in_codes):
+    out_dtype, in_dtypes = generate_dtypes(out_code, in_codes)
+    if len(in_dtypes) == 1:
+        func = functions.pow(in_dtypes[0])
+        if dtypes.is_real(in_dtypes[0]):
+            in_dtypes.append(in_dtypes[0])
+        else:
+            in_dtypes.append(dtypes.real_for(in_dtypes[0]))
+    else:
+        func = functions.pow(in_dtypes[0], power_dtype=in_dtypes[1])
+    check_func(thr, func, numpy.power, out_dtype, in_dtypes)
 
 
 @pytest.mark.parametrize(
