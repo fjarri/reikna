@@ -1,8 +1,6 @@
 0.6.2
 =====
 
-* FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
-  it is called again with reduced local size
 * ?FIX (core): perhaps we should memoize parametrized modules too: for example, FFT produces dozens of modules for load and store (because it calls them in a loop).
 * ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
   Basically it's just a synonym for ``load_combined(len(arg.shape))``.
@@ -11,8 +9,6 @@
   Even inside a single thread it can give a performance boost (e.g. code generation for FFT is especially slow).
 * FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
 
-* FIX (core): 'io' parameters proved to be a source of errors and confusion and do not seem to be needed anywhere.
-  Remove them altogether?
 * ?FIX (core): PureParallel.from_trf() relies on the implementation of transformations: it defines 'idx' variables so that the transformation's load_same()/store_same() could use them.
   Now if a user calls these in his custom computation they'll display a cryptic compileation error, since 'idx' variables are not defined.
   We need to either make PureParallel rely only on the public API, or define 'idx' variables in every static kernel so that load_same()/store_same() could be used anywhere.
@@ -40,9 +36,20 @@
 * ?FIX (cluda): we'll see what numpy folks say about struct alignment.
   Perhaps ``dtypes._find_alignment()`` will not be necessary anymore.
 
+* FIX (core): 'io' parameters proved to be a source of errors and confusion and do not seem to be needed anywhere.
+  Remove them altogether?
+
 
 1.0.0 (production-quality version... hopefully)
 ===============================================
+
+
+* ?FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
+  it is called again with reduced local size.
+  Is it really necessary? Different computations have different ways to handle OutOfResources
+  (e.g. Reduce divides the block size by 2, while MatrixMul requires block size to be a square).
+  Generic reduction of maximum block size will lead to a lot of unnecessary compilations
+  (which will be extremely slow on a CUDA platform).
 
 * ?FIX (cluda): Is there a way to get number of shared memory banks and warp size from AMD device?
 * ?FIX (cluda): find a way to get ``min_mem_coalesce_width`` for OpenCL
