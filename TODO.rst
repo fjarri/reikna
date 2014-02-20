@@ -1,19 +1,3 @@
-0.6.2
-=====
-
-* ?FIX (core): perhaps we should memoize parametrized modules too: for example, FFT produces dozens of modules for load and store (because it calls them in a loop).
-* ?FEATURE (core): add ``load_flat``/``store_flat`` to argobjects?
-  Basically it's just a synonym for ``load_combined(len(arg.shape))``.
-* API (core, computations): use ``arr_like`` instead of ``arr``/``arr_t`` in places where array-like argument is needed.
-* ?FEATURE: Need to cache the results of Computation.compile().
-  Even inside a single thread it can give a performance boost (e.g. code generation for FFT is especially slow).
-* FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
-
-* ?FIX (core): PureParallel.from_trf() relies on the implementation of transformations: it defines 'idx' variables so that the transformation's load_same()/store_same() could use them.
-  Now if a user calls these in his custom computation they'll display a cryptic compileation error, since 'idx' variables are not defined.
-  We need to either make PureParallel rely only on the public API, or define 'idx' variables in every static kernel so that load_same()/store_same() could be used anywhere.
-
-
 0.7.0
 =====
 
@@ -38,11 +22,19 @@
 
 * FIX (core): 'io' parameters proved to be a source of errors and confusion and do not seem to be needed anywhere.
   Remove them altogether?
+* FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
 
 
 1.0.0 (production-quality version... hopefully)
 ===============================================
 
+* ?FIX (core): perhaps we should memoize parametrized modules too: for example, FFT produces dozens of modules for load and store (because it calls them in a loop).
+* ?FEATURE: Need to cache the results of Computation.compile().
+  Even inside a single thread it can give a performance boost (e.g. code generation for FFT is especially slow).
+
+* ?FIX (core): PureParallel.from_trf() relies on the implementation of transformations: it defines 'idx' variables so that the transformation's load_same()/store_same() could use them.
+  Now if a user calls these in his custom computation they'll display a cryptic compileation error, since 'idx' variables are not defined.
+  We need to either make PureParallel rely only on the public API, or define 'idx' variables in every static kernel so that load_same()/store_same() could be used anywhere.
 
 * ?FEATURE (core): create "fallback" when if _build_plan() does not catch OutOfResources,
   it is called again with reduced local size.
