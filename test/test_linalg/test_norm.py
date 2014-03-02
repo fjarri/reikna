@@ -40,3 +40,10 @@ def check_norm(thr, shape, dtype, order, axes):
 @pytest.mark.parametrize('order', [0.5, 1, 2])
 def test_all_axes(thr, dtype, order):
     check_norm(thr, 100, dtype, order, None)
+
+
+axes_vals = [None, (0,), (2,), (1, 2)]
+axes_ids = [str(axes) for axes in axes_vals]
+@pytest.mark.parametrize('axes', axes_vals, ids=axes_ids)
+def test_some_axes(thr, axes):
+    check_norm(thr, (20, 10, 5), numpy.float32, 2, axes)
