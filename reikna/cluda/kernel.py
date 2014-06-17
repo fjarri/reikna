@@ -167,7 +167,7 @@ def process(obj, collector):
     elif hasattr(obj, '__process_modules__'):
         return obj.__process_modules__(lambda x: process(x, collector))
     elif isinstance(obj, dict):
-        return {k:process(v, collector) for k, v in obj.items()}
+        return dict(((k,process(v, collector)) for k, v in obj.items()))
     elif isinstance(obj, tuple):
         return tuple(process(v, collector) for v in obj)
     elif isinstance(obj, list):

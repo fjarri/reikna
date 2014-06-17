@@ -114,7 +114,8 @@ release = {released}
     contents = template.format(version=repr(VERSION),
         full_version=full_version_str, git_revision=revision, released=repr(RELEASED))
 
-    with cd_to_project_root(), open(version_py_path, 'w') as f:
+    with cd_to_project_root():
+      with open(version_py_path, 'w') as f:
         f.write(contents)
 
     return version_str, full_version_str
