@@ -10,6 +10,8 @@ Release history
 
 * FIXED: (PR by @SyamGadde) removed syntax constructions incompatible with Python 2.6.
 
+* FIXED: added Python 3.4 to the list of classifiers.
+
 
 0.6.2 (20 Feb 2013)
 ===================
