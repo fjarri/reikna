@@ -151,9 +151,9 @@ class NodeTransformation:
 
     def translate_node_names(self, translator):
         connector_node_name = translator(self.connector_node_name)
-        node_from_tr = {
-            tr_name:translator(node_name)
-            for tr_name, node_name in self.node_from_tr.items()}
+        node_from_tr = dict(
+            (tr_name, translator(node_name))
+            for tr_name, node_name in self.node_from_tr.items())
         return NodeTransformation(connector_node_name, self.trf, node_from_tr)
 
 
@@ -244,7 +244,7 @@ class TransformationTree:
         return self._get_subtree_names(root_names, [], set(), leaves_only=leaves_only)
 
     def get_root_annotations(self):
-        return {name:param.annotation for name, param in self.root_parameters.items()}
+        return dict((name, param.annotation) for name, param in self.root_parameters.items())
 
     def get_root_parameters(self):
         return [self.root_parameters[name] for name in self.root_names]

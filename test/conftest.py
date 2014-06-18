@@ -41,7 +41,7 @@ pytest_funcarg__some_thr = create_thread_in_tuple
 
 def pytest_report_header(config):
     tps, tp_ids = get_threads(config)
-    devices = {tp.device_id:tp.device_full_name for tp in tps}
+    devices = dict((tp.device_id, tp.device_full_name) for tp in tps)
     if len(devices) == 0:
         raise ValueError("No devices match the criteria")
 

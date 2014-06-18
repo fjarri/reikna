@@ -115,8 +115,8 @@ release = {released}
         full_version=full_version_str, git_revision=revision, released=repr(RELEASED))
 
     with cd_to_project_root():
-      with open(version_py_path, 'w') as f:
-        f.write(contents)
+        with open(version_py_path, 'w') as f:
+            f.write(contents)
 
     return version_str, full_version_str
 
