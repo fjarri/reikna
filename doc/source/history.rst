@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.7.0 (current development version)
-===================================
+0.6.3 (18 Jun 2014)
+===================
 
 * FIXED: (@schreon) a bug preventing the usage of :py:class:`~reikna.linalg.EntrywiseNorm` with custom ``axes``.
 
