@@ -71,7 +71,7 @@ def _get_decompositions(num_factors, parts):
     powers, exponents = num_factors.get_arrays()
     for sub_exps in itertools.product(*[_range(exp, -1, -1) for exp in exponents]):
         part_factors = PrimeFactors(
-            {pwr:sub_exp for pwr, sub_exp in zip(powers, sub_exps) if sub_exp > 0})
+            dict(((pwr,sub_exp) for pwr, sub_exp in zip(powers, sub_exps) if sub_exp > 0)))
         part = part_factors.get_value()
         remainder = num_factors.div_by(part_factors)
         for decomp in _get_decompositions(remainder, parts - 1):

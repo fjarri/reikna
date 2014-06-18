@@ -86,7 +86,7 @@ git_revision = "{git_revision}"
 release = {released}
 '''
 
-    VERSION = (0, 6, 2)
+    VERSION = (0, 6, 3)
     RELEASED = True
 
     version_str = '%d.%d.%d' % VERSION
@@ -114,8 +114,9 @@ release = {released}
     contents = template.format(version=repr(VERSION),
         full_version=full_version_str, git_revision=revision, released=repr(RELEASED))
 
-    with cd_to_project_root(), open(version_py_path, 'w') as f:
-        f.write(contents)
+    with cd_to_project_root():
+        with open(version_py_path, 'w') as f:
+            f.write(contents)
 
     return version_str, full_version_str
 
@@ -179,6 +180,7 @@ if __name__ == '__main__':
             'Programming Language :: Python :: 3',
             'Programming Language :: Python :: 3.2',
             'Programming Language :: Python :: 3.3',
+            'Programming Language :: Python :: 3.4',
             'Topic :: Software Development',
             'Topic :: Scientific/Engineering',
             'Operating System :: OS Independent'

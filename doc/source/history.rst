@@ -3,6 +3,16 @@ Release history
 ***************
 
 
+0.6.3 (18 Jun 2014)
+===================
+
+* FIXED: (@schreon) a bug preventing the usage of :py:class:`~reikna.linalg.EntrywiseNorm` with custom ``axes``.
+
+* FIXED: (PR by @SyamGadde) removed syntax constructions incompatible with Python 2.6.
+
+* FIXED: added Python 3.4 to the list of classifiers.
+
+
 0.6.2 (20 Feb 2013)
 ===================
 

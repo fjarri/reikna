@@ -168,8 +168,8 @@ class DeviceParameters:
         self.warp_size = device.warp_size
 
         devdata = DeviceData(device)
-        self.min_mem_coalesce_width = {
-            size:devdata.align_words(word_size=size) for size in [4, 8, 16]}
+        self.min_mem_coalesce_width = dict(
+            ((size,devdata.align_words(word_size=size)) for size in [4, 8, 16]))
         self.local_mem_size = device.max_shared_memory_per_block
 
     def supports_dtype(self, dtype):

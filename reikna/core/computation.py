@@ -43,7 +43,7 @@ class Translator:
     """
 
     def __init__(self, known_old, known_new, prefix):
-        self._mapping = {old:new for old, new in zip(known_old, known_new)}
+        self._mapping = dict((old, new) for old, new in zip(known_old, known_new))
         self._prefix = prefix
 
     def __call__(self, name):

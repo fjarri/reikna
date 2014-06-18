@@ -29,10 +29,12 @@ class EntrywiseNorm(Computation):
     def __init__(self, arr_t, order=2, axes=None):
         tr_elems = norm_const(arr_t, order)
         out_dtype = tr_elems.output.dtype
-        res_t = Type(out_dtype)
-        tr_sum = norm_const(res_t, 1. / order)
 
         rd = Reduce(Type(out_dtype, arr_t.shape), predicate_sum(out_dtype), axes=axes)
+
+        res_t = rd.parameter.output
+        tr_sum = norm_const(res_t, 1. / order)
+
         rd.parameter.input.connect(tr_elems, tr_elems.output, input_prime=tr_elems.input)
         rd.parameter.output.connect(tr_sum, tr_sum.input, output_prime=tr_sum.output)
 
