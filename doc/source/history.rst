@@ -8,6 +8,8 @@ Release history
 
 * ADDED: an example of :py:class:`~reikna.fft.FFT` with a custom transformation.
 
+* ADDED: a type check in the :py:class:`~reikna.fft.FFT` constructor.
+
 
 0.6.3 (18 Jun 2014)
 ===================
