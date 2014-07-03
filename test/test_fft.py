@@ -131,6 +131,11 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize('non2problem_perf_shape_and_axes', vals, ids=ids)
 
 
+def test_typecheck(some_thr):
+    with pytest.raises(ValueError):
+        fft = FFT(get_test_array(100, numpy.float32))
+
+
 def check_errors(thr, shape_and_axes):
 
     dtype = numpy.complex64
