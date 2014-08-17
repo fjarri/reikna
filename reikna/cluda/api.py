@@ -421,7 +421,7 @@ class Thread:
             self._released = True
 
 
-class Program:
+class Program(object):
     """
     An object with compiled GPU code.
 
