@@ -6,6 +6,8 @@ Release history
 0.7.0 (current development version)
 ===================================
 
+* FIXED: (PR by @ringw) exception caused by printing CUDA program object.
+
 * ADDED: an example of :py:class:`~reikna.fft.FFT` with a custom transformation.
 
 * ADDED: a type check in the :py:class:`~reikna.fft.FFT` constructor.
