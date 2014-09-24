@@ -23,7 +23,7 @@ Release history
 * FIXED: added Python 3.4 to the list of classifiers.
 
 
-0.6.2 (20 Feb 2013)
+0.6.2 (20 Feb 2014)
 ===================
 
 * ADDED: :py:func:`~reikna.cluda.functions.pow` function module in CLUDA.
@@ -39,7 +39,7 @@ Release history
 * FIXED: a bug in :py:class:`~reikna.fft.FFT` leading to undefined behavior on some OpenCL platforms.
 
 
-0.6.1 (4 Feb 2013)
+0.6.1 (4 Feb 2014)
 ==================
 
 * FIXED: :py:class:`~reikna.algorithms.Reduce` can now pick a decreased work group size if the attached transformations are too demanding.
