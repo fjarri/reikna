@@ -192,53 +192,61 @@ WITHIN_KERNEL ${dtypes.ctype(dtype)} ${prefix}(${dtypes.ctype(dtype)} a)
 
 
 <%def name="pow(prefix)">
-WITHIN_KERNEL ${dtypes.ctype(dtype)} ${prefix}(
-    ${dtypes.ctype(dtype)} a,
-    ${dtypes.ctype(power_dtype)} p)
+<%
+    base_ctype = dtypes.ctype(output_dtype)
+    exp_ctype = dtypes.ctype(exponent_dtype)
+%>
+WITHIN_KERNEL ${base_ctype} ${prefix}(${dtypes.ctype(dtype)} orig_base, ${exp_ctype} e)
 {
-    %if dtypes.is_complex(dtype):
-    if (a.x == 0 && a.y == 0)
-        return COMPLEX_CTR(${dtypes.ctype(dtype)})(0, 0);
+    %if output_dtype != dtype:
+    ${base_ctype} base = ${cast_}(orig_base);
     %else:
-    if (a == 0)
+    ${base_ctype} base = orig_base;
+    %endif
+
+    %if dtypes.is_complex(output_dtype):
+    if (base.x == 0 && base.y == 0)
+        return COMPLEX_CTR(${base_ctype})(0, 0);
+    %else:
+    if (base == 0)
         return 0;
     %endif
 
-    %if dtypes.is_real(dtype) and dtypes.is_integer(power_dtype):
+    %if dtypes.is_real(output_dtype) and dtypes.is_integer(exponent_dtype):
     #ifdef CUDA
-    return pow(a, p);
+    return pow(base, e);
     #else
-    return pown(a, p);
+    return pown(base, e);
     #endif
 
-    %elif dtypes.is_integer(power_dtype):
-    ${dtypes.ctype(dtype)} one = ${dtypes.c_constant(1, dtype)};
-    if (p == 0)
+    %elif dtypes.is_integer(exponent_dtype):
+    ${base_ctype} one = ${dtypes.c_constant(1, output_dtype)};
+    if (e == 0)
     {
         return one;
     }
     else
     {
-        ${dtypes.ctype(dtype)} res = one;
-        int pp = (p > 0) ? p : -p;
-        for (int i = 0; i < pp; i++)
-            res = ${mul_}(res, a);
-        if (p > 0)
+        ${base_ctype} res = one;
+        int abs_e = (e > 0) ? e : -e;
+        for (int i = 0; i < abs_e; i++)
+            res = ${mul_}(res, base);
+        if (e > 0)
             return res;
         else
             return ${div_}(one, res);
     }
 
-    %elif dtypes.is_real(dtype):
-    return pow(a, p);
+    %elif dtypes.is_real(output_dtype):
+    return pow(base, e);
 
     %else:
     <%
-        r_ctype = dtypes.ctype(dtypes.real_for(dtype))
+        r_ctype = dtypes.ctype(dtypes.real_for(output_dtype))
     %>
-    ${r_ctype} r_squared = a.x * a.x + a.y * a.y;
-    ${r_ctype} angle = atan2(a.y, a.x);
-    return ${polar_}(pow(r_squared, p / 2), angle * p);
+    ${r_ctype} base_squared = base.x * base.x + base.y * base.y;
+    ${r_ctype} angle = atan2(base.y, base.x);
+    return ${polar_}(pow(base_squared, e / 2), angle * e);
     %endif
 }
 </%def>

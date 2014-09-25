@@ -82,17 +82,10 @@ def test_exp(thr, out_code, in_codes):
 
 @pytest.mark.parametrize(
     ('out_code', 'in_codes'),
-    [('c', 'c'), ('f', 'f'), ('c', 'ci'), ('f', 'fi'), ('i', 'ii'), ('f', 'if')])
+    [('c', 'cf'), ('f', 'ff'), ('c', 'ci'), ('f', 'fi'), ('i', 'ii'), ('f', 'if'), ('c', 'ff')])
 def test_pow(thr, out_code, in_codes):
     out_dtype, in_dtypes = generate_dtypes(out_code, in_codes)
-    if len(in_dtypes) == 1:
-        func = functions.pow(in_dtypes[0])
-        if dtypes.is_real(in_dtypes[0]):
-            in_dtypes.append(in_dtypes[0])
-        else:
-            in_dtypes.append(dtypes.real_for(in_dtypes[0]))
-    else:
-        func = functions.pow(in_dtypes[0], power_dtype=in_dtypes[1])
+    func = functions.pow(in_dtypes[0], exponent_dtype=in_dtypes[1], output_dtype=out_dtype)
     check_func(thr, func, numpy.power, out_dtype, in_dtypes)
 
 

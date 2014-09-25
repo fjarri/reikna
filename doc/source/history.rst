@@ -6,11 +6,15 @@ Release history
 0.7.0 (current development version)
 ===================================
 
+* CHANGED: renamed ``power_dtype`` parameter to ``exponent_dtype`` (a more correct term) in :py:func:`~reikna.cluda.functions.pow`.
+
 * FIXED: (PR by @ringw) exception caused by printing CUDA program object.
 
 * ADDED: an example of :py:class:`~reikna.fft.FFT` with a custom transformation.
 
 * ADDED: a type check in the :py:class:`~reikna.fft.FFT` constructor.
+
+* ADDED: an explicit ``output_dtype`` parameter for :py:func:`~reikna.cluda.functions.pow`.
 
 
 0.6.3 (18 Jun 2014)
