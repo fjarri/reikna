@@ -71,9 +71,13 @@ def diff_is_negligible(m, m_ref, atol=None, rtol=None):
         return True
 
     far_idxs = numpy.vstack(numpy.where(close == False)).T
-    print("diff_is_negligible() found " + str(far_idxs.shape[0]) + " differences, first ones are:")
+    print(
+        ("diff_is_negligible() with atol={atol} and rtol={rtol} " +
+        "found {diffs} differences, first ones are:").format(
+        atol=atol, rtol=rtol, diffs=str(far_idxs.shape[0])))
     for idx, _ in zip(far_idxs, range(10)):
+        idx = tuple(idx)
         print("idx: {idx}, test: {test}, ref: {ref}".format(
-            idx=idx, test=m[tuple(idx)], ref=m_ref[(tuple(idx))]))
+            idx=idx, test=m[idx], ref=m_ref[idx]))
 
     return False
