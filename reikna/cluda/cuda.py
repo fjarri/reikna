@@ -66,6 +66,15 @@ class Buffer:
         self._buffer.free()
 
 
+class Array(gpuarray.GPUArray):
+    """
+    A superclass of PyCUDA ``GPUArray``, with some additional functionality.
+    """
+    def __init__(self, thr, *args, **kwds):
+        gpuarray.GPUArray.__init__(self, *args, **kwds)
+        self.thread = thr
+
+
 class Thread(api_base.Thread):
 
     api = sys.modules[__name__]
@@ -98,7 +107,7 @@ class Thread(api_base.Thread):
             kwds['strides'] = strides
         if allocator is not None:
             kwds['allocator'] = allocator
-        return gpuarray.GPUArray(shape, dtype, **kwds)
+        return Array(self, shape, dtype, **kwds)
 
     def _copy_array(self, dest, src):
         dest.set_async(src, stream=self._queue)

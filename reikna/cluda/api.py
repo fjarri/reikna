@@ -9,9 +9,9 @@
 
 .. py:class:: Array
 
-    Actual array class is different depending on the API: ``pycuda.gpuarray.GPUArray``
-    for ``CUDA`` and ``pyopencl.array.Array`` for ``OpenCL``.
-    This is an interface they both provide.
+    A superclass of the corresponding API's native array
+    (``pycuda.gpuarray.GPUArray`` for ``CUDA`` and ``pyopencl.array.Array`` for ``OpenCL``),
+    with some additional functionality.
 
     .. py:attribute:: shape
 
@@ -21,6 +21,10 @@
 
         Returns ``numpy.ndarray`` with the contents of the array.
         Synchronizes the parent :py:class:`~reikna.cluda.api.Thread`.
+
+    .. py:attribute:: thread
+
+        The :py:class:`Thread` object for which the array was created.
 
 .. py:class:: DeviceParameters(device)
 

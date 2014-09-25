@@ -18,6 +18,8 @@ Release history
 
 * ADDED: an explicit ``output_dtype`` parameter for :py:func:`~reikna.cluda.functions.pow`.
 
+* ADDED: :py:class:`~reikna.cluda.api.Array` objects for each backend expose the attribute ``thread``.
+
 
 0.6.3 (18 Jun 2014)
 ===================
