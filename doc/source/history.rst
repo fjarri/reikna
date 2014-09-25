@@ -10,7 +10,7 @@ Release history
 
 * FIXED: (PR by @ringw) exception caused by printing CUDA program object.
 
-* FIXED: :py:func:`~reikna.cluda.functions.pow`(0, 0) now returns 1 as it should.
+* FIXED: :py:func:`~reikna.cluda.functions.pow` (0, 0) now returns 1 as it should.
 
 * ADDED: an example of :py:class:`~reikna.fft.FFT` with a custom transformation.
 
