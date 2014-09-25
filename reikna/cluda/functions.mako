@@ -205,10 +205,10 @@ WITHIN_KERNEL ${base_ctype} ${prefix}(${dtypes.ctype(dtype)} orig_base, ${exp_ct
     %endif
 
     %if dtypes.is_complex(output_dtype):
-    if (base.x == 0 && base.y == 0)
+    if (base.x == 0 && base.y == 0 && e != 0)
         return COMPLEX_CTR(${base_ctype})(0, 0);
     %else:
-    if (base == 0)
+    if (base == 0 && e != 0)
         return 0;
     %endif
 
