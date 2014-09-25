@@ -57,7 +57,7 @@ def generate_dtypes(out_code, in_codes):
     return out_dtype, in_dtypes
 
 
-def check_func(thr, func_module, reference_func, out_dtype, in_dtypes):
+def check_func(thr, func_module, reference_func, out_dtype, in_dtypes, atol=None, rtol=None):
     N = 256
 
     test = get_func_kernel(thr, func_module, out_dtype, in_dtypes)
@@ -69,7 +69,7 @@ def check_func(thr, func_module, reference_func, out_dtype, in_dtypes):
     test(dest_dev, *arrays_dev, global_size=N)
     assert diff_is_negligible(
         thr.from_device(dest_dev),
-        reference_func(*arrays).astype(out_dtype))
+        reference_func(*arrays).astype(out_dtype), atol=atol, rtol=rtol)
 
 
 @pytest.mark.parametrize(
@@ -176,7 +176,8 @@ def test_multiarg_mul(thr, out_code, in_codes):
         filterwarnings("ignore", "", numpy.ComplexWarning)
         mul = functions.mul(*in_dtypes, out_dtype=out_dtype)
 
-    check_func(thr, mul, reference_mul, out_dtype, in_dtypes)
+    # Increasing the tolerance because of GPU inaccuracies in single precision
+    check_func(thr, mul, reference_mul, out_dtype, in_dtypes, rtol=5e-5)
 
 
 @pytest.mark.parametrize('in_codes', ["ii", "ff", "cc", "cfi", "ifccfi"])
