@@ -65,6 +65,14 @@ def test_create_new_thread(cluda_api):
     simple_thread_test(thr)
 
 
+def test_array_functionality(thr):
+    """
+    Checks additional functionality introduced by the generic Array class.
+    """
+    arr = thr.array(1024, numpy.float32)
+    assert arr.thread is thr
+
+
 def test_transfers(thr):
     a = get_test_array(1024, numpy.float32)
 

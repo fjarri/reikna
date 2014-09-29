@@ -1,3 +1,10 @@
+"""
+This example illustrates how to:
+- define a custom structure type with a correct alignment
+  (allowing it to be used to exchange data between numpy and kernels);
+- construct a reduction computation that operates on arrays of the struct type above.
+"""
+
 import numpy
 from reikna.cluda import dtypes, any_api
 from reikna.algorithms import Reduce, Predicate

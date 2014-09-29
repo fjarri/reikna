@@ -3,6 +3,24 @@ Release history
 ***************
 
 
+0.6.4 (29 Sep 2014)
+===================
+
+* CHANGED: renamed ``power_dtype`` parameter to ``exponent_dtype`` (a more correct term) in :py:func:`~reikna.cluda.functions.pow`.
+
+* FIXED: (PR by @ringw) exception caused by printing CUDA program object.
+
+* FIXED: :py:func:`~reikna.cluda.functions.pow` (0, 0) now returns 1 as it should.
+
+* ADDED: an example of :py:class:`~reikna.fft.FFT` with a custom transformation.
+
+* ADDED: a type check in the :py:class:`~reikna.fft.FFT` constructor.
+
+* ADDED: an explicit ``output_dtype`` parameter for :py:func:`~reikna.cluda.functions.pow`.
+
+* ADDED: :py:class:`~reikna.cluda.api.Array` objects for each backend expose the attribute ``thread``.
+
+
 0.6.3 (18 Jun 2014)
 ===================
 
@@ -13,7 +31,7 @@ Release history
 * FIXED: added Python 3.4 to the list of classifiers.
 
 
-0.6.2 (20 Feb 2013)
+0.6.2 (20 Feb 2014)
 ===================
 
 * ADDED: :py:func:`~reikna.cluda.functions.pow` function module in CLUDA.
@@ -29,7 +47,7 @@ Release history
 * FIXED: a bug in :py:class:`~reikna.fft.FFT` leading to undefined behavior on some OpenCL platforms.
 
 
-0.6.1 (4 Feb 2013)
+0.6.1 (4 Feb 2014)
 ==================
 
 * FIXED: :py:class:`~reikna.algorithms.Reduce` can now pick a decreased work group size if the attached transformations are too demanding.

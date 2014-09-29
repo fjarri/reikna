@@ -17,6 +17,15 @@ def get_platforms():
     return cl.get_platforms()
 
 
+class Array(clarray.Array):
+    """
+    A superclass of PyOpenCL ``Array``, with some additional functionality.
+    """
+    def __init__(self, thr, *args, **kwds):
+        clarray.Array.__init__(self, thr._queue, *args, **kwds)
+        self.thread = thr
+
+
 class Thread(api_base.Thread):
 
     api = sys.modules[__name__]
@@ -36,7 +45,7 @@ class Thread(api_base.Thread):
         return cl.Buffer(self._context, cl.mem_flags.READ_WRITE, size=size)
 
     def array(self, shape, dtype, strides=None, allocator=None):
-        return clarray.Array(self._queue, shape, dtype, strides=strides, allocator=allocator)
+        return Array(self, shape, dtype, strides=strides, allocator=allocator)
 
     def _copy_array(self, dest, src):
         dest.set(src, queue=self._queue, async=self._async)

@@ -131,7 +131,16 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize('non2problem_perf_shape_and_axes', vals, ids=ids)
 
 
-def check_errors(thr, shape_and_axes):
+def test_typecheck(some_thr):
+    with pytest.raises(ValueError):
+        fft = FFT(get_test_array(100, numpy.float32))
+
+
+# Since we're using single precision for tests (for compatibility reasons),
+# the FFTs (especially non-power-of-2 ones) are not very accurate
+# (GPUs historically tend to cut corners in single precision).
+# So we're lowering tolerances when comparing to the reference in these tests.
+def check_errors(thr, shape_and_axes, atol=2e-5, rtol=1e-3):
 
     dtype = numpy.complex64
 
@@ -148,13 +157,13 @@ def check_errors(thr, shape_and_axes):
     data_dev = thr.to_device(data)
     fftc(data_dev, data_dev)
     fwd_ref = numpy.fft.fftn(data, axes=axes).astype(dtype)
-    assert diff_is_negligible(data_dev.get(), fwd_ref)
+    assert diff_is_negligible(data_dev.get(), fwd_ref, atol=atol, rtol=rtol)
 
     # inverse transform
     data_dev = thr.to_device(data)
     fftc(data_dev, data_dev, inverse=True)
     inv_ref = numpy.fft.ifftn(data, axes=axes).astype(dtype)
-    assert diff_is_negligible(data_dev.get(), inv_ref)
+    assert diff_is_negligible(data_dev.get(), inv_ref, atol=atol, rtol=rtol)
 
 
 def test_trivial(some_thr):
@@ -187,7 +196,9 @@ def test_global(thr, global_shape_and_axes):
     check_errors(thr, global_shape_and_axes)
 
 def test_sequence(thr, sequence_shape_and_axes):
-    check_errors(thr, sequence_shape_and_axes)
+    # This test is particularly sensitive to inaccuracies in single precision,
+    # hence the particularly high tolerance.
+    check_errors(thr, sequence_shape_and_axes, rtol=1e-2)
 
 
 def check_performance(thr_and_double, shape_and_axes, fast_math):

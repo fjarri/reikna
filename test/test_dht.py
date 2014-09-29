@@ -137,11 +137,11 @@ def check_errors_first_order(thr, mshape, batch, add_points=None, dtype=numpy.co
 
     # forward transform
     dht_fw_c(mdata_dev, xdata_dev)
-    assert diff_is_negligible(mdata_dev.get(), test_func.mdata)
+    assert diff_is_negligible(mdata_dev.get(), test_func.mdata, atol=1e-6)
 
     # inverse transform
     dht_inv_c(xdata_dev, mdata_dev)
-    assert diff_is_negligible(xdata_dev.get(), xdata)
+    assert diff_is_negligible(xdata_dev.get(), xdata, atol=1e-6)
 
 
 fo_shape_vals = [(5,), (20,), (50,), (3, 7), (10, 11), (5, 6, 7), (10, 11, 12)]
@@ -203,4 +203,4 @@ def test_high_order_forward(thr, ho_order, ho_shape):
     mdata1 = mdata1_dev.get()
     mdata2 = mdata2_dev.get()
 
-    assert diff_is_negligible(mdata1, mdata2[:-1])
+    assert diff_is_negligible(mdata1, mdata2[:-1], atol=1e-6)

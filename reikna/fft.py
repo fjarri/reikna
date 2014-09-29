@@ -489,6 +489,10 @@ class FFT(Computation):
     """
 
     def __init__(self, arr_t, axes=None):
+
+        if not dtypes.is_complex(arr_t.dtype):
+            raise ValueError("FFT computation requires array of a complex dtype")
+
         Computation.__init__(self, [
             Parameter('output', Annotation(arr_t, 'o')),
             Parameter('input', Annotation(arr_t, 'i')),

@@ -141,41 +141,47 @@ def exp(dtype):
         render_kwds=dict(dtype=dtype, polar_unit_=polar_unit_))
 
 
-def pow(dtype, power_dtype=None):
+def pow(dtype, exponent_dtype=None, output_dtype=None):
     """
     Returns a :py:class:`~reikna.cluda.Module` with a function of two arguments
-    that raises the first argument of type ``dtype`` (must be a real or complex data type)
-    to the power of the second argument (a corresponding real data type or an integer).
+    that raises the first argument of type ``dtype``
+    to the power of the second argument of type ``exponent_dtype``
+    (an integer or real data type).
+    If ``exponent_dtype`` or ``output_dtype`` are not given, they default to ``dtype``.
+    If ``dtype`` is not the same as ``output_dtype``,
+    the input is cast to ``output_dtype`` *before* exponentiation.
+    If ``exponent_dtype`` is real, but both ``dtype`` and ``output_dtype`` are integer,
+    a ``ValueError`` is raised.
     """
-    if dtypes.is_complex(power_dtype):
-        raise NotImplementedError("pow() with a complex power is not supported")
+    if exponent_dtype is None:
+        exponent_dtype = dtype
 
-    if power_dtype is None:
-        if dtypes.is_integer(dtype):
-            raise ValueError("Power dtype must be specified for an integer argument")
-        elif dtypes.is_real(dtype):
-            power_dtype = dtype
+    if output_dtype is None:
+        output_dtype = dtype
+
+    if dtypes.is_complex(exponent_dtype):
+        raise NotImplementedError("pow() with a complex exponent is not supported")
+
+    if dtypes.is_real(exponent_dtype):
+        if dtypes.is_complex(output_dtype):
+            exponent_dtype = dtypes.real_for(output_dtype)
+        elif dtypes.is_real(output_dtype):
+            exponent_dtype = output_dtype
         else:
-            power_dtype = dtypes.real_for(dtype)
+            raise ValueError("pow(integer, float): integer is not supported")
 
-    if dtypes.is_complex(dtype):
-        r_dtype = dtypes.real_for(dtype)
-    elif dtypes.is_real(dtype):
-        r_dtype = dtype
-    elif dtypes.is_real(power_dtype):
-        r_dtype = power_dtype
-    else:
-        r_dtype = numpy.float32
+    kwds = dict(
+        dtype=dtype, exponent_dtype=exponent_dtype, output_dtype=output_dtype,
+        div_=None, mul_=None, cast_=None, polar_=None)
+    if output_dtype != dtype:
+        kwds['cast_'] = cast(output_dtype, dtype)
+    if dtypes.is_integer(exponent_dtype) and not dtypes.is_real(output_dtype):
+        kwds['mul_'] = mul(output_dtype, output_dtype)
+        kwds['div_'] = div(output_dtype, output_dtype)
+    if dtypes.is_complex(output_dtype):
+        kwds['polar_'] = polar(dtypes.real_for(output_dtype))
 
-    if dtypes.is_integer(dtype) and dtypes.is_real(power_dtype):
-        dtype = power_dtype
-
-    return Module(
-        TEMPLATE.get_def('pow'),
-        render_kwds=dict(
-            dtype=dtype, power_dtype=power_dtype,
-            mul_=mul(dtype, dtype), div_=div(dtype, dtype),
-            polar_=polar(r_dtype)))
+    return Module(TEMPLATE.get_def('pow'), render_kwds=kwds)
 
 
 def polar(dtype):

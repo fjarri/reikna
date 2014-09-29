@@ -57,7 +57,7 @@ def generate_dtypes(out_code, in_codes):
     return out_dtype, in_dtypes
 
 
-def check_func(thr, func_module, reference_func, out_dtype, in_dtypes):
+def check_func(thr, func_module, reference_func, out_dtype, in_dtypes, atol=None, rtol=None):
     N = 256
 
     test = get_func_kernel(thr, func_module, out_dtype, in_dtypes)
@@ -69,7 +69,7 @@ def check_func(thr, func_module, reference_func, out_dtype, in_dtypes):
     test(dest_dev, *arrays_dev, global_size=N)
     assert diff_is_negligible(
         thr.from_device(dest_dev),
-        reference_func(*arrays).astype(out_dtype))
+        reference_func(*arrays).astype(out_dtype), atol=atol, rtol=rtol)
 
 
 @pytest.mark.parametrize(
@@ -82,18 +82,32 @@ def test_exp(thr, out_code, in_codes):
 
 @pytest.mark.parametrize(
     ('out_code', 'in_codes'),
-    [('c', 'c'), ('f', 'f'), ('c', 'ci'), ('f', 'fi'), ('i', 'ii'), ('f', 'if')])
+    [('c', 'cf'), ('f', 'ff'), ('c', 'ci'), ('f', 'fi'), ('i', 'ii'), ('f', 'if'), ('c', 'ff')])
 def test_pow(thr, out_code, in_codes):
     out_dtype, in_dtypes = generate_dtypes(out_code, in_codes)
-    if len(in_dtypes) == 1:
-        func = functions.pow(in_dtypes[0])
-        if dtypes.is_real(in_dtypes[0]):
-            in_dtypes.append(in_dtypes[0])
-        else:
-            in_dtypes.append(dtypes.real_for(in_dtypes[0]))
-    else:
-        func = functions.pow(in_dtypes[0], power_dtype=in_dtypes[1])
+    func = functions.pow(in_dtypes[0], exponent_dtype=in_dtypes[1], output_dtype=out_dtype)
     check_func(thr, func, numpy.power, out_dtype, in_dtypes)
+
+
+@pytest.mark.parametrize(
+    ('out_code', 'in_codes'),
+    [('c', 'cf'), ('f', 'ff'), ('c', 'ci'), ('f', 'fi'), ('i', 'ii')])
+def test_pow_zero_exponent(some_thr, out_code, in_codes):
+    """
+    Regression test for the bug where pow(0, 0) returned 0.
+    """
+    N = 256
+
+    out_dtype, in_dtypes = generate_dtypes(out_code, in_codes)
+    func_module = functions.pow(in_dtypes[0], exponent_dtype=in_dtypes[1], output_dtype=out_dtype)
+    test = get_func_kernel(some_thr, func_module, out_dtype, in_dtypes)
+
+    bases = some_thr.to_device(numpy.zeros(N, in_dtypes[0]))
+    exponents = some_thr.to_device(numpy.zeros(N, in_dtypes[1]))
+    dest_dev = some_thr.array(N, out_dtype)
+
+    test(dest_dev, bases, exponents, global_size=N)
+    assert diff_is_negligible(dest_dev.get(), numpy.ones(N, in_dtypes[0]))
 
 
 @pytest.mark.parametrize(
@@ -176,7 +190,8 @@ def test_multiarg_mul(thr, out_code, in_codes):
         filterwarnings("ignore", "", numpy.ComplexWarning)
         mul = functions.mul(*in_dtypes, out_dtype=out_dtype)
 
-    check_func(thr, mul, reference_mul, out_dtype, in_dtypes)
+    # Increasing the tolerance because of GPU inaccuracies in single precision
+    check_func(thr, mul, reference_mul, out_dtype, in_dtypes, rtol=5e-5)
 
 
 @pytest.mark.parametrize('in_codes', ["ii", "ff", "cc", "cfi", "ifccfi"])
