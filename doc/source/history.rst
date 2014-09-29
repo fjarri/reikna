@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.7.0 (current development version)
-===================================
+0.6.4 (29 Sep 2014)
+===================
 
 * CHANGED: renamed ``power_dtype`` parameter to ``exponent_dtype`` (a more correct term) in :py:func:`~reikna.cluda.functions.pow`.
 
