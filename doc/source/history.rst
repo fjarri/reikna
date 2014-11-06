@@ -8,6 +8,8 @@ Release history
 
 * CHANGED: the correspondence for ``numpy.uintp`` is not registered by default anymore --- this type is not really useful in CPU-GPU interaction.
 
+* FIXED: (reported by J. Vacher) dtype/ctype correspondences for 64-bit integer types are registered even if the Python interpreter is 32-bit.
+
 * ADDED: :py:class:`~reikna.core.computation.ComputationCallable` objects expose the attribute ``thread``.
 
 
