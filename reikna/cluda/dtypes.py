@@ -190,11 +190,6 @@ def _fill_dtype_registry(respect_windows=True):
         _register_dtype(numpy.int64, i64_name)
         _register_dtype(numpy.uint64, "unsigned %s" % i64_name)
 
-        # http://projects.scipy.org/numpy/ticket/2017
-        _register_dtype(numpy.uintp, "unsigned %s" % i64_name)
-    else:
-        _register_dtype(numpy.uintp, "unsigned")
-
     _register_dtype(numpy.float32, "float")
     _register_dtype(numpy.float64, "double")
     _register_dtype(numpy.complex64, "float2")
