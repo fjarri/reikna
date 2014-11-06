@@ -3,10 +3,10 @@ Release history
 ***************
 
 
-0.7.0 (current development version)
+0.6.5 (current development version)
 ===================================
 
-Under construction.
+* ADDED: :py:class:`~reikna.core.computation.ComputationCallable` objects expose the attribute ``thread``.
 
 
 0.6.4 (29 Sep 2014)
