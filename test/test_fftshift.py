@@ -13,11 +13,11 @@ import reikna.cluda.dtypes as dtypes
 
 def check_errors(thr, shape_and_axes):
 
-    dtype = numpy.complex64
+    dtype = numpy.int32
 
     shape, axes = shape_and_axes
 
-    data = get_test_array(shape, dtype)
+    data = numpy.arange(product(shape)).reshape(shape).astype(dtype)
 
     shift = FFTShift(data, axes=axes)
     shiftc = shift.compile(thr)
