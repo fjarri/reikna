@@ -42,11 +42,14 @@ class FFTShift(Computation):
 
         plan = plan_factory()
 
-        render_kwds = dict(NX=input_.shape[0])
+        axes = tuple(sorted(self._axes))
+
+        shape = list(input_.shape)
+        shape[axes[0]] //= 2
 
         plan.kernel_call(
-            TEMPLATE.get_def('shift1Dinplace'), [output, input_],
-            global_size=input_.shape[0],
-            render_kwds=render_kwds)
+            TEMPLATE.get_def('fftshift'), [output, input_],
+            global_size=shape,
+            render_kwds=dict(axes=axes))
 
         return plan

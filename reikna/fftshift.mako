@@ -1,23 +1,40 @@
-<%def name="shift1Dinplace(kernel_declaration, output, input)">
+<%def name="fftshift(kernel_declaration, output, input)">
 <%
     ctype = dtypes.ctype(output.dtype)
+
+    dimensions = len(output.shape)
+    idx_names = ['index' + str(idx) for idx in range(dimensions)]
+    new_idx_names = ['new_index' + str(idx) for idx in range(dimensions)]
 %>
 ${kernel_declaration}
 {
     VIRTUAL_SKIP_THREADS;
 
-    VSIZE_T index = virtual_global_id(0);
-    if (index < ${NX // 2})
-    {
-        // Save the first value
-        ${ctype} regTemp = ${input.load_idx}(index);
+    %for dim in range(dimensions):
+    VSIZE_T ${idx_names[dim]} = virtual_global_id(${dim});
+    %endfor
 
-        // Swap the first element
-        ${output.store_idx}(index, ${input.load_idx}(index + ${NX // 2}));
+    %for dim in range(dimensions):
+    VSIZE_T ${new_idx_names[dim]} =
+        ${idx_names[dim]}
+        %if dim in axes:
+        +
+            %if dim != axes[0]:
+            (${idx_names[dim]} < ${output.shape[dim] // 2} ?
+                ${output.shape[dim] // 2} :
+                ${-output.shape[dim] // 2})
+            %else:
+            ${output.shape[dim] // 2}
+            %endif
+        %endif
+        ;
+    %endfor
 
-        // Swap the second one
-        ${output.store_idx}(index + ${NX // 2}, regTemp);
-    }
+    ${ctype} val1 = ${input.load_idx}(${', '.join(idx_names)});
+    ${ctype} val2 = ${input.load_idx}(${', '.join(new_idx_names)});
+
+    ${output.store_idx}(${', '.join(idx_names)}, val2);
+    ${output.store_idx}(${', '.join(new_idx_names)}, val1);
 }
 
 </%def>
