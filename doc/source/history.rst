@@ -12,6 +12,8 @@ Release history
 
 * ADDED: :py:class:`~reikna.core.computation.ComputationCallable` objects expose the attribute ``thread``.
 
+* ADDED: :py:class:`~reikna.fft.FFTShift` computation.
+
 
 0.6.4 (29 Sep 2014)
 ===================
