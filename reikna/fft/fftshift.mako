@@ -39,8 +39,6 @@ ${kernel_declaration}
 
 <%def name="fftshift_outplace(kernel_declaration, output, input)">
 <%
-    ctype = dtypes.ctype(output.dtype)
-
     dimensions = len(output.shape)
     idx_names = ['index' + str(idx) for idx in range(dimensions)]
     new_idx_names = ['new_index' + str(idx) for idx in range(dimensions)]
@@ -70,7 +68,7 @@ ${kernel_declaration}
         ;
     %endfor
 
-    ${ctype} val = ${input.load_idx}(${', '.join(idx_names)});
+    ${output.ctype} val = ${input.load_idx}(${', '.join(idx_names)});
     ${output.store_idx}(${', '.join(new_idx_names)}, val);
 }
 </%def>
