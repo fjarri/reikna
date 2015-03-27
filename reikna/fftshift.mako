@@ -74,14 +74,3 @@ ${kernel_declaration}
     ${output.store_idx}(${', '.join(new_idx_names)}, val);
 }
 </%def>
-
-
-<%def name="copy(kernel_declaration, output, input)">
-${kernel_declaration}
-{
-    VIRTUAL_SKIP_THREADS;
-    VSIZE_T idx = virtual_global_id(0);
-    ${output.ctype} val = ${input.load_combined_idx((len(output.shape),))}(idx);
-    ${output.store_combined_idx((len(output.shape),))}(idx, val);
-}
-</%def>

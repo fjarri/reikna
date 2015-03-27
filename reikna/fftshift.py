@@ -60,8 +60,9 @@ class FFTShift(Computation):
                 TEMPLATE.get_def('fftshift_outplace'), [temp, input_],
                 global_size=shape,
                 render_kwds=dict(axes=axes))
-            plan.kernel_call(
-                TEMPLATE.get_def('copy'), [output, temp],
-                global_size=helpers.product(shape))
+
+            copy_trf = copy(input_, out_arr_t=output)
+            copy_comp = PureParallel.from_trf(copy_trf, copy_trf.input)
+            plan.computation_call(copy_comp, output, temp)
 
         return plan
