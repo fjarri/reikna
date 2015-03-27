@@ -10,6 +10,24 @@ TEMPLATE = helpers.template_for(__file__)
 
 
 class FFTShift(Computation):
+    """
+    Bases: :py:class:`~reikna.core.Computation`
+
+    Shift the zero-frequency component to the center of the spectrum.
+    The interface is similar to ``numpy.fft.fftshift``,
+    and the output is the same for the same array shape and axes.
+
+    :param arr_t: an array-like defining the problem array.
+    :param axes: a tuple with axes over which to perform the shift.
+        If not given, the shift is performed over all the axes.
+
+    .. py:method:: compiled_signature(output:o, input:i)
+
+        ``output`` and ``input`` may be the same array.
+
+        :param output: an array with the attributes of ``arr_t``.
+        :param input: an array with the attributes of ``arr_t``.
+    """
 
     def __init__(self, arr_t, axes=None):
 

@@ -14,11 +14,10 @@ Linear algebra
 .. automodule:: reikna.linalg
 
 
-Fast Fourier transform
-----------------------
+Fast Fourier transform and related utilities
+--------------------------------------------
 
-.. currentmodule:: reikna.fft
-.. autoclass :: reikna.fft.FFT
+.. automodule:: reikna.fft
 
 
 Discrete harmonic transform

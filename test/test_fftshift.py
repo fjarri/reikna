@@ -7,7 +7,7 @@ import pytest
 from helpers import *
 
 from reikna.helpers import product
-from reikna.fftshift import FFTShift
+from reikna.fft import FFTShift
 import reikna.cluda.dtypes as dtypes
 from reikna.transformations import mul_param
 
