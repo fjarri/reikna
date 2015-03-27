@@ -2,13 +2,13 @@
 Fast Fourier Transform
 ^^^^^^^^^^^^^^^^^^^^^^
 
-.. autoclass :: reikna.fft.FFT
+.. autoclass :: FFT
     :members:
 
 FFT frequency shift
 ^^^^^^^^^^^^^^^^^^^
 
-.. autoclass :: reikna.fft.FFTShift
+.. autoclass :: FFTShift
     :members:
 """
 
