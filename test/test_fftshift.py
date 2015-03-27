@@ -29,8 +29,8 @@ def check_errors(thr, shape_and_axes):
 
 
 @pytest.mark.parametrize('shape_and_axes', [
-    ((512,), (0,)),
-    ((128, 64), (0, 1))
+    ((11,), (0,)),
+    ((128, 65), (0, 1))
     ])
 def test_1d(thr, shape_and_axes):
     check_errors(thr, shape_and_axes)

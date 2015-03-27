@@ -43,13 +43,25 @@ class FFTShift(Computation):
         plan = plan_factory()
 
         axes = tuple(sorted(self._axes))
-
         shape = list(input_.shape)
-        shape[axes[0]] //= 2
 
-        plan.kernel_call(
-            TEMPLATE.get_def('fftshift'), [output, input_],
-            global_size=shape,
-            render_kwds=dict(axes=axes))
+        if all(shape[axis] % 2 == 0 for axis in axes):
+        # If all shift axes have even length, it is possible to perform the shift inplace
+        # (by swapping pairs of elements).
+            shape[axes[0]] //= 2
+            plan.kernel_call(
+                TEMPLATE.get_def('fftshift_inplace'), [output, input_],
+                global_size=shape,
+                render_kwds=dict(axes=axes))
+        else:
+        # Resort to an out-of-place shift to a temporary array and then copy.
+            temp = plan.temp_array_like(output)
+            plan.kernel_call(
+                TEMPLATE.get_def('fftshift_outplace'), [temp, input_],
+                global_size=shape,
+                render_kwds=dict(axes=axes))
+            plan.kernel_call(
+                TEMPLATE.get_def('copy'), [output, temp],
+                global_size=helpers.product(shape))
 
         return plan
