@@ -9,6 +9,7 @@ from helpers import *
 from reikna.helpers import product
 from reikna.fftshift import FFTShift
 import reikna.cluda.dtypes as dtypes
+from reikna.transformations import mul_param
 
 
 def pytest_generate_tests(metafunc):
@@ -99,6 +100,29 @@ def check_errors(thr, shape_and_axes):
 
 def test_errors(thr, errors_shape_and_axes):
     check_errors(thr, errors_shape_and_axes)
+
+
+def test_trivial(some_thr):
+    """
+    Checks that even if the axes set is trivial (product of lengths == 1),
+    the transformations are still attached and executed.
+    """
+    dtype = numpy.complex64
+    shape = (128, 1, 1, 128)
+    axes = (1, 2)
+    param = 4
+
+    data = get_test_array(shape, dtype)
+    data_dev = some_thr.to_device(data)
+    res_dev = some_thr.empty_like(data_dev)
+
+    shift = FFTShift(data, axes=axes)
+    scale = mul_param(data_dev, numpy.int32)
+    shift.parameter.input.connect(scale, scale.output, input_prime=scale.input, param=scale.param)
+
+    shiftc = shift.compile(some_thr)
+    shiftc(res_dev, data_dev, param)
+    assert diff_is_negligible(res_dev.get(), data * param)
 
 
 def check_performance(thr_and_double, shape_and_axes):
