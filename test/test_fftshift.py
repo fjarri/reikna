@@ -125,6 +125,14 @@ def test_trivial(some_thr):
     assert diff_is_negligible(res_dev.get(), data * param)
 
 
+def test_unordered_axes(some_thr):
+    check_errors(some_thr, ((40, 50, 60), (2, 0)))
+
+
+def test_no_axes(some_thr):
+    check_errors(some_thr, ((40, 50, 60), None))
+
+
 def check_performance(thr_and_double, shape_and_axes):
 
     thr, double = thr_and_double
