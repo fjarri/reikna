@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.6.5 (current development version)
-===================================
+0.6.5 (31 Mar 2015)
+===================
 
 * CHANGED: the correspondence for ``numpy.uintp`` is not registered by default anymore --- this type is not really useful in CPU-GPU interaction.
 
