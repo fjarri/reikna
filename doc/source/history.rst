@@ -14,6 +14,8 @@ Release history
 
 * ADDED: :py:class:`~reikna.fft.FFTShift` computation.
 
+* ADDED: an example of an element-reshuffling transformation.
+
 
 0.6.4 (29 Sep 2014)
 ===================
