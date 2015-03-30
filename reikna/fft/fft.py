@@ -475,14 +475,14 @@ class FFT(Computation):
 
         ..
             The only case where it would matter is when we only have one kernel in the plan,
-            and it has ``inplace_possible==Fales``.
+            and it has ``inplace_possible==False``.
             Local kernels are always inplace, so it must be a global kernel.
             But if there is only one global kernel in the list, it will have its
             ``inplace_possible`` set to ``True`` (see the condition in ``GlobalFFTKernel``).
             Therefore our FFT is always guaranteed to be inplace.
 
-        :param output: an array wit the attributes of ``arr_t``.
-        :param input: an array wit the attributes of ``arr_t``.
+        :param output: an array with the attributes of ``arr_t``.
+        :param input: an array with the attributes of ``arr_t``.
         :param inverse: a scalar value castable to integer.
             If ``1``, ``output`` contains the forward FFT of ``input``,
             if ``0`` the inverse one.

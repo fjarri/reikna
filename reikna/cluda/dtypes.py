@@ -178,22 +178,13 @@ def _fill_dtype_registry(respect_windows=True):
     _register_dtype(numpy.int32, "int")
     _register_dtype(numpy.uint32, "unsigned int")
 
-    # recommended by Python docs
-    is_64bits = sys.maxsize > 2 ** 32
-
-    if is_64bits:
-        if platform.system == 'Windows' and respect_windows:
-            i64_name = "long long"
-        else:
-            i64_name = "long"
-
-        _register_dtype(numpy.int64, i64_name)
-        _register_dtype(numpy.uint64, "unsigned %s" % i64_name)
-
-        # http://projects.scipy.org/numpy/ticket/2017
-        _register_dtype(numpy.uintp, "unsigned %s" % i64_name)
+    if platform.system == 'Windows' and respect_windows:
+        i64_name = "long long"
     else:
-        _register_dtype(numpy.uintp, "unsigned")
+        i64_name = "long"
+
+    _register_dtype(numpy.int64, i64_name)
+    _register_dtype(numpy.uint64, "unsigned %s" % i64_name)
 
     _register_dtype(numpy.float32, "float")
     _register_dtype(numpy.float64, "double")

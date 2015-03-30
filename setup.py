@@ -86,7 +86,7 @@ git_revision = "{git_revision}"
 release = {released}
 '''
 
-    VERSION = (0, 6, 4)
+    VERSION = (0, 6, 5)
     RELEASED = True
 
     version_str = '%d.%d.%d' % VERSION
@@ -141,6 +141,7 @@ if __name__ == '__main__':
             'reikna/cbrng',
             'reikna/cluda',
             'reikna/core',
+            'reikna/fft',
             'reikna/helpers',
             'reikna/linalg',
             ],
@@ -160,6 +161,7 @@ if __name__ == '__main__':
             'reikna/algorithms': ['*.mako'],
             'reikna/cluda': ['*.mako'],
             'reikna/cbrng': ['*.mako'],
+            'reikna/fft': ['*.mako'],
             'reikna/linalg': ['*.mako'],
             },
         version=VERSION_STR,

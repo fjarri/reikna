@@ -492,6 +492,7 @@ class ComputationPlan:
             all_buffers.append(new_buf)
 
         return ComputationCallable(
+            self._thread,
             self._tr_tree.get_leaf_parameters(),
             self._kernels,
             internal_args,
@@ -525,6 +526,10 @@ class ComputationCallable:
     A result of calling :py:meth:`~reikna.core.Computation.compile` on a computation.
     Represents a callable opaque GPGPU computation.
 
+    .. py:attribute:: thread
+
+        A :py:class:`~reikna.cluda.api.Thread` object used to compile the computation.
+
     .. py:attribute:: signature
 
         A :py:class:`~reikna.core.Signature` object.
@@ -535,7 +540,8 @@ class ComputationCallable:
         to the callable's parameters.
     """
 
-    def __init__(self, parameters, kernel_calls, internal_args, temp_buffers):
+    def __init__(self, thread, parameters, kernel_calls, internal_args, temp_buffers):
+        self.thread = thread
         self.signature = Signature(parameters)
         self.parameter = make_parameter_container(self, parameters)
         self._kernel_calls = [kernel_call.finalize(internal_args) for kernel_call in kernel_calls]
