@@ -178,3 +178,4 @@ Take a look at:
 * CodePy (Python -> AST transformer)
 * Clyther (subset of Python -> OpenCL code)
 * https://github.com/mdipierro/mdpcl (same)
+* Parakeet: https://github.com/iskandr/parakeet
