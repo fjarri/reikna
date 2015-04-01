@@ -1,6 +1,10 @@
 0.7.0
 =====
 
+* ?API (cluda): having a reikna Array superclassing PyCUDA/PyOpenCL arrays is dangerous for seamless usage of Reikna computations with existing PyCUDA/PyOpenCL code.
+  Currently the only addition it has is the ``thread`` attribute, which is needed only
+  by ``reikna_integrator``.
+  Can we get rid of it and return to using normal arrays?
 * ?API (core): make ``device_params`` an attribute of plan or plan factory?
 * ?API (cluda): make dtypes.result_type() and dtypes.min_scalar_type() depend on device?
 * FEATURE (core): take not only CLUDA Thread as a parameter for computation ``compile``, but also CommandQueue, opencl Context, CUDA Stream and so on.
