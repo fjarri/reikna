@@ -1,5 +1,18 @@
 <%def name="insertBaseKernels()">
 
+#ifdef CUDA
+// On some platforms nvcc will pick up the NAN constant from math.h
+#ifndef NAN
+// Using the native CUDA NaN constant
+#include <math_constants.h>
+%if dtypes.is_double(dtype):
+#define NAN CUDART_NAN
+%else:
+#define NAN CUDART_NAN_F
+%endif
+#endif
+#endif
+
 #define complex_ctr COMPLEX_CTR(${dtypes.ctype(dtype)})
 #define conj_transp(a) complex_ctr(-(a).y, (a).x)
 #define conj_transp_and_mul(a, b) complex_ctr(-(a).y * (b), (a).x * (b))
