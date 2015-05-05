@@ -8,6 +8,8 @@ Release history
 
 * FIXED: a bug with the ``NAN`` constant not being defined in CUDA on Windows.
 
+* ADDED: an example of a spectrogram-calculating computation (``demo_specgram.py``).
+
 
 0.6.5 (31 Mar 2015)
 ===================
