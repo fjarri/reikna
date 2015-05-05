@@ -69,12 +69,13 @@ def get_data():
     NFFT = 1024       # the length of the windowing segments
     Fs = int(1.0/dt)  # the sampling frequency
 
-    return x, dict(NFFT=NFFT, Fs=Fs, noverlap=900)
+    return x, dict(NFFT=NFFT, Fs=Fs, noverlap=900, pad_to=2048)
 
 
-def hanning_window(arr):
+def hanning_window(arr, NFFT):
     """
     Applies the von Hann window to the rows of a 2D array.
+    To account for zero padding (which we do not want to window), NFFT is provided separately.
     """
     if dtypes.is_complex(arr.dtype):
         coeff_dtype = dtypes.real_for(arr.dtype)
@@ -86,12 +87,21 @@ def hanning_window(arr):
             Parameter('input', Annotation(arr, 'i')),
         ],
         """
-        ${dtypes.ctype(coeff_dtype)} coeff =
-            0.5 * (1 - cos(2 * ${numpy.pi} * ${idxs[-1]} / (${input.shape[-1]} - 1)));
+        ${dtypes.ctype(coeff_dtype)} coeff;
+        %if NFFT != output.shape[0]:
+        if (${idxs[1]} >= ${NFFT})
+        {
+            coeff = 1;
+        }
+        else
+        %endif
+        {
+            coeff = 0.5 * (1 - cos(2 * ${numpy.pi} * ${idxs[-1]} / (${NFFT} - 1)));
+        }
         ${output.store_same}(${mul}(${input.load_same}, coeff));
         """,
         render_kwds=dict(
-            coeff_dtype=coeff_dtype,
+            coeff_dtype=coeff_dtype, NFFT=NFFT,
             mul=functions.mul(arr.dtype, coeff_dtype)))
 
 
@@ -103,7 +113,7 @@ def rolling_frame(arr, NFFT, noverlap, pad_to):
 
     frame_step = NFFT - noverlap
     frame_num = (arr.size - noverlap) // frame_step
-    frame_size = NFFT if pad_to is None else NFFT + pad_size
+    frame_size = NFFT if pad_to is None else pad_to
 
     result_arr = Type(arr.dtype, (frame_num, frame_size))
 
@@ -113,9 +123,18 @@ def rolling_frame(arr, NFFT, noverlap, pad_to):
             Parameter('input', Annotation(arr, 'i')),
         ],
         """
-        ${output.store_same}(${input.load_idx}(${idxs[0]} * ${frame_step} + ${idxs[1]}));
+        %if NFFT != output.shape[1]:
+        if (${idxs[1]} >= ${NFFT})
+        {
+            ${output.store_same}(0);
+        }
+        else
+        %endif
+        {
+            ${output.store_same}(${input.load_idx}(${idxs[0]} * ${frame_step} + ${idxs[1]}));
+        }
         """,
-        render_kwds=dict(frame_step=frame_step),
+        render_kwds=dict(frame_step=frame_step, NFFT=NFFT),
         # note that only the "store_same"-using argument can serve as a connector!
         connectors=['output'])
 
@@ -152,7 +171,7 @@ class Spectrogram(Computation):
         fft_arr = Type(complex_dtype, rolling_frame_trf.output.shape)
         real_fft_arr = Type(x.dtype, rolling_frame_trf.output.shape)
 
-        window_trf = window(real_fft_arr)
+        window_trf = window(real_fft_arr, NFFT)
         broadcast_zero_trf = transformations.broadcast_const(real_fft_arr, 0)
         to_complex_trf = transformations.combine_complex(fft_arr)
         amplitude_trf = transformations.norm_const(fft_arr, 1)
@@ -206,7 +225,8 @@ if __name__ == '__main__':
     api = any_api()
     thr = api.Thread.create()
 
-    specgram_reikna = Spectrogram(x, NFFT=params['NFFT'], noverlap=params['noverlap']).compile(thr)
+    specgram_reikna = Spectrogram(
+        x, NFFT=params['NFFT'], noverlap=params['noverlap'], pad_to=params['pad_to']).compile(thr)
 
     x_dev = thr.to_device(x)
     spectre_dev = thr.empty_like(specgram_reikna.parameter.output)
