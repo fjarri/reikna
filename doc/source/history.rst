@@ -8,6 +8,8 @@ Release history
 
 * FIXED: a bug with the ``NAN`` constant not being defined in CUDA on Windows.
 
+* FIXED: (PR by @ringw) copying and arithmetic operations on Reikna arrays now preserve the array type instead of resetting it to PyOpenCL/PyCUDA array.
+
 * ADDED: an example of a spectrogram-calculating computation (``demo_specgram.py``).
 
 
