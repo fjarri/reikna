@@ -27,9 +27,9 @@ class Array(clarray.Array):
 
     def _new_like_me(self, dtype=None):
         """
-        Called by PyOpenCL when the array is copied, to make an empty array.
-        The default PyOpenCL implementation tries to make a new Array
-        passing a CommandQueue instead of a reikna Thread.
+        Called by PyOpenCL to store the results of arithmetic operations
+        or when the array is copied, to make an empty array.
+        Need to intercept it to preserve the array type.
         """
         return (self.thread.empty_like(self)
                 if dtype is None
