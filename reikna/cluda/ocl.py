@@ -7,7 +7,6 @@ from reikna.helpers import wrap_in_tuple
 import reikna.cluda as cluda
 import reikna.cluda.dtypes as dtypes
 import reikna.cluda.api as api_base
-import reikna.core
 
 
 def get_id():
@@ -34,8 +33,7 @@ class Array(clarray.Array):
         """
         return (self.thread.empty_like(self)
                 if dtype is None
-                else self.thread.empty_like(reikna.core.Type(dtype,
-                                                             self.shape)))
+                else self.thread.array(self.shape, dtype))
 
 class Thread(api_base.Thread):
 
