@@ -19,7 +19,7 @@ def get_platforms():
 
 class Array(clarray.Array):
     """
-    A superclass of PyOpenCL ``Array``, with some additional functionality.
+    A subclass of PyOpenCL ``Array``, with some additional functionality.
     """
     def __init__(self, thr, *args, **kwds):
         clarray.Array.__init__(self, thr._queue, *args, **kwds)

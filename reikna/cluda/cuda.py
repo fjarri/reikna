@@ -68,7 +68,7 @@ class Buffer:
 
 class Array(gpuarray.GPUArray):
     """
-    A superclass of PyCUDA ``GPUArray``, with some additional functionality.
+    A subclass of PyCUDA ``GPUArray``, with some additional functionality.
     """
     def __init__(self, thr, *args, **kwds):
         gpuarray.GPUArray.__init__(self, *args, **kwds)
