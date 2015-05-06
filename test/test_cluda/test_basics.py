@@ -73,6 +73,28 @@ def test_array_functionality(thr):
     assert arr.thread is thr
 
 
+def test_array_type_after_binop(thr):
+    """
+    Checks that a binary operation keeps the Reikna Array type
+    and does not reset it to PyOpenCL/PyCUDA array.
+    """
+    arr = thr.array(1024, numpy.float32)
+    arr2 = thr.array(1024, numpy.float32)
+
+    assert type(arr + arr2) == type(arr)
+
+
+def test_array_type_after_copy(thr):
+    """
+    Checks that .copy() keeps the Reikna Array type
+    and does not reset it to PyOpenCL/PyCUDA array.
+    """
+    arr = thr.array(1024, numpy.float32)
+    arr2 = arr.copy()
+
+    assert type(arr2) == type(arr)
+
+
 def test_transfers(thr):
     a = get_test_array(1024, numpy.float32)
 
