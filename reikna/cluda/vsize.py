@@ -118,6 +118,10 @@ def find_local_size(global_size, flat_local_size, threshold=0.05):
             best_ratio = ratio
             best_local_size = local_size
 
+    # This looks like the above loop can finish without setting `best_local_size`,
+    # but providing flat_local_size <= product(global_size),
+    # there is at least one decomposition (flat_local_size, 1, 1, ...).
+
     return best_local_size
 
 
