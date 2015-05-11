@@ -209,8 +209,6 @@ def check_kernel_sampler(thr, sampler, extent=None, mean=None, std=None):
                 dest[j * ${size * sampler.randoms_per_call} + ${size * i} + idx] = res.v[${i}];
                 %endfor
             }
-
-            ${bijection.module}Counter next_ctr = ${bijection.module}get_next_unused_counter(st);
         }
         """,
         'test', size,
