@@ -330,10 +330,6 @@ class VirtualSizes:
         local_groups = ShapeGroups(virtual_local_size, max_work_item_sizes)
         grid_groups = ShapeGroups(virtual_grid_size, device_params.max_num_groups)
 
-        # Returning back to the row-major ordering
-        self.virtual_local_size = tuple(reversed(virtual_local_size))
-        self.virtual_global_size = tuple(reversed(virtual_global_size))
-
         # These can be different lenghts because of expansion into multiple dimensions
         # find_bounding_shape() does.
         real_local_size = tuple(local_groups.bounding_shape)
@@ -365,3 +361,7 @@ class VirtualSizes:
             grid_groups=grid_groups,
             product=product,
             vdim_inverse=vdim_inverse)
+
+        # Returning back to the row-major ordering
+        self.virtual_local_size = tuple(reversed(virtual_local_size))
+        self.virtual_global_size = tuple(reversed(virtual_global_size))
