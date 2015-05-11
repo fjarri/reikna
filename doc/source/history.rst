@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.7.0 (current development version)
-===================================
+0.6.6 (11 May 2015)
+===================
 
 * FIXED: a bug with the ``NAN`` constant not being defined in CUDA on Windows.
 
