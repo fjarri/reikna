@@ -17,6 +17,9 @@ WITHIN_KERNEL VSIZE_T virtual_local_id(unsigned int dim)
         %endfor
             0;
 
+        ## The modulus operation will not be optimized away by the compiler,
+        ## but we can omit it for the major dimension,
+        ## knowing that VIRTUAL_SKIP_THREADS will skip redundant threads.
         %if vdim == local_groups.major_vdims[vdim]:
         return (flat_id / ${local_groups.virtual_strides[vdim]});
         %else:
@@ -61,6 +64,9 @@ WITHIN_KERNEL VSIZE_T virtual_group_id(unsigned int dim)
         %endfor
             0;
 
+        ## The modulus operation will not be optimized away by the compiler,
+        ## but we can omit it for the major dimension,
+        ## knowing that VIRTUAL_SKIP_THREADS will skip redundant threads.
         %if vdim == grid_groups.major_vdims[vdim]:
         return (flat_id / ${grid_groups.virtual_strides[vdim]});
         %else:
