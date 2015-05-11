@@ -125,16 +125,8 @@ def _group_dimensions(vdim, virtual_shape, adim, available_shape):
     """
     ``vdim`` and ``adim`` are used for the absolute addressing of dimensions during recursive calls.
     """
-    if len(virtual_shape) == 1 and virtual_shape[0] == 1:
-        return [(vdim,)], [(adim,)]
-
     if len(virtual_shape) == 0:
         return [], []
-
-    if virtual_shape[0] == 1:
-        v_remainder, a_remainder = _group_dimensions(
-            vdim + 1, virtual_shape[1:], adim, available_shape)
-        return [(vdim,) + v_remainder[0]] + v_remainder[1:], a_remainder
 
     vdim_group = 1 # number of currently grouped virtual dimensions
     adim_group = 1 # number of currently grouped available dimensions
@@ -156,8 +148,15 @@ def _group_dimensions(vdim, virtual_shape, adim, available_shape):
         # 1) the current available group can accommodate the current virtual group;
         # 2) the remaining available dimensions can accommodate the remaining virtual dimensions.
         # This means we can make a recursive call now.
+
+        # Attach any following trivial virtual dimensions (of size 1) to this group
+        # This will help to avoid unassigned trivial dimensions with no real dimensions left.
+        while vdim_group < len(virtual_shape) and virtual_shape[vdim_group] == 1:
+            vdim_group += 1
+
         v_res = tuple(range(vdim, vdim + vdim_group))
         a_res = tuple(range(adim, adim + adim_group))
+
         v_remainder, a_remainder = _group_dimensions(
             vdim + vdim_group, virtual_shape[vdim_group:],
             adim + adim_group, available_shape[adim_group:])
