@@ -329,7 +329,7 @@ def test_computation_uniqueness(thr):
     rngc(counters_dev, dest1_dev)
     rngc(counters_dev, dest2_dev)
 
-    assert not diff_is_negligible(dest1_dev.get(), dest2_dev.get())
+    assert not diff_is_negligible(dest1_dev.get(), dest2_dev.get(), verbose=False)
 
 
 @pytest.mark.perf
