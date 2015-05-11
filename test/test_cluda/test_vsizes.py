@@ -38,7 +38,9 @@ vals_group_dimensions = [
     ((16, 16), (7, 45)),
     ((16, 16), (7, 45, 50)),
     ((3, 4, 5), (72,)),
-    ((3, 4, 5), (4, 5, 6))
+    ((3, 4, 5), (4, 5, 6)),
+    ((134, 1, 1), (9, 5, 3)),
+    ((10, 1, 1, 10, 1, 1, 10, 1, 1), (100, 100))
     ]
 @pytest.mark.parametrize(
     ('virtual_shape', 'available_shape'),
@@ -52,6 +54,13 @@ def test_group_dimensions(virtual_shape, available_shape):
     v_dims = []
     a_dims = []
     for v_group, a_group in zip(v_groups, a_groups):
+
+        # Check that axis indices in groups are actually in range
+        assert any(vdim < len(virtual_shape) for vdim in v_group)
+        assert any(adim < len(available_shape) for adim in a_group)
+
+        # Check that the total number of elements (threads) in the virtual group
+        # is not greater than the number of elements in the real group
         v_shape = virtual_shape[v_group[0]:v_group[-1]+1]
         a_shape = available_shape[a_group[0]:a_group[-1]+1]
         assert(product(v_shape) <= product(a_shape))
@@ -59,6 +68,8 @@ def test_group_dimensions(virtual_shape, available_shape):
         v_dims += v_group
         a_dims += a_group
 
+    # Check that both virtual and real groups axes add up to a successive list
+    # without intersections.
     assert v_dims == list(range(len(virtual_shape)))
     assert a_dims == list(range(len(available_shape[:len(a_dims)])))
 

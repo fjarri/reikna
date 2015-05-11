@@ -18,9 +18,9 @@ The installation is as simple as
 Community resources
 ===================
 
-* `Source repository <http://github.com/Manticore/reikna>`_ on GitHub;
+* `Source repository <http://github.com/fjarri/reikna>`_ on GitHub;
 
-* `Issue tracker <http://github.com/Manticore/reikna/issues>`_, *ibid.*;
+* `Issue tracker <http://github.com/fjarri/reikna/issues>`_, *ibid.*;
 
 * `Discussion forum <https://groups.google.com/d/forum/reikna>`_ on Google Groups.
 

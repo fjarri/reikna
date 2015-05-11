@@ -1,5 +1,18 @@
 <%def name="insertBaseKernels()">
 
+#ifdef CUDA
+// On some platforms nvcc will pick up the NAN constant from math.h
+#ifndef NAN
+// Using the native CUDA NaN constant
+#include <math_constants.h>
+%if dtypes.is_double(dtype):
+#define NAN CUDART_NAN
+%else:
+#define NAN CUDART_NAN_F
+%endif
+#endif
+#endif
+
 #define complex_ctr COMPLEX_CTR(${dtypes.ctype(dtype)})
 #define conj_transp(a) complex_ctr(-(a).y, (a).x)
 #define conj_transp_and_mul(a, b) complex_ctr(-(a).y * (b), (a).x * (b))
@@ -314,11 +327,9 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, VSIZE_T pos)
         const VSIZE_T fft_index = group_id * ${xforms_per_workgroup} + xform_in_wg;
         const VSIZE_T fft_position_offset = thread_in_xform;
 
-        if(${xforms_remainder} == 0 || (group_id < num_groups - 1)
-            %if xforms_remainder > 0:
-            || (xform_in_wg < ${xforms_remainder})
-            %endif
-            )
+        %if xforms_remainder != 0:
+        if((group_id < num_groups - 1) || (xform_in_wg < ${xforms_remainder}))
+        %endif
         {
         %if pad_in:
             ${loads(range(border), False)}
@@ -351,7 +362,8 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, VSIZE_T pos)
         const VSIZE_T thread_in_xform = thread_id % ${threads_per_xform};
         const VSIZE_T xform_in_wg = thread_id / ${threads_per_xform};
 
-        if((group_id == num_groups - 1) && ${xforms_remainder} != 0)
+        %if xforms_remainder != 0:
+        if(group_id == num_groups - 1)
         {
             ${insertGlobalLoadsOuter(input, kweights,
                 range(xforms_remainder // (local_size // mem_coalesce_width)),
@@ -367,6 +379,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, VSIZE_T pos)
             %endif
         }
         else
+        %endif
         {
             ${insertGlobalLoadsOuter(input, kweights, range(num_outer_iter),
                 num_inner_iter, (local_size // mem_coalesce_width), mem_coalesce_width)}
@@ -410,7 +423,8 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, VSIZE_T pos)
             border = xforms_remainder // (local_size // fft_size)
         %>
 
-        if((group_id == num_groups - 1) && ${xforms_remainder} != 0)
+        %if xforms_remainder != 0:
+        if(group_id == num_groups - 1)
         {
             %if pad_in:
             if (fft_position_offset < ${fft_size_real})
@@ -432,6 +446,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, VSIZE_T pos)
             %endif
         }
         else
+        %endif
         {
             %if pad_in:
             if (fft_position_offset < ${fft_size_real})
@@ -483,11 +498,9 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, VSIZE_T pos)
             border = fft_size_real // threads_per_xform
         %>
 
-        if(${xforms_remainder} == 0 || group_id < num_groups - 1
-            %if xforms_remainder > 0:
-            || xform_in_wg < ${xforms_remainder}
-            %endif
-            )
+        %if xforms_remainder != 0:
+        if((group_id < num_groups - 1) || xform_in_wg < ${xforms_remainder})
+        %endif
         {
         %if unpad_out:
             ${stores(range(border))}
@@ -540,7 +553,8 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, VSIZE_T pos)
             border = xforms_remainder // (local_size // mem_coalesce_width)
         %>
 
-        if((group_id == num_groups - 1) && ${xforms_remainder} != 0)
+        %if xforms_remainder != 0:
+        if(group_id == num_groups - 1)
         {
             ${stores(range(border))}
             %if xforms_remainder % (local_size // mem_coalesce_width) > 0:
@@ -551,6 +565,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, VSIZE_T pos)
             %endif
         }
         else
+        %endif
         {
             ${stores(range(num_outer_iter))}
         }
@@ -585,7 +600,8 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, VSIZE_T pos)
             border = xforms_remainder // (local_size // fft_size)
         %>
 
-        if((group_id == num_groups - 1) && ${xforms_remainder} != 0)
+        %if xforms_remainder != 0:
+        if(group_id == num_groups - 1)
         {
             %if unpad_out:
             if (fft_position_offset < ${fft_size_real})
@@ -603,6 +619,7 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, VSIZE_T pos)
             %endif
         }
         else
+        %endif
         {
             %if unpad_out:
             if (fft_position_offset < ${fft_size_real})
@@ -741,6 +758,8 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, VSIZE_T pos)
 
     max_radix = radix_arr[0]
     num_radix = len(radix_arr)
+
+    xforms_remainder = outer_batch % xforms_per_workgroup
 %>
 
 ${insertBaseKernels()}
@@ -751,7 +770,9 @@ ${kernel_declaration}
 
     ${insertVariableDefinitions(inverse, lmem_size, max_radix)}
 
-    const int num_groups = virtual_num_groups(0);
+    %if xforms_remainder != 0:
+    const VSIZE_T num_groups = virtual_num_groups(0);
+    %endif
 
     ${insertGlobalLoadsAndTranspose(input, kweights, threads_per_xform, xforms_per_workgroup, max_radix,
         min_mem_coalesce_width)}

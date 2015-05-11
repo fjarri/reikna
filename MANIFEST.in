@@ -1,5 +1,6 @@
 recursive-include doc/source *.rst
 recursive-include test *.py
+recursive-include examples *.py
 
 include doc/Makefile
 include doc/source/conf.py

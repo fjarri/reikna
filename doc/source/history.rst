@@ -3,6 +3,20 @@ Release history
 ***************
 
 
+0.6.6 (11 May 2015)
+===================
+
+* FIXED: a bug with the ``NAN`` constant not being defined in CUDA on Windows.
+
+* FIXED: (PR by @ringw) copying and arithmetic operations on Reikna arrays now preserve the array type instead of resetting it to PyOpenCL/PyCUDA array.
+
+* FIXED: a bug in virtual size finding algorithm that could cause ``get_local_id(ndim)``/``get_global_id(ndim)`` being called with an argument out of the range supported by the OpenCL standard, causing compilation fails on some platforms.
+
+* FIXED: now omitting some of redundant modulus operations in virtual size functions.
+
+* ADDED: an example of a spectrogram-calculating computation (``demo_specgram.py``).
+
+
 0.6.5 (31 Mar 2015)
 ===================
 

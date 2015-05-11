@@ -19,12 +19,21 @@ def get_platforms():
 
 class Array(clarray.Array):
     """
-    A superclass of PyOpenCL ``Array``, with some additional functionality.
+    A subclass of PyOpenCL ``Array``, with some additional functionality.
     """
     def __init__(self, thr, *args, **kwds):
         clarray.Array.__init__(self, thr._queue, *args, **kwds)
         self.thread = thr
 
+    def _new_like_me(self, dtype=None):
+        """
+        Called by PyOpenCL to store the results of arithmetic operations
+        or when the array is copied, to make an empty array.
+        Need to intercept it to preserve the array type.
+        """
+        return (self.thread.empty_like(self)
+                if dtype is None
+                else self.thread.array(self.shape, dtype))
 
 class Thread(api_base.Thread):
 

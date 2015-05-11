@@ -209,8 +209,6 @@ def check_kernel_sampler(thr, sampler, extent=None, mean=None, std=None):
                 dest[j * ${size * sampler.randoms_per_call} + ${size * i} + idx] = res.v[${i}];
                 %endfor
             }
-
-            ${bijection.module}Counter next_ctr = ${bijection.module}get_next_unused_counter(st);
         }
         """,
         'test', size,
@@ -331,7 +329,7 @@ def test_computation_uniqueness(thr):
     rngc(counters_dev, dest1_dev)
     rngc(counters_dev, dest2_dev)
 
-    assert not diff_is_negligible(dest1_dev.get(), dest2_dev.get())
+    assert not diff_is_negligible(dest1_dev.get(), dest2_dev.get(), verbose=False)
 
 
 @pytest.mark.perf

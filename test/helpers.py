@@ -50,7 +50,7 @@ def get_test_array(shape, dtype, strides=None, no_zeros=False, high=None):
     return result
 
 
-def diff_is_negligible(m, m_ref, atol=None, rtol=None):
+def diff_is_negligible(m, m_ref, atol=None, rtol=None, verbose=True):
 
     if m.dtype.names is not None:
         return all(diff_is_negligible(m[name], m_ref[name]) for name in m.dtype.names)
@@ -70,14 +70,15 @@ def diff_is_negligible(m, m_ref, atol=None, rtol=None):
     if close.all():
         return True
 
-    far_idxs = numpy.vstack(numpy.where(close == False)).T
-    print(
-        ("diff_is_negligible() with atol={atol} and rtol={rtol} " +
-        "found {diffs} differences, first ones are:").format(
-        atol=atol, rtol=rtol, diffs=str(far_idxs.shape[0])))
-    for idx, _ in zip(far_idxs, range(10)):
-        idx = tuple(idx)
-        print("idx: {idx}, test: {test}, ref: {ref}".format(
-            idx=idx, test=m[idx], ref=m_ref[idx]))
+    if verbose:
+        far_idxs = numpy.vstack(numpy.where(close == False)).T
+        print(
+            ("diff_is_negligible() with atol={atol} and rtol={rtol} " +
+            "found {diffs} differences, first ones are:").format(
+            atol=atol, rtol=rtol, diffs=str(far_idxs.shape[0])))
+        for idx, _ in zip(far_idxs, range(10)):
+            idx = tuple(idx)
+            print("idx: {idx}, test: {test}, ref: {ref}".format(
+                idx=idx, test=m[idx], ref=m_ref[idx]))
 
     return False

@@ -118,6 +118,10 @@ def find_local_size(global_size, flat_local_size, threshold=0.05):
             best_ratio = ratio
             best_local_size = local_size
 
+    # This looks like the above loop can finish without setting `best_local_size`,
+    # but providing flat_local_size <= product(global_size),
+    # there is at least one decomposition (flat_local_size, 1, 1, ...).
+
     return best_local_size
 
 
@@ -125,16 +129,8 @@ def _group_dimensions(vdim, virtual_shape, adim, available_shape):
     """
     ``vdim`` and ``adim`` are used for the absolute addressing of dimensions during recursive calls.
     """
-    if len(virtual_shape) == 1 and virtual_shape[0] == 1:
-        return [(vdim,)], [(adim,)]
-
     if len(virtual_shape) == 0:
         return [], []
-
-    if virtual_shape[0] == 1:
-        v_remainder, a_remainder = _group_dimensions(
-            vdim + 1, virtual_shape[1:], adim, available_shape)
-        return [(vdim,) + v_remainder[0]] + v_remainder[1:], a_remainder
 
     vdim_group = 1 # number of currently grouped virtual dimensions
     adim_group = 1 # number of currently grouped available dimensions
@@ -156,8 +152,15 @@ def _group_dimensions(vdim, virtual_shape, adim, available_shape):
         # 1) the current available group can accommodate the current virtual group;
         # 2) the remaining available dimensions can accommodate the remaining virtual dimensions.
         # This means we can make a recursive call now.
+
+        # Attach any following trivial virtual dimensions (of size 1) to this group
+        # This will help to avoid unassigned trivial dimensions with no real dimensions left.
+        while vdim_group < len(virtual_shape) and virtual_shape[vdim_group] == 1:
+            vdim_group += 1
+
         v_res = tuple(range(vdim, vdim + vdim_group))
         a_res = tuple(range(adim, adim + adim_group))
+
         v_remainder, a_remainder = _group_dimensions(
             vdim + vdim_group, virtual_shape[vdim_group:],
             adim + adim_group, available_shape[adim_group:])
@@ -249,7 +252,18 @@ class ShapeGroups:
                 self.real_strides[vdim] = tuple(
                     product(self.bounding_shape[a_group[0]:adim]) for adim in a_group)
                 self.virtual_strides[vdim] = product(virtual_shape[v_group[0]:vdim])
-                self.major_vdims[vdim] = v_group[-1]
+
+                # The major virtual dimension (the one that does not require
+                # modulus operation when extracting its index from the flat index)
+                # is the last non-trivial one (not of size 1).
+                # Modulus will not be optimized away by the compiler,
+                # but we know that all threads outside of the virtual group will be
+                # filtered out by VIRTUAL_SKIP_THREADS.
+                for major_vdim in _range(len(v_group) - 1, -1, -1):
+                    if virtual_shape[v_group[major_vdim]] > 1:
+                        break
+
+                self.major_vdims[vdim] = v_group[major_vdim]
 
 
 class VirtualSizes:
@@ -299,6 +313,9 @@ class VirtualSizes:
                 flat_local_size = multiple * (max_work_group_size // multiple)
 
             # product(virtual_local_size) == flat_local_size <= max_work_group_size
+            # Note: it's ok if local size elements are greater
+            # than the corresponding global size elements as long as it minimizes the total
+            # number of skipped threads.
             virtual_local_size = find_local_size(virtual_global_size, flat_local_size)
         else:
             if product(virtual_local_size) > max_work_group_size:
@@ -320,10 +337,6 @@ class VirtualSizes:
         local_groups = ShapeGroups(virtual_local_size, max_work_item_sizes)
         grid_groups = ShapeGroups(virtual_grid_size, device_params.max_num_groups)
 
-        # Returning back to the row-major ordering
-        self.virtual_local_size = tuple(reversed(virtual_local_size))
-        self.virtual_global_size = tuple(reversed(virtual_global_size))
-
         # These can be different lenghts because of expansion into multiple dimensions
         # find_bounding_shape() does.
         real_local_size = tuple(local_groups.bounding_shape)
@@ -343,7 +356,7 @@ class VirtualSizes:
 
         # This function will be used to translate between internal column-major vdims
         # and user-supplied row-major vdims.
-        vdim_inverse = lambda dim: len(self.virtual_local_size) - dim - 1
+        vdim_inverse = lambda dim: len(virtual_local_size) - dim - 1
 
         self.vsize_functions = render_template(
             TEMPLATE,
@@ -355,3 +368,7 @@ class VirtualSizes:
             grid_groups=grid_groups,
             product=product,
             vdim_inverse=vdim_inverse)
+
+        # Returning back to the row-major ordering
+        self.virtual_local_size = tuple(reversed(virtual_local_size))
+        self.virtual_global_size = tuple(reversed(virtual_global_size))

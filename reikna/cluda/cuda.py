@@ -68,11 +68,27 @@ class Buffer:
 
 class Array(gpuarray.GPUArray):
     """
-    A superclass of PyCUDA ``GPUArray``, with some additional functionality.
+    A subclass of PyCUDA ``GPUArray``, with some additional functionality.
     """
     def __init__(self, thr, *args, **kwds):
         gpuarray.GPUArray.__init__(self, *args, **kwds)
         self.thread = thr
+
+    def copy(self):
+        """
+        Unlike PyOpenCL, PyCUDA's copy() does not use _new_like_me(),
+        so we're overriding it.
+        """
+        return self._new_like_me()
+
+    def _new_like_me(self, dtype=None):
+        """
+        Called by PyCUDA to store the results of arithmetic operations.
+        Need to intercept it to preserve the array type.
+        """
+        return (self.thread.empty_like(self)
+                if dtype is None
+                else self.thread.array(self.shape, dtype))
 
 
 class Thread(api_base.Thread):
