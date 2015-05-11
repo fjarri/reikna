@@ -309,6 +309,9 @@ class VirtualSizes:
                 flat_local_size = multiple * (max_work_group_size // multiple)
 
             # product(virtual_local_size) == flat_local_size <= max_work_group_size
+            # Note: it's ok if local size elements are greater
+            # than the corresponding global size elements as long as it minimizes the total
+            # number of skipped threads.
             virtual_local_size = find_local_size(virtual_global_size, flat_local_size)
         else:
             if product(virtual_local_size) > max_work_group_size:
