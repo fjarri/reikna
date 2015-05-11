@@ -167,7 +167,7 @@ if __name__ == '__main__':
         version=VERSION_STR,
         author='Bogdan Opanchuk',
         author_email='bogdan@opanchuk.net',
-        url='http://github.com/Manticore/reikna',
+        url='http://github.com/fjarri/reikna',
         description='GPGPU algorithms for PyCUDA and PyOpenCL',
         long_description=DOCUMENTATION,
         classifiers=[
