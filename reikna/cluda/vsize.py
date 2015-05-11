@@ -352,7 +352,7 @@ class VirtualSizes:
 
         # This function will be used to translate between internal column-major vdims
         # and user-supplied row-major vdims.
-        vdim_inverse = lambda dim: len(self.virtual_local_size) - dim - 1
+        vdim_inverse = lambda dim: len(virtual_local_size) - dim - 1
 
         self.vsize_functions = render_template(
             TEMPLATE,
