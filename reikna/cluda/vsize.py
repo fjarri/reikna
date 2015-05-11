@@ -248,7 +248,18 @@ class ShapeGroups:
                 self.real_strides[vdim] = tuple(
                     product(self.bounding_shape[a_group[0]:adim]) for adim in a_group)
                 self.virtual_strides[vdim] = product(virtual_shape[v_group[0]:vdim])
-                self.major_vdims[vdim] = v_group[-1]
+
+                # The major virtual dimension (the one that does not require
+                # modulus operation when extracting its index from the flat index)
+                # is the last non-trivial one (not of size 1).
+                # Modulus will not be optimized away by the compiler,
+                # but we know that all threads outside of the virtual group will be
+                # filtered out by VIRTUAL_SKIP_THREADS.
+                for major_vdim in _range(len(v_group) - 1, -1, -1):
+                    if virtual_shape[v_group[major_vdim]] > 1:
+                        break
+
+                self.major_vdims[vdim] = v_group[major_vdim]
 
 
 class VirtualSizes:
