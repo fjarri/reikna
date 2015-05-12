@@ -1,6 +1,8 @@
 0.7.0
 =====
 
+* FEATURE: test and possibly port FFT code from https://github.com/clMathLibraries/clFFT. It's probably faster than the Apple's code currently used.
+
 * ?API (cluda): having a reikna Array superclassing PyCUDA/PyOpenCL arrays is dangerous for seamless usage of Reikna computations with existing PyCUDA/PyOpenCL code.
   Currently the only addition it has is the ``thread`` attribute, which is needed only
   by ``reikna_integrator``.
