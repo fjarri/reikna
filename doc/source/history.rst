@@ -6,7 +6,7 @@ Release history
 0.7.0 (current development version)
 ===================================
 
-Under construction.
+* FIXED: a problem with Beignet OpenCL driver where the INLINE macro was being redefined.
 
 
 0.6.6 (11 May 2015)
