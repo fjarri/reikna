@@ -9,7 +9,7 @@
     fields = dtypes.flatten_dtype(output.dtype)
     paths = [dtypes.c_path(path) for path, _ in fields]
     ctypes = [dtypes.ctype(dtype) for _, dtype in fields]
-    suffixes = ['_' + '_'.join(path) for path, _ in fields]
+    suffixes = ['_' + '_'.join(str(elem) for elem in path) for path, _ in fields]
 %>
 
 INLINE WITHIN_KERNEL ${ctype} reduction_op(${ctype} input1, ${ctype} input2)

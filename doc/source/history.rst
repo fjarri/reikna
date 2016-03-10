@@ -8,6 +8,8 @@ Release history
 
 * FIXED: a problem with Beignet OpenCL driver where the INLINE macro was being redefined.
 
+* FIXED: a bug in :py:class:`~reikna.algorithms.Reduce` where reduction over a struct type with a nested array produced a template rendering error.
+
 
 0.6.6 (11 May 2015)
 ===================
