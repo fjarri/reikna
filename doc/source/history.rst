@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.7.0 (current development version)
-===================================
+0.6.7 (11 Mar 2016)
+===================
 
 * ADDED: an example of a transposition-based n-dimensional FFT (``demo_fftn_with_transpose.py``).
 
