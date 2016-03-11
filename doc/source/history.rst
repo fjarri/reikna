@@ -3,6 +3,20 @@ Release history
 ***************
 
 
+0.6.7 (11 Mar 2016)
+===================
+
+* ADDED: an example of a transposition-based n-dimensional FFT (``demo_fftn_with_transpose.py``).
+
+* FIXED: a problem with Beignet OpenCL driver where the INLINE macro was being redefined.
+
+* FIXED: a bug in :py:class:`~reikna.algorithms.Reduce` where reduction over a struct type with a nested array produced a template rendering error.
+
+* FIXED: now taking the minimum time over several attempts instead of the average in several performance tests (as it is done in the rest of the test suite).
+
+* FIXED: :py:class:`~reikna.algorithms.Transpose` now calculates the required elementary transpositions in the constructor instead of doing it during the compilation.
+
+
 0.6.6 (11 May 2015)
 ===================
 

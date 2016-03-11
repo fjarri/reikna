@@ -484,8 +484,8 @@ class FFT(Computation):
         :param output: an array with the attributes of ``arr_t``.
         :param input: an array with the attributes of ``arr_t``.
         :param inverse: a scalar value castable to integer.
-            If ``1``, ``output`` contains the forward FFT of ``input``,
-            if ``0`` the inverse one.
+            If ``0``, ``output`` contains the forward FFT of ``input``,
+            if ``1``, the inverse one.
     """
 
     def __init__(self, arr_t, axes=None):

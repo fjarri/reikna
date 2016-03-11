@@ -86,7 +86,7 @@ git_revision = "{git_revision}"
 release = {released}
 '''
 
-    VERSION = (0, 6, 6)
+    VERSION = (0, 6, 7)
     RELEASED = True
 
     version_str = '%d.%d.%d' % VERSION
@@ -167,7 +167,7 @@ if __name__ == '__main__':
         version=VERSION_STR,
         author='Bogdan Opanchuk',
         author_email='bogdan@opanchuk.net',
-        url='http://github.com/Manticore/reikna',
+        url='http://github.com/fjarri/reikna',
         description='GPGPU algorithms for PyCUDA and PyOpenCL',
         long_description=DOCUMENTATION,
         classifiers=[

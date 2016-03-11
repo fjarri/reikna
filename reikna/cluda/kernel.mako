@@ -84,7 +84,10 @@
     #define LOCAL_MEM __local
     #define LOCAL_MEM_DYNAMIC __local
     #define LOCAL_MEM_ARG __local
+    // INLINE is already defined in Beignet driver
+    #ifndef INLINE
     #define INLINE inline
+    #endif
     #define SIZE_T size_t
     #define VSIZE_T size_t
 
