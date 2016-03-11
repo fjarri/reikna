@@ -6,6 +6,8 @@ Release history
 0.7.0 (current development version)
 ===================================
 
+* ADDED: an example of a transposition-based n-dimensional FFT (``demo_fftn_with_transpose.py``).
+
 * FIXED: a problem with Beignet OpenCL driver where the INLINE macro was being redefined.
 
 * FIXED: a bug in :py:class:`~reikna.algorithms.Reduce` where reduction over a struct type with a nested array produced a template rendering error.
