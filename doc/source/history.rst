@@ -14,6 +14,8 @@ Release history
 
 * FIXED: now taking the minimum time over several attempts instead of the average in several performance tests (as it is done in the rest of the test suite).
 
+* FIXED: :py:class:`~reikna.algorithms.Transpose` now calculates the required elementary transpositions in the constructor instead of doing it during the compilation.
+
 
 0.6.6 (11 May 2015)
 ===================

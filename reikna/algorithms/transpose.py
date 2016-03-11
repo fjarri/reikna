@@ -97,6 +97,7 @@ class Transpose(Computation):
             assert set(axes) == set(all_axes)
 
         self._axes = tuple(axes)
+        self._transposes = get_transposes(arr_t.shape, self._axes)
 
         output_shape = transpose_shape(arr_t.shape, self._axes)
         output_arr = Type(arr_t.dtype, output_shape)
@@ -138,15 +139,14 @@ class Transpose(Computation):
 
     def _build_plan(self, plan_factory, device_params, output, input_):
         plan = plan_factory()
-        transposes = get_transposes(input_.shape, self._axes)
 
         mem_out = None
-        for i, transpose in enumerate(transposes):
+        for i, transpose in enumerate(self._transposes):
 
             batch_shape, height_shape, width_shape = transpose
 
             mem_in = input_ if i == 0 else mem_out
-            if i == len(transposes) - 1:
+            if i == len(self._transposes) - 1:
                 mem_out = output
             else:
                 mem_out = plan.temp_array(
