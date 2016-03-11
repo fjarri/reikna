@@ -10,6 +10,8 @@ Release history
 
 * FIXED: a bug in :py:class:`~reikna.algorithms.Reduce` where reduction over a struct type with a nested array produced a template rendering error.
 
+* FIXED: now taking the minimum time over several attempts instead of the average in several performance tests (as it is done in the rest of the test suite).
+
 
 0.6.6 (11 May 2015)
 ===================

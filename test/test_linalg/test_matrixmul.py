@@ -193,15 +193,16 @@ def check_performance(thr_and_double, perf_shape,
         pytest.skip()
 
     attempts = 10
-    t1 = time.time()
+    times = []
     for i in range(attempts):
+        t1 = time.time()
         dotc(res_dev, a_dev, b_dev)
-    thr.synchronize()
-    t2 = time.time()
+        thr.synchronize()
+        times.append(time.time() - t1)
 
     assert diff_is_negligible(thr.from_device(res_dev), res_ref)
 
-    return (t2 - t1) / attempts, batch * size ** 3 * 2
+    return min(times), batch * size ** 3 * 2
 
 
 @pytest.mark.perf

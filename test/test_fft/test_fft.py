@@ -215,17 +215,17 @@ def check_performance(thr_and_double, shape_and_axes, fast_math):
     fftc = fft.compile(thr, fast_math=fast_math)
 
     attempts = 10
-    t1 = time.time()
+    timess = []
     for i in range(attempts):
+        t1 = time.time()
         fftc(res_dev, data_dev)
-    thr.synchronize()
-    t2 = time.time()
-    dev_time = (t2 - t1) / attempts
+        thr.synchronize()
+        times.append(time.time() - t1)
 
     fwd_ref = numpy.fft.fftn(data, axes=axes).astype(dtype)
     assert diff_is_negligible(res_dev.get(), fwd_ref)
 
-    return dev_time, product(shape) * sum([numpy.log2(shape[a]) for a in axes]) * 5
+    return min(times), product(shape) * sum([numpy.log2(shape[a]) for a in axes]) * 5
 
 
 @pytest.mark.perf
