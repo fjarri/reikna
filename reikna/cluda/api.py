@@ -417,7 +417,13 @@ class Thread:
         # and auto-releasable when not in use (crucial for CUDA because of its
         # stupid stateful contexts), I'll leave at is it is for now.
 
-        if not self._released:
+        try:
+            released = self._released
+        except AttributeError:
+            # Can happen if __init__() was not even completed
+            return
+
+        if not released:
             self._release_specific()
             del self._device
             del self._queue

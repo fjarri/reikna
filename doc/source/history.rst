@@ -6,7 +6,7 @@ Release history
 0.7.0 (current development version)
 ===================================
 
-Under construction.
+* FIXED: properly handling the case of an unfinished ``__init__()`` in :py:class:`~reikna.cluda.api.Thread` (when ``__del__()`` tries to access non-existent attributes).
 
 
 0.6.7 (11 Mar 2016)
