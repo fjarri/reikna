@@ -1,7 +1,9 @@
 import itertools
-import numpy
-import pytest
 import time
+
+import pytest
+import numpy
+from scipy.special import iv
 
 from helpers import *
 from .cbrng_ref import philox as philox_ref
@@ -12,7 +14,7 @@ from reikna.helpers import product
 from reikna.cbrng import CBRNG
 from reikna.cbrng.bijections import threefry, philox
 from reikna.cbrng.tools import KeyGenerator
-from reikna.cbrng.samplers import uniform_integer, uniform_float, normal_bm, gamma
+from reikna.cbrng.samplers import uniform_integer, uniform_float, normal_bm, gamma, vonmises
 import reikna.cluda.dtypes as dtypes
 
 
@@ -79,6 +81,20 @@ class TestGamma:
         return gamma(bijection, dtype, shape=self._shape, scale=self._scale)
 
 
+class TestVonMises:
+    def __init__(self, mu, kappa):
+        self._mu = mu
+        self._kappa = kappa
+        self.circular_mean = mu
+        self.circular_var = 1 - iv(1, kappa) / iv(0, kappa)
+        self.extent = (-numpy.pi, numpy.pi)
+        self.name = 'vonmises'
+
+    def get_sampler(self, bijection, double):
+        dtype = numpy.float64 if double else numpy.float32
+        return vonmises(bijection, dtype, mu=self._mu, kappa=self._kappa)
+
+
 class TestBijection:
 
     def __init__(self, name, words, bitness):
@@ -132,7 +148,10 @@ def pytest_generate_tests(metafunc):
             TestUniformFloat(-5, 7.7),
             TestNormalBM(-2, 10),
             TestNormalBMComplex(-3 + 4j, 7),
-            TestGamma(3, 10)]
+            TestGamma(3, 10),
+            TestVonMises(1, 0.7),
+            ]
+
         ids = [test.name for test in vals]
         metafunc.parametrize('test_sampler_float', vals, ids=ids)
 
@@ -223,9 +242,25 @@ def check_distribution(arr, ref):
     extent = getattr(ref, 'extent', None)
     mean = getattr(ref, 'mean', None)
     std = getattr(ref, 'std', None)
+    circular_mean = getattr(ref, 'circular_mean', None)
+    circular_var = getattr(ref, 'circular_var', None)
+
     if extent is not None:
         assert arr.min() >= extent[0]
         assert arr.max() <= extent[1]
+
+    if circular_mean is not None and circular_var is not None:
+        z = numpy.exp(1j * arr)
+        arr_cmean = numpy.angle(z.mean())
+        arr_R = numpy.abs(z.mean())
+        arr_cvar = 1 - arr_R
+
+        # FIXME: need a valid mathematical formula for the standard error of the mean
+        # for circular distributions.
+        # Currently it is just a rough estimate.
+        m_std = circular_var**0.5 / numpy.sqrt(arr.size)
+        diff = abs(arr_cmean - circular_mean)
+        assert diff < 5 * m_std
 
     if mean is not None and std is not None:
         # expected mean and std of the mean of the sample array

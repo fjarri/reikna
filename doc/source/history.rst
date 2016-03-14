@@ -6,6 +6,8 @@ Release history
 0.7.0 (current development version)
 ===================================
 
+* ADDED: a von Mises distribution sampler (:py:func:`~reikna.cbrng.samplers.vonmises`).
+
 * FIXED: properly handling the case of an unfinished ``__init__()`` in :py:class:`~reikna.cluda.api.Thread` (when ``__del__()`` tries to access non-existent attributes).
 
 

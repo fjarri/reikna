@@ -145,3 +145,59 @@ WITHIN_KERNEL ${prefix}Result ${prefix}sample(${bijection.module}State *state)
     return result;
 }
 </%def>
+
+
+<%def name="vonmises(prefix)">
+## Uses the rejection algorithm by Best and Fisher.
+## See Chapter 9 of "Non-Uniform Random Variate Generation" by Luc Devroye.
+## http://www.nrbook.com/devroye/
+
+${result_struct(prefix, ctype, 1)}
+
+WITHIN_KERNEL ${prefix}Result ${prefix}sample(${bijection.module}State *state)
+{
+    <%
+        tau = 1 + (1 + 4 * kappa**2)**0.5
+        rho = (tau - (2 * tau)**0.5) / (2 * kappa)
+        r = (1 + rho**2) / (2 * rho)
+
+        pi = dtypes.c_constant(numpy.pi, dtype)
+    %>
+
+    ${prefix}Result result;
+    ${uf.module}Result rand_float;
+
+    const ${ctype} r = ${dtypes.c_constant(r, dtype)};
+
+    ${ctype} f;
+
+    for (;;)
+    {
+        rand_float = ${uf.module}sample(state);
+        const ${ctype} u1 = rand_float.v[0];
+
+        const ${ctype} z = cos(${pi} * u1);
+
+        f = (1 + r * z) / (r + z);
+        const ${ctype} c = ${dtypes.c_constant(kappa, dtype)} * (r - f);
+
+        rand_float = ${uf.module}sample(state);
+        const ${ctype} u2 = rand_float.v[0];
+
+        if (u2 < c * (2 - c) || c <= log(c / u2) + 1)
+            break;
+    }
+
+    rand_float = ${uf.module}sample(state);
+    const ${ctype} u3 = rand_float.v[0];
+
+    ${ctype} x;
+    if (u3 < ${dtypes.c_constant(0.5, dtype)})
+        x = ${mu} - acos(f);
+    else
+        x = ${mu} + acos(f);
+
+    result.v[0] = fmod(x + ${pi}, 2 * ${pi}) - ${pi};
+    return result;
+}
+</%def>

@@ -154,6 +154,7 @@ if __name__ == '__main__':
             dev=[
                 "pytest>=2.3",
                 "pytest-cov",
+                "scipy",
                 "sphinx>=1.2",
                 ]),
         package_data={
