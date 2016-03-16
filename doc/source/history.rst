@@ -10,6 +10,8 @@ Release history
 
 * FIXED: properly handling the case of an unfinished ``__init__()`` in :py:class:`~reikna.cluda.api.Thread` (when ``__del__()`` tries to access non-existent attributes).
 
+* FIXED: error when using :py:meth:`~reikna.algorithms.PureParallel.from_trf` without specifying the guiding array in Py3.
+
 
 0.6.7 (11 Mar 2016)
 ===================

@@ -162,37 +162,11 @@ def test_zero_length_shape(thr):
     assert diff_is_negligible(res_dev.get(), res_ref)
 
 
-def test_trf_with_guiding_input(thr):
+@pytest.mark.parametrize('guiding_array', ['input', 'output', 'none'])
+def test_from_trf(thr, guiding_array):
     """
-    Test the creation of ``PureParallel`` out of a transformation,
-    with an input parameter as a guiding array.
-    """
-
-    N = 1000
-    coeff = 3
-    dtype = numpy.float32
-
-    arr_t = Type(dtype, shape=N)
-    trf = mul_param(arr_t, dtype)
-    p = PureParallel.from_trf(trf, trf.input)
-
-    # The new PureParallel has to preserve the parameter list of the original transformation.
-    assert list(p.signature.parameters.values()) == list(trf.signature.parameters.values())
-
-    a = get_test_array_like(p.parameter.input)
-    a_dev = thr.to_device(a)
-    res_dev = thr.empty_like(p.parameter.output)
-
-    pc = p.compile(thr)
-    pc(res_dev, a_dev, coeff)
-
-    assert diff_is_negligible(res_dev.get(), a * 3)
-
-
-def test_trf_with_guiding_output(thr):
-    """
-    Test the creation of ``PureParallel`` out of a transformation,
-    with an output parameter as a guiding array.
+    Test the creation of ``PureParallel`` out of a transformation
+    with various values of the guiding array.
     """
 
     N = 1000
@@ -201,7 +175,15 @@ def test_trf_with_guiding_output(thr):
 
     arr_t = Type(dtype, shape=N)
     trf = mul_param(arr_t, dtype)
-    p = PureParallel.from_trf(trf, trf.output)
+
+    if guiding_array == 'input':
+        arr = trf.input
+    elif guiding_array == 'output':
+        arr = trf.output
+    elif guiding_array == 'none':
+        arr = None
+
+    p = PureParallel.from_trf(trf, guiding_array=arr)
 
     # The new PureParallel has to preserve the parameter list of the original transformation.
     assert list(p.signature.parameters.values()) == list(trf.signature.parameters.values())

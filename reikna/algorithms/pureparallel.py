@@ -59,7 +59,7 @@ class PureParallel(Computation):
         """
 
         if guiding_array is None:
-            guiding_array = trf.signature.parameters.keys()[0]
+            guiding_array = list(trf.signature.parameters.keys())[0]
 
         if isinstance(guiding_array, TransformationParameter):
             if not guiding_array.belongs_to(trf):
