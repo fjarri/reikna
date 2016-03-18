@@ -8,6 +8,8 @@ Release history
 
 * ADDED: a von Mises distribution sampler (:py:func:`~reikna.cbrng.samplers.vonmises`).
 
+* ADDED: :py:func:`~reikna.transformations.div_const` and :py:func:`~reikna.transformations.div_param` transformations.
+
 * FIXED: properly handling the case of an unfinished ``__init__()`` in :py:class:`~reikna.cluda.api.Thread` (when ``__del__()`` tries to access non-existent attributes).
 
 * FIXED: error when using :py:meth:`~reikna.algorithms.PureParallel.from_trf` without specifying the guiding array in Py3.
