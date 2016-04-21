@@ -84,15 +84,16 @@ def test_array_type_after_binop(thr):
     assert type(arr + arr2) == type(arr)
 
 
-def test_array_type_after_copy(thr):
+def test_array_copy(thr):
     """
-    Checks that .copy() keeps the Reikna Array type
+    Checks that .copy() copies the array, keeps the Reikna Array type
     and does not reset it to PyOpenCL/PyCUDA array.
     """
-    arr = thr.array(1024, numpy.float32)
+    arr = thr.to_device(get_test_array(1024, numpy.float32))
     arr2 = arr.copy()
 
     assert type(arr2) == type(arr)
+    assert diff_is_negligible(arr.get(), arr2.get())
 
 
 def test_transfers(thr):
