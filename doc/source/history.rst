@@ -10,6 +10,8 @@ Release history
 
 * ADDED: :py:func:`~reikna.transformations.div_const` and :py:func:`~reikna.transformations.div_param` transformations.
 
+* ADDED: :py:meth:`Kernel.prepared_call <reikna.cluda.api.Kernel.prepared_call>`, :py:meth:`Kernel.__call__ <reikna.cluda.api.Kernel.__call__>` and :py:meth:`StaticKernel.__call__ <reikna.cluda.api.StaticKernel.__call__>` now return the resulting ``Event`` object in case of the OpenCL backend. :py:meth:`ComputationCallable.__call__ <reikna.core.computation.ComputationCallable.__call__>` returns a list of `Event` objects from the nested kernel calls.
+
 * FIXED: properly handling the case of an unfinished ``__init__()`` in :py:class:`~reikna.cluda.api.Thread` (when ``__del__()`` tries to access non-existent attributes).
 
 * FIXED: an error when using :py:meth:`~reikna.algorithms.PureParallel.from_trf` without specifying the guiding array in Py3.

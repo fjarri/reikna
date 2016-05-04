@@ -264,5 +264,5 @@ class Kernel(api_base.Kernel):
         self._grid = tuple(grid) + (1,) * (3 - len(grid))
 
     def prepared_call(self, *args):
-        self._kernel(*args, grid=self._grid, block=self._local_size,
+        return self._kernel(*args, grid=self._grid, block=self._local_size,
             stream=self._thr._queue, shared=self._local_mem)

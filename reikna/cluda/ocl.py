@@ -150,4 +150,4 @@ class Kernel(api_base.Kernel):
 
     def _prepared_call(self, *args):
         args = [x.data if isinstance(x, clarray.Array) else x for x in args]
-        self._kernel(self._thr._queue, self._global_size, self._local_size, *args)
+        return self._kernel(self._thr._queue, self._global_size, self._local_size, *args)

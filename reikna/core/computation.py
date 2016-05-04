@@ -551,10 +551,14 @@ class ComputationCallable:
     def __call__(self, *args, **kwds):
         """
         Execute the computation.
+        In case of the OpenCL backend, returns a list of ``pyopencl.Event`` objects
+        from nested kernel calls.
         """
         bound_args = self.signature.bind_with_defaults(args, kwds, cast=True)
+        results = []
         for kernel_call in self._kernel_calls:
-            kernel_call(bound_args.arguments)
+            results.append(kernel_call(bound_args.arguments))
+        return results
 
 
 class KernelCall:
@@ -569,8 +573,10 @@ class KernelCall:
         for name, pos in self._external_arg_positions:
             self._args[pos] = external_args[name]
 
-        self._kernel(*self._args)
+        result = self._kernel(*self._args)
 
         # releasing references to arrays
         for name, pos in self._external_arg_positions:
             self._args[pos] = None
+
+        return result
