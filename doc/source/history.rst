@@ -14,7 +14,7 @@ Release history
 
 * FIXED: an error when using :py:meth:`~reikna.algorithms.PureParallel.from_trf` without specifying the guiding array in Py3.
 
-* FIXED: (reported by @mountaindust) :py:meth:`~reikna.cluda.api.Array.copy` now actually copies the array contents in CUDA backend.
+* FIXED: (reported by @mountaindust) ``Array.copy`` now actually copies the array contents in CUDA backend.
 
 
 0.6.7 (11 Mar 2016)
