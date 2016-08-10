@@ -18,6 +18,8 @@ Release history
 
 * FIXED: (reported by @mountaindust) ``Array.copy`` now actually copies the array contents in CUDA backend.
 
+* FIXED: (reported by @Philonoist) ``load_idx``/``store_idx`` handled expressions in parameters incorrectly (errors during macro expansion).
+
 
 0.6.7 (11 Mar 2016)
 ===================
