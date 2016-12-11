@@ -197,7 +197,7 @@ class Thread:
             dnums = sorted(devices[selected_pnum])
             if len(dnums) == 1:
                 selected_dnum = dnums[0]
-                print("Device:", platform.get_devices()[0].name)
+                print("Device:", platform.get_devices()[selected_dnum].name)
             else:
                 print("Devices:")
                 default_dnum = dnums[0]

@@ -20,6 +20,8 @@ Release history
 
 * FIXED: (reported by @Philonoist) ``load_idx``/``store_idx`` handled expressions in parameters incorrectly (errors during macro expansion).
 
+* FIXED: a minor bug in the information displayed during the interactive ``Thread`` creation.
+
 
 0.6.7 (11 Mar 2016)
 ===================
