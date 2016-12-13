@@ -26,7 +26,7 @@ def uniform_mean_and_std(min, max):
     return (min + max) / 2., (max - min) / numpy.sqrt(12)
 
 
-class TestUniformInteger:
+class UniformIntegerHelper:
     def __init__(self, min_, max_):
         self.extent = (min_, max_)
         self.mean, self.std = uniform_discrete_mean_and_std(*self.extent)
@@ -35,7 +35,7 @@ class TestUniformInteger:
     def get_sampler(self, bijection, dtype):
         return uniform_integer(bijection, dtype, self.extent[0], self.extent[1] + 1)
 
-class TestUniformFloat:
+class UniformFloatHelper:
     def __init__(self, min_, max_):
         self.extent = (min_, max_)
         self.mean, self.std = uniform_mean_and_std(*self.extent)
@@ -45,7 +45,7 @@ class TestUniformFloat:
         dtype = numpy.float64 if double else numpy.float32
         return uniform_float(bijection, dtype, self.extent[0], self.extent[1])
 
-class TestNormalBM:
+class NormalBMHelper:
     def __init__(self, mean, std):
         self.extent = None
         self.mean = mean
@@ -56,7 +56,7 @@ class TestNormalBM:
         dtype = numpy.float64 if double else numpy.float32
         return normal_bm(bijection, dtype, mean=self.mean, std=self.std)
 
-class TestNormalBMComplex:
+class NormalBMComplexHelper:
     def __init__(self, mean, std):
         self.extent = None
         self.mean = mean
@@ -67,7 +67,7 @@ class TestNormalBMComplex:
         dtype = numpy.complex128 if double else numpy.complex64
         return normal_bm(bijection, dtype, mean=self.mean, std=self.std)
 
-class TestGamma:
+class GammaHelper:
     def __init__(self, shape, scale):
         self._shape = shape
         self._scale = scale
@@ -81,7 +81,7 @@ class TestGamma:
         return gamma(bijection, dtype, shape=self._shape, scale=self._scale)
 
 
-class TestVonMises:
+class VonMisesHelper:
     def __init__(self, mu, kappa):
         self._mu = mu
         self._kappa = kappa
@@ -95,7 +95,7 @@ class TestVonMises:
         return vonmises(bijection, dtype, mu=self._mu, kappa=self._kappa)
 
 
-class TestBijection:
+class BijectionHelper:
 
     def __init__(self, name, words, bitness):
         rounds = 20 if name == 'threefry' else 10
@@ -131,7 +131,7 @@ def pytest_generate_tests(metafunc):
         ids = []
 
         for name, words, bitness in itertools.product(['threefry', 'philox'], [2, 4], [32, 64]):
-            val = TestBijection(name, words, bitness)
+            val = BijectionHelper(name, words, bitness)
             vals.append(val)
             ids.append(str(val))
 
@@ -139,17 +139,17 @@ def pytest_generate_tests(metafunc):
 
     if 'test_sampler_int' in metafunc.funcargnames:
         vals = [
-            TestUniformInteger(-10, 98)]
+            UniformIntegerHelper(-10, 98)]
         ids = [test.name for test in vals]
         metafunc.parametrize('test_sampler_int', vals, ids=ids)
 
     if 'test_sampler_float' in metafunc.funcargnames:
         vals = [
-            TestUniformFloat(-5, 7.7),
-            TestNormalBM(-2, 10),
-            TestNormalBMComplex(-3 + 4j, 7),
-            TestGamma(3, 10),
-            TestVonMises(1, 0.7),
+            UniformFloatHelper(-5, 7.7),
+            NormalBMHelper(-2, 10),
+            NormalBMComplexHelper(-3 + 4j, 7),
+            GammaHelper(3, 10),
+            VonMisesHelper(1, 0.7),
             ]
 
         ids = [test.name for test in vals]
@@ -281,14 +281,14 @@ def check_distribution(arr, ref):
 
 def test_32_to_64_bit(thr):
     bijection = philox(32, 4)
-    ref = TestUniformInteger(0, 2**63-1)
+    ref = UniformIntegerHelper(0, 2**63-1)
     sampler = ref.get_sampler(bijection, numpy.uint64)
     check_kernel_sampler(thr, sampler, ref)
 
 
 def test_64_to_32_bit(thr):
     bijection = philox(64, 4)
-    ref = TestUniformInteger(0, 2**31-1)
+    ref = UniformIntegerHelper(0, 2**31-1)
     sampler = ref.get_sampler(bijection, numpy.uint32)
     check_kernel_sampler(thr, sampler, ref)
 
@@ -324,7 +324,7 @@ def test_computation_general(thr_and_double):
     thr, double = thr_and_double
 
     bijection = philox(64, 4)
-    ref = TestNormalBM(mean=-2, std=10)
+    ref = NormalBMHelper(mean=-2, std=10)
     sampler = ref.get_sampler(bijection, double)
 
     rng = CBRNG(Type(sampler.dtype, shape=(batch, size)), 1, sampler)
@@ -336,7 +336,7 @@ def test_computation_convenience(thr):
     size = 10000
     batch = 101
 
-    ref = TestUniformInteger(0, 511)
+    ref = UniformIntegerHelper(0, 511)
     rng = CBRNG.uniform_integer(Type(numpy.int32, shape=(batch, size)), 1,
         sampler_kwds=dict(low=ref.extent[0], high=ref.extent[1]))
     check_computation(thr, rng, ref)

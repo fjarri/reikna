@@ -22,6 +22,8 @@ Release history
 
 * FIXED: a minor bug in the information displayed during the interactive ``Thread`` creation.
 
+* FIXED: class names in the test suite that produced errors (due to the changed rules for test discovery in ``py.test``).
+
 
 0.6.7 (11 Mar 2016)
 ===================

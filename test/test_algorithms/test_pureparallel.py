@@ -198,7 +198,7 @@ def test_from_trf(thr, guiding_array):
     assert diff_is_negligible(res_dev.get(), a * 3)
 
 
-class TestSameArgument(Computation):
+class SameArgumentHelper(Computation):
 
     def __init__(self, arr):
 
@@ -259,7 +259,7 @@ def test_same_argument(some_thr):
     arr = get_test_array((1000, 8, 1), numpy.complex64)
     arr_dev = some_thr.to_device(arr)
 
-    test = TestSameArgument(arr)
+    test = SameArgumentHelper(arr)
     testc = test.compile(some_thr)
 
     testc(arr_dev, arr_dev)
