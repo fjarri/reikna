@@ -1,3 +1,5 @@
+import pytest
+
 from pytest_threadgen import create_thread_in_tuple, \
     parametrize_thread_tuple, pair_thread_with_doubles, get_threads, get_apis
 
@@ -34,9 +36,17 @@ def pytest_addoption(parser):
         default=False)
 
 
-pytest_funcarg__thr_and_double = create_thread_in_tuple
-pytest_funcarg__thr = create_thread_in_tuple
-pytest_funcarg__some_thr = create_thread_in_tuple
+@pytest.fixture
+def thr_and_double(request):
+    return create_thread_in_tuple(request)
+
+@pytest.fixture
+def thr(request):
+    return create_thread_in_tuple(request)
+
+@pytest.fixture
+def some_thr(request):
+    return create_thread_in_tuple(request)
 
 
 def pytest_report_header(config):

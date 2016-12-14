@@ -19,7 +19,9 @@ TEST_DTYPES = [
     numpy.complex64, numpy.complex128]
 
 
-pytest_funcarg__thr_and_global_size = create_thread_in_tuple
+@pytest.fixture
+def thr_and_global_size(request):
+    return create_thread_in_tuple(request)
 
 
 def pair_thread_with_gs(metafunc, tp):
