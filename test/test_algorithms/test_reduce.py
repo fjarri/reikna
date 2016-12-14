@@ -114,8 +114,26 @@ def test_structure_type(thr):
 
     rdc = rd.compile(thr)
     rdc(b_dev, a_dev)
+    b_res = b_dev.get()
 
-    assert diff_is_negligible(b_dev.get(), b_ref)
+    # Array.get() runs numpy.lib.stride_tricks.as_strided() on the array,
+    # which adds dummy variables instead of custom offsets (and our `dtype` has them),
+    # making the result dtype different, and failing the test.
+    # For now we will just note the difference and convert the result
+    # back to the original dtype (they are still compatible).
+    # When the behavior changes, the test will start to fail and we will notice.
+    # See inducer/compyte issue #26.
+    wrong_dtype = b_res.dtype != b_dev.dtype
+
+    b_res = b_res.astype(dtype)
+    assert diff_is_negligible(b_res, b_ref)
+
+    if wrong_dtype:
+        pytest.xfail("as_strided() still corrupts the datatype")
+    else:
+        pytest.fail(
+            "as_strided() does not corrupt the datatype anymore, "
+            "we can remove the `astype()` now")
 
 
 @pytest.mark.perf
