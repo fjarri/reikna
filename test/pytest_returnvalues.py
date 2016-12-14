@@ -21,22 +21,27 @@ class ReturnValuesPlugin(object):
     def __init__(self, config):
         pass
 
-    def pytest_report_teststatus(self, __multicall__, report):
-        outcome, letter, msg = __multicall__.execute()
+    @pytest.hookimpl(hookwrapper=True)
+    def pytest_report_teststatus(self, report):
+        outcome = yield
+        out, letter, msg = outcome.get_result()
 
         # if we have some result attached to the testcase, print it instead of 'PASSED'
         if hasattr(report, 'retval'):
             msg = report.retval
 
-        return outcome, letter, msg
+        outcome.force_result((out, letter, msg))
 
-    def pytest_pyfunc_call(self, __multicall__, pyfuncitem):
-        # collect testcase return result
+    @pytest.hookimpl(tryfirst=True)
+    def pytest_pyfunc_call(self, pyfuncitem):
         testfunction = pyfuncitem.obj
 
         # Taken from _pytest/python.py/pytest_pyfunc_call()
         # This bit uses some internal functions which seem to change without notice.
         # Need to replace it with proper mechanism when such functionality is available in pytest.
+        # Could be done with raising a special exception and catching it here,
+        # but it would be hard to import it from a test somewhere deep in the hierarchy.
+        # Add it as a parameter value maybe?
         if pyfuncitem._isyieldedfunction():
             res = testfunction(*pyfuncitem._args)
         else:
@@ -49,8 +54,10 @@ class ReturnValuesPlugin(object):
         pyfuncitem.retval = res
         return True # finished processing the callback
 
-    def pytest_runtest_makereport(self, __multicall__, item, call):
-        report = __multicall__.execute()
+    @pytest.hookimpl(hookwrapper=True)
+    def pytest_runtest_makereport(self, item, call):
+        outcome = yield
+        report = outcome.get_result()
 
         # if the testcase has passed, and has 'perf' marker, process its results
         if call.when == 'call' and report.passed and hasattr(item.function, 'returns'):
@@ -65,4 +72,4 @@ class ReturnValuesPlugin(object):
 
             report.retval = renderer(item.retval)
 
-        return report
+        outcome.force_result(report)

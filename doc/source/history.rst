@@ -24,6 +24,8 @@ Release history
 
 * FIXED: class names in the test suite that produced errors (due to the changed rules for test discovery in ``py.test``).
 
+* FIXED: updated ``ReturnValuesPlugin`` in the test suite to conform to ``py.test`` interface changes.
+
 
 0.6.7 (11 Mar 2016)
 ===================
