@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.7.0 (current development version)
-===================================
+0.6.8 (18 Dec 2016)
+===================
 
 * ADDED: a von Mises distribution sampler (:py:func:`~reikna.cbrng.samplers.vonmises`).
 
