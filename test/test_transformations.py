@@ -164,6 +164,49 @@ def test_mul_const(some_thr, any_dtype):
     assert diff_is_negligible(output_dev.get(), input * p1 * p2)
 
 
+def test_div_param(some_thr):
+
+    dtype = numpy.float32
+
+    input = get_test_array((1000,), dtype)
+    p1 = get_test_array((1,), dtype)[0]
+    p2 = get_test_array((1,), dtype)[0]
+    input_dev = some_thr.to_device(input)
+    output_dev = some_thr.empty_like(input_dev)
+
+    test = get_test_computation(input_dev)
+    scale = tr.div_param(input_dev, dtype)
+
+    test.parameter.input.connect(scale, scale.output, input_prime=scale.input, p1=scale.param)
+    test.parameter.output.connect(scale, scale.input, output_prime=scale.output, p2=scale.param)
+    testc = test.compile(some_thr)
+
+    testc(output_dev, p1, input_dev, p2)
+    assert diff_is_negligible(output_dev.get(), input / p1 / p2)
+
+
+def test_div_const(some_thr):
+
+    dtype = numpy.float32
+
+    input = get_test_array((1000,), dtype)
+    p1 = get_test_array((1,), dtype)[0]
+    p2 = get_test_array((1,), dtype)[0]
+    input_dev = some_thr.to_device(input)
+    output_dev = some_thr.empty_like(input_dev)
+
+    test = get_test_computation(input_dev)
+    scale1 = tr.div_const(input_dev, p1)
+    scale2 = tr.div_const(input_dev, p2)
+
+    test.parameter.input.connect(scale1, scale1.output, input_prime=scale1.input)
+    test.parameter.output.connect(scale2, scale2.input, output_prime=scale2.output)
+    testc = test.compile(some_thr)
+
+    testc(output_dev, input_dev)
+    assert diff_is_negligible(output_dev.get(), input / p1 / p2)
+
+
 def test_split_combine_complex(some_thr):
 
     i1 = get_test_array((1000,), numpy.float32)

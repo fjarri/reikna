@@ -449,3 +449,68 @@ def test_io_merge(some_thr):
 
     assert diff_is_negligible(C, C_ref)
     assert diff_is_negligible(D, D_ref)
+
+
+class ExpressionIndexing(Computation):
+    """
+    A computation for the test below, with expressions passed to indexing functions.
+    Used to check that macro parameters in transformation modules are properly decorated.
+    """
+
+    def __init__(self, arr_t):
+        assert len(arr_t.shape) == 2
+        Computation.__init__(self, [
+            Parameter('output', Annotation(arr_t, 'o')),
+            Parameter('input', Annotation(arr_t, 'i'))
+            ])
+
+    def _build_plan(self, plan_factory, device_params, output, input_):
+        plan = plan_factory()
+
+        template = template_from("""
+        <%def name="kernel(kernel_declaration, output, input)">
+        ${kernel_declaration}
+        {
+            VIRTUAL_SKIP_THREADS;
+            VSIZE_T idx0 = virtual_global_id(0);
+            VSIZE_T idx1 = virtual_global_id(1);
+
+            ${output.ctype} a = ${input.load_idx}(idx0 + 1 - 1, idx1);
+            ${output.store_idx}(idx0 + 1 - 1, idx1, a * 2);
+        }
+        </%def>
+        """)
+
+        plan.kernel_call(
+            template.get_def('kernel'),
+            [output, input_],
+            global_size=output.shape)
+
+        return plan
+
+
+def test_transformation_macros(thr):
+    """
+    Regression test for #27.
+    When expressions are passed to leaf load_idx/store_idx macros,
+    they are not processed correctly, because the corresponding parameters are used
+    without parenthesis in their bodies.
+    Namely, the error happens when the flat index is generated out of per-dimension indices.
+    """
+
+    N = 1000
+    dtype = numpy.float32
+
+    # The array should be 2D in order for the flat index generation expression to be non-trivial.
+    a = get_test_array((N, 2), dtype)
+
+    comp = ExpressionIndexing(a)
+    a_dev = thr.to_device(a)
+    res_dev = thr.empty_like(comp.parameter.output)
+
+    compc = comp.compile(thr)
+    compc(res_dev, a_dev)
+
+    res_ref = a * 2
+
+    assert diff_is_negligible(res_dev.get(), res_ref)

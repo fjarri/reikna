@@ -86,7 +86,7 @@ git_revision = "{git_revision}"
 release = {released}
 '''
 
-    VERSION = (0, 6, 7)
+    VERSION = (0, 6, 8)
     RELEASED = True
 
     version_str = '%d.%d.%d' % VERSION
@@ -154,6 +154,7 @@ if __name__ == '__main__':
             dev=[
                 "pytest>=2.3",
                 "pytest-cov",
+                "scipy",
                 "sphinx>=1.2",
                 ]),
         package_data={

@@ -197,7 +197,7 @@ class Thread:
             dnums = sorted(devices[selected_pnum])
             if len(dnums) == 1:
                 selected_dnum = dnums[0]
-                print("Device:", platform.get_devices()[0].name)
+                print("Device:", platform.get_devices()[selected_dnum].name)
             else:
                 print("Devices:")
                 default_dnum = dnums[0]
@@ -417,7 +417,13 @@ class Thread:
         # and auto-releasable when not in use (crucial for CUDA because of its
         # stupid stateful contexts), I'll leave at is it is for now.
 
-        if not self._released:
+        try:
+            released = self._released
+        except AttributeError:
+            # Can happen if __init__() was not even completed
+            return
+
+        if not released:
             self._release_specific()
             del self._device
             del self._queue
@@ -492,13 +498,16 @@ class Kernel:
         """
         Execute the kernel.
         :py:class:`Array` objects are allowed as arguments.
+        In case of the OpenCL backend, returns a ``pyopencl.Event`` object.
         """
-        self._prepared_call(*args)
+        result = self._prepared_call(*args)
         self._thr._synchronize()
+        return result
 
     def __call__(self, *args, **kwds):
         """
         A shortcut for successive call to :py:meth:`prepare` and :py:meth:`prepared_call`.
+        In case of the OpenCL backend, returns a ``pyopencl.Event`` object.
         """
         if not self._static:
             if 'global_size' in kwds:
@@ -507,7 +516,7 @@ class Kernel:
                 raise TypeError("global_size keyword argument must be set")
             self.prepare(*prep_args, **kwds)
 
-        self.prepared_call(*args)
+        return self.prepared_call(*args)
 
 
 class StaticKernel:
@@ -579,5 +588,6 @@ class StaticKernel:
         """
         Execute the kernel.
         :py:class:`Array` objects are allowed as arguments.
+        In case of the OpenCL backend, returns a ``pyopencl.Event`` object.
         """
-        self._kernel(*args)
+        return self._kernel(*args)

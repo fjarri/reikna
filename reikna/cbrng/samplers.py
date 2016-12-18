@@ -205,9 +205,37 @@ def gamma(bijection, dtype, shape=1, scale=1):
     return Sampler(bijection, module, dtype)
 
 
+def vonmises(bijection, dtype, mu=0, kappa=1):
+    """
+    Generates random numbers from the von Mises distribution
+
+    .. math::
+      P(x) = \\frac{\\exp(\\kappa \\cos(x - \\mu))}{2 \\pi I_0(\\kappa)},
+
+    where :math:`\\mu` is the mode, :math:`\\kappa` is the dispersion,
+    and :math:`I_0` is the modified Bessel function of the first kind.
+    Supported dtypes: ``float(32/64)``.
+    Returns a :py:class:`~reikna.cbrng.samplers.Sampler` object.
+    """
+
+    ctype = dtypes.ctype(dtype)
+    uf = uniform_float(bijection, dtype, low=0, high=1)
+
+    module = Module(
+        TEMPLATE.get_def("vonmises"),
+        render_kwds=dict(
+            dtype=dtype, ctype=ctype, bijection=bijection,
+            mu=dtypes.c_constant(mu, dtype), kappa=kappa,
+            uf=uf))
+
+    return Sampler(bijection, module, dtype)
+
+
 # List of samplers that can be used as convenience constructors in CBRNG class
 SAMPLERS = {
     'uniform_integer': uniform_integer,
     'uniform_float': uniform_float,
     'normal_bm': normal_bm,
-    'gamma': gamma}
+    'gamma': gamma,
+    'vonmises': vonmises,
+    }

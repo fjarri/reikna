@@ -106,7 +106,7 @@ def pytest_generate_tests(metafunc):
         vals = []
 
         for gs, ls, mng, mwis in itertools.product(global_sizes, local_sizes, mngs, mwiss):
-            testvs = TestVirtualSizes.try_create(gs, ls, mng, mwis)
+            testvs = VirtualSizesHelper.try_create(gs, ls, mng, mwis)
             if testvs is None:
                 continue
             vals.append(testvs)
@@ -116,9 +116,9 @@ def pytest_generate_tests(metafunc):
     if 'incorrect_testvs' in metafunc.funcargnames:
         vals = [
             # Bounding global size (32, 32) is too big for the grid limit and given block size
-            TestVirtualSizes((32, 32), (4, 4), (7, 8), (4, 4)),
+            VirtualSizesHelper((32, 32), (4, 4), (7, 8), (4, 4)),
             # Local size is too big
-            TestVirtualSizes((32, 32), (5, 4), (16, 16), (4, 4)),
+            VirtualSizesHelper((32, 32), (5, 4), (16, 16), (4, 4)),
             ]
         metafunc.parametrize('incorrect_testvs', vals, ids=[str(x) for x in vals])
 
@@ -164,7 +164,7 @@ class ReferenceIds:
         return self._tile_pattern(pattern, dim, self.global_size)
 
 
-class TestVirtualSizes:
+class VirtualSizesHelper:
 
     @classmethod
     def try_create(cls, global_size, local_size, max_num_groups, max_work_item_sizes):

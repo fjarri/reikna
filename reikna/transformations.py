@@ -81,6 +81,34 @@ def mul_const(arr_t, param):
             param=dtypes.c_constant(param, dtype=param_dtype)))
 
 
+def div_param(arr_t, param_dtype):
+    """
+    Returns a scaling transformation with a dynamic parameter (1 output, 1 input, 1 scalar):
+    ``output = input / param``.
+    """
+    return Transformation(
+        [Parameter('output', Annotation(arr_t, 'o')),
+        Parameter('input', Annotation(arr_t, 'i')),
+        Parameter('param', Annotation(param_dtype))],
+        "${output.store_same}(${div}(${input.load_same}, ${param}));",
+        render_kwds=dict(div=functions.div(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype)))
+
+
+def div_const(arr_t, param):
+    """
+    Returns a scaling transformation with a fixed parameter (1 output, 1 input):
+    ``output = input / param``.
+    """
+    param_dtype = dtypes.detect_type(param)
+    return Transformation(
+        [Parameter('output', Annotation(arr_t, 'o')),
+        Parameter('input', Annotation(arr_t, 'i'))],
+        "${output.store_same}(${div}(${input.load_same}, ${param}));",
+        render_kwds=dict(
+            div=functions.div(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype),
+            param=dtypes.c_constant(param, dtype=param_dtype)))
+
+
 def split_complex(input_arr_t):
     """
     Returns a transformation that splits complex input into two real outputs

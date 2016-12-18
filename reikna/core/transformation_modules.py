@@ -43,7 +43,7 @@ def flat_index_expr(param):
     names = index_cnames(param.annotation.type.shape)
 
     return " + ".join([
-        name + " * " + str(stride)
+        "(" + name + ")" + " * " + str(stride)
         for name, stride in zip(names, item_strides)])
 
 

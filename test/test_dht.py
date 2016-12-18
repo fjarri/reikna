@@ -9,7 +9,7 @@ from reikna.dht import DHT, harmonic, get_spatial_grid
 import reikna.cluda.dtypes as dtypes
 
 
-class TestFunction:
+class FunctionHelper:
     """
     Encapsulates creation of functions in mode and coordinate space used for DHT tests.
     """
@@ -22,7 +22,7 @@ class TestFunction:
         self.dtype = dtype
 
         if modes is None:
-            self.modes = TestFunction.generate_modes(mshape, dtype, batch=batch)
+            self.modes = FunctionHelper.generate_modes(mshape, dtype, batch=batch)
         else:
             self.modes = list(modes)
 
@@ -118,7 +118,7 @@ class TestFunction:
 
 def check_errors_first_order(thr, mshape, batch, add_points=None, dtype=numpy.complex64):
 
-    test_func = TestFunction(mshape, dtype, batch=batch, order=1)
+    test_func = FunctionHelper(mshape, dtype, batch=batch, order=1)
 
     if add_points is None:
         add_points = [0] * len(mshape)
@@ -176,9 +176,9 @@ def test_high_order_forward(thr, ho_order, ho_shape):
 
     dtype = numpy.float32
 
-    modes = TestFunction.generate_modes((ho_shape,), dtype)
-    f1 = TestFunction((ho_shape,), dtype, order=ho_order, modes=modes)
-    f2 = TestFunction((ho_shape + 1,), dtype, order=ho_order, modes=modes)
+    modes = FunctionHelper.generate_modes((ho_shape,), dtype)
+    f1 = FunctionHelper((ho_shape,), dtype, order=ho_order, modes=modes)
+    f2 = FunctionHelper((ho_shape + 1,), dtype, order=ho_order, modes=modes)
 
     xs1 = get_spatial_grid(ho_shape, ho_order)
     xs2 = get_spatial_grid(ho_shape + 1, ho_order)

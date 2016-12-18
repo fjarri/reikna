@@ -215,7 +215,7 @@ def check_performance(thr_and_double, shape_and_axes, fast_math):
     fftc = fft.compile(thr, fast_math=fast_math)
 
     attempts = 10
-    timess = []
+    times = []
     for i in range(attempts):
         t1 = time.time()
         fftc(res_dev, data_dev)

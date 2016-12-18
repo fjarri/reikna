@@ -3,6 +3,30 @@ Release history
 ***************
 
 
+0.6.8 (18 Dec 2016)
+===================
+
+* ADDED: a von Mises distribution sampler (:py:func:`~reikna.cbrng.samplers.vonmises`).
+
+* ADDED: :py:func:`~reikna.transformations.div_const` and :py:func:`~reikna.transformations.div_param` transformations.
+
+* ADDED: :py:meth:`Kernel.prepared_call <reikna.cluda.api.Kernel.prepared_call>`, :py:meth:`Kernel.__call__ <reikna.cluda.api.Kernel.__call__>` and :py:meth:`StaticKernel.__call__ <reikna.cluda.api.StaticKernel.__call__>` now return the resulting ``Event`` object in case of the OpenCL backend. :py:meth:`ComputationCallable.__call__ <reikna.core.computation.ComputationCallable.__call__>` returns a list of `Event` objects from the nested kernel calls.
+
+* FIXED: properly handling the case of an unfinished ``__init__()`` in :py:class:`~reikna.cluda.api.Thread` (when ``__del__()`` tries to access non-existent attributes).
+
+* FIXED: an error when using :py:meth:`~reikna.algorithms.PureParallel.from_trf` without specifying the guiding array in Py3.
+
+* FIXED: (reported by @mountaindust) ``Array.copy`` now actually copies the array contents in CUDA backend.
+
+* FIXED: (reported by @Philonoist) ``load_idx``/``store_idx`` handled expressions in parameters incorrectly (errors during macro expansion).
+
+* FIXED: a minor bug in the information displayed during the interactive ``Thread`` creation.
+
+* FIXED: class names in the test suite that produced errors (due to the changed rules for test discovery in ``py.test``).
+
+* FIXED: updated ``ReturnValuesPlugin`` in the test suite to conform to ``py.test`` interface changes.
+
+
 0.6.7 (11 Mar 2016)
 ===================
 
