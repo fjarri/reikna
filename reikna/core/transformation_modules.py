@@ -39,12 +39,13 @@ def flat_index_expr(param):
             "are not multiples of the itemsize" + str(type_.dtype.itemsize))
 
     item_strides = [stride // type_.dtype.itemsize for stride in type_.strides]
+    item_offset = type_.offset // type_.dtype.itemsize
 
     names = index_cnames(param.annotation.type.shape)
 
     return " + ".join([
         "(" + name + ")" + " * " + str(stride)
-        for name, stride in zip(names, item_strides)])
+        for name, stride in zip(names, item_strides)]) + " + (" + str(item_offset) + ")"
 
 
 def param_cname(param, qualified=False):

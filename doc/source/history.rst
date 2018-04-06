@@ -6,7 +6,7 @@ Release history
 0.7.0 (current development version)
 ===================================
 
-Under construction.
+* ADDED: an ability to handle array views in computations.
 
 
 0.6.8 (18 Dec 2016)

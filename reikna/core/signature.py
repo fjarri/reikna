@@ -29,7 +29,7 @@ class Type:
         Tuple of bytes to step in each dimension when traversing an array.
     """
 
-    def __init__(self, dtype, shape=None, strides=None):
+    def __init__(self, dtype, shape=None, strides=None, offset=0):
         self.shape = tuple() if shape is None else wrap_in_tuple(shape)
         self.size = product(self.shape)
         self.dtype = dtypes.normalize_type(dtype)
@@ -39,6 +39,7 @@ class Type:
                 self.dtype.itemsize * product(self.shape[i+1:]) for i in range(len(self.shape))])
         else:
             self.strides = strides
+        self.offset = offset
         self._cast = dtypes.cast(self.dtype)
 
     def __eq__(self, other):
@@ -77,7 +78,8 @@ class Type:
             return cls(val)
         elif hasattr(val, 'dtype') and hasattr(val, 'shape'):
             strides = val.strides if hasattr(val, 'strides') else None
-            return cls(val.dtype, shape=val.shape, strides=strides)
+            offset = val.offset if hasattr(val, 'offset') else 0
+            return cls(val.dtype, shape=val.shape, strides=strides, offset=offset)
         else:
             return cls(dtypes.detect_type(val))
 

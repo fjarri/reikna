@@ -149,5 +149,6 @@ class Kernel(api_base.Kernel):
         self._global_size = wrap_in_tuple(global_size)
 
     def _prepared_call(self, *args):
-        args = [x.data if isinstance(x, clarray.Array) else x for x in args]
+        # Passing base_data, assuming that the kernel knows how to handle the offset and the strides
+        args = [x.base_data if isinstance(x, clarray.Array) else x for x in args]
         return self._kernel(self._thr._queue, self._global_size, self._local_size, *args)
