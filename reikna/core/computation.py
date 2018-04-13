@@ -18,7 +18,8 @@ class ComputationParameter(Type):
     def __init__(self, computation, name, type_):
         """__init__()""" # hide the signature from Sphinx
 
-        Type.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
+        Type.__init__(
+            self, type_.dtype, shape=type_.shape, strides=type_.strides, offset=type_.offset)
         self._computation = weakref.ref(computation)
         self._name = name
 
@@ -237,7 +238,8 @@ class KernelArgument(Type):
 
     def __init__(self, name, type_):
         """__init__()""" # hide the signature from Sphinx
-        Type.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
+        Type.__init__(
+            self, type_.dtype, shape=type_.shape, strides=type_.strides, offset=type_.offset)
         self.name = name
 
     def __repr__(self):
@@ -289,7 +291,7 @@ class ComputationPlan:
         self._persistent_values[name] = self._thread.to_device(arr)
         return KernelArgument(name, ann.type)
 
-    def temp_array(self, shape, dtype, strides=None):
+    def temp_array(self, shape, dtype, strides=None, offset=0):
         """
         Adds a temporary GPU array to the plan, and returns the corresponding
         :py:class:`KernelArgument`.
@@ -298,7 +300,7 @@ class ComputationPlan:
         during the execution of the plan.
         """
         name = self._translator(self._temp_array_idgen())
-        ann = Annotation(Type(dtype, shape=shape, strides=strides), 'io')
+        ann = Annotation(Type(dtype, shape=shape, strides=strides, offset=offset), 'io')
         self._internal_annotations[name] = ann
         self._temp_arrays.add(name)
         return KernelArgument(name, ann.type)
@@ -308,7 +310,15 @@ class ComputationPlan:
         Same as :py:meth:`temp_array`, taking the array properties
         from array or array-like object ``arr``.
         """
-        return self.temp_array(arr.shape, arr.dtype, strides=arr.strides)
+        if hasattr(arr, 'strides'):
+            strides = arr.strides
+        else:
+            strides = None
+        if hasattr(arr, 'offset'):
+            offset = arr.offset
+        else:
+            offset = 0
+        return self.temp_array(arr.shape, arr.dtype, strides=strides, offset=offset)
 
     def _get_annotation(self, name):
         if name in self._external_annotations:
@@ -487,7 +497,8 @@ class ComputationPlan:
 
             type_ = self._internal_annotations[name].type
             new_buf = self._thread.temp_array(
-                type_.shape, type_.dtype, strides=type_.strides, dependencies=dependent_buffers)
+                type_.shape, type_.dtype, strides=type_.strides, offset=type_.offset,
+                dependencies=dependent_buffers)
             internal_args[name] = new_buf
             all_buffers.append(new_buf)
 

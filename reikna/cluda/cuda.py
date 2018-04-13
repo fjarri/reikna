@@ -118,11 +118,13 @@ class Thread(api_base.Thread):
     def allocate(self, size):
         return Buffer(size)
 
-    def array(self, shape, dtype, strides=None, allocator=None):
+    def array(self, shape, dtype, strides=None, offset=0, allocator=None):
         # In PyCUDA, the default allocator is not None, but a default alloc object
         kwds = {}
         if strides is not None:
             kwds['strides'] = strides
+        if offset !=0:
+            kwds['offset'] = offset
         if allocator is not None:
             kwds['allocator'] = allocator
         return Array(self, shape, dtype, **kwds)

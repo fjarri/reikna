@@ -250,17 +250,19 @@ class Thread:
         """
         raise NotImplementedError()
 
-    def array(self, shape, dtype, strides=None, allocator=None):
+    def array(self, shape, dtype, strides=None, offset=0, allocator=None):
         """
-        Creates an :py:class:`Array` on GPU with given ``shape``, ``dtype`` and ``strides``.
+        Creates an :py:class:`Array` on GPU with given ``shape``, ``dtype``,
+        ``strides`` and ``offset``.
         Optionally, an ``allocator`` is a callable returning any object castable to ``int``
         representing the physical address on the device (for instance, :py:class:`Buffer`).
         """
         raise NotImplementedError()
 
-    def temp_array(self, shape, dtype, strides=None, dependencies=None):
+    def temp_array(self, shape, dtype, strides=None, offset=0, dependencies=None):
         """
-        Creates an :py:class:`Array` on GPU with given ``shape``, ``dtype`` and ``strides``.
+        Creates an :py:class:`Array` on GPU with given ``shape``, ``dtype``,
+        ``strides`` and ``offset``.
         In order to reduce the memory footprint of the program, the temporary array manager
         will allow these arrays to overlap.
         Two arrays will not overlap, if one of them was specified in ``dependencies``
@@ -268,7 +270,8 @@ class Thread:
         For a list of values ``dependencies`` takes, see the reference entry for
         :py:class:`~reikna.cluda.tempalloc.TemporaryManager`.
         """
-        return self.temp_alloc.array(shape, dtype, strides=strides, dependencies=dependencies)
+        return self.temp_alloc.array(
+            shape, dtype, strides=strides, offset=offset, dependencies=dependencies)
 
     def empty_like(self, arr):
         """
@@ -278,7 +281,16 @@ class Thread:
             allocator = arr.allocator
         else:
             allocator = None
-        return self.array(arr.shape, arr.dtype, strides=arr.strides, allocator=allocator)
+        if hasattr(arr, 'strides'):
+            strides = arr.strides
+        else:
+            strides = None
+        if hasattr(arr, 'offset'):
+            offset = arr.offset
+        else:
+            offset = 0
+        return self.array(
+            arr.shape, arr.dtype, strides=strides, offset=offset, allocator=allocator)
 
     def to_device(self, arr, dest=None):
         """

@@ -53,8 +53,8 @@ class Thread(api_base.Thread):
     def allocate(self, size):
         return cl.Buffer(self._context, cl.mem_flags.READ_WRITE, size=size)
 
-    def array(self, shape, dtype, strides=None, allocator=None):
-        return Array(self, shape, dtype, strides=strides, allocator=allocator)
+    def array(self, shape, dtype, strides=None, offset=0, allocator=None):
+        return Array(self, shape, dtype, strides=strides, offset=offset, allocator=allocator)
 
     def _copy_array(self, dest, src):
         dest.set(src, queue=self._queue, async=self._async)

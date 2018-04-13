@@ -27,6 +27,10 @@ class Type:
     .. py:attribute:: strides
 
         Tuple of bytes to step in each dimension when traversing an array.
+
+    .. py:attribute:: offset
+
+        The initial offset (in bytes).
     """
 
     def __init__(self, dtype, shape=None, strides=None, offset=0):
@@ -99,7 +103,7 @@ class Type:
             return "Type({dtype})".format(dtype=self.dtype)
 
     def __process_modules__(self, process):
-        tp = Type(self.dtype, shape=self.shape, strides=self.strides)
+        tp = Type(self.dtype, shape=self.shape, strides=self.strides, offset=self.offset)
         tp.ctype = process(tp.ctype)
         return tp
 

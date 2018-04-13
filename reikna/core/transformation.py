@@ -17,7 +17,8 @@ class TransformationParameter(Type):
     """
 
     def __init__(self, trf, name, type_):
-        Type.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
+        Type.__init__(
+            self, type_.dtype, shape=type_.shape, strides=type_.strides, offset=type_.offset)
         self._trf = weakref.ref(trf)
         self._name = name
 
@@ -512,6 +513,7 @@ class KernelParameter:
     .. py:attribute:: dtype
     .. py:attribute:: ctype
     .. py:attribute:: strides
+    .. py:attribute:: offset
 
         Same as in :py:class:`~reikna.core.Type`.
 
@@ -562,6 +564,7 @@ class KernelParameter:
 
         self.shape = type_.shape
         self.strides = type_.strides
+        self.offset = type_.offset
         self.dtype = type_.dtype
         self.ctype = type_.ctype
 
