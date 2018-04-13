@@ -44,7 +44,7 @@ class Type:
 
     def __eq__(self, other):
         return (self.shape == other.shape and self.dtype == other.dtype
-            and self.strides == other.strides)
+            and self.strides == other.strides and self.offset == other.offset)
 
     def __ne__(self, other):
         return not (self == other)
@@ -62,6 +62,8 @@ class Type:
             return False
         if helpers.product(other.shape[:-common_shape_len]) != 1:
             return False
+        if self.offset != other.offset:
+            return False
 
         return True
 
@@ -73,7 +75,7 @@ class Type:
         if isinstance(val, Type):
             # Creating a new object, because ``val`` may be some derivative of Type,
             # used as a syntactic sugar, and we do not want it to confuse us later.
-            return cls(val.dtype, shape=val.shape, strides=val.strides)
+            return cls(val.dtype, shape=val.shape, strides=val.strides, offset=val.offset)
         elif numpy.issctype(val):
             return cls(val)
         elif hasattr(val, 'dtype') and hasattr(val, 'shape'):
@@ -91,8 +93,8 @@ class Type:
 
     def __repr__(self):
         if len(self.shape) > 0:
-            return "Type({dtype}, shape={shape}, strides={strides})".format(
-                dtype=self.dtype, shape=self.shape, strides=self.strides)
+            return "Type({dtype}, shape={shape}, strides={strides}, offset={offset})".format(
+                dtype=self.dtype, shape=self.shape, strides=self.strides, offset=self.offset)
         else:
             return "Type({dtype})".format(dtype=self.dtype)
 
