@@ -23,14 +23,14 @@ Reduction
     :members:
 
 Scan
-~~~~
+^^^^
 
 .. autoclass:: Scan
     :members:
 
 
 Predicates
-~~~~~~~~~~
+^^^^^^^^^^
 
 .. autoclass:: Predicate
     :members:
