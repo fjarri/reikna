@@ -3,7 +3,8 @@ import time
 import numpy
 import pytest
 
-from reikna.algorithms import Scan
+from reikna.algorithms import Scan, Predicate, predicate_sum
+from reikna.cluda import Snippet
 import reikna.helpers as helpers
 import reikna.cluda.dtypes as dtypes
 
@@ -48,12 +49,17 @@ def ref_scan(arr, axes=None, exclusive=False):
 
 def check_scan(
         thr, shape, axes, exclusive=False,
-        measure_time=False, dtype=numpy.int64, max_work_group_size=None):
+        measure_time=False, dtype=numpy.int64, max_work_group_size=None, predicate=None):
+
+    # Note: the comparison will only work if the custom predicate is
+    # functionally equivalent to `predicate_sum`.
+    if predicate is None:
+        predicate = predicate_sum(dtype)
 
     arr = get_test_array(shape, dtype)
 
     scan = Scan(
-        arr, axes=axes, exclusive=exclusive,
+        arr, predicate, axes=axes, exclusive=exclusive,
         max_work_group_size=max_work_group_size).compile(thr)
 
     arr_dev = thr.to_device(arr)
@@ -91,6 +97,57 @@ def test_scan_multiple_axes(thr):
 
 def test_scan_non_innermost_axes(thr):
     check_scan(thr, (10, 20, 30, 40), axes=(1,2))
+
+
+def test_scan_custom_predicate(thr):
+    predicate = Predicate(
+        Snippet.create(lambda v1, v2: "return ${v1} + ${v2};"),
+        0)
+    check_scan(thr, (10, 20, 30, 40), axes=(1,2), predicate=predicate)
+
+
+def test_scan_structure_type(thr, exclusive):
+
+    shape = (100, 100)
+    dtype = dtypes.align(numpy.dtype([
+        ('i1', numpy.uint32),
+        ('nested', numpy.dtype([
+            ('v', numpy.uint64),
+            ])),
+        ('i2', numpy.uint32)
+        ]))
+
+    a = get_test_array(shape, dtype)
+    a_dev = thr.to_device(a)
+
+    # Have to construct the resulting array manually,
+    # since numpy cannot scan arrays with struct dtypes.
+    b_ref = numpy.empty(shape, dtype)
+    b_ref['i1'] = ref_scan(a['i1'], axes=0, exclusive=exclusive)
+    b_ref['nested']['v'] = ref_scan(a['nested']['v'], axes=0, exclusive=exclusive)
+    b_ref['i2'] = ref_scan(a['i2'], axes=0, exclusive=exclusive)
+
+    predicate = Predicate(
+        Snippet.create(lambda v1, v2: """
+            ${ctype} result = ${v1};
+            result.i1 += ${v2}.i1;
+            result.nested.v += ${v2}.nested.v;
+            result.i2 += ${v2}.i2;
+            return result;
+            """,
+            render_kwds=dict(
+                ctype=dtypes.ctype_module(dtype))),
+        numpy.zeros(1, dtype)[0])
+
+    scan = Scan(a_dev, predicate, axes=(0,), exclusive=exclusive)
+
+    b_dev = thr.empty_like(scan.parameter.output)
+
+    scanc = scan.compile(thr)
+    scanc(b_dev, a_dev)
+    b_res = b_dev.get()
+
+    assert diff_is_negligible(b_res, b_ref)
 
 
 @pytest.mark.perf

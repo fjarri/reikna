@@ -15,13 +15,13 @@ TEMPLATE = helpers.template_for(__file__)
 class Scan(Computation):
 
     def __init__(
-            self, arr, axes=None, exclusive=False, max_work_group_size=None,
+            self, arr_t, predicate, axes=None, exclusive=False, max_work_group_size=None,
             seq_size=None):
 
         self._max_work_group_size = max_work_group_size
         self._seq_size = seq_size
         self._exclusive = exclusive
-        ndim = len(arr.shape)
+        ndim = len(arr_t.shape)
         self._axes = helpers.normalize_axes(ndim, axes)
         if not helpers.are_axes_innermost(ndim, self._axes):
             self._transpose_to, self._transpose_from = (
@@ -31,9 +31,21 @@ class Scan(Computation):
             self._transpose_to = None
             self._transpose_from = None
 
+        if len(set(self._axes)) != len(self._axes):
+            raise ValueError("Cannot scan twice over the same axis")
+
+        if hasattr(predicate.empty, 'dtype'):
+            if arr_t.dtype != predicate.empty.dtype:
+                raise ValueError("The predicate and the array must use the same data type")
+            empty = predicate.empty
+        else:
+            empty = dtypes.cast(arr_t.dtype)(predicate.empty)
+
+        self._predicate = predicate
+
         Computation.__init__(self, [
-            Parameter('output', Annotation(arr, 'o')),
-            Parameter('input', Annotation(arr, 'i'))])
+            Parameter('output', Annotation(arr_t, 'o')),
+            Parameter('input', Annotation(arr_t, 'i'))])
 
     def _build_plan(self, plan_factory, device_params, output, input_):
         plan = plan_factory()
@@ -44,7 +56,7 @@ class Scan(Computation):
             transposed = plan.temp_array_like(transpose_to.parameter.output)
 
             sub_scan = Scan(
-                transposed, axes=self._axes, exclusive=self._exclusive,
+                transposed, self._predicate, axes=self._axes, exclusive=self._exclusive,
                 max_work_group_size=self._max_work_group_size)
             transposed_scanned = plan.temp_array_like(sub_scan.parameter.output)
 
@@ -115,12 +127,13 @@ class Scan(Computation):
                         scan_size=scan_size,
                         last_part_size=last_part_size,
                         wg_totals_size=wg_totals_size,
-                        log_wg_size=helpers.log2(wg_size)
+                        log_wg_size=helpers.log2(wg_size),
+                        predicate=self._predicate
                         ))
 
             if wg_totals_size > 1:
                 sub_scan = Scan(
-                    wg_totals, axes=(1,), exclusive=True,
+                    wg_totals, self._predicate, axes=(1,), exclusive=True,
                     max_work_group_size=self._max_work_group_size)
                 scanned_wg_totals = plan.temp_array_like(wg_totals)
                 plan.computation_call(sub_scan, scanned_wg_totals, wg_totals)

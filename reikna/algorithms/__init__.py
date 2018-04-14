@@ -30,5 +30,6 @@ Reduction
 
 from reikna.algorithms.pureparallel import PureParallel
 from reikna.algorithms.transpose import Transpose
-from reikna.algorithms.reduce import Reduce, Predicate, predicate_sum
+from reikna.algorithms.reduce import Reduce
 from reikna.algorithms.scan import Scan
+from reikna.algorithms.predicates import Predicate, predicate_sum
