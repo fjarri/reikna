@@ -1,6 +1,14 @@
 0.7.0
 =====
 
+Scan:
+
+* Split struct fields for the local memory operations the same as in Reduce. Since Scan uses optimized bank access, it will increase speed for structure types.
+* Refactor plan building code.
+* Add dynamic workgroup size selection (in case the maximum one uses too many registers)
+* Review the code of Reduce and make it resemble that of Scan (after all, they are very similar).
+
+
 * FEATURE: test and possibly port FFT code from https://github.com/clMathLibraries/clFFT. It's probably faster than the Apple's code currently used.
 
 * ?API (cluda): having a reikna Array superclassing PyCUDA/PyOpenCL arrays is dangerous for seamless usage of Reikna computations with existing PyCUDA/PyOpenCL code.
