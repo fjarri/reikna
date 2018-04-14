@@ -24,6 +24,7 @@ def ref_scan(arr, axes=None, exclusive=False):
     if axes is None:
         res = numpy.cumsum(arr).reshape(arr.shape)
     else:
+        axes = helpers.normalize_axes(arr.ndim, axes)
         transpose_to, transpose_from = helpers.make_axes_innermost(arr.ndim, axes)
         unchanged_ndim = arr.ndim - len(axes)
         temp = arr.transpose(transpose_to)
