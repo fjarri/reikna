@@ -12,8 +12,9 @@ from helpers import *
 
 perf_shapes = [(1024 * 1024,), (1024 * 1024 * 8,), (1024 * 1024 * 64,)]
 @pytest.fixture(params=perf_shapes, ids=list(map(str, perf_shapes)))
-def perf_shape(request):
+def large_perf_shape(request):
     return request.param
+
 
 @pytest.fixture(params=[True, False], ids=["exclusive", "inclusive"])
 def exclusive(request):
@@ -41,13 +42,13 @@ def ref_scan(arr, axes=None, exclusive=False):
 
 def check_scan(
         thr, shape, axes, exclusive=False,
-        measure_time=False, dtype=numpy.int64, max_work_group_size_override=None):
+        measure_time=False, dtype=numpy.int64, max_work_group_size=None):
 
     arr = get_test_array(shape, dtype)
 
     scan = Scan(
         arr, axes=axes, exclusive=exclusive,
-        max_work_group_size_override=max_work_group_size_override).compile(thr)
+        max_work_group_size=max_work_group_size).compile(thr)
 
     arr_dev = thr.to_device(arr)
     res_dev = thr.to_device(numpy.ones_like(arr) * (-1))#thr.empty_like(arr)
@@ -74,13 +75,13 @@ def check_scan(
     return min_time
 
 
-@pytest.mark.parametrize('shape', [(15,), (511,), (512,), (513,), (512*512+1,), (512*512*4+5,)])
-def test_scan_correctness(thr, shape, exclusive):
-    check_scan(thr, shape, axes=None, exclusive=exclusive, max_work_group_size_override=512)
+def test_scan_correctness(thr, corr_shape, exclusive):
+    check_scan(thr, corr_shape, axes=None, exclusive=exclusive, max_work_group_size=512)
 
 
 def test_scan_multiple_axes(thr):
     check_scan(thr, (10, 20, 30, 40), axes=(2,3))
+
 
 def test_scan_non_innermost_axes(thr):
     check_scan(thr, (10, 20, 30, 40), axes=(1,2))
@@ -88,8 +89,11 @@ def test_scan_non_innermost_axes(thr):
 
 @pytest.mark.perf
 @pytest.mark.returns('GB/s')
-def test_scan_performance(thr, perf_shape, exclusive):
+def test_large_scan_performance(thr, large_perf_shape, exclusive):
+    """
+    Large problem sizes.
+    """
     dtype = dtypes.normalize_type(numpy.int64)
     min_time = check_scan(
-        thr, perf_shape, dtype=dtype, axes=None, exclusive=exclusive, measure_time=True)
-    return min_time, helpers.product(perf_shape) * dtype.itemsize
+        thr, large_perf_shape, dtype=dtype, axes=None, exclusive=exclusive, measure_time=True)
+    return min_time, helpers.product(large_perf_shape) * dtype.itemsize
