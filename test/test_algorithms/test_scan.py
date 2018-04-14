@@ -28,6 +28,11 @@ def exclusive(request):
     return request.param
 
 
+@pytest.fixture(params=[1, 2, 4, 8])
+def seq_size(request):
+    return request.param
+
+
 def ref_scan(arr, axes=None, exclusive=False):
     if axes is None:
         res = numpy.cumsum(arr).reshape(arr.shape)
@@ -49,7 +54,8 @@ def ref_scan(arr, axes=None, exclusive=False):
 
 def check_scan(
         thr, shape, axes, exclusive=False,
-        measure_time=False, dtype=numpy.int64, max_work_group_size=None, predicate=None):
+        measure_time=False, dtype=numpy.int64, max_work_group_size=None, predicate=None,
+        seq_size=None):
 
     # Note: the comparison will only work if the custom predicate is
     # functionally equivalent to `predicate_sum`.
@@ -60,7 +66,7 @@ def check_scan(
 
     scan = Scan(
         arr, predicate, axes=axes, exclusive=exclusive,
-        max_work_group_size=max_work_group_size).compile(thr)
+        max_work_group_size=max_work_group_size, seq_size=seq_size).compile(thr)
 
     arr_dev = thr.to_device(arr)
     res_dev = thr.to_device(numpy.ones_like(arr) * (-1))#thr.empty_like(arr)
@@ -164,12 +170,13 @@ def test_large_scan_performance(thr, large_perf_shape, exclusive):
 
 @pytest.mark.perf
 @pytest.mark.returns('GB/s')
-def test_small_scan_performance(thr, exclusive):
+def test_small_scan_performance(thr, exclusive, seq_size):
     """
     Small problem sizes, big batches.
     """
-    dtype = dtypes.normalize_type(numpy.int64)
+    dtype = dtypes.normalize_type(numpy.complex128)
     shape = (500, 2, 2, 512)
     min_time = check_scan(
-        thr, shape, dtype=dtype, axes=(-1,), exclusive=exclusive, measure_time=True)
+        thr, shape, dtype=dtype, axes=(-1,), exclusive=exclusive,
+        measure_time=True, seq_size=seq_size)
     return min_time, helpers.product(shape) * dtype.itemsize
