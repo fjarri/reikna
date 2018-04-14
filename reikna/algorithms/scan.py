@@ -13,6 +13,31 @@ TEMPLATE = helpers.template_for(__file__)
 
 
 class Scan(Computation):
+    """
+    Bases: :py:class:`~reikna.core.Computation`
+
+    Scans the array over given axis using given binary operation.
+    Namely, from an array ``[a, b, c, d, ...]`` and an operation ``.``,
+    produces ``[a, a.b, a.b.c, a.b.c.d, ...]`` if ``exclusive`` is ``False``
+    and ``[0, a, a.b, a.b.c, ...]`` if ``exclusive`` is ``True``
+    (here ``0`` is the operation's identity element).
+
+    :param arr_t: an array-like defining the initial array.
+    :param predicate: a :py:class:`~reikna.algorithms.Predicate` object.
+    :param axes: a list of non-repeating axes to scan over.
+        (Note that the result will depend on the order of the axes).
+        If ``None``, the whole array will be scanned over.
+    :param exclusive: whether to perform an exclusive scan (see above).
+    :param max_work_group_size: the maximum workgroup size to be used for the scan kernel.
+    :param seq_size: the number of elements to be scanned sequentially.
+        If not given, Reikna will attempt to choose the one resulting in the best performance,
+        but sometimes a manual choice may be better.
+
+    .. py:method:: compiled_signature(output:o, input:i)
+
+        :param input: an array with the attributes of ``arr_t``.
+        :param output: an array with the attributes of ``arr_t``.
+    """
 
     def __init__(
             self, arr_t, predicate, axes=None, exclusive=False, max_work_group_size=None,

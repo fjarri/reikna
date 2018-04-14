@@ -19,13 +19,23 @@ Transposition (permutation)
 Reduction
 ^^^^^^^^^
 
+.. autoclass:: Reduce
+    :members:
+
+Scan
+~~~~
+
+.. autoclass:: Scan
+    :members:
+
+
+Predicates
+~~~~~~~~~~
+
 .. autoclass:: Predicate
     :members:
 
 .. autofunction:: predicate_sum
-
-.. autoclass:: Reduce
-    :members:
 """
 
 from reikna.algorithms.pureparallel import PureParallel

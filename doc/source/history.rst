@@ -8,6 +8,8 @@ Release history
 
 * ADDED: an ability to handle array views in computations.
 
+* ADDED: a scan class :py:class:`~reikna.algorithms.Scan`.
+
 
 0.6.8 (18 Dec 2016)
 ===================
