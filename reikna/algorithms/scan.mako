@@ -31,17 +31,15 @@ ${kernel_declaration}
         seq_data${i} = 0;
     %endfor
 
-    ${ctype} seq_total;
+    ${ctype} seq_total = seq_data0;
+    seq_data0 = 0;
+    %for i in range(1, seq_size):
     {
-        ${ctype} t;
-        seq_total = seq_data0;
-        seq_data0 = 0;
-        %for i in range(1, seq_size):
-        t = seq_data${i};
+        ${ctype} t = seq_data${i};
         seq_data${i} = seq_total;
         seq_total = seq_total + t;
-        %endfor
     }
+    %endfor
 
     // load input into shared memory
     temp[thid + CONFLICT_FREE_OFFSET(thid)] = seq_total;
