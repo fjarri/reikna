@@ -80,16 +80,6 @@ class Scan(Computation):
             if last_part_size == 0:
                 last_part_size = wg_size * seq_size
 
-            """
-            print()
-            print("global_size", (batch_size, wg_size * wg_totals_size))
-            print("local_size", (1, wg_size))
-            print("wg_size", wg_size)
-            print("seq_size", seq_size)
-            print("scan_size", scan_size)
-            print("last_part_size", last_part_size)
-            print("wg_totals_size", wg_totals_size)
-            """
             plan.kernel_call(
                 TEMPLATE.get_def('scan'),
                     [temp_output, input_, wg_totals],
