@@ -16,6 +16,12 @@ def large_perf_shape(request):
     return request.param
 
 
+corr_shapes = [(15,), (511,), (512,), (513,), (512*512+1,), (512*512*4+5,)]
+@pytest.fixture(params=corr_shapes, ids=list(map(str, corr_shapes)))
+def corr_shape(request):
+    return request.param
+
+
 @pytest.fixture(params=[True, False], ids=["exclusive", "inclusive"])
 def exclusive(request):
     return request.param
@@ -97,3 +103,16 @@ def test_large_scan_performance(thr, large_perf_shape, exclusive):
     min_time = check_scan(
         thr, large_perf_shape, dtype=dtype, axes=None, exclusive=exclusive, measure_time=True)
     return min_time, helpers.product(large_perf_shape) * dtype.itemsize
+
+
+@pytest.mark.perf
+@pytest.mark.returns('GB/s')
+def test_small_scan_performance(thr, exclusive):
+    """
+    Small problem sizes, big batches.
+    """
+    dtype = dtypes.normalize_type(numpy.int64)
+    shape = (500, 2, 2, 512)
+    min_time = check_scan(
+        thr, shape, dtype=dtype, axes=(-1,), exclusive=exclusive, measure_time=True)
+    return min_time, helpers.product(shape) * dtype.itemsize
