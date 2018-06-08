@@ -357,31 +357,35 @@ class Thread:
         if not self._async:
             self.synchronize()
 
-    def _create_program(self, src, fast_math=False):
+    def _create_program(self, src, fast_math=False, compiler_options=None):
         try:
-            program = self._compile(src, fast_math=fast_math)
+            program = self._compile(src, fast_math=fast_math, compiler_options=compiler_options)
         except:
             listing = "\n".join([str(i+1) + ":" + l for i, l in enumerate(src.split('\n'))])
             error("Failed to compile:\n" + listing)
             raise
         return program
 
-    def compile(self, template_src, render_args=None, render_kwds=None, fast_math=False):
+    def compile(
+            self, template_src, render_args=None, render_kwds=None, fast_math=False,
+            compiler_options=None):
         """
         Creates a module object from the given template.
 
         :param template_src: Mako template source to render
-        :param render_kwds: an iterable with positional arguments to pass to the template.
+        :param render_args: an iterable with positional arguments to pass to the template.
         :param render_kwds: a dictionary with keyword parameters to pass to the template.
         :param fast_math: whether to enable fast mathematical operations during compilation.
+        :param compiler_options: a list of strings to be passed to the compiler as arguments.
         :returns: a :py:class:`Program` object.
         """
         src = render_template_source(
             template_src, render_args=render_args, render_kwds=render_kwds)
-        return Program(self, src, fast_math=fast_math)
+        return Program(self, src, fast_math=fast_math, compiler_options=compiler_options)
 
     def compile_static(self, template_src, name, global_size,
-            local_size=None, render_args=None, render_kwds=None, fast_math=False):
+            local_size=None, render_args=None, render_kwds=None, fast_math=False,
+            compiler_options=None):
         """
         Creates a kernel object with fixed call sizes,
         which allows to overcome some backend limitations.
@@ -403,11 +407,12 @@ class Thread:
         :param render_kwds: a dictionary with additional parameters
             to be used while rendering the template.
         :param fast_math: whether to enable fast mathematical operations during compilation.
+        :param compiler_options: a list of strings to be passed to the compiler as arguments.
         :returns: a :py:class:`StaticKernel` object.
         """
         return StaticKernel(self, template_src, name, global_size,
             local_size=local_size, render_args=render_args, render_kwds=render_kwds,
-            fast_math=fast_math)
+            fast_math=fast_math, compiler_options=compiler_options)
 
     def _release_specific(self):
         """
@@ -456,7 +461,7 @@ class Program(object):
         Contains :py:class:`Kernel` object for the kernel ``kernel_name``.
     """
 
-    def __init__(self, thr, src, static=False, fast_math=False):
+    def __init__(self, thr, src, static=False, fast_math=False, compiler_options=None):
         """__init__()""" # hide the signature from Sphinx
 
         self._thr = thr
@@ -468,7 +473,8 @@ class Program(object):
         # New versions of Mako produce Unicode output by default,
         # and it makes the compiler unhappy
         self.source = str(prelude + src)
-        self._program = thr._create_program(self.source, fast_math=fast_math)
+        self._program = thr._create_program(
+            self.source, fast_math=fast_math, compiler_options=compiler_options)
 
     def __getattr__(self, name):
         return self._thr.api.Kernel(self._thr, self._program, name, static=self._static)
@@ -541,7 +547,7 @@ class StaticKernel:
     """
 
     def __init__(self, thr, template_src, name, global_size, local_size=None,
-            render_args=None, render_kwds=None, fast_math=False):
+            render_args=None, render_kwds=None, fast_math=False, compiler_options=None):
         """__init__()""" # hide the signature from Sphinx
 
         self._thr = thr
@@ -572,7 +578,7 @@ class StaticKernel:
             # Try to compile the kernel with the corresponding virtual size functions
             program = Program(
                 self._thr, vs.vsize_functions + main_src,
-                static=True, fast_math=fast_math)
+                static=True, fast_math=fast_math, compiler_options=compiler_options)
             kernel = getattr(program, name)
 
             if kernel.max_work_group_size >= product(vs.real_local_size):

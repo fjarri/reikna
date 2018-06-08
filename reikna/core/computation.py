@@ -181,22 +181,26 @@ class Computation:
     def _translate_tree(self, translator):
         return self._tr_tree.translate(translator)
 
-    def _get_plan(self, tr_tree, translator, thread, fast_math):
-        plan_factory = lambda: ComputationPlan(tr_tree, translator, thread, fast_math)
+    def _get_plan(self, tr_tree, translator, thread, fast_math, compiler_options):
+        plan_factory = lambda: ComputationPlan(
+            tr_tree, translator, thread, fast_math, compiler_options)
         args = [
             KernelArgument(param.name, param.annotation.type)
             for param in tr_tree.get_root_parameters()]
         return self._build_plan(plan_factory, thread.device_params, *args)
 
-    def compile(self, thread, fast_math=False):
+    def compile(self, thread, fast_math=False, compiler_options=None):
         """
         Compiles the computation with the given :py:class:`~reikna.cluda.api.Thread` object
         and returns a :py:class:`~reikna.core.computation.ComputationCallable` object.
         If ``fast_math`` is enabled, the compilation of all kernels is performed using
         the compiler options for fast and imprecise mathematical functions.
+        ``compiler_options`` can be used to pass a list of strings as arguments
+        to the backend compiler.
         """
         translator = Translator.identity()
-        return self._get_plan(self._tr_tree, translator, thread, fast_math).finalize()
+        return self._get_plan(
+            self._tr_tree, translator, thread, fast_math, compiler_options).finalize()
 
     def _build_plan(self, plan_factory, device_params, *args):
         """
@@ -251,13 +255,14 @@ class ComputationPlan:
     Computation plan recorder.
     """
 
-    def __init__(self, tr_tree, translator, thread, fast_math):
+    def __init__(self, tr_tree, translator, thread, fast_math, compiler_options):
         """__init__()""" # hide the signature from Sphinx
 
         self._thread = thread
         self._tr_tree = tr_tree
         self._translator = translator
         self._fast_math = fast_math
+        self._compiler_options = compiler_options
 
         self._nested_comp_idgen = IdGen('_nested')
         self._persistent_value_idgen = IdGen('_value')
@@ -422,7 +427,8 @@ class ComputationPlan:
             template_def, kernel_name, global_size, local_size=local_size,
             render_args=[kernel_declaration] + kernel_argobjects,
             render_kwds=render_kwds,
-            fast_math=self._fast_math)
+            fast_math=self._fast_math,
+            compiler_options=self._compiler_options)
 
         self._kernels.append(PlannedKernelCall(kernel, kernel_leaf_names, adhoc_values))
 
@@ -446,7 +452,7 @@ class ComputationPlan:
         new_tree.reconnect(self._tr_tree)
 
         self._append_plan(computation._get_plan(
-            new_tree, translator, self._thread, self._fast_math))
+            new_tree, translator, self._thread, self._fast_math, self._compiler_options))
 
     def _append_plan(self, plan):
         self._kernels += plan._kernels
