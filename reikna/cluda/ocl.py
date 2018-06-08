@@ -25,11 +25,12 @@ class Array(clarray.Array):
         clarray.Array.__init__(self, thr._queue, *args, **kwds)
         self.thread = thr
 
-    def _new_like_me(self, dtype=None):
+    def _new_like_me(self, dtype=None, queue=None):
         """
         Called by PyOpenCL to store the results of arithmetic operations
         or when the array is copied, to make an empty array.
         Need to intercept it to preserve the array type.
+        The `queue` argument is ignored, we're always using the queue of the thread.
         """
         return (self.thread.empty_like(self)
                 if dtype is None

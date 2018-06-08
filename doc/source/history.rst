@@ -12,6 +12,8 @@ Release history
 
 * ADDED: an optional parameter ``compiler_options`` for :py:meth:`Thread.compile <reikna.cluda.api.Thread.compile>`, :py:meth:`Thread.compile_static <reikna.cluda.api.Thread.compile_static>` and :py:meth:`Computation.compile <reikna.core.Computation.compile>`, allowing one to pass additional options to the compiler.
 
+* FIXED: some methods inherited by :py:class:`~reikna.cluda.api.Array` from the backend array class in case of the OpenCL backend failed because of the changed interface.
+
 
 0.6.8 (18 Dec 2016)
 ===================
