@@ -15,28 +15,28 @@ def is_complex(dtype):
     Returns ``True`` if ``dtype`` is complex.
     """
     dtype = normalize_type(dtype)
-    return dtype.kind == 'c'
+    return numpy.issubdtype(dtype, numpy.complexfloating)
 
 def is_double(dtype):
     """
     Returns ``True`` if ``dtype`` is double precision floating point.
     """
     dtype = normalize_type(dtype)
-    return dtype.name in ['float64', 'complex128']
+    return numpy.issubdtype(dtype, numpy.float_)
 
 def is_integer(dtype):
     """
     Returns ``True`` if ``dtype`` is an integer.
     """
     dtype = normalize_type(dtype)
-    return dtype.kind in ('i', 'u')
+    return numpy.issubdtype(dtype, numpy.integer)
 
 def is_real(dtype):
     """
     Returns ``True`` if ``dtype`` is a real.
     """
     dtype = normalize_type(dtype)
-    return dtype.kind == 'f'
+    return numpy.issubdtype(dtype, numpy.single)
 
 def _promote_dtype(dtype):
     # not all numpy datatypes are supported by GPU, so we may need to promote
