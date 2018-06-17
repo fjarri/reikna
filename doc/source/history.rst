@@ -14,6 +14,8 @@ Release history
 
 * FIXED: some methods inherited by :py:class:`~reikna.cluda.api.Array` from the backend array class in case of the OpenCL backend failed because of the changed interface.
 
+* FIXED: incorrect postfix in the result of :py:func:`~reikna.cluda.dtypes.c_constant` for unsigned long integers.
+
 
 0.6.8 (18 Dec 2016)
 ===================

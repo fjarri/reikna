@@ -156,7 +156,11 @@ def c_constant(val, dtype=None):
         return "COMPLEX_CTR(" + ctype(dtype) + ")(" + \
             c_constant(val.real) + ", " + c_constant(val.imag) + ")"
     elif is_integer(dtype):
-        return str(val) + ("L" if dtype.itemsize > 4 else "")
+        if dtype.itemsize > 4:
+            postfix = "L" if numpy.issubdtype(dtype, numpy.signedinteger) else "UL"
+        else:
+            postfix = ""
+        return str(val) + postfix
     else:
         return repr(float(val)) + ("f" if dtype.itemsize <= 4 else "")
 
