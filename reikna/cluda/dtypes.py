@@ -36,7 +36,7 @@ def is_real(dtype):
     Returns ``True`` if ``dtype`` is a real.
     """
     dtype = normalize_type(dtype)
-    return numpy.issubdtype(dtype, numpy.single)
+    return numpy.issubdtype(dtype, numpy.floating)
 
 def _promote_dtype(dtype):
     # not all numpy datatypes are supported by GPU, so we may need to promote
