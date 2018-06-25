@@ -122,7 +122,10 @@ def cast(dtype):
     def _cast(val):
         # Numpy cannot handle casts to struct dtypes (#4148),
         # so we're avoiding unnecessary casts.
-        if not hasattr(val, 'dtype') or val.dtype != dtype:
+        if not hasattr(val, 'dtype'):
+            # A non-numpy scalar
+            return numpy.array([val], dtype)[0]
+        elif val.dtype != dtype:
             return numpy.cast[dtype](val)
         else:
             return val
