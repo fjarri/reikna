@@ -93,7 +93,8 @@ import weakref
 import sys
 
 from reikna.cluda import find_devices
-from reikna.helpers import product
+from reikna.cluda.api_discovery import cuda_id
+from reikna.helpers import product, wrap_in_tuple
 from reikna.cluda.kernel import render_prelude, render_template_source
 from reikna.cluda.vsize import VirtualSizes
 from reikna.cluda.tempalloc import ZeroOffsetManager
@@ -122,7 +123,7 @@ class Thread:
 
     :param cqd: a ``Context``, ``Device`` or ``Stream``/``CommandQueue`` object to base on.
         If a context is passed, a new stream/queue will be created internally.
-    :param async: whether to execute all operations with this thread asynchronously
+    :param async_: whether to execute all operations with this thread asynchronously
         (you would generally want to set it to ``False`` only for profiling purposes).
 
     .. note::
@@ -221,10 +222,10 @@ class Thread:
             thread_kwds = {}
         return cls(platforms[selected_pnum].get_devices()[selected_dnum], **thread_kwds)
 
-    def __init__(self, cqd, async=True, temp_alloc=None):
+    def __init__(self, cqd, async_=True, temp_alloc=None):
 
         self._released = False
-        self._async = async
+        self._async = async_
 
         # Make the fields initialized even in case _prcess_cqd() raises an exception.
         self._context = None
@@ -250,17 +251,19 @@ class Thread:
         """
         raise NotImplementedError()
 
-    def array(self, shape, dtype, strides=None, allocator=None):
+    def array(self, shape, dtype, strides=None, offset=0, allocator=None):
         """
-        Creates an :py:class:`Array` on GPU with given ``shape``, ``dtype`` and ``strides``.
+        Creates an :py:class:`Array` on GPU with given ``shape``, ``dtype``,
+        ``strides`` and ``offset``.
         Optionally, an ``allocator`` is a callable returning any object castable to ``int``
         representing the physical address on the device (for instance, :py:class:`Buffer`).
         """
         raise NotImplementedError()
 
-    def temp_array(self, shape, dtype, strides=None, dependencies=None):
+    def temp_array(self, shape, dtype, strides=None, offset=0, dependencies=None):
         """
-        Creates an :py:class:`Array` on GPU with given ``shape``, ``dtype`` and ``strides``.
+        Creates an :py:class:`Array` on GPU with given ``shape``, ``dtype``,
+        ``strides`` and ``offset``.
         In order to reduce the memory footprint of the program, the temporary array manager
         will allow these arrays to overlap.
         Two arrays will not overlap, if one of them was specified in ``dependencies``
@@ -268,7 +271,8 @@ class Thread:
         For a list of values ``dependencies`` takes, see the reference entry for
         :py:class:`~reikna.cluda.tempalloc.TemporaryManager`.
         """
-        return self.temp_alloc.array(shape, dtype, strides=strides, dependencies=dependencies)
+        return self.temp_alloc.array(
+            shape, dtype, strides=strides, offset=offset, dependencies=dependencies)
 
     def empty_like(self, arr):
         """
@@ -278,7 +282,16 @@ class Thread:
             allocator = arr.allocator
         else:
             allocator = None
-        return self.array(arr.shape, arr.dtype, strides=arr.strides, allocator=allocator)
+        if hasattr(arr, 'strides'):
+            strides = arr.strides
+        else:
+            strides = None
+        if hasattr(arr, 'offset'):
+            offset = arr.offset
+        else:
+            offset = 0
+        return self.array(
+            arr.shape, arr.dtype, strides=strides, offset=offset, allocator=allocator)
 
     def to_device(self, arr, dest=None):
         """
@@ -297,11 +310,11 @@ class Thread:
         if dest is None:
             return arr_device
 
-    def from_device(self, arr, dest=None, async=False):
+    def from_device(self, arr, dest=None, async_=False):
         """
         Transfers the contents of ``arr`` to a ``numpy.ndarray`` object.
         The effect of ``dest`` parameter is the same as in :py:meth:`to_device`.
-        If ``async`` is ``True``, the transfer is asynchronous
+        If ``async_`` is ``True``, the transfer is asynchronous
         (the thread-wide asynchronisity setting does not apply here).
 
         Alternatively, one can use :py:meth:`Array.get`.
@@ -345,31 +358,41 @@ class Thread:
         if not self._async:
             self.synchronize()
 
-    def _create_program(self, src, fast_math=False):
+    def _create_program(self, src, fast_math=False, compiler_options=None):
         try:
-            program = self._compile(src, fast_math=fast_math)
+            program = self._compile(src, fast_math=fast_math, compiler_options=compiler_options)
         except:
             listing = "\n".join([str(i+1) + ":" + l for i, l in enumerate(src.split('\n'))])
             error("Failed to compile:\n" + listing)
             raise
         return program
 
-    def compile(self, template_src, render_args=None, render_kwds=None, fast_math=False):
+    def compile(
+            self, template_src, render_args=None, render_kwds=None, fast_math=False,
+            compiler_options=None, constant_arrays=None):
         """
         Creates a module object from the given template.
 
         :param template_src: Mako template source to render
-        :param render_kwds: an iterable with positional arguments to pass to the template.
+        :param render_args: an iterable with positional arguments to pass to the template.
         :param render_kwds: a dictionary with keyword parameters to pass to the template.
         :param fast_math: whether to enable fast mathematical operations during compilation.
+        :param compiler_options: a list of strings to be passed to the compiler as arguments.
+        :param constant_arrays: (**CUDA only**) a dictionary ``{name: metadata}``
+            of constant memory arrays to be declared in the compiled program.
+            ``metadata`` can be either an array-like object (possessing ``shape`` and ``dtype``
+            attributes), or a pair ``(shape, dtype)``.
         :returns: a :py:class:`Program` object.
         """
         src = render_template_source(
             template_src, render_args=render_args, render_kwds=render_kwds)
-        return Program(self, src, fast_math=fast_math)
+        return Program(
+            self, src, fast_math=fast_math, compiler_options=compiler_options,
+            constant_arrays=constant_arrays)
 
     def compile_static(self, template_src, name, global_size,
-            local_size=None, render_args=None, render_kwds=None, fast_math=False):
+            local_size=None, render_args=None, render_kwds=None, fast_math=False,
+            compiler_options=None, constant_arrays=None):
         """
         Creates a kernel object with fixed call sizes,
         which allows to overcome some backend limitations.
@@ -391,11 +414,17 @@ class Thread:
         :param render_kwds: a dictionary with additional parameters
             to be used while rendering the template.
         :param fast_math: whether to enable fast mathematical operations during compilation.
+        :param compiler_options: a list of strings to be passed to the compiler as arguments.
+        :param constant_arrays: (**CUDA only**) a dictionary ``{name: metadata}``
+            of constant memory arrays to be declared in the compiled program.
+            ``metadata`` can be either an array-like object (possessing ``shape`` and ``dtype``
+            attributes), or a pair ``(shape, dtype)``.
         :returns: a :py:class:`StaticKernel` object.
         """
         return StaticKernel(self, template_src, name, global_size,
             local_size=local_size, render_args=render_args, render_kwds=render_kwds,
-            fast_math=fast_math)
+            fast_math=fast_math, compiler_options=compiler_options,
+            constant_arrays=constant_arrays)
 
     def _release_specific(self):
         """
@@ -431,6 +460,23 @@ class Thread:
             self._released = True
 
 
+def normalize_constant_arrays(constant_arrays):
+    if constant_arrays is None:
+        return {}
+
+    normalized = {}
+    for name, metadata in constant_arrays.items():
+        if hasattr(metadata, 'shape') and hasattr(metadata, 'dtype'):
+            shape, dtype = metadata.shape, metadata.dtype
+        else:
+            shape, dtype = metadata
+            shape = wrap_in_tuple(shape)
+        length = product(shape)
+        normalized[name] = (length, dtype)
+
+    return normalized
+
+
 class Program(object):
     """
     An object with compiled GPU code.
@@ -444,22 +490,47 @@ class Program(object):
         Contains :py:class:`Kernel` object for the kernel ``kernel_name``.
     """
 
-    def __init__(self, thr, src, static=False, fast_math=False):
+    def __init__(
+            self, thr, src, static=False, fast_math=False, compiler_options=None,
+            constant_arrays=None):
         """__init__()""" # hide the signature from Sphinx
 
         self._thr = thr
         self._static = static
 
-        prelude = render_prelude(self._thr, fast_math=fast_math)
+        constant_arrays = normalize_constant_arrays(constant_arrays)
+        if len(constant_arrays) > 0 and self._thr.api.get_id() != cuda_id():
+            raise ValueError("Compile-time constant arrays are only supported on the CUDA platform")
+
+        prelude = render_prelude(self._thr, fast_math=fast_math, constant_arrays=constant_arrays)
 
         # Casting source code to ASCII explicitly
         # New versions of Mako produce Unicode output by default,
         # and it makes the compiler unhappy
         self.source = str(prelude + src)
-        self._program = thr._create_program(self.source, fast_math=fast_math)
+
+        self._constant_arrays = constant_arrays
+        self._program = thr._create_program(
+            self.source, fast_math=fast_math, compiler_options=compiler_options)
 
     def __getattr__(self, name):
         return self._thr.api.Kernel(self._thr, self._program, name, static=self._static)
+
+    def set_constant(self, name, arr):
+        """
+        Load a constant array (``arr`` can be either ``numpy`` array or a :py:class:`Array` object)
+        corresponding to the symbol ``name`` to device.
+        """
+        symbol, size = self._program.get_global(name)
+        if size != arr.nbytes:
+            raise ValueError(
+                "Incorrect size of the constant array; "
+                "expected " + str(size) + " bytes, got " + str(arr.nbytes))
+        if isinstance(arr, self._thr.api.Array):
+            self._thr._memcpy_dtod(symbol, arr.gpudata, size)
+        else:
+            # numpy array
+            self._thr._memcpy_htod(symbol, arr)
 
 
 class Kernel:
@@ -518,6 +589,15 @@ class Kernel:
 
         return self.prepared_call(*args)
 
+    def set_constant(self, name, arr):
+        """
+        Load a constant array (``arr`` can be either ``numpy`` array or a :py:class:`Array` object)
+        corresponding to the symbol ``name`` to device.
+        Note that all the kernels belonging to the same :py:class:`Program` object
+        share constant arrays.
+        """
+        self._program.set_constant(name, arr)
+
 
 class StaticKernel:
     """
@@ -529,7 +609,8 @@ class StaticKernel:
     """
 
     def __init__(self, thr, template_src, name, global_size, local_size=None,
-            render_args=None, render_kwds=None, fast_math=False):
+            render_args=None, render_kwds=None, fast_math=False, compiler_options=None,
+            constant_arrays=None):
         """__init__()""" # hide the signature from Sphinx
 
         self._thr = thr
@@ -560,7 +641,8 @@ class StaticKernel:
             # Try to compile the kernel with the corresponding virtual size functions
             program = Program(
                 self._thr, vs.vsize_functions + main_src,
-                static=True, fast_math=fast_math)
+                static=True, fast_math=fast_math, compiler_options=compiler_options,
+                constant_arrays=constant_arrays)
             kernel = getattr(program, name)
 
             if kernel.max_work_group_size >= product(vs.real_local_size):
@@ -591,3 +673,10 @@ class StaticKernel:
         In case of the OpenCL backend, returns a ``pyopencl.Event`` object.
         """
         return self._kernel(*args)
+
+    def set_constant(self, name, arr):
+        """
+        Load a constant array (``arr`` can be either ``numpy`` array or a :py:class:`Array` object)
+        corresponding to the symbol ``name`` to device.
+        """
+        self._program.set_constant(name, arr)

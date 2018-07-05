@@ -17,7 +17,8 @@ class TransformationParameter(Type):
     """
 
     def __init__(self, trf, name, type_):
-        Type.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
+        Type.__init__(
+            self, type_.dtype, shape=type_.shape, strides=type_.strides, offset=type_.offset)
         self._trf = weakref.ref(trf)
         self._name = name
 
@@ -388,8 +389,11 @@ class TransformationTree:
         new_tree.reconnect(self)
         return new_tree
 
-    def get_kernel_declaration(self, kernel_name):
+    def get_kernel_declaration(self, kernel_name, skip_constants=False):
         leaf_params = self.get_leaf_parameters()
+
+        if skip_constants:
+            leaf_params = [param for param in leaf_params if not param.annotation.constant]
 
         decl = kernel_declaration(kernel_name, leaf_params)
         leaf_names = [param.name for param in leaf_params]
@@ -512,6 +516,7 @@ class KernelParameter:
     .. py:attribute:: dtype
     .. py:attribute:: ctype
     .. py:attribute:: strides
+    .. py:attribute:: offset
 
         Same as in :py:class:`~reikna.core.Type`.
 
@@ -562,6 +567,7 @@ class KernelParameter:
 
         self.shape = type_.shape
         self.strides = type_.strides
+        self.offset = type_.offset
         self.dtype = type_.dtype
         self.ctype = type_.ctype
 

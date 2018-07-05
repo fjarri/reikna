@@ -12,9 +12,12 @@
     #define WITHIN_KERNEL __device__
     #define KERNEL extern "C" __global__
     #define GLOBAL_MEM /* empty */
+    #define GLOBAL_MEM_ARG /* empty */
     #define LOCAL_MEM __shared__
     #define LOCAL_MEM_DYNAMIC extern __shared__
     #define LOCAL_MEM_ARG /* empty */
+    #define CONSTANT_MEM __constant__
+    #define CONSTANT_MEM_ARG /* empty */
     #define INLINE __forceinline__
     #define SIZE_T unsigned int
     #define VSIZE_T unsigned int
@@ -81,9 +84,12 @@
 
     #define KERNEL __kernel
     #define GLOBAL_MEM __global
+    #define GLOBAL_MEM_ARG __global
     #define LOCAL_MEM __local
     #define LOCAL_MEM_DYNAMIC __local
     #define LOCAL_MEM_ARG __local
+    #define CONSTANT_MEM __constant
+    #define CONSTANT_MEM_ARG __constant
     // INLINE is already defined in Beignet driver
     #ifndef INLINE
     #define INLINE inline
@@ -101,6 +107,16 @@
     #endif
 
 %endif
+
+%if constant_arrays is not None:
+%for name in sorted(constant_arrays):
+<%
+    length, dtype = constant_arrays[name]
+%>
+CONSTANT_MEM ${dtypes.ctype(dtype)} ${name}[${length}];
+%endfor
+%endif
+
 
 %if api == 'cuda':
     #define COMPLEX_CTR(T) make_##T

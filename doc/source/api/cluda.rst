@@ -81,23 +81,31 @@ Second, there is a set of macros attached to any kernel depending on the API it 
 
 .. c:macro:: KERNEL
 
-    Modifier for the kernel function declaration.
+    Modifier for a kernel function declaration.
 
 .. c:macro:: GLOBAL_MEM
 
-    Modifier for the global memory pointer argument.
+    Modifier for a global memory pointer argument.
 
 .. c:macro:: LOCAL_MEM
 
-    Modifier for the statically allocated local memory variable.
+    Modifier for a statically allocated local memory variable.
 
 .. c:macro:: LOCAL_MEM_DYNAMIC
 
-    Modifier for the dynamically allocated local memory variable.
+    Modifier for a dynamically allocated local memory variable.
 
 .. c:macro:: LOCAL_MEM_ARG
 
-    Modifier for the local memory argument in the device-only functions.
+    Modifier for a local memory argument in device-only functions.
+
+.. c:macro:: CONSTANT_MEM
+
+    Modifier for a statically allocated constant memory variable.
+
+.. c:macro:: CONSTANT_MEM_ARG
+
+    Modifier for a constant memory argument in device-only functions.
 
 .. c:macro:: INLINE
 

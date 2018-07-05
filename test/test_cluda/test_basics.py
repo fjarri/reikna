@@ -116,12 +116,12 @@ def test_transfers(thr):
         thr.from_device(x, dest=y)
         return y
     def from_device4(x):
-        y = thr.from_device(x, async=True)
+        y = thr.from_device(x, async_=True)
         thr.synchronize()
         return y
     def from_device5(x):
         y = numpy.empty(x.shape, x.dtype)
-        thr.from_device(x, dest=y, async=True)
+        thr.from_device(x, dest=y, async_=True)
         thr.synchronize()
         return y
 
@@ -273,3 +273,97 @@ def test_tempalloc(cluda_api, tempalloc_cls, pack):
             # So we need to transfer the data to a normal array first.
             transfer(transfer_dest, arrays[dep], global_size=shape)
             assert (transfer_dest.get() != val).all()
+
+
+def test_constant_memory(thr):
+    global_size = 100
+
+    arr1 = get_test_array(global_size, numpy.int32)
+    arr2 = get_test_array(global_size * 2, numpy.float32)
+    ref = ((arr2[:global_size] + arr2[global_size:]) * arr1).astype(numpy.float32)
+
+    src = """
+        KERNEL void test(GLOBAL_MEM float *dest)
+        {
+            const SIZE_T i = get_global_id(0);
+            dest[i] = (arr2[i] + arr2[i + get_global_size(0)]) * arr1[i];
+        }
+        """
+    constant_arrays = dict(
+        arr1=arr1, # use the parameters of an existing array; the array itself is not copied!
+        arr2=(global_size * 2, numpy.float32)
+        )
+
+    # Compiled-in constant arrays only supported on CUDA
+    if thr.api.get_id() != cluda.cuda_id():
+        with pytest.raises(ValueError):
+            program = thr.compile(src, constant_arrays=constant_arrays)
+        return
+
+    program = thr.compile(src, constant_arrays=constant_arrays)
+    test = program.test
+
+    # TODO: program.constant.arr1.set(arr1)
+    program.set_constant('arr1', arr1)
+    program.set_constant('arr2', arr2)
+
+    dest_dev = thr.array(global_size, numpy.float32)
+    test(dest_dev, global_size=global_size)
+
+    assert diff_is_negligible(dest_dev.get(), ref)
+
+
+    # Use a program/kernel with different constant arrays
+    arr1_2 = get_test_array(global_size, numpy.int32)
+    arr2_2 = get_test_array(global_size * 2, numpy.float32)
+    ref_2 = ((arr2_2[:global_size] + arr2_2[global_size:]) * arr1_2).astype(numpy.float32)
+
+    program2 = thr.compile(src, constant_arrays=constant_arrays)
+    test2 = program2.test
+    program2.set_constant('arr1', arr1_2)
+    program2.set_constant('arr2', arr2_2)
+    test2(dest_dev, global_size=global_size)
+    assert diff_is_negligible(dest_dev.get(), ref_2)
+
+
+    # Check that the first kernel preserved the data in its constant arrays
+    test(dest_dev, global_size=global_size)
+    assert diff_is_negligible(dest_dev.get(), ref)
+
+
+def test_constant_memory_static_kernel(thr):
+    global_size = 100
+
+    arr1 = get_test_array(global_size, numpy.int32)
+    arr2 = get_test_array(global_size * 2, numpy.float32)
+    ref = ((arr2[:global_size] + arr2[global_size:]) * arr1).astype(numpy.float32)
+
+    src = """
+        KERNEL void test(GLOBAL_MEM float *dest)
+        {
+            const SIZE_T i = get_global_id(0);
+            dest[i] = (arr2[i] + arr2[i + get_global_size(0)]) * arr1[i];
+        }
+        """
+    constant_arrays = dict(
+        arr1=arr1, # use the parameters of an existing array; the array itself is not copied!
+        arr2=(global_size * 2, numpy.float32)
+        )
+
+    # Compiled-in constant arrays only supported on CUDA
+    if thr.api.get_id() != cluda.cuda_id():
+        with pytest.raises(ValueError):
+            program = thr.compile_static(
+                src, "test", global_size=global_size, constant_arrays=constant_arrays)
+        return
+
+    test = thr.compile_static(src, "test", global_size=global_size, constant_arrays=constant_arrays)
+
+    # TODO: test.constant.arr1.set(arr1)
+    test.set_constant('arr1', arr1)
+    test.set_constant('arr2', thr.to_device(arr2)) # test that a device array is also accepted
+
+    dest_dev = thr.array(global_size, numpy.float32)
+    test(dest_dev)
+
+    assert diff_is_negligible(dest_dev.get(), ref)

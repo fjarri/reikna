@@ -1,6 +1,7 @@
 import weakref
 from collections import namedtuple
 
+from reikna.cluda import cuda_id
 from reikna.helpers import Graph
 from reikna.core.signature import Parameter, Annotation, Type, Signature
 from reikna.core.transformation import TransformationTree, TransformationParameter
@@ -18,7 +19,8 @@ class ComputationParameter(Type):
     def __init__(self, computation, name, type_):
         """__init__()""" # hide the signature from Sphinx
 
-        Type.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
+        Type.__init__(
+            self, type_.dtype, shape=type_.shape, strides=type_.strides, offset=type_.offset)
         self._computation = weakref.ref(computation)
         self._name = name
 
@@ -180,22 +182,26 @@ class Computation:
     def _translate_tree(self, translator):
         return self._tr_tree.translate(translator)
 
-    def _get_plan(self, tr_tree, translator, thread, fast_math):
-        plan_factory = lambda: ComputationPlan(tr_tree, translator, thread, fast_math)
+    def _get_plan(self, tr_tree, translator, thread, fast_math, compiler_options):
+        plan_factory = lambda: ComputationPlan(
+            tr_tree, translator, thread, fast_math, compiler_options)
         args = [
             KernelArgument(param.name, param.annotation.type)
             for param in tr_tree.get_root_parameters()]
         return self._build_plan(plan_factory, thread.device_params, *args)
 
-    def compile(self, thread, fast_math=False):
+    def compile(self, thread, fast_math=False, compiler_options=None):
         """
         Compiles the computation with the given :py:class:`~reikna.cluda.api.Thread` object
         and returns a :py:class:`~reikna.core.computation.ComputationCallable` object.
         If ``fast_math`` is enabled, the compilation of all kernels is performed using
         the compiler options for fast and imprecise mathematical functions.
+        ``compiler_options`` can be used to pass a list of strings as arguments
+        to the backend compiler.
         """
         translator = Translator.identity()
-        return self._get_plan(self._tr_tree, translator, thread, fast_math).finalize()
+        return self._get_plan(
+            self._tr_tree, translator, thread, fast_math, compiler_options).finalize()
 
     def _build_plan(self, plan_factory, device_params, *args):
         """
@@ -237,7 +243,8 @@ class KernelArgument(Type):
 
     def __init__(self, name, type_):
         """__init__()""" # hide the signature from Sphinx
-        Type.__init__(self, type_.dtype, shape=type_.shape, strides=type_.strides)
+        Type.__init__(
+            self, type_.dtype, shape=type_.shape, strides=type_.strides, offset=type_.offset)
         self.name = name
 
     def __repr__(self):
@@ -249,20 +256,24 @@ class ComputationPlan:
     Computation plan recorder.
     """
 
-    def __init__(self, tr_tree, translator, thread, fast_math):
+    def __init__(self, tr_tree, translator, thread, fast_math, compiler_options):
         """__init__()""" # hide the signature from Sphinx
 
         self._thread = thread
+        self._is_cuda = (thread.api.get_id() == cuda_id())
         self._tr_tree = tr_tree
         self._translator = translator
         self._fast_math = fast_math
+        self._compiler_options = compiler_options
 
         self._nested_comp_idgen = IdGen('_nested')
         self._persistent_value_idgen = IdGen('_value')
+        self._constant_value_idgen = IdGen('_constant')
         self._temp_array_idgen = IdGen('_temp')
 
         self._external_annotations = self._tr_tree.get_root_annotations()
         self._persistent_values = {}
+        self._constant_arrays = {}
         self._temp_arrays = set()
         self._internal_annotations = {}
         self._kernels = []
@@ -289,7 +300,7 @@ class ComputationPlan:
         self._persistent_values[name] = self._thread.to_device(arr)
         return KernelArgument(name, ann.type)
 
-    def temp_array(self, shape, dtype, strides=None):
+    def temp_array(self, shape, dtype, strides=None, offset=0):
         """
         Adds a temporary GPU array to the plan, and returns the corresponding
         :py:class:`KernelArgument`.
@@ -298,9 +309,20 @@ class ComputationPlan:
         during the execution of the plan.
         """
         name = self._translator(self._temp_array_idgen())
-        ann = Annotation(Type(dtype, shape=shape, strides=strides), 'io')
+        ann = Annotation(Type(dtype, shape=shape, strides=strides, offset=offset), 'io')
         self._internal_annotations[name] = ann
         self._temp_arrays.add(name)
+        return KernelArgument(name, ann.type)
+
+    def constant_array(self, arr):
+        """
+        Adds a constant GPU array to the plan, and returns the corresponding
+        :py:class:`KernelArgument`.
+        """
+        name = self._translator(self._constant_value_idgen())
+        ann = Annotation(arr, constant=True)
+        self._internal_annotations[name] = ann
+        self._constant_arrays[name] = self._thread.to_device(arr)
         return KernelArgument(name, ann.type)
 
     def temp_array_like(self, arr):
@@ -308,7 +330,15 @@ class ComputationPlan:
         Same as :py:meth:`temp_array`, taking the array properties
         from array or array-like object ``arr``.
         """
-        return self.temp_array(arr.shape, arr.dtype, strides=arr.strides)
+        if hasattr(arr, 'strides'):
+            strides = arr.strides
+        else:
+            strides = None
+        if hasattr(arr, 'offset'):
+            offset = arr.offset
+        else:
+            offset = 0
+        return self.temp_array(arr.shape, arr.dtype, strides=strides, offset=offset)
 
     def _get_annotation(self, name):
         if name in self._external_annotations:
@@ -400,7 +430,8 @@ class ComputationPlan:
         subtree = self._tr_tree.get_subtree(processed_args)
 
         kernel_name = '_kernel_func'
-        kernel_declaration, kernel_leaf_names = subtree.get_kernel_declaration(kernel_name)
+        kernel_declaration, kernel_leaf_names = subtree.get_kernel_declaration(
+            kernel_name, skip_constants=self._is_cuda)
         kernel_argobjects = subtree.get_kernel_argobjects()
 
         if render_kwds is None:
@@ -408,11 +439,25 @@ class ComputationPlan:
         else:
             render_kwds = dict(render_kwds)
 
+        if self._is_cuda:
+            constant_arrays = {}
+            for karg in kernel_argobjects:
+                if karg.name in self._constant_arrays:
+                    constant_arrays[str(karg)] = self._constant_arrays[karg.name]
+        else:
+            constant_arrays = None
+
         kernel = self._thread.compile_static(
             template_def, kernel_name, global_size, local_size=local_size,
             render_args=[kernel_declaration] + kernel_argobjects,
             render_kwds=render_kwds,
-            fast_math=self._fast_math)
+            fast_math=self._fast_math,
+            compiler_options=self._compiler_options,
+            constant_arrays=constant_arrays)
+
+        if self._is_cuda:
+            for name, arr in constant_arrays.items():
+                kernel.set_constant(name, arr)
 
         self._kernels.append(PlannedKernelCall(kernel, kernel_leaf_names, adhoc_values))
 
@@ -436,7 +481,7 @@ class ComputationPlan:
         new_tree.reconnect(self._tr_tree)
 
         self._append_plan(computation._get_plan(
-            new_tree, translator, self._thread, self._fast_math))
+            new_tree, translator, self._thread, self._fast_math, self._compiler_options))
 
     def _append_plan(self, plan):
         self._kernels += plan._kernels
@@ -476,6 +521,7 @@ class ComputationPlan:
         # Create a dictionary of internal values to be used by kernels.
 
         internal_args = dict(self._persistent_values)
+        internal_args.update(self._constant_arrays)
 
         # Allocate buffers specifying the dependencies
         all_buffers = []
@@ -487,7 +533,8 @@ class ComputationPlan:
 
             type_ = self._internal_annotations[name].type
             new_buf = self._thread.temp_array(
-                type_.shape, type_.dtype, strides=type_.strides, dependencies=dependent_buffers)
+                type_.shape, type_.dtype, strides=type_.strides, offset=type_.offset,
+                dependencies=dependent_buffers)
             internal_args[name] = new_buf
             all_buffers.append(new_buf)
 

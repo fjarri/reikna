@@ -3,6 +3,24 @@ Release history
 ***************
 
 
+0.7.0 (5 Jul 2018)
+==================
+
+* CHANGED: ``async`` keywords in multiple methods have been renamed to ``async_``, since ``async`` is a keyword starting from Python 3.7.
+
+* ADDED: an ability to handle array views in computations.
+
+* ADDED: a scan class :py:class:`~reikna.algorithms.Scan`.
+
+* ADDED: an optional parameter ``compiler_options`` for :py:meth:`Thread.compile <reikna.cluda.api.Thread.compile>`, :py:meth:`Thread.compile_static <reikna.cluda.api.Thread.compile_static>` and :py:meth:`Computation.compile <reikna.core.Computation.compile>`, allowing one to pass additional options to the compiler.
+
+* ADDED: support for constant arrays. On CLUDA level, use ``constant_arrays`` keyword parameter to :py:meth:`~reikna.cluda.api.Thread.compile` and :py:meth:`~reikna.cluda.api.Thread.compile_static`, and subsequent :py:meth:`~reikna.cluda.api.Program.set_constant` (CUDA only) (or the analogous methods of :py:class:`~reikna.cluda.api.Kernel` or :py:class:`~reikna.cluda.api.StaticKernel`). On the computation level, use :py:meth:`ComputationPlan.constant_array <reikna.core.computation.ComputationPlan.constant_array>` to declare a constant array, and then pass the returned objects to kernels as any other argument.
+
+* FIXED: some methods inherited by :py:class:`~reikna.cluda.api.Array` from the backend array class in case of the OpenCL backend failed because of the changed interface.
+
+* FIXED: incorrect postfix in the result of :py:func:`~reikna.cluda.dtypes.c_constant` for unsigned long integers.
+
+
 0.6.8 (18 Dec 2016)
 ===================
 

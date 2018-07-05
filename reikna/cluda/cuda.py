@@ -80,7 +80,7 @@ class Array(gpuarray.GPUArray):
         so we're overriding it.
         """
         new_arr = self._new_like_me()
-        gpuarray._memcpy_discontig(new_arr, self, async=True, stream=self.thread._queue)
+        gpuarray._memcpy_discontig(new_arr, self, async_=True, stream=self.thread._queue)
         return new_arr
 
     def _new_like_me(self, dtype=None):
@@ -118,11 +118,13 @@ class Thread(api_base.Thread):
     def allocate(self, size):
         return Buffer(size)
 
-    def array(self, shape, dtype, strides=None, allocator=None):
+    def array(self, shape, dtype, strides=None, offset=0, allocator=None):
         # In PyCUDA, the default allocator is not None, but a default alloc object
         kwds = {}
         if strides is not None:
             kwds['strides'] = strides
+        if offset !=0:
+            kwds['offset'] = offset
         if allocator is not None:
             kwds['allocator'] = allocator
         return Array(self, shape, dtype, **kwds)
@@ -130,8 +132,8 @@ class Thread(api_base.Thread):
     def _copy_array(self, dest, src):
         dest.set_async(src, stream=self._queue)
 
-    def from_device(self, arr, dest=None, async=False):
-        if async:
+    def from_device(self, arr, dest=None, async_=False):
+        if async_:
             arr_cpu = arr.get_async(ary=dest, stream=self._queue)
         else:
             arr_cpu = arr.get(ary=dest)
@@ -140,16 +142,25 @@ class Thread(api_base.Thread):
             return arr_cpu
 
     def _copy_array_buffer(self, dest, src, nbytes, src_offset=0, dest_offset=0):
+        self._memcpy_dtod(
+            dest.gpudata, src.gpudata, nbytes, src_offset=src_offset, dest_offset=dest_offset)
+
+    def _memcpy_dtod(self, dest, src, nbytes, src_offset=0, dest_offset=0):
         cuda.memcpy_dtod_async(
-            int(dest.gpudata) + dest_offset,
-            int(src.gpudata) + src_offset,
+            int(dest) + dest_offset,
+            int(src) + src_offset,
             nbytes, stream=self._queue)
+
+    def _memcpy_htod(self, dest, src):
+        cuda.memcpy_htod(dest, src)
 
     def synchronize(self):
         self._queue.synchronize()
 
-    def _compile(self, src, fast_math=False):
+    def _compile(self, src, fast_math=False, compiler_options=None):
         options = ['-use_fast_math'] if fast_math else []
+        if compiler_options is not None:
+            options += compiler_options
         return SourceModule(src, no_extern_c=True, options=options)
 
     def _cuda_push(self):

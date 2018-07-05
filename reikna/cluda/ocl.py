@@ -25,11 +25,12 @@ class Array(clarray.Array):
         clarray.Array.__init__(self, thr._queue, *args, **kwds)
         self.thread = thr
 
-    def _new_like_me(self, dtype=None):
+    def _new_like_me(self, dtype=None, queue=None):
         """
         Called by PyOpenCL to store the results of arithmetic operations
         or when the array is copied, to make an empty array.
         Need to intercept it to preserve the array type.
+        The `queue` argument is ignored, we're always using the queue of the thread.
         """
         return (self.thread.empty_like(self)
                 if dtype is None
@@ -53,14 +54,14 @@ class Thread(api_base.Thread):
     def allocate(self, size):
         return cl.Buffer(self._context, cl.mem_flags.READ_WRITE, size=size)
 
-    def array(self, shape, dtype, strides=None, allocator=None):
-        return Array(self, shape, dtype, strides=strides, allocator=allocator)
+    def array(self, shape, dtype, strides=None, offset=0, allocator=None):
+        return Array(self, shape, dtype, strides=strides, offset=offset, allocator=allocator)
 
     def _copy_array(self, dest, src):
-        dest.set(src, queue=self._queue, async=self._async)
+        dest.set(src, queue=self._queue, async_=self._async)
 
-    def from_device(self, arr, dest=None, async=False):
-        arr_cpu = arr.get(queue=self._queue, ary=dest, async=async)
+    def from_device(self, arr, dest=None, async_=False):
+        arr_cpu = arr.get(queue=self._queue, ary=dest, async_=async_)
         if dest is None:
             return arr_cpu
 
@@ -72,8 +73,10 @@ class Thread(api_base.Thread):
     def synchronize(self):
         self._queue.finish()
 
-    def _compile(self, src, fast_math=False):
+    def _compile(self, src, fast_math=False, compiler_options=None):
         options = "-cl-mad-enable -cl-fast-relaxed-math" if fast_math else ""
+        if compiler_options is not None:
+            options += " " + " ".join(compiler_options)
         return cl.Program(self._context, src).build(options=options)
 
 
@@ -149,5 +152,6 @@ class Kernel(api_base.Kernel):
         self._global_size = wrap_in_tuple(global_size)
 
     def _prepared_call(self, *args):
-        args = [x.data if isinstance(x, clarray.Array) else x for x in args]
+        # Passing base_data, assuming that the kernel knows how to handle the offset and the strides
+        args = [x.base_data if isinstance(x, clarray.Array) else x for x in args]
         return self._kernel(self._thr._queue, self._global_size, self._local_size, *args)

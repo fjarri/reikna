@@ -15,28 +15,28 @@ def is_complex(dtype):
     Returns ``True`` if ``dtype`` is complex.
     """
     dtype = normalize_type(dtype)
-    return dtype.kind == 'c'
+    return numpy.issubdtype(dtype, numpy.complexfloating)
 
 def is_double(dtype):
     """
     Returns ``True`` if ``dtype`` is double precision floating point.
     """
     dtype = normalize_type(dtype)
-    return dtype.name in ['float64', 'complex128']
+    return numpy.issubdtype(dtype, numpy.float_)
 
 def is_integer(dtype):
     """
     Returns ``True`` if ``dtype`` is an integer.
     """
     dtype = normalize_type(dtype)
-    return dtype.kind in ('i', 'u')
+    return numpy.issubdtype(dtype, numpy.integer)
 
 def is_real(dtype):
     """
     Returns ``True`` if ``dtype`` is a real.
     """
     dtype = normalize_type(dtype)
-    return dtype.kind == 'f'
+    return numpy.issubdtype(dtype, numpy.floating)
 
 def _promote_dtype(dtype):
     # not all numpy datatypes are supported by GPU, so we may need to promote
@@ -122,7 +122,10 @@ def cast(dtype):
     def _cast(val):
         # Numpy cannot handle casts to struct dtypes (#4148),
         # so we're avoiding unnecessary casts.
-        if not hasattr(val, 'dtype') or val.dtype != dtype:
+        if not hasattr(val, 'dtype'):
+            # A non-numpy scalar
+            return numpy.array([val], dtype)[0]
+        elif val.dtype != dtype:
             return numpy.cast[dtype](val)
         else:
             return val
@@ -156,7 +159,11 @@ def c_constant(val, dtype=None):
         return "COMPLEX_CTR(" + ctype(dtype) + ")(" + \
             c_constant(val.real) + ", " + c_constant(val.imag) + ")"
     elif is_integer(dtype):
-        return str(val) + ("L" if dtype.itemsize > 4 else "")
+        if dtype.itemsize > 4:
+            postfix = "L" if numpy.issubdtype(dtype, numpy.signedinteger) else "UL"
+        else:
+            postfix = ""
+        return str(val) + postfix
     else:
         return repr(float(val)) + ("f" if dtype.itemsize <= 4 else "")
 

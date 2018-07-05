@@ -459,8 +459,11 @@ class ExpressionIndexing(Computation):
 
     def __init__(self, arr_t):
         assert len(arr_t.shape) == 2
+
+        # reset strides/offset of the input and return a contiguous array
+        res_t = Type(arr_t.dtype, arr_t.shape)
         Computation.__init__(self, [
-            Parameter('output', Annotation(arr_t, 'o')),
+            Parameter('output', Annotation(res_t, 'o')),
             Parameter('input', Annotation(arr_t, 'i'))
             ])
 
@@ -512,5 +515,25 @@ def test_transformation_macros(thr):
     compc(res_dev, a_dev)
 
     res_ref = a * 2
+
+    assert diff_is_negligible(res_dev.get(), res_ref)
+
+
+def test_array_views(thr):
+    dtype = numpy.int32
+
+    a = get_test_array((6, 8, 10), dtype)
+    a_view = a[:,3,:]
+
+    a_dev = thr.to_device(a)
+    a_dev_view = a_dev[:,3,:]
+
+    comp = ExpressionIndexing(a_dev_view)
+    res_dev = thr.empty_like(comp.parameter.output)
+
+    compc = comp.compile(thr)
+    compc(res_dev, a_dev_view)
+
+    res_ref = a_view * 2
 
     assert diff_is_negligible(res_dev.get(), res_ref)

@@ -250,3 +250,42 @@ class ignore_integer_overflow():
 
     def __exit__(self, *args, **kwds):
         self.catch.__exit__(*args, **kwds)
+
+
+def normalize_axes(ndim, axes):
+    """
+    Transform an iterable of array axes (which can be negative) or a single axis
+    into a tuple of non-negative axes.
+    """
+    if axes is None:
+        axes = tuple(range(ndim))
+    else:
+        axes = wrap_in_tuple(axes)
+        axes = tuple(axis if axis >= 0 else ndim + axis for axis in axes)
+        if any(axis < 0 or axis >= ndim for axis in axes):
+            raise IndexError("Array index out of range")
+    return axes
+
+
+def are_axes_innermost(ndim, axes):
+    inner_axes = list(range(ndim - len(axes), ndim))
+    return all(axis == inner_axis for axis, inner_axis in zip(axes, inner_axes))
+
+
+def make_axes_innermost(ndim, axes):
+    """
+    Given the total number of array axes and a list of axes in this range,
+    produce a transposition plan (suitable e.g. for ``numpy.transpose()``)
+    that will move make the given axes innermost (in the order they're given).
+    Returns the transposition plan, and the plan to transpose the resulting array back
+    to the original axes order.
+    """
+    orig_order = list(range(ndim))
+    outer_axes = [i for i in orig_order if i not in axes]
+    transpose_to = outer_axes + list(axes)
+
+    transpose_from = [None] * ndim
+    for i, axis in enumerate(transpose_to):
+        transpose_from[axis] = i
+
+    return tuple(transpose_to), tuple(transpose_from)

@@ -1,6 +1,15 @@
 0.7.0
 =====
 
+Scan:
+
+* Split struct fields for the local memory operations the same as in Reduce. Since Scan uses optimized bank access, it will increase speed for structure types.
+* Refactor plan building code.
+* Add dynamic workgroup size selection (in case the maximum one uses too many registers)
+* Review the code of Reduce and make it resemble that of Scan (after all, they are very similar).
+
+* CHANGE: change the access to a kernel of a program from ``program.kernel_name`` to ``program.kernel.kernel_name`` (to make avoid name collisions with ``program`` methods, and to make it similar to the compuations interface)
+
 * FEATURE: test and possibly port FFT code from https://github.com/clMathLibraries/clFFT. It's probably faster than the Apple's code currently used.
 
 * ?API (cluda): having a reikna Array superclassing PyCUDA/PyOpenCL arrays is dangerous for seamless usage of Reikna computations with existing PyCUDA/PyOpenCL code.
@@ -79,7 +88,6 @@
 
 * FEATURE (computations): add matrix-vector and vector-vector multiplication (the latter can probably be implemented just as a specialized ``Reduce``)
 * FEATURE (computations): add better block width finder for small matrices in matrixmul
-* FEATURE (computations): add scan
 * FEATURE (computations): add bitonic sort
 * FEATURE (computations): add filter
 * FEATURE (computations): add radix-3,5,7 for FFT
@@ -98,6 +106,34 @@
 
 2.*
 ===
+
+
+Interface simplifications
+-------------------------
+
+Currently computations and transformations are hard to write, read and debug. There is a number of things that can improve matters significantly:
+
+Kernel DSL:
+
+* allows one to do everything the C code can (defining and using structure types, creating variables and arrays on the stack etc)
+* allows one to do everything Mako can (e.g. unroll loops)
+* avoids explicit numeric function specifications (that is, can propagate types)
+* kernels and internal functions can be executed as-is for debug purposes (or even in a special mode checking array bounds, bank conflicts or global memory access coalescing)
+* note that the transformation DSL may be different from the kernel DSL (namely, more limited)
+
+Computation plan:
+
+* Use assignment syntax instead of mutated arrays (that will only work in a plan, of course)
+* Use assignment syntax instead of attaching transformations via parameters.
+* Give kernels and computations human-friendly names, so that one could run a computation in the timed mode getting info on how much time each kernel takes (possibly accumulating that data over several runs) and displaying it as a call tree.
+* Need some easy way to check the intermediate results of the computation (for debugging purposes). In the essense, we need to derive the computation signature automatically from declared inputs/returns instead of specifying it explicitly.
+* Need more clear separation of the preparation and compilation stages. Either by the means of API, or at least some guidelines.
+
+Other:
+
+* Support "dynamic" array parameters: size (perhaps only over a particular axis), strides and offset. The user can choose whether to compile in the parameter, or pass it on invocation. This will allow one to pass different views of the same array without recompiling the kernel, for instance. It will be easier with strides and offsets, but the change of shape may require a different kernel grid/block sizes, so may not be feasible.
+* Export all the user-level stuff from the top level of ``reikna`` module, and all the computation-writing stuff from ``reikna.core`` or something.
+
 
 
 Correlations

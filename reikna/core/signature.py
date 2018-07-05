@@ -27,9 +27,13 @@ class Type:
     .. py:attribute:: strides
 
         Tuple of bytes to step in each dimension when traversing an array.
+
+    .. py:attribute:: offset
+
+        The initial offset (in bytes).
     """
 
-    def __init__(self, dtype, shape=None, strides=None):
+    def __init__(self, dtype, shape=None, strides=None, offset=0):
         self.shape = tuple() if shape is None else wrap_in_tuple(shape)
         self.size = product(self.shape)
         self.dtype = dtypes.normalize_type(dtype)
@@ -39,11 +43,12 @@ class Type:
                 self.dtype.itemsize * product(self.shape[i+1:]) for i in range(len(self.shape))])
         else:
             self.strides = strides
+        self.offset = offset
         self._cast = dtypes.cast(self.dtype)
 
     def __eq__(self, other):
         return (self.shape == other.shape and self.dtype == other.dtype
-            and self.strides == other.strides)
+            and self.strides == other.strides and self.offset == other.offset)
 
     def __ne__(self, other):
         return not (self == other)
@@ -61,6 +66,8 @@ class Type:
             return False
         if helpers.product(other.shape[:-common_shape_len]) != 1:
             return False
+        if self.offset != other.offset:
+            return False
 
         return True
 
@@ -72,12 +79,13 @@ class Type:
         if isinstance(val, Type):
             # Creating a new object, because ``val`` may be some derivative of Type,
             # used as a syntactic sugar, and we do not want it to confuse us later.
-            return cls(val.dtype, shape=val.shape, strides=val.strides)
+            return cls(val.dtype, shape=val.shape, strides=val.strides, offset=val.offset)
         elif numpy.issctype(val):
             return cls(val)
         elif hasattr(val, 'dtype') and hasattr(val, 'shape'):
             strides = val.strides if hasattr(val, 'strides') else None
-            return cls(val.dtype, shape=val.shape, strides=strides)
+            offset = val.offset if hasattr(val, 'offset') else 0
+            return cls(val.dtype, shape=val.shape, strides=strides, offset=offset)
         else:
             return cls(dtypes.detect_type(val))
 
@@ -89,13 +97,13 @@ class Type:
 
     def __repr__(self):
         if len(self.shape) > 0:
-            return "Type({dtype}, shape={shape}, strides={strides})".format(
-                dtype=self.dtype, shape=self.shape, strides=self.strides)
+            return "Type({dtype}, shape={shape}, strides={strides}, offset={offset})".format(
+                dtype=self.dtype, shape=self.shape, strides=self.strides, offset=self.offset)
         else:
             return "Type({dtype})".format(dtype=self.dtype)
 
     def __process_modules__(self, process):
-        tp = Type(self.dtype, shape=self.shape, strides=self.strides)
+        tp = Type(self.dtype, shape=self.shape, strides=self.strides, offset=self.offset)
         tp.ctype = process(tp.ctype)
         return tp
 
@@ -108,17 +116,25 @@ class Annotation:
     :param type_: a :py:class:`~reikna.core.Type` object.
     :param role: any of ``'i'`` (input), ``'o'`` (output),
         ``'io'`` (input/output), ``'s'`` (scalar).
-        Defaults to ``'s'`` for scalars and ``'io'`` for arrays.
+        Defaults to ``'s'`` for scalars, ``'io'`` for regular arrays
+        and ``'i'`` for constant arrays.
+    :param constant: if ``True``, corresponds to a constant (cached) array.
     """
 
-    def __init__(self, type_, role=None):
+    def __init__(self, type_, role=None, constant=False):
         self.type = Type.from_value(type_)
 
         if role is None:
-            role = 's' if len(self.type.shape) == 0 else 'io'
+            if len(self.type.shape) == 0:
+                role = 's'
+            elif constant:
+                role = 'i'
+            else:
+                role = 'io'
 
         assert role in ('i', 'o', 'io', 's')
         self.role = role
+        self.constant = constant
         if role == 's':
             self.array = False
             self.input = False
@@ -129,7 +145,8 @@ class Annotation:
             self.output = 'o' in role
 
     def __eq__(self, other):
-        return self.type == other.type and self.role == other.role
+        return (self.type == other.type
+            and self.role == other.role and self.constant == other.constant)
 
     def can_be_argument_for(self, annotation):
         if not self.type.compatible_with(annotation.type):
@@ -145,13 +162,14 @@ class Annotation:
 
     def __repr__(self):
         if self.array:
-            return "Annotation({type_}, role={role})".format(
-                type_=self.type, role=repr(self.role))
+            return "Annotation({type_}, role={role}{constant})".format(
+                type_=self.type, role=repr(self.role),
+                constant=", constant" if self.constant else "")
         else:
             return "Annotation({dtype})".format(dtype=self.type.dtype)
 
     def __process_modules__(self, process):
-        ann = Annotation(self.type, role=self.role)
+        ann = Annotation(self.type, role=self.role, constant=self.constant)
         ann.type = process(ann.type)
         return ann
 
