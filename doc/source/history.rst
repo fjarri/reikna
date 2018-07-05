@@ -12,6 +12,8 @@ Release history
 
 * ADDED: an optional parameter ``compiler_options`` for :py:meth:`Thread.compile <reikna.cluda.api.Thread.compile>`, :py:meth:`Thread.compile_static <reikna.cluda.api.Thread.compile_static>` and :py:meth:`Computation.compile <reikna.core.Computation.compile>`, allowing one to pass additional options to the compiler.
 
+* ADDED: support for constant arrays. On CLUDA level, use ``constant_arrays`` keyword parameter to :py:meth:`~reikna.cluda.api.Thread.compile` and :py:meth:`~reikna.cluda.api.Thread.compile_static`, and subsequent :py:meth:`~reikna.cluda.api.Program.set_constant` (CUDA only) (or the analogous methods of :py:class:`~reikna.cluda.api.Kernel` or :py:class:`~reikna.cluda.api.StaticKernel`). On the computation level, use :py:meth:`ComputationPlan.constant_array <reikna.core.computation.ComputationPlan.constant_array>` to declare a constant array, and then pass the returned objects to kernels as any other argument.
+
 * FIXED: some methods inherited by :py:class:`~reikna.cluda.api.Array` from the backend array class in case of the OpenCL backend failed because of the changed interface.
 
 * FIXED: incorrect postfix in the result of :py:func:`~reikna.cluda.dtypes.c_constant` for unsigned long integers.

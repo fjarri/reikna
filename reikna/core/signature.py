@@ -116,17 +116,25 @@ class Annotation:
     :param type_: a :py:class:`~reikna.core.Type` object.
     :param role: any of ``'i'`` (input), ``'o'`` (output),
         ``'io'`` (input/output), ``'s'`` (scalar).
-        Defaults to ``'s'`` for scalars and ``'io'`` for arrays.
+        Defaults to ``'s'`` for scalars, ``'io'`` for regular arrays
+        and ``'i'`` for constant arrays.
+    :param constant: if ``True``, corresponds to a constant (cached) array.
     """
 
-    def __init__(self, type_, role=None):
+    def __init__(self, type_, role=None, constant=False):
         self.type = Type.from_value(type_)
 
         if role is None:
-            role = 's' if len(self.type.shape) == 0 else 'io'
+            if len(self.type.shape) == 0:
+                role = 's'
+            elif constant:
+                role = 'i'
+            else:
+                role = 'io'
 
         assert role in ('i', 'o', 'io', 's')
         self.role = role
+        self.constant = constant
         if role == 's':
             self.array = False
             self.input = False

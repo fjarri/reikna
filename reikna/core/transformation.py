@@ -389,8 +389,11 @@ class TransformationTree:
         new_tree.reconnect(self)
         return new_tree
 
-    def get_kernel_declaration(self, kernel_name):
+    def get_kernel_declaration(self, kernel_name, skip_constants=False):
         leaf_params = self.get_leaf_parameters()
+
+        if skip_constants:
+            leaf_params = [param for param in leaf_params if not param.annotation.constant]
 
         decl = kernel_declaration(kernel_name, leaf_params)
         leaf_names = [param.name for param in leaf_params]

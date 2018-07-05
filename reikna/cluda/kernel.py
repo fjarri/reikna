@@ -10,9 +10,10 @@ from reikna.cluda import dtypes
 TEMPLATE = template_for(__file__)
 
 
-def render_prelude(thr, fast_math=False):
+def render_prelude(thr, fast_math=False, constant_arrays=None):
     return TEMPLATE.get_def('prelude').render(
-        api=thr.api.get_id(), compile_fast_math=fast_math)
+        api=thr.api.get_id(), compile_fast_math=fast_math,
+        dtypes=dtypes, constant_arrays=constant_arrays)
 
 
 def render_template(template, *args, **kwds):

@@ -1,6 +1,7 @@
 import weakref
 from collections import namedtuple
 
+from reikna.cluda import cuda_id
 from reikna.helpers import Graph
 from reikna.core.signature import Parameter, Annotation, Type, Signature
 from reikna.core.transformation import TransformationTree, TransformationParameter
@@ -259,6 +260,7 @@ class ComputationPlan:
         """__init__()""" # hide the signature from Sphinx
 
         self._thread = thread
+        self._is_cuda = (thread.api.get_id() == cuda_id())
         self._tr_tree = tr_tree
         self._translator = translator
         self._fast_math = fast_math
@@ -266,10 +268,12 @@ class ComputationPlan:
 
         self._nested_comp_idgen = IdGen('_nested')
         self._persistent_value_idgen = IdGen('_value')
+        self._constant_value_idgen = IdGen('_constant')
         self._temp_array_idgen = IdGen('_temp')
 
         self._external_annotations = self._tr_tree.get_root_annotations()
         self._persistent_values = {}
+        self._constant_arrays = {}
         self._temp_arrays = set()
         self._internal_annotations = {}
         self._kernels = []
@@ -308,6 +312,17 @@ class ComputationPlan:
         ann = Annotation(Type(dtype, shape=shape, strides=strides, offset=offset), 'io')
         self._internal_annotations[name] = ann
         self._temp_arrays.add(name)
+        return KernelArgument(name, ann.type)
+
+    def constant_array(self, arr):
+        """
+        Adds a constant GPU array to the plan, and returns the corresponding
+        :py:class:`KernelArgument`.
+        """
+        name = self._translator(self._constant_value_idgen())
+        ann = Annotation(arr, constant=True)
+        self._internal_annotations[name] = ann
+        self._constant_arrays[name] = self._thread.to_device(arr)
         return KernelArgument(name, ann.type)
 
     def temp_array_like(self, arr):
@@ -415,7 +430,8 @@ class ComputationPlan:
         subtree = self._tr_tree.get_subtree(processed_args)
 
         kernel_name = '_kernel_func'
-        kernel_declaration, kernel_leaf_names = subtree.get_kernel_declaration(kernel_name)
+        kernel_declaration, kernel_leaf_names = subtree.get_kernel_declaration(
+            kernel_name, skip_constants=self._is_cuda)
         kernel_argobjects = subtree.get_kernel_argobjects()
 
         if render_kwds is None:
@@ -423,12 +439,25 @@ class ComputationPlan:
         else:
             render_kwds = dict(render_kwds)
 
+        if self._is_cuda:
+            constant_arrays = {}
+            for karg in kernel_argobjects:
+                if karg.name in self._constant_arrays:
+                    constant_arrays[str(karg)] = self._constant_arrays[karg.name]
+        else:
+            constant_arrays = None
+
         kernel = self._thread.compile_static(
             template_def, kernel_name, global_size, local_size=local_size,
             render_args=[kernel_declaration] + kernel_argobjects,
             render_kwds=render_kwds,
             fast_math=self._fast_math,
-            compiler_options=self._compiler_options)
+            compiler_options=self._compiler_options,
+            constant_arrays=constant_arrays)
+
+        if self._is_cuda:
+            for name, arr in constant_arrays.items():
+                kernel.set_constant(name, arr)
 
         self._kernels.append(PlannedKernelCall(kernel, kernel_leaf_names, adhoc_values))
 
@@ -492,6 +521,7 @@ class ComputationPlan:
         # Create a dictionary of internal values to be used by kernels.
 
         internal_args = dict(self._persistent_values)
+        internal_args.update(self._constant_arrays)
 
         # Allocate buffers specifying the dependencies
         all_buffers = []

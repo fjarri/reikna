@@ -142,10 +142,17 @@ class Thread(api_base.Thread):
             return arr_cpu
 
     def _copy_array_buffer(self, dest, src, nbytes, src_offset=0, dest_offset=0):
+        self._memcpy_dtod(
+            dest.gpudata, src.gpudata, nbytes, src_offset=src_offset, dest_offset=dest_offset)
+
+    def _memcpy_dtod(self, dest, src, nbytes, src_offset=0, dest_offset=0):
         cuda.memcpy_dtod_async(
-            int(dest.gpudata) + dest_offset,
-            int(src.gpudata) + src_offset,
+            int(dest) + dest_offset,
+            int(src) + src_offset,
             nbytes, stream=self._queue)
+
+    def _memcpy_htod(self, dest, src):
+        cuda.memcpy_htod(dest, src)
 
     def synchronize(self):
         self._queue.synchronize()
