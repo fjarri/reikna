@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.7.0 (current development version)
-===================================
+0.7.0 (5 Jul 2018)
+==================
 
 * CHANGED: ``async`` keywords in multiple methods have been renamed to ``async_``, since ``async`` is a keyword starting from Python 3.7.
 
