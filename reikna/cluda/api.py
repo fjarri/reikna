@@ -123,7 +123,7 @@ class Thread:
 
     :param cqd: a ``Context``, ``Device`` or ``Stream``/``CommandQueue`` object to base on.
         If a context is passed, a new stream/queue will be created internally.
-    :param async: whether to execute all operations with this thread asynchronously
+    :param async_: whether to execute all operations with this thread asynchronously
         (you would generally want to set it to ``False`` only for profiling purposes).
 
     .. note::
@@ -222,10 +222,10 @@ class Thread:
             thread_kwds = {}
         return cls(platforms[selected_pnum].get_devices()[selected_dnum], **thread_kwds)
 
-    def __init__(self, cqd, async=True, temp_alloc=None):
+    def __init__(self, cqd, async_=True, temp_alloc=None):
 
         self._released = False
-        self._async = async
+        self._async = async_
 
         # Make the fields initialized even in case _prcess_cqd() raises an exception.
         self._context = None
@@ -310,11 +310,11 @@ class Thread:
         if dest is None:
             return arr_device
 
-    def from_device(self, arr, dest=None, async=False):
+    def from_device(self, arr, dest=None, async_=False):
         """
         Transfers the contents of ``arr`` to a ``numpy.ndarray`` object.
         The effect of ``dest`` parameter is the same as in :py:meth:`to_device`.
-        If ``async`` is ``True``, the transfer is asynchronous
+        If ``async_`` is ``True``, the transfer is asynchronous
         (the thread-wide asynchronisity setting does not apply here).
 
         Alternatively, one can use :py:meth:`Array.get`.

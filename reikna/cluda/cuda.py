@@ -80,7 +80,7 @@ class Array(gpuarray.GPUArray):
         so we're overriding it.
         """
         new_arr = self._new_like_me()
-        gpuarray._memcpy_discontig(new_arr, self, async=True, stream=self.thread._queue)
+        gpuarray._memcpy_discontig(new_arr, self, async_=True, stream=self.thread._queue)
         return new_arr
 
     def _new_like_me(self, dtype=None):
@@ -132,8 +132,8 @@ class Thread(api_base.Thread):
     def _copy_array(self, dest, src):
         dest.set_async(src, stream=self._queue)
 
-    def from_device(self, arr, dest=None, async=False):
-        if async:
+    def from_device(self, arr, dest=None, async_=False):
+        if async_:
             arr_cpu = arr.get_async(ary=dest, stream=self._queue)
         else:
             arr_cpu = arr.get(ary=dest)

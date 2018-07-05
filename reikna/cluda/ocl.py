@@ -58,10 +58,10 @@ class Thread(api_base.Thread):
         return Array(self, shape, dtype, strides=strides, offset=offset, allocator=allocator)
 
     def _copy_array(self, dest, src):
-        dest.set(src, queue=self._queue, async=self._async)
+        dest.set(src, queue=self._queue, async_=self._async)
 
-    def from_device(self, arr, dest=None, async=False):
-        arr_cpu = arr.get(queue=self._queue, ary=dest, async=async)
+    def from_device(self, arr, dest=None, async_=False):
+        arr_cpu = arr.get(queue=self._queue, ary=dest, async_=async_)
         if dest is None:
             return arr_cpu
 

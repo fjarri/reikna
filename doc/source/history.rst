@@ -6,6 +6,8 @@ Release history
 0.7.0 (current development version)
 ===================================
 
+* CHANGED: ``async`` keywords in multiple methods have been renamed to ``async_``, since ``async`` is a keyword starting from Python 3.7.
+
 * ADDED: an ability to handle array views in computations.
 
 * ADDED: a scan class :py:class:`~reikna.algorithms.Scan`.

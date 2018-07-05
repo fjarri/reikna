@@ -116,12 +116,12 @@ def test_transfers(thr):
         thr.from_device(x, dest=y)
         return y
     def from_device4(x):
-        y = thr.from_device(x, async=True)
+        y = thr.from_device(x, async_=True)
         thr.synchronize()
         return y
     def from_device5(x):
         y = numpy.empty(x.shape, x.dtype)
-        thr.from_device(x, dest=y, async=True)
+        thr.from_device(x, dest=y, async_=True)
         thr.synchronize()
         return y
 
