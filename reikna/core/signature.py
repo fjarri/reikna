@@ -145,7 +145,8 @@ class Annotation:
             self.output = 'o' in role
 
     def __eq__(self, other):
-        return self.type == other.type and self.role == other.role
+        return (self.type == other.type
+            and self.role == other.role and self.constant == other.constant)
 
     def can_be_argument_for(self, annotation):
         if not self.type.compatible_with(annotation.type):
@@ -161,13 +162,14 @@ class Annotation:
 
     def __repr__(self):
         if self.array:
-            return "Annotation({type_}, role={role})".format(
-                type_=self.type, role=repr(self.role))
+            return "Annotation({type_}, role={role}{constant})".format(
+                type_=self.type, role=repr(self.role),
+                constant=", constant" if self.constant else "")
         else:
             return "Annotation({dtype})".format(dtype=self.type.dtype)
 
     def __process_modules__(self, process):
-        ann = Annotation(self.type, role=self.role)
+        ann = Annotation(self.type, role=self.role, constant=self.constant)
         ann.type = process(ann.type)
         return ann
 
