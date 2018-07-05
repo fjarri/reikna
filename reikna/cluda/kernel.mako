@@ -12,6 +12,7 @@
     #define WITHIN_KERNEL __device__
     #define KERNEL extern "C" __global__
     #define GLOBAL_MEM /* empty */
+    #define GLOBAL_MEM_ARG /* empty */
     #define LOCAL_MEM __shared__
     #define LOCAL_MEM_DYNAMIC extern __shared__
     #define LOCAL_MEM_ARG /* empty */
@@ -83,6 +84,7 @@
 
     #define KERNEL __kernel
     #define GLOBAL_MEM __global
+    #define GLOBAL_MEM_ARG __global
     #define LOCAL_MEM __local
     #define LOCAL_MEM_DYNAMIC __local
     #define LOCAL_MEM_ARG __local
