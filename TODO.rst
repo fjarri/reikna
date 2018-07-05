@@ -8,6 +8,7 @@ Scan:
 * Add dynamic workgroup size selection (in case the maximum one uses too many registers)
 * Review the code of Reduce and make it resemble that of Scan (after all, they are very similar).
 
+* CHANGE: change the access to a kernel of a program from ``program.kernel_name`` to ``program.kernel.kernel_name`` (to make avoid name collisions with ``program`` methods, and to make it similar to the compuations interface)
 
 * FEATURE: test and possibly port FFT code from https://github.com/clMathLibraries/clFFT. It's probably faster than the Apple's code currently used.
 
