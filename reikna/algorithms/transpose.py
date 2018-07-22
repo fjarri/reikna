@@ -76,6 +76,10 @@ class Transpose(Computation):
     Works analogous to ``numpy.transpose``.
 
     :param arr_t: an array-like defining the initial array.
+    :param output_arr_t: an array-like defining the output array.
+        If ``None``, its shape will be derived based on the shape of ``arr_t``,
+        its dtype will be equal to that of ``arr_t``,
+        and any non-default offset or strides of ``arr_t`` will be ignored.
     :param axes: tuple with the new axes order.
         If ``None``, then axes will be reversed.
 
@@ -86,7 +90,7 @@ class Transpose(Computation):
         :param input: an array with all the attributes of ``arr_t``.
     """
 
-    def __init__(self, arr_t, axes=None, block_width_override=None):
+    def __init__(self, arr_t, output_arr_t=None, axes=None, block_width_override=None):
 
         self._block_width_override = block_width_override
 
@@ -100,7 +104,16 @@ class Transpose(Computation):
         self._transposes = get_transposes(arr_t.shape, self._axes)
 
         output_shape = transpose_shape(arr_t.shape, self._axes)
-        output_arr = Type(arr_t.dtype, output_shape)
+
+        if output_arr_t is None:
+            output_arr = Type(arr_t.dtype, output_shape)
+        else:
+            if output_arr_t.shape != output_shape:
+                raise ValueError("Expected output array shape: {exp_shape}, got {got_shape}".format(
+                    exp_shape=output_arr_t, got_shape=output_arr_t.shape))
+            if output_arr_t.dtype != arr_t.dtype:
+                raise ValueError("Input and output array must have the same dtype")
+            output_arr = output_arr_t
 
         Computation.__init__(self, [
             Parameter('output', Annotation(output_arr, 'o')),

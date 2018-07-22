@@ -313,7 +313,7 @@ class DHT(Computation):
 
         if current_axes != seq_axes:
             tr_axes = [current_axes.index(i) for i in range(len(current_axes))]
-            transpose = Transpose(current_mem, axes=tr_axes)
+            transpose = Transpose(current_mem, output_arr_t=output_arr, axes=tr_axes)
             plan.add_computation(transpose, output_arr, current_mem)
 
         return plan

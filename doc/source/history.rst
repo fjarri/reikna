@@ -6,7 +6,7 @@ Release history
 0.8.0 (current development version)
 ===================================
 
-Under construction.
+* ADDED: an ``output_arr_t`` keyword parameter for :py:class:`~reikna.algorithms.Transpose`.
 
 
 0.7.0 (5 Jul 2018)

@@ -85,7 +85,8 @@ class Scan(Computation):
                 max_work_group_size=self._max_work_group_size)
             transposed_scanned = plan.temp_array_like(sub_scan.parameter.output)
 
-            transpose_from = Transpose(transposed_scanned, axes=self._transpose_from)
+            transpose_from = Transpose(
+                transposed_scanned, axes=self._transpose_from, output_arr_t=output)
 
             plan.computation_call(transpose_to, transposed, input_)
             plan.computation_call(sub_scan, transposed_scanned, transposed)
