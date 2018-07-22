@@ -8,6 +8,8 @@ Release history
 
 * ADDED: an ``output_arr_t`` keyword parameter for :py:class:`~reikna.algorithms.Transpose`.
 
+* ADDED: support for non-zero array offsets for the CUDA backend.
+
 
 0.7.0 (5 Jul 2018)
 ==================

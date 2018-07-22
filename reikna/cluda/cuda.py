@@ -123,11 +123,11 @@ class Thread(api_base.Thread):
         kwds = {}
         if strides is not None:
             kwds['strides'] = strides
-        if offset !=0:
-            kwds['offset'] = offset
         if allocator is not None:
             kwds['allocator'] = allocator
-        return Array(self, shape, dtype, **kwds)
+        arr = Array(self, shape, dtype, **kwds)
+        arr.offset = offset
+        return arr
 
     def _copy_array(self, dest, src):
         dest.set_async(src, stream=self._queue)
