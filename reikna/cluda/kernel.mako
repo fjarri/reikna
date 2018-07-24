@@ -19,8 +19,8 @@
     #define CONSTANT_MEM __constant__
     #define CONSTANT_MEM_ARG /* empty */
     #define INLINE __forceinline__
-    #define SIZE_T unsigned int
-    #define VSIZE_T unsigned int
+    #define SIZE_T int
+    #define VSIZE_T int
 
     // used to align fields in structures
     #define ALIGN(bytes) __align__(bytes)

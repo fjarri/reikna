@@ -6,6 +6,8 @@ Release history
 0.8.0 (current development version)
 ===================================
 
+* CHANGED: ``SIZE_T`` and ``VSIZE_T`` are now signed integers, to avoid problems with negative indices and strides.
+
 * ADDED: an ``output_arr_t`` keyword parameter for :py:class:`~reikna.algorithms.Transpose`.
 
 * ADDED: support for non-zero array offsets for the CUDA backend.
