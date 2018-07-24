@@ -10,6 +10,8 @@ Release history
 
 * ADDED: support for non-zero array offsets for the CUDA backend.
 
+* ADDED: a specialized FFT example (``examples/demo_specialized_fft.py``).
+
 
 0.7.0 (5 Jul 2018)
 ==================
