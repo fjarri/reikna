@@ -3,7 +3,10 @@ import pytest
 
 from reikna.core import Parameter, Annotation, Transformation
 from reikna.core.signature import Type
-from reikna.cluda import functions
+from reikna.cluda import functions, cuda_id
+
+from reikna.algorithms import PureParallel
+from reikna import transformations
 
 from helpers import *
 from test_core.dummy import *
@@ -520,20 +523,70 @@ def test_transformation_macros(thr):
 
 
 def test_array_views(thr):
-    dtype = numpy.int32
 
-    a = get_test_array((6, 8, 10), dtype)
-    a_view = a[:,3,:]
+    a = get_test_array((6, 8, 10), numpy.int32)
 
     a_dev = thr.to_device(a)
-    a_dev_view = a_dev[:,3,:]
+    b_dev = thr.empty_like(a)
 
-    comp = ExpressionIndexing(a_dev_view)
-    res_dev = thr.empty_like(comp.parameter.output)
+    in_view = a_dev[2:4, ::2, ::-1]
+    out_view = b_dev[4:, 1:5, :]
 
-    compc = comp.compile(thr)
-    compc(res_dev, a_dev_view)
+    move = PureParallel.from_trf(
+        transformations.copy(in_view, out_arr_t=out_view),
+        guiding_array='output').compile(thr)
 
-    res_ref = a_view * 2
+    move(out_view, in_view)
+    b_res = b_dev.get()[4:, 1:5, :]
+    b_ref = a[2:4, ::2, ::-1]
 
-    assert diff_is_negligible(res_dev.get(), res_ref)
+    assert diff_is_negligible(b_res, b_ref)
+
+
+def test_array_offset(thr):
+
+    dtype = numpy.uint32
+    itemsize = dtypes.normalize_type(dtype).itemsize
+    offset_len = 10
+    arr_len = 16
+
+    # internal creation of the base array
+    a1 = thr.array((arr_len,), dtype, offset=itemsize * offset_len)
+
+    # providing base
+    a2_base = thr.array((arr_len + offset_len,), dtype)
+    a2 = thr.array((arr_len,), dtype, offset=itemsize * offset_len, base=a2_base)
+
+    # providing base_data
+    a3_base = thr.array((arr_len + offset_len,), dtype)
+    a3_data = a3_base.gpudata if thr.api.get_id() == cuda_id() else a3_base.data
+    a3 = thr.array((arr_len,), dtype, offset=itemsize * offset_len, base_data=a3_data)
+
+    fill = PureParallel(
+        [
+            Parameter('output1', Annotation(a1, 'o')),
+            Parameter('output2', Annotation(a2, 'o')),
+            Parameter('output3', Annotation(a3, 'o')),
+        ],
+        """
+        ${output1.store_idx}((int)${idxs[0]} - ${offset_len}, ${idxs[0]});
+        ${output2.store_idx}((int)${idxs[0]} - ${offset_len}, ${idxs[0]});
+        ${output3.store_idx}((int)${idxs[0]} - ${offset_len}, ${idxs[0]});
+        """,
+        render_kwds=dict(offset_len=offset_len),
+        guiding_array=(arr_len + offset_len,)
+        ).compile(thr)
+
+    fill(a1, a2, a3)
+
+    offset_range = numpy.arange(offset_len, arr_len + offset_len).astype(dtype)
+    full_range = numpy.arange(arr_len + offset_len).astype(dtype)
+
+    assert diff_is_negligible(a1.get(), offset_range)
+
+    assert diff_is_negligible(a2_base.get(), full_range)
+    assert diff_is_negligible(a2.get(), offset_range)
+
+    assert diff_is_negligible(a3_base.get(), full_range)
+    assert diff_is_negligible(a3.get(), offset_range)
+

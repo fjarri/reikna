@@ -10,7 +10,7 @@ Release history
 
 * ADDED: an ``output_arr_t`` keyword parameter for :py:class:`~reikna.algorithms.Transpose`.
 
-* ADDED: support for non-zero array offsets for the CUDA backend.
+* ADDED: a proper support for non-zero array offsets and array views. Added ``base`` and ``base_data`` keyword parameters for :py:meth:`~reikna.cluda.api.Thread.array`.
 
 * ADDED: a specialized FFT example (``examples/demo_specialized_fft.py``).
 

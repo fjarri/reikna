@@ -1,6 +1,8 @@
 import sys
 import itertools
 
+import numpy
+
 import pycuda.gpuarray as gpuarray
 import pycuda.driver as cuda
 from pycuda.compiler import SourceModule
@@ -118,16 +120,30 @@ class Thread(api_base.Thread):
     def allocate(self, size):
         return Buffer(size)
 
-    def array(self, shape, dtype, strides=None, offset=0, allocator=None):
+    def array(
+            self, shape, dtype, strides=None, offset=0, allocator=None, base=None, base_data=None):
+
         # In PyCUDA, the default allocator is not None, but a default alloc object
-        kwds = {}
-        if strides is not None:
-            kwds['strides'] = strides
-        if allocator is not None:
-            kwds['allocator'] = allocator
-        arr = Array(self, shape, dtype, **kwds)
-        arr.offset = offset
-        return arr
+        if allocator is None:
+            allocator = cuda.mem_alloc
+
+        if offset != 0 and (base_data is None and base is None):
+            if strides is not None:
+                data_size = strides[0] * shape[0]
+            else:
+                data_size = product(shape) * dtypes.normalize_type(dtype).itemsize
+
+            base = Array(self, data_size + offset, numpy.uint8, allocator=allocator)
+            base_data = int(base.gpudata) + offset
+        elif base is not None:
+            base_data = int(base.gpudata) + offset
+        elif base_data is not None:
+            base = None
+            base_data = int(base_data) + offset
+
+        return Array(
+            self, shape, dtype, strides=strides, allocator=allocator,
+            base=base, gpudata=base_data)
 
     def _copy_array(self, dest, src):
         dest.set_async(src, stream=self._queue)

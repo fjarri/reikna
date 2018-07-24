@@ -3,7 +3,7 @@ import sys
 import pyopencl as cl
 import pyopencl.array as clarray
 
-from reikna.helpers import wrap_in_tuple
+from reikna.helpers import wrap_in_tuple, product
 import reikna.cluda as cluda
 import reikna.cluda.dtypes as dtypes
 import reikna.cluda.api as api_base
@@ -51,11 +51,28 @@ class Thread(api_base.Thread):
         else:
             return ValueError("The value provided is not Device, Context or CommandQueue")
 
+    def array(
+            self, shape, dtype, strides=None, offset=0, allocator=None, base=None, base_data=None):
+
+        if offset != 0 and (base_data is None and base is None):
+            if strides is not None:
+                data_size = strides[0] * shape[0]
+            else:
+                data_size = product(shape) * dtypes.normalize_type(dtype).itemsize
+
+            if allocator is None:
+                allocator = self.allocate
+
+            base_data = allocator(data_size + offset)
+
+        elif base is not None:
+            base_data = base.data
+
+        return Array(
+            self, shape, dtype, strides=strides, offset=offset, allocator=allocator, data=base_data)
+
     def allocate(self, size):
         return cl.Buffer(self._context, cl.mem_flags.READ_WRITE, size=size)
-
-    def array(self, shape, dtype, strides=None, offset=0, allocator=None):
-        return Array(self, shape, dtype, strides=strides, offset=offset, allocator=allocator)
 
     def _copy_array(self, dest, src):
         dest.set(src, queue=self._queue, async_=self._async)

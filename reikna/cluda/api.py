@@ -251,10 +251,24 @@ class Thread:
         """
         raise NotImplementedError()
 
-    def array(self, shape, dtype, strides=None, offset=0, allocator=None):
+    def array(
+            self, shape, dtype, strides=None, offset=0, base=None, base_data=None, allocator=None):
         """
         Creates an :py:class:`Array` on GPU with given ``shape``, ``dtype``,
         ``strides`` and ``offset``.
+
+        If ``base`` and ``base_data`` are ``None``,
+        the total allocated size will be the size required for the array
+        (based on ``shape`` and ``strides``) plus ``offset``.
+
+        If ``base_data`` (a memory buffer) is not ``None``,
+        it will be used as the underlying buffer for the array.
+        No size checking to make sure the array and the offset fit it will be performed.
+
+        If ``base`` (an :py:class:`Array` object) is not ``None``,
+        its buffer is used as the underlying buffer for the array.
+        ``base_data`` will be ignored.
+
         Optionally, an ``allocator`` is a callable returning any object castable to ``int``
         representing the physical address on the device (for instance, :py:class:`Buffer`).
         """
