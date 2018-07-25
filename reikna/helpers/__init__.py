@@ -301,3 +301,11 @@ def min_buffer_size(shape, itemsize, strides=None, offset=0):
 
     data_size = sum(stride * (l - 1) for stride, l in zip(strides, shape)) + itemsize
     return data_size + offset
+
+
+def padded_buffer_parameters(shape, itemsize, pad=0):
+    padded_shape = [l + pad * 2 for l in shape]
+    strides = default_strides(padded_shape, itemsize)
+    full_size = min_buffer_size(padded_shape, itemsize, strides=strides)
+    offset = sum(stride * pad for stride in strides)
+    return strides, offset, full_size

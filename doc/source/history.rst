@@ -14,6 +14,8 @@ Release history
 
 * ADDED: a specialized FFT example (``examples/demo_specialized_fft.py``).
 
+* ADDED: a method :py:meth:`~reikna.core.Type.padded` of :py:class:`~reikna.core.Type`.
+
 
 0.7.0 (5 Jul 2018)
 ==================

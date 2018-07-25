@@ -108,6 +108,16 @@ class Type:
         else:
             return cls(dtypes.detect_type(val))
 
+    @classmethod
+    def padded(cls, shape, dtype, pad=0):
+        """
+        Creates a :py:class:`Type` object corresponding to an array padded from all dimensions
+        by `pad` elements.
+        """
+        dtype = dtypes.normalize_type(dtype)
+        strides, offset, nbytes = helpers.padded_buffer_parameters(shape, dtype.itemsize, pad=pad)
+        return cls(dtype, shape, strides=strides, offset=offset, nbytes=nbytes)
+
     def __call__(self, val):
         """
         Casts the given value to this type.
