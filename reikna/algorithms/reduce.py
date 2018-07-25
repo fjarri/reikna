@@ -20,6 +20,9 @@ class Reduce(Computation):
     :param axes: a list of non-repeating axes to reduce over.
         If ``None``, the whole array will be reduced
         (in which case the shape of the output array is ``(1,)``).
+    :param output_arr_t: an output array metadata (the `shape` must still
+        correspond to the result of reducing the original array over given axes,
+        but `offset` and `strides` can be set to the desired ones).
 
     .. py:method:: compiled_signature(output:o, input:i)
 
@@ -28,7 +31,7 @@ class Reduce(Computation):
             with its shape missing axes from ``axes``.
     """
 
-    def __init__(self, arr_t, predicate, axes=None):
+    def __init__(self, arr_t, predicate, axes=None, output_arr_t=None):
 
         dims = len(arr_t.shape)
 
@@ -61,8 +64,19 @@ class Reduce(Computation):
         self._operation = predicate.operation
         self._empty = empty
 
+        if output_arr_t is None:
+            output_arr_t = Type(arr_t.dtype, shape=output_shape)
+        else:
+            if output_arr_t.dtype != arr_t.dtype:
+                raise ValueError(
+                    "The dtype of the output array must be the same as that of the input array")
+            if output_arr_t.shape != output_shape:
+                raise ValueError(
+                    "Expected the output array shape " + str(output_shape) +
+                    ", got " + str(output_arr_t.shape))
+
         Computation.__init__(self, [
-            Parameter('output', Annotation(Type(arr_t.dtype, shape=output_shape), 'o')),
+            Parameter('output', Annotation(output_arr_t, 'o')),
             Parameter('input', Annotation(arr_t, 'i'))])
 
     def _build_plan_for_wg_size(self, plan_factory, warp_size, max_wg_size, output, input_):
