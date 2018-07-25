@@ -289,3 +289,15 @@ def make_axes_innermost(ndim, axes):
         transpose_from[axis] = i
 
     return tuple(transpose_to), tuple(transpose_from)
+
+
+def default_strides(shape, itemsize):
+    return tuple(product(shape[j+1:]) * itemsize for j in range(len(shape)))
+
+
+def min_buffer_size(shape, itemsize, strides=None, offset=0):
+    if strides is None:
+        strides = default_strides(shape, itemsize)
+
+    data_size = sum(stride * (l - 1) for stride, l in zip(strides, shape)) + itemsize
+    return data_size + offset

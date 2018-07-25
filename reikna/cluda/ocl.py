@@ -3,7 +3,7 @@ import sys
 import pyopencl as cl
 import pyopencl.array as clarray
 
-from reikna.helpers import wrap_in_tuple, product
+from reikna.helpers import wrap_in_tuple, product, min_buffer_size
 import reikna.cluda as cluda
 import reikna.cluda.dtypes as dtypes
 import reikna.cluda.api as api_base
@@ -21,8 +21,14 @@ class Array(clarray.Array):
     """
     A subclass of PyOpenCL ``Array``, with some additional functionality.
     """
-    def __init__(self, thr, *args, **kwds):
-        clarray.Array.__init__(self, thr._queue, *args, **kwds)
+    def __init__(
+            self, thr, shape, dtype, strides=None, offset=0, nbytes=None,
+            allocator=None, base_data=None):
+        clarray.Array.__init__(
+            self, thr._queue, shape, dtype, strides=strides, allocator=allocator,
+            data=base_data, offset=offset)
+        if nbytes is not None:
+            self.nbytes = nbytes
         self.thread = thr
 
     def _new_like_me(self, dtype=None, queue=None):
@@ -36,9 +42,8 @@ class Array(clarray.Array):
                 if dtype is None
                 else self.thread.array(self.shape, dtype))
 
-    def _tempalloc_update_buffer(self, data, offset):
+    def _tempalloc_update_buffer(self, data):
         self.base_data = data
-        self.offset = offset
 
 
 class Thread(api_base.Thread):
@@ -57,24 +62,23 @@ class Thread(api_base.Thread):
             return ValueError("The value provided is not Device, Context or CommandQueue")
 
     def array(
-            self, shape, dtype, strides=None, offset=0, allocator=None, base=None, base_data=None):
+            self, shape, dtype, strides=None, offset=0, nbytes=None,
+            allocator=None, base=None, base_data=None):
 
-        if offset != 0 and (base_data is None and base is None):
-            if strides is not None:
-                data_size = strides[0] * shape[0]
-            else:
-                data_size = product(shape) * dtypes.normalize_type(dtype).itemsize
+        if allocator is None:
+            allocator = self.allocate
 
-            if allocator is None:
-                allocator = self.allocate
-
-            base_data = allocator(data_size + offset)
-
+        if (offset != 0 or strides is not None) and base_data is None and base is None:
+            if nbytes is None:
+                nbytes = min_buffer_size(
+                    shape, dtypes.normalize_type(dtype).itemsize, strides=strides, offset=offset)
+            base_data = allocator(nbytes)
         elif base is not None:
             base_data = base.data
 
         return Array(
-            self, shape, dtype, strides=strides, offset=offset, allocator=allocator, data=base_data)
+            self, shape, dtype, strides=strides, offset=offset,
+            allocator=allocator, base_data=base_data, nbytes=nbytes)
 
     def allocate(self, size):
         return cl.Buffer(self._context, cl.mem_flags.READ_WRITE, size=size)

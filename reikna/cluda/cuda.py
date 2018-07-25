@@ -10,7 +10,7 @@ from pycuda.tools import DeviceData
 
 import reikna.cluda as cluda
 import reikna.cluda.dtypes as dtypes
-from reikna.helpers import factors, wrap_in_tuple, product
+from reikna.helpers import factors, wrap_in_tuple, product, min_buffer_size
 import reikna.cluda.api as api_base
 
 
@@ -72,8 +72,32 @@ class Array(gpuarray.GPUArray):
     """
     A subclass of PyCUDA ``GPUArray``, with some additional functionality.
     """
-    def __init__(self, thr, *args, **kwds):
-        gpuarray.GPUArray.__init__(self, *args, **kwds)
+    def __init__(
+            self, thr, shape, dtype, strides=None, offset=0, nbytes=None,
+            allocator=cuda.mem_alloc, base_data=None):
+
+        # While PyCUDA claims that anything convertable to integer can be a buffer,
+        # it is not true for some of the functions that require a DeviceAllocation object.
+        # So we are trying to preserve it whenever it is possible.
+
+        if isinstance(base_data, Buffer):
+            base_data = base_data._buffer
+
+        if offset != 0:
+            gpudata = int(base_data) + offset
+        else:
+            gpudata = base_data
+
+        gpuarray.GPUArray.__init__(
+            self, shape, dtype, strides=strides, allocator=allocator, gpudata=gpudata)
+
+        if base_data is not None:
+            self.base_data = base_data
+        else:
+            self.base_data = self.gpudata
+        self.offset = offset
+        if nbytes is not None:
+            self.nbytes = nbytes
         self.thread = thr
 
     def copy(self):
@@ -94,8 +118,18 @@ class Array(gpuarray.GPUArray):
                 if dtype is None
                 else self.thread.array(self.shape, dtype))
 
-    def _tempalloc_update_buffer(self, data, offset):
-        self.gpudata = int(data) + offset
+    def _tempalloc_update_buffer(self, data):
+
+        if isinstance(data, Buffer):
+            data = data._buffer
+
+        if self.offset != 0:
+            gpudata = int(data) + self.offset
+        else:
+            gpudata = data
+
+        self.base_data = data
+        self.gpudata = gpudata
 
 
 class Thread(api_base.Thread):
@@ -124,29 +158,24 @@ class Thread(api_base.Thread):
         return Buffer(size)
 
     def array(
-            self, shape, dtype, strides=None, offset=0, allocator=None, base=None, base_data=None):
+            self, shape, dtype, strides=None, offset=0, nbytes=None,
+            allocator=None, base=None, base_data=None):
 
         # In PyCUDA, the default allocator is not None, but a default alloc object
         if allocator is None:
             allocator = cuda.mem_alloc
 
-        if offset != 0 and (base_data is None and base is None):
-            if strides is not None:
-                data_size = strides[0] * shape[0]
-            else:
-                data_size = product(shape) * dtypes.normalize_type(dtype).itemsize
-
-            base = Array(self, data_size + offset, numpy.uint8, allocator=allocator)
-            base_data = int(base.gpudata) + offset
+        if (offset != 0 or strides is not None) and base_data is None and base is None:
+            if nbytes is None:
+                nbytes = min_buffer_size(
+                    shape, dtypes.normalize_type(dtype).itemsize, strides=strides, offset=offset)
+            base_data = allocator(nbytes)
         elif base is not None:
-            base_data = int(base.gpudata) + offset
-        elif base_data is not None:
-            base = None
-            base_data = int(base_data) + offset
+            base_data = base.gpudata
 
         return Array(
             self, shape, dtype, strides=strides, allocator=allocator,
-            base=base, gpudata=base_data)
+            offset=offset, base_data=base_data, nbytes=nbytes)
 
     def _copy_array(self, dest, src):
         dest.set_async(src, stream=self._queue)
@@ -294,5 +323,6 @@ class Kernel(api_base.Kernel):
         self._grid = tuple(grid) + (1,) * (3 - len(grid))
 
     def prepared_call(self, *args):
+        args = [x.base_data if isinstance(x, Array) else x for x in args]
         return self._kernel(*args, grid=self._grid, block=self._local_size,
             stream=self._thr._queue, shared=self._local_mem)

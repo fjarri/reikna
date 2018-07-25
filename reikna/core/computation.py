@@ -300,16 +300,19 @@ class ComputationPlan:
         self._persistent_values[name] = self._thread.to_device(arr)
         return KernelArgument(name, ann.type)
 
-    def temp_array(self, shape, dtype, strides=None, offset=0):
+    def temp_array(self, shape, dtype, strides=None, offset=0, nbytes=None):
         """
         Adds a temporary GPU array to the plan, and returns the corresponding
         :py:class:`KernelArgument`.
+        See :py:meth:`~reikna.cluda.api.Thread.array` for the information about the parameters.
+
         Temporary arrays can share physical memory, but in such a way that
         their contents is guaranteed to persist between the first and the last use in a kernel
         during the execution of the plan.
         """
         name = self._translator(self._temp_array_idgen())
-        ann = Annotation(Type(dtype, shape=shape, strides=strides, offset=offset), 'io')
+        ann = Annotation(
+            Type(dtype, shape=shape, strides=strides, offset=offset, nbytes=nbytes), 'io')
         self._internal_annotations[name] = ann
         self._temp_arrays.add(name)
         return KernelArgument(name, ann.type)
@@ -329,6 +332,10 @@ class ComputationPlan:
         """
         Same as :py:meth:`temp_array`, taking the array properties
         from array or array-like object ``arr``.
+
+        .. warning::
+
+            Note that ``pycuda.GPUArray`` objects do not have the ``offset`` attribute.
         """
         if hasattr(arr, 'strides'):
             strides = arr.strides
@@ -338,7 +345,12 @@ class ComputationPlan:
             offset = arr.offset
         else:
             offset = 0
-        return self.temp_array(arr.shape, arr.dtype, strides=strides, offset=offset)
+        if hasattr(arr, 'nbytes'):
+            nbytes = arr.nbytes
+        else:
+            nbytes = None
+        return self.temp_array(
+            arr.shape, arr.dtype, strides=strides, offset=offset, nbytes=nbytes)
 
     def _get_annotation(self, name):
         if name in self._external_annotations:

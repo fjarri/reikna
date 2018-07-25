@@ -10,7 +10,7 @@ Release history
 
 * ADDED: an ``output_arr_t`` keyword parameter for :py:class:`~reikna.algorithms.Transpose` and :py:class:`~reikna.algorithms.Reduce`.
 
-* ADDED: a proper support for non-zero array offsets and array views. Added ``base`` and ``base_data`` keyword parameters for :py:meth:`~reikna.cluda.api.Thread.array`.
+* ADDED: a proper support for non-zero array offsets and array views. Added ``base``, ``base_data`` and ``nbytes`` keyword parameters for :py:meth:`~reikna.cluda.api.Thread.array`. Other array-allocating methods and the constructor of :py:class:`~reikna.core.Type` now also have the ``nbytes`` keyword.
 
 * ADDED: a specialized FFT example (``examples/demo_specialized_fft.py``).
 

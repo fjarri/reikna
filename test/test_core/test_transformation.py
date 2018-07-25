@@ -559,7 +559,7 @@ def test_array_offset(thr):
 
     # providing base_data
     a3_base = thr.array((arr_len + offset_len,), dtype)
-    a3_data = a3_base.gpudata if thr.api.get_id() == cuda_id() else a3_base.data
+    a3_data = a3_base.base_data
     a3 = thr.array((arr_len,), dtype, offset=itemsize * offset_len, base_data=a3_data)
 
     fill = PureParallel(

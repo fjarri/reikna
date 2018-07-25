@@ -252,14 +252,18 @@ class Thread:
         raise NotImplementedError()
 
     def array(
-            self, shape, dtype, strides=None, offset=0, base=None, base_data=None, allocator=None):
+            self, shape, dtype, strides=None, offset=0, nbytes=None,
+            base=None, base_data=None, allocator=None):
         """
         Creates an :py:class:`Array` on GPU with given ``shape``, ``dtype``,
         ``strides`` and ``offset``.
 
-        If ``base`` and ``base_data`` are ``None``,
-        the total allocated size will be the size required for the array
+        If ``base``, ``base_data`` and ``nbytes`` are ``None``,
+        the total allocated size will be the minimum size required for the array data
         (based on ``shape`` and ``strides``) plus ``offset``.
+
+        If ``base`` and ``base_data`` are ``None``, but ``nbytes`` is not,
+        ``nbytes`` bytes will be allocated for the array.
 
         If ``base_data`` (a memory buffer) is not ``None``,
         it will be used as the underlying buffer for the array.
@@ -274,10 +278,10 @@ class Thread:
         """
         raise NotImplementedError()
 
-    def temp_array(self, shape, dtype, strides=None, offset=0, dependencies=None):
+    def temp_array(self, shape, dtype, strides=None, offset=0, nbytes=None, dependencies=None):
         """
         Creates an :py:class:`Array` on GPU with given ``shape``, ``dtype``,
-        ``strides`` and ``offset``.
+        ``strides``, ``offset`` and ``nbytes`` (see :py:meth:`array` for details).
         In order to reduce the memory footprint of the program, the temporary array manager
         will allow these arrays to overlap.
         Two arrays will not overlap, if one of them was specified in ``dependencies``
@@ -286,11 +290,17 @@ class Thread:
         :py:class:`~reikna.cluda.tempalloc.TemporaryManager`.
         """
         return self.temp_alloc.array(
-            shape, dtype, strides=strides, offset=offset, dependencies=dependencies)
+            shape, dtype, strides=strides, offset=offset, nbytes=nbytes,
+            dependencies=dependencies)
 
     def empty_like(self, arr):
         """
-        Allocates an array on GPU with the same attributes as ``arr``.
+        Allocates an array on GPU with the same attributes (``shape``, ``dtype``, ``strides``,
+        ``offset`` and ``nbytes``) as ``arr``.
+
+        .. warning::
+
+            Note that ``pycuda.GPUArray`` objects do not have the ``offset`` attribute.
         """
         if hasattr(arr, 'allocator'):
             allocator = arr.allocator
@@ -304,8 +314,13 @@ class Thread:
             offset = arr.offset
         else:
             offset = 0
+        if hasattr(arr, 'nbytes'):
+            nbytes = arr.nbytes
+        else:
+            nbytes = None
         return self.array(
-            arr.shape, arr.dtype, strides=strides, offset=offset, allocator=allocator)
+            arr.shape, arr.dtype, strides=strides, offset=offset, nbytes=nbytes,
+            allocator=allocator)
 
     def to_device(self, arr, dest=None):
         """
@@ -541,7 +556,7 @@ class Program(object):
                 "Incorrect size of the constant array; "
                 "expected " + str(size) + " bytes, got " + str(arr.nbytes))
         if isinstance(arr, self._thr.api.Array):
-            self._thr._memcpy_dtod(symbol, arr.gpudata, size)
+            self._thr._memcpy_dtod(symbol, arr.base_data, arr.nbytes)
         else:
             # numpy array
             self._thr._memcpy_htod(symbol, arr)

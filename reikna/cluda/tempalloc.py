@@ -38,7 +38,7 @@ class TemporaryManager:
         self._pack_on_alloc = pack_on_alloc
         self._pack_on_free = pack_on_free
 
-    def array(self, shape, dtype, strides=None, offset=0, dependencies=None):
+    def array(self, shape, dtype, strides=None, offset=0, nbytes=None, dependencies=None):
         """
         Returns a temporary array.
 
@@ -46,6 +46,8 @@ class TemporaryManager:
         :param dtype: data type of the array.
         :param strides: tuple of bytes to step in each dimension when traversing an array.
         :param offset: the array offset (in bytes)
+        :param nbytes: the buffer size for the array
+            (if ``None``, the minimum required size will be used).
         :param dependencies: can be a :py:class:`~reikna.cluda.api.Array` instance
             (the ones containing persistent allocations will be ignored),
             an iterable with valid values,
@@ -67,9 +69,8 @@ class TemporaryManager:
 
         allocator = DummyAllocator()
         array = self._thr.array(
-            shape, dtype, strides=strides, offset=offset, allocator=allocator)
+            shape, dtype, strides=strides, offset=offset, nbytes=nbytes, allocator=allocator)
         array.__tempalloc_id__ = new_id
-        array.__tempalloc_offset__ = offset
 
         dependencies = extract_dependencies(dependencies)
         self._allocate(new_id, allocator.size, dependencies, self._pack_on_alloc)
@@ -85,7 +86,7 @@ class TemporaryManager:
     def update_buffer(self, id_):
         array = self._arrays[id_]()
         buf = self._get_buffer(id_)
-        array._tempalloc_update_buffer(buf, array.__tempalloc_offset__)
+        array._tempalloc_update_buffer(buf)
 
     def update_all(self):
         for id_ in self._arrays:
