@@ -60,13 +60,16 @@ class TemporaryManager:
                 self.size = None
             def __call__(self, size):
                 self.size = size
+                return 0
 
         new_id = self._id_counter
         self._id_counter += 1
 
         allocator = DummyAllocator()
-        array = self._thr.array(shape, dtype, strides=strides, offset=offset, allocator=allocator)
+        array = self._thr.array(
+            shape, dtype, strides=strides, offset=offset, allocator=allocator)
         array.__tempalloc_id__ = new_id
+        array.__tempalloc_offset__ = offset
 
         dependencies = extract_dependencies(dependencies)
         self._allocate(new_id, allocator.size, dependencies, self._pack_on_alloc)
@@ -82,10 +85,7 @@ class TemporaryManager:
     def update_buffer(self, id_):
         array = self._arrays[id_]()
         buf = self._get_buffer(id_)
-        if hasattr(array, 'base_data'):
-            array.base_data = buf
-        else:
-            array.gpudata = buf
+        array._tempalloc_update_buffer(buf, array.__tempalloc_offset__)
 
     def update_all(self):
         for id_ in self._arrays:

@@ -36,6 +36,11 @@ class Array(clarray.Array):
                 if dtype is None
                 else self.thread.array(self.shape, dtype))
 
+    def _tempalloc_update_buffer(self, data, offset):
+        self.base_data = data
+        self.offset = offset
+
+
 class Thread(api_base.Thread):
 
     api = sys.modules[__name__]

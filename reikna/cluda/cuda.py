@@ -94,6 +94,9 @@ class Array(gpuarray.GPUArray):
                 if dtype is None
                 else self.thread.array(self.shape, dtype))
 
+    def _tempalloc_update_buffer(self, data, offset):
+        self.gpudata = int(data) + offset
+
 
 class Thread(api_base.Thread):
 
