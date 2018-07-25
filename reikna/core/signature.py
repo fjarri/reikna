@@ -109,7 +109,7 @@ class Type:
             return cls(dtypes.detect_type(val))
 
     @classmethod
-    def padded(cls, shape, dtype, pad=0):
+    def padded(cls, dtype, shape, pad=0):
         """
         Creates a :py:class:`Type` object corresponding to an array padded from all dimensions
         by `pad` elements.
