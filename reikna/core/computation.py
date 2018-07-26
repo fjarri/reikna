@@ -497,6 +497,10 @@ class ComputationPlan:
 
     def _append_plan(self, plan):
         self._kernels += plan._kernels
+        if not self._is_cuda:
+            # In case of CUDA each kernel manages its constant arrays itself,
+            # no need to remember them.
+            self._constant_arrays.update(plan._constant_arrays)
         self._persistent_values.update(plan._persistent_values)
         self._temp_arrays.update(plan._temp_arrays)
         self._internal_annotations.update(plan._internal_annotations)
