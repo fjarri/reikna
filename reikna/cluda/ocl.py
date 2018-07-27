@@ -110,6 +110,8 @@ class DeviceParameters:
 
     def __init__(self, device):
 
+        self.api_id = get_id()
+
         self._device = device
 
         if device.platform.name == 'Apple' and device.type == cl.device_type.CPU:

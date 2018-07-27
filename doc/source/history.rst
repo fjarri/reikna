@@ -16,6 +16,8 @@ Release history
 
 * ADDED: a method :py:meth:`~reikna.core.Type.padded` of :py:class:`~reikna.core.Type`.
 
+* ADDED: an ``api_id`` attribute for :py:class:`~reikna.cluda.api.DeviceParameters` objects.
+
 * FIXED: a bug where a computation with constant arrays could not be called from another computation.
 
 * FIXED: an incorrect call to PyCUDA in ``Array.copy()``.

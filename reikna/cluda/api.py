@@ -30,6 +30,10 @@
 
     An assembly of device parameters necessary for optimizations.
 
+    .. py:attribute:: api_id
+
+        Identifier of the API this device belongs to.
+
     .. py:attribute:: max_work_group_size
 
         Maximum block size for kernels.

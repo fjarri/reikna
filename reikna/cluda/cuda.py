@@ -239,6 +239,8 @@ class DeviceParameters:
 
     def __init__(self, device):
 
+        self.api_id = get_id()
+
         self._device = device
         self.max_work_group_size = device.max_threads_per_block
         self.max_work_item_sizes = [
