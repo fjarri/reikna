@@ -18,6 +18,8 @@ Release history
 
 * FIXED: a bug where a computation with constant arrays could not be called from another computation.
 
+* FIXED: an incorrect call to PyCUDA in ``Array.copy()``.
+
 
 0.7.0 (5 Jul 2018)
 ==================
