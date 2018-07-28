@@ -262,6 +262,22 @@ class Thread:
         Creates an :py:class:`Array` on GPU with given ``shape``, ``dtype``,
         ``strides`` and ``offset``.
 
+        If ``nbytes`` is ``None``, the size of the allocated memory buffer is chosen
+        to be the minimum one to fit all the elements of the array, based on ``shape``,
+        ``dtype`` and ``strides`` (if provided).
+        If ``offset`` is not 0, an *additional* ``offset`` bytes is added at the beginning
+        of the buffer.
+
+        If ``nbytes`` is provided, all this is ignored and the buffer of
+        ``nbytes`` bytes is allocated (this includes the offset).
+
+        .. note::
+
+            Reikna computations and PyCUDA/PyOpenCL functions take ``offset`` into account
+            automatically and address arrays starting from the position of the actual data.
+            Reikna kernels receive **base addresses** of arrays,
+            and thus have to add offsets manually.
+
         If ``base``, ``base_data`` and ``nbytes`` are ``None``,
         the total allocated size will be the minimum size required for the array data
         (based on ``shape`` and ``strides``) plus ``offset``.

@@ -367,3 +367,37 @@ def test_constant_memory_static_kernel(thr):
     test(dest_dev)
 
     assert diff_is_negligible(dest_dev.get(), ref)
+
+
+def test_offsets_in_kernel(thr):
+    """
+    Check that kernels receive the base data of arrays and have to add offsets manually.
+    """
+
+    global_size = 100
+    dest_offset = 4
+    src_offset = 2
+    dtype = dtypes.normalize_type(numpy.int32)
+
+    program = thr.compile("""
+        KERNEL void test(GLOBAL_MEM int *dest, GLOBAL_MEM int *src)
+        {
+            const SIZE_T i = get_global_id(0);
+            dest[i + ${dest_offset}] = src[i + ${src_offset}];
+        }
+        """,
+        render_kwds=dict(dest_offset=dest_offset, src_offset=src_offset))
+    test = program.test
+
+    dest_dev_base = thr.array(global_size + dest_offset, dtype)
+    dest_dev = thr.array(
+        global_size, dtype, offset=dest_offset * dtype.itemsize, base=dest_dev_base)
+
+    src_base = numpy.arange(global_size + src_offset).astype(dtype)
+    src_dev_base = thr.to_device(src_base)
+    src_dev = thr.array(global_size, dtype, offset=src_offset * dtype.itemsize, base=src_dev_base)
+
+    test(dest_dev, src_dev, global_size=global_size)
+    dest_ref = src_base[src_offset:]
+
+    assert diff_is_negligible(dest_dev.get(), dest_ref)
