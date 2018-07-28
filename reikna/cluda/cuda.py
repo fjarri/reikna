@@ -96,8 +96,7 @@ class Array(gpuarray.GPUArray):
         else:
             self.base_data = self.gpudata
         self.offset = offset
-        if nbytes is not None:
-            self.nbytes = nbytes
+        self.nbytes = nbytes
         self.thread = thr
 
     def copy(self):
@@ -168,10 +167,12 @@ class Thread(api_base.Thread):
         if allocator is None:
             allocator = cuda.mem_alloc
 
+        dtype = dtypes.normalize_type(dtype)
+        shape = wrap_in_tuple(shape)
+        if nbytes is None:
+            nbytes = min_buffer_size(shape, dtype.itemsize, strides=strides, offset=offset)
+
         if (offset != 0 or strides is not None) and base_data is None and base is None:
-            if nbytes is None:
-                nbytes = min_buffer_size(
-                    shape, dtypes.normalize_type(dtype).itemsize, strides=strides, offset=offset)
             base_data = allocator(nbytes)
         elif base is not None:
             base_data = base.base_data

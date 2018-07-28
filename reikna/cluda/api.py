@@ -17,6 +17,20 @@
 
     .. py:attribute:: dtype
 
+    .. py:attribute:: strides
+
+    .. py:attribute:: offset
+
+        The start of the array data in the memory buffer (in bytes).
+
+    .. py:attribute:: base_data
+
+        The memory buffer where the array is located.
+
+    .. py:attribute:: nbytes
+
+        The total size of the array data plus the offset (in bytes).
+
     .. py:method:: get()
 
         Returns ``numpy.ndarray`` with the contents of the array.
@@ -268,9 +282,6 @@ class Thread:
         If ``offset`` is not 0, an *additional* ``offset`` bytes is added at the beginning
         of the buffer.
 
-        If ``nbytes`` is provided, all this is ignored and the buffer of
-        ``nbytes`` bytes is allocated (this includes the offset).
-
         .. note::
 
             Reikna computations and PyCUDA/PyOpenCL functions take ``offset`` into account
@@ -283,14 +294,17 @@ class Thread:
         (based on ``shape`` and ``strides``) plus ``offset``.
 
         If ``base`` and ``base_data`` are ``None``, but ``nbytes`` is not,
-        ``nbytes`` bytes will be allocated for the array.
+        ``nbytes`` bytes will be allocated for the array (this includes the offset).
 
         If ``base_data`` (a memory buffer) is not ``None``,
-        it will be used as the underlying buffer for the array.
+        it will be used as the underlying buffer for the array,
+        with the actual data starting at the ``offset`` bytes from the beginning of ``base_data``.
         No size checking to make sure the array and the offset fit it will be performed.
 
         If ``base`` (an :py:class:`Array` object) is not ``None``,
-        its buffer is used as the underlying buffer for the array.
+        its buffer is used as the underlying buffer for the array,
+        with the actual data starting at the ``offset`` bytes from the beginning
+        of ``base.base_data``.
         ``base_data`` will be ignored.
 
         Optionally, an ``allocator`` is a callable returning any object castable to ``int``

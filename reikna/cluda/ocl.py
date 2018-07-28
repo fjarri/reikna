@@ -27,8 +27,7 @@ class Array(clarray.Array):
         clarray.Array.__init__(
             self, thr._queue, shape, dtype, strides=strides, allocator=allocator,
             data=base_data, offset=offset)
-        if nbytes is not None:
-            self.nbytes = nbytes
+        self.nbytes = nbytes
         self.thread = thr
 
     def _new_like_me(self, dtype=None, queue=None):
@@ -68,10 +67,12 @@ class Thread(api_base.Thread):
         if allocator is None:
             allocator = self.allocate
 
+        dtype = dtypes.normalize_type(dtype)
+        shape = wrap_in_tuple(shape)
+        if nbytes is None:
+            nbytes = min_buffer_size(shape, dtype.itemsize, strides=strides, offset=offset)
+
         if (offset != 0 or strides is not None) and base_data is None and base is None:
-            if nbytes is None:
-                nbytes = min_buffer_size(
-                    shape, dtypes.normalize_type(dtype).itemsize, strides=strides, offset=offset)
             base_data = allocator(nbytes)
         elif base is not None:
             base_data = base.data
