@@ -135,6 +135,7 @@ class Computation:
             computation parameters as keys, and
             :py:class:`~reikna.core.transformation.TransformationParameter` objects
             (or their names) as values.
+            The keys of ``tr_from_comp`` cannot include the name of the connection target.
         :returns: this computation object (modified).
 
         .. note::
