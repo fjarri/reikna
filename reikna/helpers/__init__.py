@@ -299,7 +299,9 @@ def min_buffer_size(shape, itemsize, strides=None, offset=0):
     if strides is None:
         strides = default_strides(shape, itemsize)
 
-    data_size = sum(stride * (l - 1) for stride, l in zip(strides, shape)) + itemsize
+    data_size = sum(
+        (stride * (l - 1) if stride > 0 else 0)
+        for stride, l in zip(strides, shape)) + itemsize
     return data_size + offset
 
 
