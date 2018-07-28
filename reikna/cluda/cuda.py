@@ -174,7 +174,7 @@ class Thread(api_base.Thread):
                     shape, dtypes.normalize_type(dtype).itemsize, strides=strides, offset=offset)
             base_data = allocator(nbytes)
         elif base is not None:
-            base_data = base.gpudata
+            base_data = base.base_data
 
         return Array(
             self, shape, dtype, strides=strides, allocator=allocator,
