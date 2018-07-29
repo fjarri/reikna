@@ -49,7 +49,7 @@ class Device(cuda.Device):
         self.name = self.name()
 
 
-class Buffer:
+class Buffer(cuda.ArgumentHandler):
     """
     Mimics pyopencl.Buffer
     """
@@ -67,6 +67,9 @@ class Buffer:
     def __del__(self):
         self._buffer.free()
 
+    def get_device_alloc(self):
+        return self._buffer
+
 
 class Array(gpuarray.GPUArray):
     """
@@ -76,17 +79,10 @@ class Array(gpuarray.GPUArray):
             self, thr, shape, dtype, strides=None, offset=0, nbytes=None,
             allocator=cuda.mem_alloc, base_data=None):
 
-        # While PyCUDA claims that anything convertable to integer can be a buffer,
-        # it is not true for some of the functions that require a DeviceAllocation object.
-        # So we are trying to preserve it whenever it is possible.
-
-        if isinstance(base_data, Buffer):
-            base_data = base_data._buffer
-
-        if offset != 0:
+        if base_data is not None:
             gpudata = int(base_data) + offset
         else:
-            gpudata = base_data
+            gpudata = None
 
         gpuarray.GPUArray.__init__(
             self, shape, dtype, strides=strides, allocator=allocator, gpudata=gpudata)
@@ -121,17 +117,8 @@ class Array(gpuarray.GPUArray):
                 else self.thread.array(self.shape, dtype))
 
     def _tempalloc_update_buffer(self, data):
-
-        if isinstance(data, Buffer):
-            data = data._buffer
-
-        if self.offset != 0:
-            gpudata = int(data) + self.offset
-        else:
-            gpudata = data
-
         self.base_data = data
-        self.gpudata = gpudata
+        self.gpudata = int(self.base_data) + self.offset
 
 
 class Thread(api_base.Thread):
@@ -175,7 +162,10 @@ class Thread(api_base.Thread):
         if (offset != 0 or strides is not None) and base_data is None and base is None:
             base_data = allocator(nbytes)
         elif base is not None:
-            base_data = base.base_data
+            if isinstance(base, Array):
+                base_data = base.base_data
+            else:
+                base_data = base.gpudata
 
         return Array(
             self, shape, dtype, strides=strides, allocator=allocator,
