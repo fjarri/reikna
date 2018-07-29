@@ -69,6 +69,7 @@ class FFTShift(Computation):
             shape[axes[0]] //= 2
             plan.kernel_call(
                 TEMPLATE.get_def('fftshift_inplace'), [output, input_],
+                kernel_name="kernel_fftshift_inplace",
                 global_size=shape,
                 render_kwds=dict(axes=axes))
         else:
@@ -76,6 +77,7 @@ class FFTShift(Computation):
             temp = plan.temp_array_like(output)
             plan.kernel_call(
                 TEMPLATE.get_def('fftshift_outplace'), [temp, input_],
+                kernel_name="kernel_fftshift_outplace",
                 global_size=shape,
                 render_kwds=dict(axes=axes))
 

@@ -146,6 +146,7 @@ class Transpose(Computation):
 
         plan.kernel_call(
             TEMPLATE.get_def('transpose'), [mem_out, mem_in],
+            kernel_name="kernel_transpose",
             global_size=(batch, blocks_per_matrix * block_width, grid_width * block_width),
             local_size=(1, block_width, block_width),
             render_kwds=render_kwds)

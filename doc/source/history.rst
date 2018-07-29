@@ -20,6 +20,8 @@ Release history
 
 * ADDED: an ``api_id`` attribute for :py:class:`~reikna.cluda.api.DeviceParameters` objects.
 
+* ADDED: a ``kernel_name`` parameter for :py:meth:`ComputationPlan.kernel_call <reikna.core.computation.ComputationPlan.kernel_call>`. Also, all built-in computations now have custom-set kernel names for the ease of profiling.
+
 * FIXED: a bug where a computation with constant arrays could not be called from another computation.
 
 * FIXED: an incorrect call to PyCUDA in ``Array.copy()``.

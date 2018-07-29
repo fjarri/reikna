@@ -424,7 +424,7 @@ class ComputationPlan:
         return [arg.name for arg in args]
 
     def kernel_call(self, template_def, args, global_size,
-            local_size=None, render_kwds=None):
+            local_size=None, render_kwds=None, kernel_name='_kernel_func'):
         """
         Adds a kernel call to the plan.
 
@@ -437,12 +437,12 @@ class ComputationPlan:
         :param local_size: local size to use for the call, in **row-major** order.
             If ``None``, the local size will be picked automatically.
         :param render_kwds: dictionary with additional values used to render the template.
+        :param kernel_name: the name of the kernel function.
         """
 
         processed_args, adhoc_values = self._process_kernel_arguments(args)
         subtree = self._tr_tree.get_subtree(processed_args)
 
-        kernel_name = '_kernel_func'
         kernel_declaration, kernel_leaf_names = subtree.get_kernel_declaration(
             kernel_name, skip_constants=self._is_cuda)
         kernel_argobjects = subtree.get_kernel_argobjects()

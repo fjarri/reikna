@@ -549,6 +549,7 @@ class FFT(Computation):
                     gsize, lsize, kwds = kernel.prepare_for(local_size)
                     plan.kernel_call(
                         TEMPLATE.get_def(kernel.name), argnames,
+                        kernel_name="kernel_fft",
                         global_size=gsize, local_size=lsize, render_kwds=kwds)
                 except OutOfResourcesError:
                     if isinstance(kernel, GlobalFFTKernel):
