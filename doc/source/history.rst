@@ -8,6 +8,8 @@ Release history
 
 * CHANGED: ``SIZE_T`` and ``VSIZE_T`` are now signed integers, to avoid problems with negative indices and strides.
 
+* CHANGED: :py:class:`~reikna.cluda.api.Array` views now return :py:class:`~reikna.cluda.api.Array` objects.
+
 * ADDED: an ``output_arr_t`` keyword parameter for :py:class:`~reikna.algorithms.Transpose` and :py:class:`~reikna.algorithms.Reduce`.
 
 * ADDED: a proper support for non-zero array offsets and array views. Added ``base``, ``base_data`` and ``nbytes`` keyword parameters for :py:meth:`~reikna.cluda.api.Thread.array`. Other array-allocating methods and the constructor of :py:class:`~reikna.core.Type` now also have the ``nbytes`` keyword.

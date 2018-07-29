@@ -41,6 +41,15 @@ class Array(clarray.Array):
                 if dtype is None
                 else self.thread.array(self.shape, dtype))
 
+    def __getitem__(self, index):
+        res = clarray.Array.__getitem__(self, index)
+
+        # Let cl.Array calculate the new strides and offset
+        return self.thread.array(
+            shape=res.shape, dtype=res.dtype, strides=res.strides,
+            base_data=res.base_data,
+            offset=res.offset)
+
     def _tempalloc_update_buffer(self, data):
         self.base_data = data
 

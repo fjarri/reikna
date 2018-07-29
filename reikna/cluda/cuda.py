@@ -116,6 +116,15 @@ class Array(gpuarray.GPUArray):
                 if dtype is None
                 else self.thread.array(self.shape, dtype))
 
+    def __getitem__(self, index):
+        res = gpuarray.GPUArray.__getitem__(self, index)
+
+        # Let GPUArray calculate the new strides and offset
+        return self.thread.array(
+            shape=res.shape, dtype=res.dtype, strides=res.strides,
+            base_data=self.base_data,
+            offset=int(res.gpudata) - int(self.base_data))
+
     def _tempalloc_update_buffer(self, data):
         self.base_data = data
         self.gpudata = int(self.base_data) + self.offset
