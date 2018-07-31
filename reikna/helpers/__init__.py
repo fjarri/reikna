@@ -292,10 +292,19 @@ def make_axes_innermost(ndim, axes):
 
 
 def default_strides(shape, itemsize):
+    """
+    Return the default strides (corresponding to a contiguous array) for an array
+    of shape ``shape`` and elements of size ``itemsize`` bytes.
+    """
     return tuple(product(shape[j+1:]) * itemsize for j in range(len(shape)))
 
 
 def min_buffer_size(shape, itemsize, strides=None, offset=0):
+    """
+    Return the minimum memory buffer size (in bytes) that can fit
+    an array with given parameters, starting at an ``offset`` bytes
+    from the beginning of the buffer.
+    """
     if strides is None:
         strides = default_strides(shape, itemsize)
 
@@ -306,6 +315,11 @@ def min_buffer_size(shape, itemsize, strides=None, offset=0):
 
 
 def padded_buffer_parameters(shape, itemsize, pad=0):
+    """
+    For an array of shape ``shape``, padded from all sizes with ``pad`` elements,
+    return a tuple of (strides, offset, size (in bytes) of the required memory buffer),
+    which would have to be requested when allocating such an array.
+    """
     padded_shape = [l + pad * 2 for l in shape]
     strides = default_strides(padded_shape, itemsize)
     full_size = min_buffer_size(padded_shape, itemsize, strides=strides)
