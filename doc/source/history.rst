@@ -10,6 +10,8 @@ Release history
 
 * CHANGED: :py:class:`~reikna.cluda.api.Array` views now return :py:class:`~reikna.cluda.api.Array` objects.
 
+* CHANGED: a :py:class:`~reikna.core.Type` object can only be equal to another :py:class:`~reikna.core.Type` object (before it only required equality of the attributes).
+
 * ADDED: an ``output_arr_t`` keyword parameter for :py:class:`~reikna.algorithms.Transpose` and :py:class:`~reikna.algorithms.Reduce`.
 
 * ADDED: a proper support for non-zero array offsets and array views. Added ``base``, ``base_data`` and ``nbytes`` keyword parameters for :py:meth:`~reikna.cluda.api.Thread.array`. Other array-allocating methods and the constructor of :py:class:`~reikna.core.Type` now also have the ``nbytes`` keyword.

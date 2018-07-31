@@ -61,8 +61,12 @@ class Type:
         self._cast = dtypes.cast(self.dtype)
 
     def __eq__(self, other):
-        return (self.shape == other.shape and self.dtype == other.dtype
-            and self.strides == other.strides and self.offset == other.offset
+        return (
+            self.__class__ == other.__class__
+            and self.shape == other.shape
+            and self.dtype == other.dtype
+            and self.strides == other.strides
+            and self.offset == other.offset
             and self.nbytes == self.nbytes)
 
     def __ne__(self, other):
