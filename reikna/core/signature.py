@@ -69,6 +69,16 @@ class Type:
             and self.offset == other.offset
             and self.nbytes == self.nbytes)
 
+    def __hash__(self):
+        return hash((
+            self.__class__,
+            self.shape,
+            self.dtype,
+            self.strides,
+            self.offset,
+            self.nbytes,
+            ))
+
     def __ne__(self, other):
         return not (self == other)
 
