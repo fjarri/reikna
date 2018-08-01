@@ -284,10 +284,15 @@ class Thread:
 
         .. note::
 
-            Reikna computations and PyCUDA/PyOpenCL functions take ``offset`` into account
-            automatically and address arrays starting from the position of the actual data.
-            Reikna kernels receive **base addresses** of arrays,
-            and thus have to add offsets manually.
+            Reikna computations (including the template functions
+            :py:meth:`~reikna.core.transformation.KernelParameter.load_idx`,
+            :py:meth:`~reikna.core.transformation.KernelParameter.store_idx` etc),
+            high-level PyCUDA/PyOpenCL functions and PyCUDA kernels
+            take ``offset`` into account automatically and address arrays starting
+            from the position of the actual data.
+            Reikna kernels (created with :py:meth:`~reikna.cluda.api.Thread.compile`
+            and :py:meth:`~reikna.cluda.api.Thread.compile_static`) and PyOpenCL kernels
+            receive **base addresses** of arrays, and thus have to add offsets manually.
 
         If ``base``, ``base_data`` and ``nbytes`` are ``None``,
         the total allocated size will be the minimum size required for the array data
