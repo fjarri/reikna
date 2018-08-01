@@ -126,11 +126,11 @@ class Computation:
 
         :param _comp_connector: connection target ---
             a :py:class:`~reikna.core.computation.ComputationParameter` object
-            beloning to this computation object, or a string with its name.
+            belonging to this computation object, or a string with its name.
         :param _trf: a :py:class:`~reikna.core.Transformation` object.
         :param _tr_connector: connector on the side of the transformation ---
             a :py:class:`~reikna.core.transformation.TransformationParameter` object
-            beloning to ``tr``, or a string with its name.
+            belonging to ``tr``, or a string with its name.
         :param tr_from_comp: a dictionary with the names of new or old
             computation parameters as keys, and
             :py:class:`~reikna.core.transformation.TransformationParameter` objects
