@@ -426,9 +426,10 @@ class Thread:
         if not self._async:
             self.synchronize()
 
-    def _create_program(self, src, fast_math=False, compiler_options=None):
+    def _create_program(self, src, fast_math=False, compiler_options=None, keep=False):
         try:
-            program = self._compile(src, fast_math=fast_math, compiler_options=compiler_options)
+            program = self._compile(
+                src, fast_math=fast_math, compiler_options=compiler_options, keep=keep)
         except:
             listing = "\n".join([str(i+1) + ":" + l for i, l in enumerate(src.split('\n'))])
             error("Failed to compile:\n" + listing)
@@ -437,7 +438,7 @@ class Thread:
 
     def compile(
             self, template_src, render_args=None, render_kwds=None, fast_math=False,
-            compiler_options=None, constant_arrays=None):
+            compiler_options=None, constant_arrays=None, keep=False):
         """
         Creates a module object from the given template.
 
@@ -450,17 +451,22 @@ class Thread:
             of constant memory arrays to be declared in the compiled program.
             ``metadata`` can be either an array-like object (possessing ``shape`` and ``dtype``
             attributes), or a pair ``(shape, dtype)``.
+        :param keep: if `True`, preserve the source file being compiled
+            and the accompanying binaries (if any).
+            With PyCUDA backend, it is used as the ``keep`` option when creating ``SourceModule``.
+            With PyOpenCL backend, it is used as the ``cache_dir`` option for ``Program.build()``
+            (and, additionally, the kernel source itself is put there).
         :returns: a :py:class:`Program` object.
         """
         src = render_template_source(
             template_src, render_args=render_args, render_kwds=render_kwds)
         return Program(
             self, src, fast_math=fast_math, compiler_options=compiler_options,
-            constant_arrays=constant_arrays)
+            constant_arrays=constant_arrays, keep=keep)
 
     def compile_static(self, template_src, name, global_size,
             local_size=None, render_args=None, render_kwds=None, fast_math=False,
-            compiler_options=None, constant_arrays=None):
+            compiler_options=None, constant_arrays=None, keep=False):
         """
         Creates a kernel object with fixed call sizes,
         which allows to overcome some backend limitations.
@@ -477,22 +483,15 @@ class Thread:
             If ``None``, some suitable one will be picked.
         :param local_mem: (**CUDA API only**) amount of dynamically allocated local memory
             to be used (in bytes).
-        :param render_args: a list of parameters to be passed as positional arguments
-            to the template.
-        :param render_kwds: a dictionary with additional parameters
-            to be used while rendering the template.
-        :param fast_math: whether to enable fast mathematical operations during compilation.
-        :param compiler_options: a list of strings to be passed to the compiler as arguments.
-        :param constant_arrays: (**CUDA only**) a dictionary ``{name: metadata}``
-            of constant memory arrays to be declared in the compiled program.
-            ``metadata`` can be either an array-like object (possessing ``shape`` and ``dtype``
-            attributes), or a pair ``(shape, dtype)``.
+
+        The rest of the keyword parameters are the same as for :py:meth:`compile`.
+
         :returns: a :py:class:`StaticKernel` object.
         """
         return StaticKernel(self, template_src, name, global_size,
             local_size=local_size, render_args=render_args, render_kwds=render_kwds,
             fast_math=fast_math, compiler_options=compiler_options,
-            constant_arrays=constant_arrays)
+            constant_arrays=constant_arrays, keep=keep)
 
     def _release_specific(self):
         """
@@ -560,7 +559,7 @@ class Program(object):
 
     def __init__(
             self, thr, src, static=False, fast_math=False, compiler_options=None,
-            constant_arrays=None):
+            constant_arrays=None, keep=False):
         """__init__()""" # hide the signature from Sphinx
 
         self._thr = thr
@@ -579,7 +578,7 @@ class Program(object):
 
         self._constant_arrays = constant_arrays
         self._program = thr._create_program(
-            self.source, fast_math=fast_math, compiler_options=compiler_options)
+            self.source, fast_math=fast_math, compiler_options=compiler_options, keep=keep)
 
     def __getattr__(self, name):
         return self._thr.api.Kernel(self._thr, self._program, name, static=self._static)
@@ -678,7 +677,7 @@ class StaticKernel:
 
     def __init__(self, thr, template_src, name, global_size, local_size=None,
             render_args=None, render_kwds=None, fast_math=False, compiler_options=None,
-            constant_arrays=None):
+            constant_arrays=None, keep=False):
         """__init__()""" # hide the signature from Sphinx
 
         self._thr = thr
@@ -710,7 +709,7 @@ class StaticKernel:
             program = Program(
                 self._thr, vs.vsize_functions + main_src,
                 static=True, fast_math=fast_math, compiler_options=compiler_options,
-                constant_arrays=constant_arrays)
+                constant_arrays=constant_arrays, keep=keep)
             kernel = getattr(program, name)
 
             if kernel.max_work_group_size >= product(vs.real_local_size):

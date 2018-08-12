@@ -26,6 +26,8 @@ Release history
 
 * ADDED: :py:class:`~reikna.core.Type` objects are now hashable.
 
+* ADDED: a ``keep`` optional parameter for :py:meth:`Thread.compile <reikna.cluda.api.Thread.compile>`, :py:meth:`Thread.compile_static <reikna.cluda.api.Thread.compile_static>` and :py:meth:`Computation.compile <reikna.core.Computation.compile>`, allowing one to preserve the generated source code and binaries.
+
 * FIXED: a bug where a computation with constant arrays could not be called from another computation.
 
 * FIXED: an incorrect call to PyCUDA in ``Array.copy()``.

@@ -1,4 +1,6 @@
 import sys
+from tempfile import mkdtemp
+import os.path
 
 import pyopencl as cl
 import pyopencl.array as clarray
@@ -109,11 +111,24 @@ class Thread(api_base.Thread):
     def synchronize(self):
         self._queue.finish()
 
-    def _compile(self, src, fast_math=False, compiler_options=None):
+    def _compile(self, src, fast_math=False, compiler_options=None, keep=False):
         options = "-cl-mad-enable -cl-fast-relaxed-math" if fast_math else ""
         if compiler_options is not None:
             options += " " + " ".join(compiler_options)
-        return cl.Program(self._context, src).build(options=options)
+
+        if keep:
+            temp_dir = mkdtemp()
+            temp_file_path = os.path.join(temp_dir, 'kernel.cl')
+
+            with open(temp_file_path, 'w') as f:
+                f.write(src)
+
+            print("*** compiler output in", temp_dir)
+
+        else:
+            temp_dir = None
+
+        return cl.Program(self._context, src).build(options=options, cache_dir=temp_dir)
 
 
 class DeviceParameters:

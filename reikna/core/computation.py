@@ -183,15 +183,15 @@ class Computation:
     def _translate_tree(self, translator):
         return self._tr_tree.translate(translator)
 
-    def _get_plan(self, tr_tree, translator, thread, fast_math, compiler_options):
+    def _get_plan(self, tr_tree, translator, thread, fast_math, compiler_options, keep):
         plan_factory = lambda: ComputationPlan(
-            tr_tree, translator, thread, fast_math, compiler_options)
+            tr_tree, translator, thread, fast_math, compiler_options, keep)
         args = [
             KernelArgument(param.name, param.annotation.type)
             for param in tr_tree.get_root_parameters()]
         return self._build_plan(plan_factory, thread.device_params, *args)
 
-    def compile(self, thread, fast_math=False, compiler_options=None):
+    def compile(self, thread, fast_math=False, compiler_options=None, keep=False):
         """
         Compiles the computation with the given :py:class:`~reikna.cluda.api.Thread` object
         and returns a :py:class:`~reikna.core.computation.ComputationCallable` object.
@@ -199,10 +199,12 @@ class Computation:
         the compiler options for fast and imprecise mathematical functions.
         ``compiler_options`` can be used to pass a list of strings as arguments
         to the backend compiler.
+        If ``keep`` is ``True``, the generated kernels and binaries will be preserved
+        in temporary directories.
         """
         translator = Translator.identity()
         return self._get_plan(
-            self._tr_tree, translator, thread, fast_math, compiler_options).finalize()
+            self._tr_tree, translator, thread, fast_math, compiler_options, keep).finalize()
 
     def _build_plan(self, plan_factory, device_params, *args):
         """
@@ -257,7 +259,7 @@ class ComputationPlan:
     Computation plan recorder.
     """
 
-    def __init__(self, tr_tree, translator, thread, fast_math, compiler_options):
+    def __init__(self, tr_tree, translator, thread, fast_math, compiler_options, keep):
         """__init__()""" # hide the signature from Sphinx
 
         self._thread = thread
@@ -266,6 +268,7 @@ class ComputationPlan:
         self._translator = translator
         self._fast_math = fast_math
         self._compiler_options = compiler_options
+        self._keep = keep
 
         self._nested_comp_idgen = IdGen('_nested')
         self._persistent_value_idgen = IdGen('_value')
@@ -466,7 +469,8 @@ class ComputationPlan:
             render_kwds=render_kwds,
             fast_math=self._fast_math,
             compiler_options=self._compiler_options,
-            constant_arrays=constant_arrays)
+            constant_arrays=constant_arrays,
+            keep=self._keep)
 
         if self._is_cuda:
             for name, arr in constant_arrays.items():
@@ -494,7 +498,8 @@ class ComputationPlan:
         new_tree.reconnect(self._tr_tree)
 
         self._append_plan(computation._get_plan(
-            new_tree, translator, self._thread, self._fast_math, self._compiler_options))
+            new_tree, translator, self._thread, self._fast_math,
+            self._compiler_options, self._keep))
 
     def _append_plan(self, plan):
         self._kernels += plan._kernels

@@ -208,11 +208,11 @@ class Thread(api_base.Thread):
     def synchronize(self):
         self._queue.synchronize()
 
-    def _compile(self, src, fast_math=False, compiler_options=None):
+    def _compile(self, src, fast_math=False, compiler_options=None, keep=False):
         options = ['-use_fast_math'] if fast_math else []
         if compiler_options is not None:
             options += compiler_options
-        return SourceModule(src, no_extern_c=True, options=options)
+        return SourceModule(src, no_extern_c=True, options=options, keep=keep)
 
     def _cuda_push(self):
         assert not self._active
