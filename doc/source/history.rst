@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.8.0 (current development version)
-===================================
+0.7.1 (14 Aug 2018)
+===================
 
 * CHANGED: ``SIZE_T`` and ``VSIZE_T`` are now signed integers, to avoid problems with negative indices and strides.
 
