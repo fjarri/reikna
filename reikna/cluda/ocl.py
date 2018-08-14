@@ -1,9 +1,11 @@
 import sys
+from tempfile import mkdtemp
+import os.path
 
 import pyopencl as cl
 import pyopencl.array as clarray
 
-from reikna.helpers import wrap_in_tuple
+from reikna.helpers import wrap_in_tuple, product, min_buffer_size
 import reikna.cluda as cluda
 import reikna.cluda.dtypes as dtypes
 import reikna.cluda.api as api_base
@@ -21,8 +23,13 @@ class Array(clarray.Array):
     """
     A subclass of PyOpenCL ``Array``, with some additional functionality.
     """
-    def __init__(self, thr, *args, **kwds):
-        clarray.Array.__init__(self, thr._queue, *args, **kwds)
+    def __init__(
+            self, thr, shape, dtype, strides=None, offset=0, nbytes=None,
+            allocator=None, base_data=None):
+        clarray.Array.__init__(
+            self, thr._queue, shape, dtype, strides=strides, allocator=allocator,
+            data=base_data, offset=offset)
+        self.nbytes = nbytes
         self.thread = thr
 
     def _new_like_me(self, dtype=None, queue=None):
@@ -35,6 +42,19 @@ class Array(clarray.Array):
         return (self.thread.empty_like(self)
                 if dtype is None
                 else self.thread.array(self.shape, dtype))
+
+    def __getitem__(self, index):
+        res = clarray.Array.__getitem__(self, index)
+
+        # Let cl.Array calculate the new strides and offset
+        return self.thread.array(
+            shape=res.shape, dtype=res.dtype, strides=res.strides,
+            base_data=res.base_data,
+            offset=res.offset)
+
+    def _tempalloc_update_buffer(self, data):
+        self.base_data = data
+
 
 class Thread(api_base.Thread):
 
@@ -51,11 +71,29 @@ class Thread(api_base.Thread):
         else:
             return ValueError("The value provided is not Device, Context or CommandQueue")
 
+    def array(
+            self, shape, dtype, strides=None, offset=0, nbytes=None,
+            allocator=None, base=None, base_data=None):
+
+        if allocator is None:
+            allocator = self.allocate
+
+        dtype = dtypes.normalize_type(dtype)
+        shape = wrap_in_tuple(shape)
+        if nbytes is None:
+            nbytes = min_buffer_size(shape, dtype.itemsize, strides=strides, offset=offset)
+
+        if (offset != 0 or strides is not None) and base_data is None and base is None:
+            base_data = allocator(nbytes)
+        elif base is not None:
+            base_data = base.data
+
+        return Array(
+            self, shape, dtype, strides=strides, offset=offset,
+            allocator=allocator, base_data=base_data, nbytes=nbytes)
+
     def allocate(self, size):
         return cl.Buffer(self._context, cl.mem_flags.READ_WRITE, size=size)
-
-    def array(self, shape, dtype, strides=None, offset=0, allocator=None):
-        return Array(self, shape, dtype, strides=strides, offset=offset, allocator=allocator)
 
     def _copy_array(self, dest, src):
         dest.set(src, queue=self._queue, async_=self._async)
@@ -73,16 +111,31 @@ class Thread(api_base.Thread):
     def synchronize(self):
         self._queue.finish()
 
-    def _compile(self, src, fast_math=False, compiler_options=None):
+    def _compile(self, src, fast_math=False, compiler_options=None, keep=False):
         options = "-cl-mad-enable -cl-fast-relaxed-math" if fast_math else ""
         if compiler_options is not None:
             options += " " + " ".join(compiler_options)
-        return cl.Program(self._context, src).build(options=options)
+
+        if keep:
+            temp_dir = mkdtemp()
+            temp_file_path = os.path.join(temp_dir, 'kernel.cl')
+
+            with open(temp_file_path, 'w') as f:
+                f.write(src)
+
+            print("*** compiler output in", temp_dir)
+
+        else:
+            temp_dir = None
+
+        return cl.Program(self._context, src).build(options=options, cache_dir=temp_dir)
 
 
 class DeviceParameters:
 
     def __init__(self, device):
+
+        self.api_id = get_id()
 
         self._device = device
 

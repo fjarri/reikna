@@ -176,4 +176,22 @@ WITHIN_KERNEL bool virtual_skip_global_threads()
     return false;
 }
 
-#define VIRTUAL_SKIP_THREADS if(virtual_skip_local_threads() || virtual_skip_groups() || virtual_skip_global_threads()) return
+<%
+    virtual_func_names = [
+        'num_groups(0)',
+        'global_flat_id()',
+        'global_flat_size()',
+        ]
+
+    mark_used = "; ".join(("(void)(virtual_" + name + ")") for name in virtual_func_names)
+%>
+
+## Avoid warnings about unused functions in computation kernels.
+## TODO: this will not be necessary if virtual_* functions are included as Modules
+#ifndef CUDA
+#define MARK_VIRTUAL_FUNCTIONS_AS_USED ${mark_used}
+#else
+#define MARK_VIRTUAL_FUNCTIONS_AS_USED
+#endif
+
+#define VIRTUAL_SKIP_THREADS MARK_VIRTUAL_FUNCTIONS_AS_USED; if(virtual_skip_local_threads() || virtual_skip_groups() || virtual_skip_global_threads()) return

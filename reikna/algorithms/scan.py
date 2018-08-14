@@ -85,7 +85,8 @@ class Scan(Computation):
                 max_work_group_size=self._max_work_group_size)
             transposed_scanned = plan.temp_array_like(sub_scan.parameter.output)
 
-            transpose_from = Transpose(transposed_scanned, axes=self._transpose_from)
+            transpose_from = Transpose(
+                transposed_scanned, axes=self._transpose_from, output_arr_t=output)
 
             plan.computation_call(transpose_to, transposed, input_)
             plan.computation_call(sub_scan, transposed_scanned, transposed)
@@ -141,6 +142,7 @@ class Scan(Computation):
             plan.kernel_call(
                 TEMPLATE.get_def('scan'),
                     [temp_output, input_, wg_totals],
+                    kernel_name="kernel_scan_wg",
                     global_size=(batch_size, wg_size * wg_totals_size),
                     local_size=(1, wg_size),
                     render_kwds=dict(
@@ -166,6 +168,7 @@ class Scan(Computation):
                 plan.kernel_call(
                     TEMPLATE.get_def('add_wg_totals'),
                         [output, temp_output, scanned_wg_totals],
+                        kernel_name="kernel_scan_add_wg_totals",
                         global_size=(batch_size, scan_size,),
                         render_kwds=dict(
                             slices=(len(batch_shape), len(scan_shape),),

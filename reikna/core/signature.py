@@ -31,24 +31,53 @@ class Type:
     .. py:attribute:: offset
 
         The initial offset (in bytes).
+
+    .. py:attribute:: nbytes
+
+        The total size of the memory buffer (in bytes)
     """
 
-    def __init__(self, dtype, shape=None, strides=None, offset=0):
+    def __init__(self, dtype, shape=None, strides=None, offset=0, nbytes=None):
         self.shape = tuple() if shape is None else wrap_in_tuple(shape)
         self.size = product(self.shape)
         self.dtype = dtypes.normalize_type(dtype)
         self.ctype = dtypes.ctype_module(self.dtype)
+
+        default_strides = helpers.default_strides(self.shape, self.dtype.itemsize)
         if strides is None:
-            self.strides = tuple([
-                self.dtype.itemsize * product(self.shape[i+1:]) for i in range(len(self.shape))])
+            strides = default_strides
         else:
-            self.strides = strides
+            strides = tuple(strides)
+        self._default_strides = strides == default_strides
+        self.strides = strides
+
+        default_nbytes = helpers.min_buffer_size(self.shape, self.dtype.itemsize, self.strides)
+        if nbytes is None:
+            nbytes = default_nbytes
+        self._default_nbytes = nbytes == default_nbytes
+        self.nbytes = nbytes
+
         self.offset = offset
         self._cast = dtypes.cast(self.dtype)
 
     def __eq__(self, other):
-        return (self.shape == other.shape and self.dtype == other.dtype
-            and self.strides == other.strides and self.offset == other.offset)
+        return (
+            self.__class__ == other.__class__
+            and self.shape == other.shape
+            and self.dtype == other.dtype
+            and self.strides == other.strides
+            and self.offset == other.offset
+            and self.nbytes == self.nbytes)
+
+    def __hash__(self):
+        return hash((
+            self.__class__,
+            self.shape,
+            self.dtype,
+            self.strides,
+            self.offset,
+            self.nbytes,
+            ))
 
     def __ne__(self, other):
         return not (self == other)
@@ -79,15 +108,29 @@ class Type:
         if isinstance(val, Type):
             # Creating a new object, because ``val`` may be some derivative of Type,
             # used as a syntactic sugar, and we do not want it to confuse us later.
-            return cls(val.dtype, shape=val.shape, strides=val.strides, offset=val.offset)
+            return cls(
+                val.dtype, shape=val.shape, strides=val.strides,
+                offset=val.offset, nbytes=val.nbytes)
         elif numpy.issctype(val):
             return cls(val)
         elif hasattr(val, 'dtype') and hasattr(val, 'shape'):
             strides = val.strides if hasattr(val, 'strides') else None
             offset = val.offset if hasattr(val, 'offset') else 0
-            return cls(val.dtype, shape=val.shape, strides=strides, offset=offset)
+            nbytes = val.nbytes if hasattr(val, 'nbytes') else None
+            return cls(
+                val.dtype, shape=val.shape, strides=strides, offset=offset, nbytes=nbytes)
         else:
             return cls(dtypes.detect_type(val))
+
+    @classmethod
+    def padded(cls, dtype, shape, pad=0):
+        """
+        Creates a :py:class:`Type` object corresponding to an array padded from all dimensions
+        by `pad` elements.
+        """
+        dtype = dtypes.normalize_type(dtype)
+        strides, offset, nbytes = helpers.padded_buffer_parameters(shape, dtype.itemsize, pad=pad)
+        return cls(dtype, shape, strides=strides, offset=offset, nbytes=nbytes)
 
     def __call__(self, val):
         """
@@ -97,13 +140,22 @@ class Type:
 
     def __repr__(self):
         if len(self.shape) > 0:
-            return "Type({dtype}, shape={shape}, strides={strides}, offset={offset})".format(
-                dtype=self.dtype, shape=self.shape, strides=self.strides, offset=self.offset)
+            res = "Type({dtype}, shape={shape}".format(dtype=self.dtype, shape=self.shape)
+            if not self._default_strides:
+                res += ", strides=" + str(self.strides)
+            if self.offset != 0:
+                res += ", offset=" + str(self.offset)
+            if not self._default_nbytes:
+                res += ", nbytes=" + str(self.nbytes)
+            res += ")"
+            return res
         else:
             return "Type({dtype})".format(dtype=self.dtype)
 
     def __process_modules__(self, process):
-        tp = Type(self.dtype, shape=self.shape, strides=self.strides, offset=self.offset)
+        tp = Type(
+            self.dtype, shape=self.shape, strides=self.strides,
+            offset=self.offset, nbytes=self.nbytes)
         tp.ctype = process(tp.ctype)
         return tp
 

@@ -3,6 +3,36 @@ Release history
 ***************
 
 
+0.7.1 (14 Aug 2018)
+===================
+
+* CHANGED: ``SIZE_T`` and ``VSIZE_T`` are now signed integers, to avoid problems with negative indices and strides.
+
+* CHANGED: :py:class:`~reikna.cluda.api.Array` views now return :py:class:`~reikna.cluda.api.Array` objects.
+
+* CHANGED: a :py:class:`~reikna.core.Type` object can only be equal to another :py:class:`~reikna.core.Type` object (before it only required equality of the attributes).
+
+* ADDED: an ``output_arr_t`` keyword parameter for :py:class:`~reikna.algorithms.Transpose` and :py:class:`~reikna.algorithms.Reduce`.
+
+* ADDED: a proper support for non-zero array offsets and array views. Added ``base``, ``base_data`` and ``nbytes`` keyword parameters for :py:meth:`~reikna.cluda.api.Thread.array`. Other array-allocating methods and the constructor of :py:class:`~reikna.core.Type` now also have the ``nbytes`` keyword.
+
+* ADDED: a specialized FFT example (``examples/demo_specialized_fft.py``).
+
+* ADDED: a method :py:meth:`~reikna.core.Type.padded` of :py:class:`~reikna.core.Type`.
+
+* ADDED: an ``api_id`` attribute for :py:class:`~reikna.cluda.api.DeviceParameters` objects.
+
+* ADDED: a ``kernel_name`` parameter for :py:meth:`ComputationPlan.kernel_call <reikna.core.computation.ComputationPlan.kernel_call>`. Also, all built-in computations now have custom-set kernel names for the ease of profiling.
+
+* ADDED: :py:class:`~reikna.core.Type` objects are now hashable.
+
+* ADDED: a ``keep`` optional parameter for :py:meth:`Thread.compile <reikna.cluda.api.Thread.compile>`, :py:meth:`Thread.compile_static <reikna.cluda.api.Thread.compile_static>` and :py:meth:`Computation.compile <reikna.core.Computation.compile>`, allowing one to preserve the generated source code and binaries.
+
+* FIXED: a bug where a computation with constant arrays could not be called from another computation.
+
+* FIXED: an incorrect call to PyCUDA in ``Array.copy()``.
+
+
 0.7.0 (5 Jul 2018)
 ==================
 

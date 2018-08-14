@@ -69,6 +69,7 @@ class CBRNG(Computation):
         plan.kernel_call(
             TEMPLATE.get_def('cbrng'),
             [counters, randoms],
+            kernel_name="kernel_cbrng",
             global_size=helpers.product(counters.shape),
             render_kwds=dict(
                 sampler=self._sampler,

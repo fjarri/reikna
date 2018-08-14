@@ -1,6 +1,8 @@
 import sys
 import itertools
 
+import numpy
+
 import pycuda.gpuarray as gpuarray
 import pycuda.driver as cuda
 from pycuda.compiler import SourceModule
@@ -8,7 +10,7 @@ from pycuda.tools import DeviceData
 
 import reikna.cluda as cluda
 import reikna.cluda.dtypes as dtypes
-from reikna.helpers import factors, wrap_in_tuple, product
+from reikna.helpers import factors, wrap_in_tuple, product, min_buffer_size
 import reikna.cluda.api as api_base
 
 
@@ -47,7 +49,7 @@ class Device(cuda.Device):
         self.name = self.name()
 
 
-class Buffer:
+class Buffer(cuda.ArgumentHandler):
     """
     Mimics pyopencl.Buffer
     """
@@ -65,13 +67,32 @@ class Buffer:
     def __del__(self):
         self._buffer.free()
 
+    def get_device_alloc(self):
+        return self._buffer
+
 
 class Array(gpuarray.GPUArray):
     """
     A subclass of PyCUDA ``GPUArray``, with some additional functionality.
     """
-    def __init__(self, thr, *args, **kwds):
-        gpuarray.GPUArray.__init__(self, *args, **kwds)
+    def __init__(
+            self, thr, shape, dtype, strides=None, offset=0, nbytes=None,
+            allocator=cuda.mem_alloc, base_data=None):
+
+        if base_data is not None:
+            gpudata = int(base_data) + offset
+        else:
+            gpudata = None
+
+        gpuarray.GPUArray.__init__(
+            self, shape, dtype, strides=strides, allocator=allocator, gpudata=gpudata)
+
+        if base_data is not None:
+            self.base_data = base_data
+        else:
+            self.base_data = self.gpudata
+        self.offset = offset
+        self.nbytes = nbytes
         self.thread = thr
 
     def copy(self):
@@ -80,7 +101,10 @@ class Array(gpuarray.GPUArray):
         so we're overriding it.
         """
         new_arr = self._new_like_me()
-        gpuarray._memcpy_discontig(new_arr, self, async_=True, stream=self.thread._queue)
+        # FIXME: a temporary workaround for PyCUDA not being compatible with Py3.7
+        # where `async` is a keyword.
+        kwds = {'async': True, 'stream': self.thread._queue}
+        gpuarray._memcpy_discontig(new_arr, self, **kwds)
         return new_arr
 
     def _new_like_me(self, dtype=None):
@@ -91,6 +115,19 @@ class Array(gpuarray.GPUArray):
         return (self.thread.empty_like(self)
                 if dtype is None
                 else self.thread.array(self.shape, dtype))
+
+    def __getitem__(self, index):
+        res = gpuarray.GPUArray.__getitem__(self, index)
+
+        # Let GPUArray calculate the new strides and offset
+        return self.thread.array(
+            shape=res.shape, dtype=res.dtype, strides=res.strides,
+            base_data=self.base_data,
+            offset=int(res.gpudata) - int(self.base_data))
+
+    def _tempalloc_update_buffer(self, data):
+        self.base_data = data
+        self.gpudata = int(self.base_data) + self.offset
 
 
 class Thread(api_base.Thread):
@@ -118,16 +155,30 @@ class Thread(api_base.Thread):
     def allocate(self, size):
         return Buffer(size)
 
-    def array(self, shape, dtype, strides=None, offset=0, allocator=None):
+    def array(
+            self, shape, dtype, strides=None, offset=0, nbytes=None,
+            allocator=None, base=None, base_data=None):
+
         # In PyCUDA, the default allocator is not None, but a default alloc object
-        kwds = {}
-        if strides is not None:
-            kwds['strides'] = strides
-        if offset !=0:
-            kwds['offset'] = offset
-        if allocator is not None:
-            kwds['allocator'] = allocator
-        return Array(self, shape, dtype, **kwds)
+        if allocator is None:
+            allocator = cuda.mem_alloc
+
+        dtype = dtypes.normalize_type(dtype)
+        shape = wrap_in_tuple(shape)
+        if nbytes is None:
+            nbytes = min_buffer_size(shape, dtype.itemsize, strides=strides, offset=offset)
+
+        if (offset != 0 or strides is not None) and base_data is None and base is None:
+            base_data = allocator(nbytes)
+        elif base is not None:
+            if isinstance(base, Array):
+                base_data = base.base_data
+            else:
+                base_data = base.gpudata
+
+        return Array(
+            self, shape, dtype, strides=strides, allocator=allocator,
+            offset=offset, base_data=base_data, nbytes=nbytes)
 
     def _copy_array(self, dest, src):
         dest.set_async(src, stream=self._queue)
@@ -157,11 +208,11 @@ class Thread(api_base.Thread):
     def synchronize(self):
         self._queue.synchronize()
 
-    def _compile(self, src, fast_math=False, compiler_options=None):
+    def _compile(self, src, fast_math=False, compiler_options=None, keep=False):
         options = ['-use_fast_math'] if fast_math else []
         if compiler_options is not None:
             options += compiler_options
-        return SourceModule(src, no_extern_c=True, options=options)
+        return SourceModule(src, no_extern_c=True, options=options, keep=keep)
 
     def _cuda_push(self):
         assert not self._active
@@ -187,6 +238,8 @@ class Thread(api_base.Thread):
 class DeviceParameters:
 
     def __init__(self, device):
+
+        self.api_id = get_id()
 
         self._device = device
         self.max_work_group_size = device.max_threads_per_block
@@ -275,5 +328,6 @@ class Kernel(api_base.Kernel):
         self._grid = tuple(grid) + (1,) * (3 - len(grid))
 
     def prepared_call(self, *args):
+        args = [x.base_data if isinstance(x, Array) else x for x in args]
         return self._kernel(*args, grid=self._grid, block=self._local_size,
             stream=self._thr._queue, shared=self._local_mem)

@@ -126,15 +126,16 @@ class Computation:
 
         :param _comp_connector: connection target ---
             a :py:class:`~reikna.core.computation.ComputationParameter` object
-            beloning to this computation object, or a string with its name.
+            belonging to this computation object, or a string with its name.
         :param _trf: a :py:class:`~reikna.core.Transformation` object.
         :param _tr_connector: connector on the side of the transformation ---
             a :py:class:`~reikna.core.transformation.TransformationParameter` object
-            beloning to ``tr``, or a string with its name.
+            belonging to ``tr``, or a string with its name.
         :param tr_from_comp: a dictionary with the names of new or old
             computation parameters as keys, and
             :py:class:`~reikna.core.transformation.TransformationParameter` objects
             (or their names) as values.
+            The keys of ``tr_from_comp`` cannot include the name of the connection target.
         :returns: this computation object (modified).
 
         .. note::
@@ -182,15 +183,15 @@ class Computation:
     def _translate_tree(self, translator):
         return self._tr_tree.translate(translator)
 
-    def _get_plan(self, tr_tree, translator, thread, fast_math, compiler_options):
+    def _get_plan(self, tr_tree, translator, thread, fast_math, compiler_options, keep):
         plan_factory = lambda: ComputationPlan(
-            tr_tree, translator, thread, fast_math, compiler_options)
+            tr_tree, translator, thread, fast_math, compiler_options, keep)
         args = [
             KernelArgument(param.name, param.annotation.type)
             for param in tr_tree.get_root_parameters()]
         return self._build_plan(plan_factory, thread.device_params, *args)
 
-    def compile(self, thread, fast_math=False, compiler_options=None):
+    def compile(self, thread, fast_math=False, compiler_options=None, keep=False):
         """
         Compiles the computation with the given :py:class:`~reikna.cluda.api.Thread` object
         and returns a :py:class:`~reikna.core.computation.ComputationCallable` object.
@@ -198,10 +199,12 @@ class Computation:
         the compiler options for fast and imprecise mathematical functions.
         ``compiler_options`` can be used to pass a list of strings as arguments
         to the backend compiler.
+        If ``keep`` is ``True``, the generated kernels and binaries will be preserved
+        in temporary directories.
         """
         translator = Translator.identity()
         return self._get_plan(
-            self._tr_tree, translator, thread, fast_math, compiler_options).finalize()
+            self._tr_tree, translator, thread, fast_math, compiler_options, keep).finalize()
 
     def _build_plan(self, plan_factory, device_params, *args):
         """
@@ -256,7 +259,7 @@ class ComputationPlan:
     Computation plan recorder.
     """
 
-    def __init__(self, tr_tree, translator, thread, fast_math, compiler_options):
+    def __init__(self, tr_tree, translator, thread, fast_math, compiler_options, keep):
         """__init__()""" # hide the signature from Sphinx
 
         self._thread = thread
@@ -265,6 +268,7 @@ class ComputationPlan:
         self._translator = translator
         self._fast_math = fast_math
         self._compiler_options = compiler_options
+        self._keep = keep
 
         self._nested_comp_idgen = IdGen('_nested')
         self._persistent_value_idgen = IdGen('_value')
@@ -300,16 +304,19 @@ class ComputationPlan:
         self._persistent_values[name] = self._thread.to_device(arr)
         return KernelArgument(name, ann.type)
 
-    def temp_array(self, shape, dtype, strides=None, offset=0):
+    def temp_array(self, shape, dtype, strides=None, offset=0, nbytes=None):
         """
         Adds a temporary GPU array to the plan, and returns the corresponding
         :py:class:`KernelArgument`.
+        See :py:meth:`~reikna.cluda.api.Thread.array` for the information about the parameters.
+
         Temporary arrays can share physical memory, but in such a way that
         their contents is guaranteed to persist between the first and the last use in a kernel
         during the execution of the plan.
         """
         name = self._translator(self._temp_array_idgen())
-        ann = Annotation(Type(dtype, shape=shape, strides=strides, offset=offset), 'io')
+        ann = Annotation(
+            Type(dtype, shape=shape, strides=strides, offset=offset, nbytes=nbytes), 'io')
         self._internal_annotations[name] = ann
         self._temp_arrays.add(name)
         return KernelArgument(name, ann.type)
@@ -329,6 +336,10 @@ class ComputationPlan:
         """
         Same as :py:meth:`temp_array`, taking the array properties
         from array or array-like object ``arr``.
+
+        .. warning::
+
+            Note that ``pycuda.GPUArray`` objects do not have the ``offset`` attribute.
         """
         if hasattr(arr, 'strides'):
             strides = arr.strides
@@ -338,7 +349,12 @@ class ComputationPlan:
             offset = arr.offset
         else:
             offset = 0
-        return self.temp_array(arr.shape, arr.dtype, strides=strides, offset=offset)
+        if hasattr(arr, 'nbytes'):
+            nbytes = arr.nbytes
+        else:
+            nbytes = None
+        return self.temp_array(
+            arr.shape, arr.dtype, strides=strides, offset=offset, nbytes=nbytes)
 
     def _get_annotation(self, name):
         if name in self._external_annotations:
@@ -411,7 +427,7 @@ class ComputationPlan:
         return [arg.name for arg in args]
 
     def kernel_call(self, template_def, args, global_size,
-            local_size=None, render_kwds=None):
+            local_size=None, render_kwds=None, kernel_name='_kernel_func'):
         """
         Adds a kernel call to the plan.
 
@@ -424,12 +440,12 @@ class ComputationPlan:
         :param local_size: local size to use for the call, in **row-major** order.
             If ``None``, the local size will be picked automatically.
         :param render_kwds: dictionary with additional values used to render the template.
+        :param kernel_name: the name of the kernel function.
         """
 
         processed_args, adhoc_values = self._process_kernel_arguments(args)
         subtree = self._tr_tree.get_subtree(processed_args)
 
-        kernel_name = '_kernel_func'
         kernel_declaration, kernel_leaf_names = subtree.get_kernel_declaration(
             kernel_name, skip_constants=self._is_cuda)
         kernel_argobjects = subtree.get_kernel_argobjects()
@@ -453,7 +469,8 @@ class ComputationPlan:
             render_kwds=render_kwds,
             fast_math=self._fast_math,
             compiler_options=self._compiler_options,
-            constant_arrays=constant_arrays)
+            constant_arrays=constant_arrays,
+            keep=self._keep)
 
         if self._is_cuda:
             for name, arr in constant_arrays.items():
@@ -481,10 +498,15 @@ class ComputationPlan:
         new_tree.reconnect(self._tr_tree)
 
         self._append_plan(computation._get_plan(
-            new_tree, translator, self._thread, self._fast_math, self._compiler_options))
+            new_tree, translator, self._thread, self._fast_math,
+            self._compiler_options, self._keep))
 
     def _append_plan(self, plan):
         self._kernels += plan._kernels
+        if not self._is_cuda:
+            # In case of CUDA each kernel manages its constant arrays itself,
+            # no need to remember them.
+            self._constant_arrays.update(plan._constant_arrays)
         self._persistent_values.update(plan._persistent_values)
         self._temp_arrays.update(plan._temp_arrays)
         self._internal_annotations.update(plan._internal_annotations)

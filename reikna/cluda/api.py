@@ -17,6 +17,20 @@
 
     .. py:attribute:: dtype
 
+    .. py:attribute:: strides
+
+    .. py:attribute:: offset
+
+        The start of the array data in the memory buffer (in bytes).
+
+    .. py:attribute:: base_data
+
+        The memory buffer where the array is located.
+
+    .. py:attribute:: nbytes
+
+        The total size of the array data plus the offset (in bytes).
+
     .. py:method:: get()
 
         Returns ``numpy.ndarray`` with the contents of the array.
@@ -29,6 +43,10 @@
 .. py:class:: DeviceParameters(device)
 
     An assembly of device parameters necessary for optimizations.
+
+    .. py:attribute:: api_id
+
+        Identifier of the API this device belongs to.
 
     .. py:attribute:: max_work_group_size
 
@@ -251,19 +269,58 @@ class Thread:
         """
         raise NotImplementedError()
 
-    def array(self, shape, dtype, strides=None, offset=0, allocator=None):
+    def array(
+            self, shape, dtype, strides=None, offset=0, nbytes=None,
+            base=None, base_data=None, allocator=None):
         """
         Creates an :py:class:`Array` on GPU with given ``shape``, ``dtype``,
         ``strides`` and ``offset``.
+
+        If ``nbytes`` is ``None``, the size of the allocated memory buffer is chosen
+        to be the minimum one to fit all the elements of the array, based on ``shape``,
+        ``dtype`` and ``strides`` (if provided).
+        If ``offset`` is not 0, an *additional* ``offset`` bytes is added at the beginning
+        of the buffer.
+
+        .. note::
+
+            Reikna computations (including the template functions
+            :py:meth:`~reikna.core.transformation.KernelParameter.load_idx`,
+            :py:meth:`~reikna.core.transformation.KernelParameter.store_idx` etc),
+            high-level PyCUDA/PyOpenCL functions and PyCUDA kernels
+            take ``offset`` into account automatically and address arrays starting
+            from the position of the actual data.
+            Reikna kernels (created with :py:meth:`~reikna.cluda.api.Thread.compile`
+            and :py:meth:`~reikna.cluda.api.Thread.compile_static`) and PyOpenCL kernels
+            receive **base addresses** of arrays, and thus have to add offsets manually.
+
+        If ``base``, ``base_data`` and ``nbytes`` are ``None``,
+        the total allocated size will be the minimum size required for the array data
+        (based on ``shape`` and ``strides``) plus ``offset``.
+
+        If ``base`` and ``base_data`` are ``None``, but ``nbytes`` is not,
+        ``nbytes`` bytes will be allocated for the array (this includes the offset).
+
+        If ``base_data`` (a memory buffer) is not ``None``,
+        it will be used as the underlying buffer for the array,
+        with the actual data starting at the ``offset`` bytes from the beginning of ``base_data``.
+        No size checking to make sure the array and the offset fit it will be performed.
+
+        If ``base`` (an :py:class:`Array` object) is not ``None``,
+        its buffer is used as the underlying buffer for the array,
+        with the actual data starting at the ``offset`` bytes from the beginning
+        of ``base.base_data``.
+        ``base_data`` will be ignored.
+
         Optionally, an ``allocator`` is a callable returning any object castable to ``int``
         representing the physical address on the device (for instance, :py:class:`Buffer`).
         """
         raise NotImplementedError()
 
-    def temp_array(self, shape, dtype, strides=None, offset=0, dependencies=None):
+    def temp_array(self, shape, dtype, strides=None, offset=0, nbytes=None, dependencies=None):
         """
         Creates an :py:class:`Array` on GPU with given ``shape``, ``dtype``,
-        ``strides`` and ``offset``.
+        ``strides``, ``offset`` and ``nbytes`` (see :py:meth:`array` for details).
         In order to reduce the memory footprint of the program, the temporary array manager
         will allow these arrays to overlap.
         Two arrays will not overlap, if one of them was specified in ``dependencies``
@@ -272,11 +329,17 @@ class Thread:
         :py:class:`~reikna.cluda.tempalloc.TemporaryManager`.
         """
         return self.temp_alloc.array(
-            shape, dtype, strides=strides, offset=offset, dependencies=dependencies)
+            shape, dtype, strides=strides, offset=offset, nbytes=nbytes,
+            dependencies=dependencies)
 
     def empty_like(self, arr):
         """
-        Allocates an array on GPU with the same attributes as ``arr``.
+        Allocates an array on GPU with the same attributes (``shape``, ``dtype``, ``strides``,
+        ``offset`` and ``nbytes``) as ``arr``.
+
+        .. warning::
+
+            Note that ``pycuda.GPUArray`` objects do not have the ``offset`` attribute.
         """
         if hasattr(arr, 'allocator'):
             allocator = arr.allocator
@@ -290,8 +353,13 @@ class Thread:
             offset = arr.offset
         else:
             offset = 0
+        if hasattr(arr, 'nbytes'):
+            nbytes = arr.nbytes
+        else:
+            nbytes = None
         return self.array(
-            arr.shape, arr.dtype, strides=strides, offset=offset, allocator=allocator)
+            arr.shape, arr.dtype, strides=strides, offset=offset, nbytes=nbytes,
+            allocator=allocator)
 
     def to_device(self, arr, dest=None):
         """
@@ -358,9 +426,10 @@ class Thread:
         if not self._async:
             self.synchronize()
 
-    def _create_program(self, src, fast_math=False, compiler_options=None):
+    def _create_program(self, src, fast_math=False, compiler_options=None, keep=False):
         try:
-            program = self._compile(src, fast_math=fast_math, compiler_options=compiler_options)
+            program = self._compile(
+                src, fast_math=fast_math, compiler_options=compiler_options, keep=keep)
         except:
             listing = "\n".join([str(i+1) + ":" + l for i, l in enumerate(src.split('\n'))])
             error("Failed to compile:\n" + listing)
@@ -369,7 +438,7 @@ class Thread:
 
     def compile(
             self, template_src, render_args=None, render_kwds=None, fast_math=False,
-            compiler_options=None, constant_arrays=None):
+            compiler_options=None, constant_arrays=None, keep=False):
         """
         Creates a module object from the given template.
 
@@ -382,17 +451,22 @@ class Thread:
             of constant memory arrays to be declared in the compiled program.
             ``metadata`` can be either an array-like object (possessing ``shape`` and ``dtype``
             attributes), or a pair ``(shape, dtype)``.
+        :param keep: if `True`, preserve the source file being compiled
+            and the accompanying binaries (if any).
+            With PyCUDA backend, it is used as the ``keep`` option when creating ``SourceModule``.
+            With PyOpenCL backend, it is used as the ``cache_dir`` option for ``Program.build()``
+            (and, additionally, the kernel source itself is put there).
         :returns: a :py:class:`Program` object.
         """
         src = render_template_source(
             template_src, render_args=render_args, render_kwds=render_kwds)
         return Program(
             self, src, fast_math=fast_math, compiler_options=compiler_options,
-            constant_arrays=constant_arrays)
+            constant_arrays=constant_arrays, keep=keep)
 
     def compile_static(self, template_src, name, global_size,
             local_size=None, render_args=None, render_kwds=None, fast_math=False,
-            compiler_options=None, constant_arrays=None):
+            compiler_options=None, constant_arrays=None, keep=False):
         """
         Creates a kernel object with fixed call sizes,
         which allows to overcome some backend limitations.
@@ -409,22 +483,15 @@ class Thread:
             If ``None``, some suitable one will be picked.
         :param local_mem: (**CUDA API only**) amount of dynamically allocated local memory
             to be used (in bytes).
-        :param render_args: a list of parameters to be passed as positional arguments
-            to the template.
-        :param render_kwds: a dictionary with additional parameters
-            to be used while rendering the template.
-        :param fast_math: whether to enable fast mathematical operations during compilation.
-        :param compiler_options: a list of strings to be passed to the compiler as arguments.
-        :param constant_arrays: (**CUDA only**) a dictionary ``{name: metadata}``
-            of constant memory arrays to be declared in the compiled program.
-            ``metadata`` can be either an array-like object (possessing ``shape`` and ``dtype``
-            attributes), or a pair ``(shape, dtype)``.
+
+        The rest of the keyword parameters are the same as for :py:meth:`compile`.
+
         :returns: a :py:class:`StaticKernel` object.
         """
         return StaticKernel(self, template_src, name, global_size,
             local_size=local_size, render_args=render_args, render_kwds=render_kwds,
             fast_math=fast_math, compiler_options=compiler_options,
-            constant_arrays=constant_arrays)
+            constant_arrays=constant_arrays, keep=keep)
 
     def _release_specific(self):
         """
@@ -492,7 +559,7 @@ class Program(object):
 
     def __init__(
             self, thr, src, static=False, fast_math=False, compiler_options=None,
-            constant_arrays=None):
+            constant_arrays=None, keep=False):
         """__init__()""" # hide the signature from Sphinx
 
         self._thr = thr
@@ -511,7 +578,7 @@ class Program(object):
 
         self._constant_arrays = constant_arrays
         self._program = thr._create_program(
-            self.source, fast_math=fast_math, compiler_options=compiler_options)
+            self.source, fast_math=fast_math, compiler_options=compiler_options, keep=keep)
 
     def __getattr__(self, name):
         return self._thr.api.Kernel(self._thr, self._program, name, static=self._static)
@@ -527,7 +594,7 @@ class Program(object):
                 "Incorrect size of the constant array; "
                 "expected " + str(size) + " bytes, got " + str(arr.nbytes))
         if isinstance(arr, self._thr.api.Array):
-            self._thr._memcpy_dtod(symbol, arr.gpudata, size)
+            self._thr._memcpy_dtod(symbol, arr.base_data, arr.nbytes)
         else:
             # numpy array
             self._thr._memcpy_htod(symbol, arr)
@@ -610,7 +677,7 @@ class StaticKernel:
 
     def __init__(self, thr, template_src, name, global_size, local_size=None,
             render_args=None, render_kwds=None, fast_math=False, compiler_options=None,
-            constant_arrays=None):
+            constant_arrays=None, keep=False):
         """__init__()""" # hide the signature from Sphinx
 
         self._thr = thr
@@ -642,7 +709,7 @@ class StaticKernel:
             program = Program(
                 self._thr, vs.vsize_functions + main_src,
                 static=True, fast_math=fast_math, compiler_options=compiler_options,
-                constant_arrays=constant_arrays)
+                constant_arrays=constant_arrays, keep=keep)
             kernel = getattr(program, name)
 
             if kernel.max_work_group_size >= product(vs.real_local_size):

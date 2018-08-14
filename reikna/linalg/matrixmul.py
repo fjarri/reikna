@@ -112,6 +112,7 @@ class MatrixMul(Computation):
                 plan.kernel_call(
                     TEMPLATE.get_def('matrixmul'),
                     [output, matrix_a, matrix_b],
+                    kernel_name="kernel_matrixmul",
                     global_size=(
                         batch,
                         a_blocks * block_width,
