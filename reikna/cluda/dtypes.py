@@ -22,7 +22,7 @@ def is_double(dtype):
     Returns ``True`` if ``dtype`` is double precision floating point.
     """
     dtype = normalize_type(dtype)
-    return numpy.issubdtype(dtype, numpy.float_)
+    return numpy.issubdtype(dtype, numpy.float_) or numpy.issubdtype(dtype, numpy.complex_)
 
 def is_integer(dtype):
     """
