@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.8.0 (current development version)
-===================================
+0.7.2 (16 Sep 2018)
+===================
 
 * FIXED: :py:func:`~reikna.cluda.dtypes.is_double` now correctly recognizes ``numpy.complex128`` as requiring double precision.
 
