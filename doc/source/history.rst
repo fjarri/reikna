@@ -3,6 +3,14 @@ Release history
 ***************
 
 
+0.7.2 (16 Sep 2018)
+===================
+
+* FIXED: :py:func:`~reikna.cluda.dtypes.is_double` now correctly recognizes ``numpy.complex128`` as requiring double precision.
+
+* ADDED: :py:attr:`~reikna.cluda.api.DeviceParameters.compute_units` attribute to :py:class:`~reikna.cluda.api.DeviceParameters`.
+
+
 0.7.1 (14 Aug 2018)
 ===================
 

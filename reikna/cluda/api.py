@@ -80,6 +80,10 @@
         Dictionary ``{word_size:elements}``, where ``elements`` is the number of elements
         with size ``word_size`` in global memory that allow coalesced access.
 
+    .. py:attribute:: compute_units
+
+        The value of ``MULTIPROCESSOR_COUNT`` in CUDA and ``MAX_COMPUTE_UNITS`` in OpenCL.
+
     .. py:method:: supports_dtype(self, dtype)
 
         Checks if given ``numpy`` dtype can be used in kernels compiled using this thread.

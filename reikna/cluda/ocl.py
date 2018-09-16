@@ -178,6 +178,8 @@ class DeviceParameters:
         self.min_mem_coalesce_width = {4: 16, 8: 16, 16: 8}
         self.local_mem_size = device.local_mem_size
 
+        self.compute_units = device.max_compute_units
+
     def supports_dtype(self, dtype):
         if dtypes.is_double(dtype):
             extensions = self._device.extensions

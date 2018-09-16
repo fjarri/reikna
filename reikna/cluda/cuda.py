@@ -263,6 +263,8 @@ class DeviceParameters:
             ((size,devdata.align_words(word_size=size)) for size in [4, 8, 16]))
         self.local_mem_size = device.max_shared_memory_per_block
 
+        self.compute_units = device.multiprocessor_count
+
     def supports_dtype(self, dtype):
         if dtypes.is_double(dtype):
             major, minor = self._device.compute_capability()
