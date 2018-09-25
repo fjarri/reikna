@@ -101,10 +101,7 @@ class Array(gpuarray.GPUArray):
         so we're overriding it.
         """
         new_arr = self._new_like_me()
-        # FIXME: a temporary workaround for PyCUDA not being compatible with Py3.7
-        # where `async` is a keyword.
-        kwds = {'async': True, 'stream': self.thread._queue}
-        gpuarray._memcpy_discontig(new_arr, self, **kwds)
+        gpuarray._memcpy_discontig(new_arr, self, async_=True, stream=self.thread._queue)
         return new_arr
 
     def _new_like_me(self, dtype=None):
