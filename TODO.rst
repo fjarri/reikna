@@ -39,6 +39,8 @@ Scan:
   Remove them altogether?
 * FEATURE (computations): use dtypes for custom structures to pass a counter in CBRNG if the sampler is deterministic.
 
+* FEATURE: add debug mode, where every array passed to a computation is checked for shape, dtype etc with the respective computation parameters.
+
 
 1.0.0 (production-quality version... hopefully)
 ===============================================
