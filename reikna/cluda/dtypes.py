@@ -185,7 +185,7 @@ def _fill_dtype_registry(respect_windows=True):
     _register_dtype(numpy.int32, "int")
     _register_dtype(numpy.uint32, "unsigned int")
 
-    if platform.system == 'Windows' and respect_windows:
+    if platform.system() == 'Windows' and respect_windows:
         i64_name = "long long"
     else:
         i64_name = "long"
