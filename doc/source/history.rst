@@ -8,6 +8,8 @@ Release history
 
 * FIXED: updated the CUDA backend for the change ``async`` -> ``async_`` in the new versions of PyCUDA. Bumped PyOpenCL and PyCUDA versions to 2018.1.1.
 
+* FIXED: an error in the conversion of `numpy.int64` to ctype for Windows.
+
 
 0.7.2 (16 Sep 2018)
 ===================
