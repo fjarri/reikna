@@ -188,7 +188,6 @@ class Thread:
         :param device_filters: keywords to filter devices
             (see the keywords for :py:func:`~reikna.cluda.find_devices`).
         :param thread_kwds: keywords to pass to :py:class:`Thread` constructor.
-        :param kwds: same as in :py:class:`Thread`.
         """
 
         if device_filters is None:
