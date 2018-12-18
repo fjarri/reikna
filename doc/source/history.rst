@@ -10,6 +10,8 @@ Release history
 
 * FIXED: an error in the conversion of `numpy.int64` to ctype for Windows.
 
+* FIXED: an unstable type of ``nbytes`` in ``Thread.array()``, leading to problems with calling the C++ backend later on.
+
 
 0.7.2 (16 Sep 2018)
 ===================

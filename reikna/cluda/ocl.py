@@ -81,7 +81,7 @@ class Thread(api_base.Thread):
         dtype = dtypes.normalize_type(dtype)
         shape = wrap_in_tuple(shape)
         if nbytes is None:
-            nbytes = min_buffer_size(shape, dtype.itemsize, strides=strides, offset=offset)
+            nbytes = int(min_buffer_size(shape, dtype.itemsize, strides=strides, offset=offset))
 
         if (offset != 0 or strides is not None) and base_data is None and base is None:
             base_data = allocator(nbytes)
