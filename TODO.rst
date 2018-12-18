@@ -1,6 +1,9 @@
 0.7.0
 =====
 
+* Expose temporary array in computations via ``__tempalloc__``.
+* Integer arguments (shapes, strides, offsets, sizes) can be a ``numpy`` integer type instead of ``int``, which leads to problems with calls to C++ backend (see e.g. issue 50). Normalize everything integer in every possible function?
+
 Scan:
 
 * Split struct fields for the local memory operations the same as in Reduce. Since Scan uses optimized bank access, it will increase speed for structure types.
