@@ -4,6 +4,8 @@
 * Expose temporary array in computations via ``__tempalloc__``.
 * Integer arguments (shapes, strides, offsets, sizes) can be a ``numpy`` integer type instead of ``int``, which leads to problems with calls to C++ backend (see e.g. issue 50). Normalize everything integer in every possible function?
 
+* A "debug mode" for computation compilation, where it prints which kernels from which computations it is compiling and with which parameters. Will help debugging issues happening on compilation stage (e.g. when the requested number of threads is too high).
+
 Scan:
 
 * Split struct fields for the local memory operations the same as in Reduce. Since Scan uses optimized bank access, it will increase speed for structure types.
