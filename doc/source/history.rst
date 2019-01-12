@@ -6,6 +6,8 @@ Release history
 0.8.0 (current development version)
 ===================================
 
+* ADDED: ``inverse`` parameter for :py:class:`~reikna.fft.FFTShift` (contributed by @drtpotter).
+
 * FIXED: updated the CUDA backend for the change ``async`` -> ``async_`` in the new versions of PyCUDA. Bumped PyOpenCL and PyCUDA versions to 2018.1.1.
 
 * FIXED: an error in the conversion of `numpy.int64` to ctype for Windows.
