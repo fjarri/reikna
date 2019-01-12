@@ -86,15 +86,10 @@ def check_errors(thr, shape_and_axes):
     shift = FFTShift(data, axes=axes)
     shiftc = shift.compile(thr)
 
-    #print(shiftc._kernel_calls[0]._kernel._program.source)
-    #print(shiftc._kernel_calls[0]._kernel.global_size)
 
     data_dev = thr.to_device(data)
     shiftc(data_dev, data_dev)
     res_ref = numpy.fft.fftshift(data, axes=axes)
-    #print(data)
-    #print(res_ref)
-    #print(data_dev.get())
     assert diff_is_negligible(data_dev.get(), res_ref)
 
 
