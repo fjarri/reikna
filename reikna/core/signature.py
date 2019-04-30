@@ -139,7 +139,7 @@ class Type:
         return self._cast(val)
 
     def __repr__(self):
-        if len(self.shape) > 0:
+        if len(self.shape) > 0 or self.offset != 0:
             res = "Type({dtype}, shape={shape}".format(dtype=self.dtype, shape=self.shape)
             if not self._default_strides:
                 res += ", strides=" + str(self.strides)
