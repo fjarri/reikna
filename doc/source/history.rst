@@ -14,6 +14,8 @@ Release history
 
 * FIXED: an unstable type of ``nbytes`` in ``Thread.array()``, leading to problems with calling the C++ backend later on.
 
+* FIXED: a bug where a nonzero offset was ignored when building an accessor macro for an array with a zero-length shape
+
 
 0.7.2 (16 Sep 2018)
 ===================
