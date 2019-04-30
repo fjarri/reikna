@@ -100,6 +100,13 @@ class Type:
 
         return True
 
+    def with_dtype(self, dtype):
+        """
+        Creates a :py:class:`Type` object with its ``dtype`` attribute replaced by the given dtype.
+        """
+        return Type(
+            dtype, shape=self.shape, strides=self.strides, offset=self.offset, nbytes=self.nbytes)
+
     @classmethod
     def from_value(cls, val):
         """
