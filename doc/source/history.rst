@@ -16,6 +16,10 @@ Release history
 
 * ADDED: the :py:func:`~reikna.transformations.copy` transformation now supports broadcasting.
 
+* ADDED: :py:meth:`~reikna.api.Thread.get_cached_computation` method for :py:class:`~reikna.api.Thread`.
+
+* ADDED: arrays now support setting arbitrary slices with scalars or arrays.
+
 * FIXED: updated the CUDA backend for the change ``async`` -> ``async_`` in the new versions of PyCUDA. Bumped PyOpenCL and PyCUDA versions to 2018.1.1.
 
 * FIXED: an error in the conversion of `numpy.int64` to ctype for Windows.

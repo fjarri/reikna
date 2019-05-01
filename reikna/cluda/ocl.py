@@ -10,6 +10,8 @@ import reikna.cluda as cluda
 import reikna.cluda.dtypes as dtypes
 import reikna.cluda.api as api_base
 
+from reikna.cluda.setitem import setitem_method
+
 
 def get_id():
     return cluda.ocl_id()
@@ -51,6 +53,9 @@ class Array(clarray.Array):
             shape=res.shape, dtype=res.dtype, strides=res.strides,
             base_data=res.base_data,
             offset=res.offset)
+
+    def __setitem__(self, index, value):
+        setitem_method(self, index, value)
 
     def _tempalloc_update_buffer(self, data):
         self.base_data = data

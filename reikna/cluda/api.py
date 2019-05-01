@@ -266,6 +266,34 @@ class Thread:
             pack_on_alloc=temp_alloc_params['pack_on_alloc'],
             pack_on_free=temp_alloc_params['pack_on_free'])
 
+        self._computation_cache = dict()
+
+    def get_cached_computation(self, cls, *args, **kwds):
+        """
+        Returns a compiled computation ``cls`` initialized with ``args`` and ``kwds``.
+        The results are cached, so any computation with the same arguments will only be
+        initialized and compiled once.
+
+        .. note::
+
+            All of ``args`` and ``kwds`` must be hashable! If any of those are arrays,
+            they can be passed through :py:meth:`~reikna.core.signature.Type.from_value`.
+        """
+
+        # TODO: we could make given numpy arrays and GPU arrays hashable
+        # by calling ``Type.from_value()`` on them automatically,
+        # but that would require importing the ``Array`` type, creating a circular dependency.
+
+        hashable_kwds = tuple((key, kwds[key]) for key in sorted(kwds))
+        key = (cls, args, hashable_kwds)
+        if key in self._computation_cache:
+            return self._computation_cache[key]
+        else:
+            comp = cls(*args, **kwds)
+            compiled_comp = comp.compile(self)
+            self._computation_cache[key] = compiled_comp
+            return compiled_comp
+
     def allocate(self, size):
         """
         Creates an untyped memory allocation object of type :py:class:`Buffer` with size ``size``.
@@ -515,6 +543,8 @@ class Thread:
         # and I cannot see the way to make Thread release both GC-only-compatible
         # and auto-releasable when not in use (crucial for CUDA because of its
         # stupid stateful contexts), I'll leave at is it is for now.
+
+        self._computation_cache.clear()
 
         try:
             released = self._released

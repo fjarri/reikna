@@ -13,6 +13,8 @@ import reikna.cluda.dtypes as dtypes
 from reikna.helpers import factors, wrap_in_tuple, product, min_buffer_size
 import reikna.cluda.api as api_base
 
+from reikna.cluda.setitem import setitem_method
+
 
 cuda.init()
 
@@ -121,6 +123,9 @@ class Array(gpuarray.GPUArray):
             shape=res.shape, dtype=res.dtype, strides=res.strides,
             base_data=self.base_data,
             offset=int(res.gpudata) - int(self.base_data))
+
+    def __setitem__(self, index, value):
+        setitem_method(self, index, value)
 
     def _tempalloc_update_buffer(self, data):
         self.base_data = data

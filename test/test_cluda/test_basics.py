@@ -401,3 +401,35 @@ def test_offsets_in_kernel(thr):
     dest_ref = src_base[src_offset:]
 
     assert diff_is_negligible(dest_dev.get(), dest_ref)
+
+
+class _GetSlices:
+    def __getitem__(self, index):
+        return index
+
+_get_slices = _GetSlices()
+
+_setitem_view_tests = [
+    (_get_slices[:, :], 1, "[:,:]=scalar"),
+    (_get_slices[:, 1], 1, "[:,i]=scalar"),
+    (_get_slices[1, :], 1, "[i,:]=scalar"),
+    (_get_slices[1, 2], 1, "[i,i]=scalar"),
+    (_get_slices[:, :], numpy.arange(10 * 20).reshape(10, 20), "[:,:]=array"),
+    (_get_slices[:, 2], numpy.arange(10), "[:,i]=array"),
+    (_get_slices[2, :], numpy.arange(20), "[i,:]=array"),
+]
+
+@pytest.mark.parametrize(
+    'setitem_test',
+    [test[:2] for test in _setitem_view_tests],
+    ids=[test[2] for test in _setitem_view_tests])
+def test_setitem_view(thr, setitem_test):
+    data = numpy.zeros((10, 20), numpy.int32)
+    data_dev = thr.to_device(data)
+
+    slices, value = setitem_test
+
+    data[slices] = value
+    data_dev[slices] = value
+
+    assert diff_is_negligible(data_dev.get(), data)
