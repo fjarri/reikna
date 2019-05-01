@@ -12,6 +12,8 @@ Release history
 
 * ADDED: :py:func:`~reikna.transformations.cast` transformation.
 
+* ADDED: :py:meth:`~reikna.core.Type.broadcastable_to` method for :py:class:`~reikna.core.Type`.
+
 * FIXED: updated the CUDA backend for the change ``async`` -> ``async_`` in the new versions of PyCUDA. Bumped PyOpenCL and PyCUDA versions to 2018.1.1.
 
 * FIXED: an error in the conversion of `numpy.int64` to ctype for Windows.
