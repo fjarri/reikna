@@ -9,20 +9,39 @@ from reikna.core import Transformation, Parameter, Annotation, Type
 
 def copy(arr_t, out_arr_t=None):
     """
-    Returns an identity transformation (1 output, 1 input): ``output = input``.
+    Returns an identity transformation (1 output, 1 input): ``output = input``,
+    where ``input`` may be broadcasted (with the same semantics as ``numpy.broadcast_to()``).
     Output array type ``out_arr_t`` may have different strides,
-    but must have the same shape and data type.
+    but must have compatible shapes the same shape and data type.
     """
     if out_arr_t is None:
         out_arr_t = arr_t
-    else:
-        if out_arr_t.shape != arr_t.shape or out_arr_t.dtype != arr_t.dtype:
-            raise ValueError("Input and output arrays must have the same shape and data type")
+
+    if out_arr_t.dtype != arr_t.dtype:
+        raise ValueError("Input and output arrays must have the same data type")
+
+    in_tp = Type.from_value(arr_t)
+    out_tp = Type.from_value(out_arr_t)
+    if not in_tp.broadcastable_to(out_tp):
+        raise ValueError("Input is not broadcastable to output")
 
     return Transformation(
         [Parameter('output', Annotation(out_arr_t, 'o')),
         Parameter('input', Annotation(arr_t, 'i'))],
-        "${output.store_same}(${input.load_same});")
+        """
+        ${output.store_same}(${input.load_idx}(
+        %for i in range(len(input.shape)):
+            %if input.shape[i] == 1:
+            0
+            %else:
+            ${idxs[i + len(output.shape) - len(input.shape)]}
+            %endif
+            %if i != len(input.shape) - 1:
+                ,
+            %endif
+        %endfor
+        ));
+        """)
 
 
 def cast(arr_t, dtype):
