@@ -10,7 +10,7 @@ import reikna.cluda as cluda
 import reikna.cluda.dtypes as dtypes
 import reikna.cluda.api as api_base
 
-from reikna.cluda.setitem import setitem_method
+from reikna.cluda.array_helpers import setitem_method, get_method
 
 
 def get_id():
@@ -56,6 +56,12 @@ class Array(clarray.Array):
 
     def __setitem__(self, index, value):
         setitem_method(self, index, value)
+
+    def get(self):
+        if self.flags.forc:
+            return clarray.Array.get(self)
+        else:
+            return get_method(self)
 
     def _tempalloc_update_buffer(self, data):
         self.base_data = data

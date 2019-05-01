@@ -433,3 +433,24 @@ def test_setitem_view(thr, setitem_test):
     data_dev[slices] = value
 
     assert diff_is_negligible(data_dev.get(), data)
+
+
+_get_view_tests = [
+    (_get_slices[:, :], "[:,:]"),
+    (_get_slices[:, 1], "[:,i]"),
+    (_get_slices[1, :], "[i,:]"),
+    (_get_slices[1, 2], "[i,i]"),
+]
+
+@pytest.mark.parametrize(
+    'get_test_slices',
+    [test[0] for test in _get_view_tests],
+    ids=[test[1] for test in _get_view_tests])
+def test_get_view(thr, get_test_slices):
+    data = numpy.arange(10 * 20).reshape(10, 20).astype(numpy.int32)
+    data_dev = thr.to_device(data)
+
+    view_ref = data[get_test_slices]
+    view_dev = data_dev[get_test_slices]
+
+    assert diff_is_negligible(view_dev.get(), view_ref)

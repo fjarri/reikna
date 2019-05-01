@@ -56,3 +56,11 @@ def setitem_method(array, index, value):
     comp = array.thread.get_cached_computation(
         setitem_computation, Type.from_value(view), Type.from_value(value))
     comp(view, value)
+
+
+def get_method(array):
+    temp = array.thread.array(array.shape, array.dtype)
+    comp = array.thread.get_cached_computation(
+        setitem_computation, Type.from_value(temp), Type.from_value(array))
+    comp(temp, array)
+    return temp.get()
