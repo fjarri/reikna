@@ -25,6 +25,19 @@ def copy(arr_t, out_arr_t=None):
         "${output.store_same}(${input.load_same});")
 
 
+def cast(arr_t, dtype):
+    """
+    Returns a typecast transformation of ``arr_t`` to ``dtype``
+    (1 output, 1 input): ``output = cast[dtype](input)``.
+    """
+    dest = Type.from_value(arr_t).with_dtype(dtype)
+    return Transformation(
+        [Parameter('output', Annotation(dest, 'o')),
+        Parameter('input', Annotation(arr_t, 'i'))],
+        "${output.store_same}(${cast}(${input.load_same}));",
+        render_kwds=dict(cast=functions.cast(dtype, arr_t.dtype)))
+
+
 def add_param(arr_t, param_dtype):
     """
     Returns an addition transformation with a dynamic parameter (1 output, 1 input, 1 scalar):

@@ -86,6 +86,24 @@ def test_copy(some_thr, any_dtype):
     assert diff_is_negligible(output_dev.get(), input_)
 
 
+def test_cast(some_thr):
+
+    data = get_test_array((1000,), numpy.float32, high=10)
+    data_dev = some_thr.to_device(data)
+
+    test = get_test_computation(Type(numpy.int32, (1000,)))
+    cast = tr.cast(data, numpy.int32)
+
+    test.parameter.input.connect(cast, cast.output, input_prime=cast.input)
+    testc = test.compile(some_thr)
+
+    output_dev = some_thr.empty_like(test.parameter.output)
+
+    testc(output_dev, data_dev)
+
+    assert diff_is_negligible(output_dev.get(), numpy.floor(data).astype(numpy.int32))
+
+
 def test_add_param(some_thr, any_dtype):
 
     input = get_test_array((1000,), any_dtype)
