@@ -13,6 +13,8 @@ import reikna.cluda.dtypes as dtypes
 from reikna.helpers import factors, wrap_in_tuple, product, min_buffer_size
 import reikna.cluda.api as api_base
 
+from reikna.cluda.array_helpers import setitem_method, get_method, roll_method
+
 
 cuda.init()
 
@@ -101,10 +103,7 @@ class Array(gpuarray.GPUArray):
         so we're overriding it.
         """
         new_arr = self._new_like_me()
-        # FIXME: a temporary workaround for PyCUDA not being compatible with Py3.7
-        # where `async` is a keyword.
-        kwds = {'async': True, 'stream': self.thread._queue}
-        gpuarray._memcpy_discontig(new_arr, self, **kwds)
+        gpuarray._memcpy_discontig(new_arr, self, async_=True, stream=self.thread._queue)
         return new_arr
 
     def _new_like_me(self, dtype=None):
@@ -124,6 +123,18 @@ class Array(gpuarray.GPUArray):
             shape=res.shape, dtype=res.dtype, strides=res.strides,
             base_data=self.base_data,
             offset=int(res.gpudata) - int(self.base_data))
+
+    def __setitem__(self, index, value):
+        setitem_method(self, index, value)
+
+    def roll(self, shift, axis=-1):
+        roll_method(self, shift, axis=axis)
+
+    def get(self):
+        if self.flags.forc:
+            return gpuarray.GPUArray.get(self)
+        else:
+            return get_method(self)
 
     def _tempalloc_update_buffer(self, data):
         self.base_data = data
@@ -166,7 +177,7 @@ class Thread(api_base.Thread):
         dtype = dtypes.normalize_type(dtype)
         shape = wrap_in_tuple(shape)
         if nbytes is None:
-            nbytes = min_buffer_size(shape, dtype.itemsize, strides=strides, offset=offset)
+            nbytes = int(min_buffer_size(shape, dtype.itemsize, strides=strides, offset=offset))
 
         if (offset != 0 or strides is not None) and base_data is None and base is None:
             base_data = allocator(nbytes)

@@ -66,7 +66,12 @@ def get_test_computation(arr_t):
     return PureParallel(
         [Parameter('output', Annotation(arr_t, 'o')),
         Parameter('input', Annotation(arr_t, 'i'))],
-        "${output.store_idx}(${idxs[0]}, ${input.load_idx}(${idxs[0]}));")
+        """
+        <%
+            all_idxs = ", ".join(idxs)
+        %>
+        ${output.store_idx}(${all_idxs}, ${input.load_idx}(${all_idxs}));
+        """)
 
 
 def test_copy(some_thr, any_dtype):
@@ -84,6 +89,47 @@ def test_copy(some_thr, any_dtype):
 
     testc(output_dev, input_dev)
     assert diff_is_negligible(output_dev.get(), input_)
+
+
+in_shapes = [(30,), (20, 1), (10, 20, 1)]
+@pytest.mark.parametrize('in_shape', in_shapes, ids=[str(in_shape) for in_shape in in_shapes])
+def test_broadcasted_copy(some_thr, in_shape):
+
+    dtype = numpy.int32
+    shape = (10, 20, 30)
+
+    input_ = get_test_array(in_shape, dtype)
+    input_dev = some_thr.to_device(input_)
+    output_dev = some_thr.array(shape, dtype)
+
+    output_ref = numpy.broadcast_to(input_, shape)
+
+    test = get_test_computation(output_dev)
+    copy = tr.copy_broadcasted(input_dev, output_dev)
+
+    test.parameter.input.connect(copy, copy.output, input_prime=copy.input)
+    testc = test.compile(some_thr)
+
+    testc(output_dev, input_dev)
+    assert diff_is_negligible(output_dev.get(), output_ref)
+
+
+def test_cast(some_thr):
+
+    data = get_test_array((1000,), numpy.float32, high=10)
+    data_dev = some_thr.to_device(data)
+
+    test = get_test_computation(Type(numpy.int32, (1000,)))
+    cast = tr.cast(data, numpy.int32)
+
+    test.parameter.input.connect(cast, cast.output, input_prime=cast.input)
+    testc = test.compile(some_thr)
+
+    output_dev = some_thr.empty_like(test.parameter.output)
+
+    testc(output_dev, data_dev)
+
+    assert diff_is_negligible(output_dev.get(), numpy.floor(data).astype(numpy.int32))
 
 
 def test_add_param(some_thr, any_dtype):

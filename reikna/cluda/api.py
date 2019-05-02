@@ -31,6 +31,16 @@
 
         The total size of the array data plus the offset (in bytes).
 
+    .. py:method:: roll(shift, axis=-1)
+
+        Cyclically shifts elements of ``array`` **inplace**
+        by ``shift`` positions to the right along ``axis``.
+        ``shift`` can be negative (in which case the elements are shifted to the left).
+        Elements that are shifted beyond the last position are re-introduced at the first
+        (and vice versa).
+
+        Works equivalently to ``numpy.roll`` (except ``axis=None`` is not supported).
+
     .. py:method:: get()
 
         Returns ``numpy.ndarray`` with the contents of the array.
@@ -188,7 +198,6 @@ class Thread:
         :param device_filters: keywords to filter devices
             (see the keywords for :py:func:`~reikna.cluda.find_devices`).
         :param thread_kwds: keywords to pass to :py:class:`Thread` constructor.
-        :param kwds: same as in :py:class:`Thread`.
         """
 
         if device_filters is None:
@@ -266,6 +275,34 @@ class Thread:
         self.temp_alloc = temp_alloc_params['cls'](weakref.proxy(self),
             pack_on_alloc=temp_alloc_params['pack_on_alloc'],
             pack_on_free=temp_alloc_params['pack_on_free'])
+
+        self._computation_cache = dict()
+
+    def get_cached_computation(self, cls, *args, **kwds):
+        """
+        Returns a compiled computation ``cls`` initialized with ``args`` and ``kwds``.
+        The results are cached, so any computation with the same arguments will only be
+        initialized and compiled once.
+
+        .. note::
+
+            All of ``args`` and ``kwds`` must be hashable! If any of those are arrays,
+            they can be passed through ``Type.from_value()``.
+        """
+
+        # TODO: we could make given numpy arrays and GPU arrays hashable
+        # by calling ``Type.from_value()`` on them automatically,
+        # but that would require importing the ``Array`` type, creating a circular dependency.
+
+        hashable_kwds = tuple((key, kwds[key]) for key in sorted(kwds))
+        key = (cls, args, hashable_kwds)
+        if key in self._computation_cache:
+            return self._computation_cache[key]
+        else:
+            comp = cls(*args, **kwds)
+            compiled_comp = comp.compile(self)
+            self._computation_cache[key] = compiled_comp
+            return compiled_comp
 
     def allocate(self, size):
         """
@@ -516,6 +553,8 @@ class Thread:
         # and I cannot see the way to make Thread release both GC-only-compatible
         # and auto-releasable when not in use (crucial for CUDA because of its
         # stupid stateful contexts), I'll leave at is it is for now.
+
+        self._computation_cache.clear()
 
         try:
             released = self._released

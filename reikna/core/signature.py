@@ -100,6 +100,28 @@ class Type:
 
         return True
 
+    def broadcastable_to(self, other):
+        """
+        Returns ``True`` if the shape of this ``Type`` is broadcastable to ``other``,
+        that is its dimensions either coincide with the innermost dimensions of ``other.shape``,
+        or are equal to 1.
+        """
+        if len(self.shape) > len(other.shape):
+            return False
+
+        for i in range(1, len(self.shape)+1):
+            if not (self.shape[-i] == 1 or self.shape[-i] == other.shape[-i]):
+                return False
+
+        return True
+
+    def with_dtype(self, dtype):
+        """
+        Creates a :py:class:`Type` object with its ``dtype`` attribute replaced by the given dtype.
+        """
+        return Type(
+            dtype, shape=self.shape, strides=self.strides, offset=self.offset, nbytes=self.nbytes)
+
     @classmethod
     def from_value(cls, val):
         """
@@ -139,7 +161,7 @@ class Type:
         return self._cast(val)
 
     def __repr__(self):
-        if len(self.shape) > 0:
+        if len(self.shape) > 0 or self.offset != 0:
             res = "Type({dtype}, shape={shape}".format(dtype=self.dtype, shape=self.shape)
             if not self._default_strides:
                 res += ", strides=" + str(self.strides)

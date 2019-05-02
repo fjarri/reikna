@@ -75,7 +75,7 @@ def pytest_generate_tests(metafunc):
             ids=list(map(idgen, perf_odd_shapes_and_axes)))
 
 
-def check_errors(thr, shape_and_axes):
+def check_errors(thr, shape_and_axes, inverse=False):
 
     dtype = numpy.int32
 
@@ -86,20 +86,18 @@ def check_errors(thr, shape_and_axes):
     shift = FFTShift(data, axes=axes)
     shiftc = shift.compile(thr)
 
-    #print(shiftc._kernel_calls[0]._kernel._program.source)
-    #print(shiftc._kernel_calls[0]._kernel.global_size)
+    ref_func = numpy.fft.ifftshift if inverse else numpy.fft.fftshift
 
     data_dev = thr.to_device(data)
-    shiftc(data_dev, data_dev)
-    res_ref = numpy.fft.fftshift(data, axes=axes)
-    #print(data)
-    #print(res_ref)
-    #print(data_dev.get())
+    shiftc(data_dev, data_dev, inverse)
+    res_ref = ref_func(data, axes=axes)
+
     assert diff_is_negligible(data_dev.get(), res_ref)
 
 
-def test_errors(thr, errors_shape_and_axes):
-    check_errors(thr, errors_shape_and_axes)
+@pytest.mark.parametrize('inverse', [False, True], ids=['forward', 'inverse'])
+def test_errors(thr, errors_shape_and_axes, inverse):
+    check_errors(thr, errors_shape_and_axes, inverse)
 
 
 def test_trivial(some_thr):

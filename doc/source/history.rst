@@ -3,6 +3,38 @@ Release history
 ***************
 
 
+0.7.3 (1 May 2019)
+==================
+
+* ADDED: ``inverse`` parameter for :py:class:`~reikna.fft.FFTShift` (contributed by @drtpotter).
+
+* ADDED: :py:meth:`~reikna.core.Type.with_dtype` method for :py:class:`~reikna.core.Type`.
+
+* ADDED: :py:func:`~reikna.transformations.cast` transformation.
+
+* ADDED: :py:meth:`~reikna.core.Type.broadcastable_to` method for :py:class:`~reikna.core.Type`.
+
+* ADDED: added :py:func:`~reikna.transformations.copy_broadcasted` transformation.
+
+* ADDED: :py:meth:`~reikna.cluda.api.Thread.get_cached_computation` method for :py:class:`~reikna.cluda.api.Thread`.
+
+* ADDED: arrays now support setting arbitrary slices with scalars or arrays.
+
+* ADDED: support for ``get()`` method for non-contiguous arrays.
+
+* ADDED: :py:func:`~reikna.concatenate` for concatenating GPU arrays.
+
+* ADDED: :py:func:`~reikna.roll` for GPU arrays and the inplace version :py:meth:`~reikna.cluda.api.Array.roll`.
+
+* FIXED: updated the CUDA backend for the change ``async`` -> ``async_`` in the new versions of PyCUDA. Bumped PyOpenCL and PyCUDA versions to 2018.1.1.
+
+* FIXED: an error in the conversion of `numpy.int64` to ctype for Windows.
+
+* FIXED: an unstable type of ``nbytes`` in ``Thread.array()``, leading to problems with calling the C++ backend later on.
+
+* FIXED: a bug where a nonzero offset was ignored when building an accessor macro for an array with a zero-length shape
+
+
 0.7.2 (16 Sep 2018)
 ===================
 

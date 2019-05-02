@@ -26,8 +26,11 @@ def flat_index_expr(param):
 
     type_ = param.annotation.type
 
+    # FIXME: assuming that offset is a multiple of dtype.itemsize
+    item_offset = type_.offset // type_.dtype.itemsize
+
     if len(type_.shape) == 0:
-        return "0"
+        return str(item_offset)
 
     # FIXME: Assuming that all strides are multiples of dtype.itemsize.
     # This can change with custom strides, and we will have
@@ -39,7 +42,6 @@ def flat_index_expr(param):
             "are not multiples of the itemsize" + str(type_.dtype.itemsize))
 
     item_strides = [stride // type_.dtype.itemsize for stride in type_.strides]
-    item_offset = type_.offset // type_.dtype.itemsize
 
     names = index_cnames(param.annotation.type.shape)
 

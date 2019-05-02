@@ -86,7 +86,7 @@ git_revision = "{git_revision}"
 release = {released}
 '''
 
-    VERSION = (0, 7, 2)
+    VERSION = (0, 7, 3)
     RELEASED = True
 
     version_str = '%d.%d.%d' % VERSION
@@ -149,8 +149,8 @@ if __name__ == '__main__':
         requires=requires,
         install_requires=install_requires,
         extras_require=dict(
-            pyopencl=["pyopencl>=2013.1"],
-            pycuda=["pycuda>=2013.1"],
+            pyopencl=["pyopencl>=2018.1.1"],
+            pycuda=["pycuda>=2018.1.1"],
             dev=[
                 "pytest>=2.3",
                 "pytest-cov",

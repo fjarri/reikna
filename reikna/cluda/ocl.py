@@ -10,6 +10,8 @@ import reikna.cluda as cluda
 import reikna.cluda.dtypes as dtypes
 import reikna.cluda.api as api_base
 
+from reikna.cluda.array_helpers import setitem_method, get_method, roll_method
+
 
 def get_id():
     return cluda.ocl_id()
@@ -52,6 +54,18 @@ class Array(clarray.Array):
             base_data=res.base_data,
             offset=res.offset)
 
+    def __setitem__(self, index, value):
+        setitem_method(self, index, value)
+
+    def roll(self, shift, axis=-1):
+        roll_method(self, shift, axis=axis)
+
+    def get(self):
+        if self.flags.forc:
+            return clarray.Array.get(self)
+        else:
+            return get_method(self)
+
     def _tempalloc_update_buffer(self, data):
         self.base_data = data
 
@@ -81,7 +95,7 @@ class Thread(api_base.Thread):
         dtype = dtypes.normalize_type(dtype)
         shape = wrap_in_tuple(shape)
         if nbytes is None:
-            nbytes = min_buffer_size(shape, dtype.itemsize, strides=strides, offset=offset)
+            nbytes = int(min_buffer_size(shape, dtype.itemsize, strides=strides, offset=offset))
 
         if (offset != 0 or strides is not None) and base_data is None and base is None:
             base_data = allocator(nbytes)

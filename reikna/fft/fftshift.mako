@@ -37,7 +37,7 @@ ${kernel_declaration}
 </%def>
 
 
-<%def name="fftshift_outplace(kernel_declaration, output, input)">
+<%def name="fftshift_outplace(kernel_declaration, output, input, inverse)">
 <%
     dimensions = len(output.shape)
     idx_names = ['index' + str(idx) for idx in range(dimensions)]
@@ -67,6 +67,16 @@ ${kernel_declaration}
         %endif
         ;
     %endfor
+
+    if (${inverse})
+    {
+        VSIZE_T temp;
+        %for dim in range(dimensions):
+        temp = ${new_idx_names[dim]};
+        ${new_idx_names[dim]} = ${idx_names[dim]};
+        ${idx_names[dim]} = temp;
+        %endfor
+    }
 
     ${output.ctype} val = ${input.load_idx}(${', '.join(idx_names)});
     ${output.store_idx}(${', '.join(new_idx_names)}, val);

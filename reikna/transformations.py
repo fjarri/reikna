@@ -25,6 +25,62 @@ def copy(arr_t, out_arr_t=None):
         "${output.store_same}(${input.load_same});")
 
 
+def copy_broadcasted(arr_t, out_arr_t=None):
+    """
+    Returns an identity transformation (1 output, 1 input): ``output = input``,
+    where ``input`` may be broadcasted (with the same semantics as ``numpy.broadcast_to()``).
+    Output array type ``out_arr_t`` may have different strides,
+    but must have compatible shapes the same shape and data type.
+
+    .. note::
+
+        This is an input-only transformation.
+    """
+
+    if out_arr_t is None:
+        out_arr_t = arr_t
+
+    if out_arr_t.dtype != arr_t.dtype:
+        raise ValueError("Input and output arrays must have the same data type")
+
+    in_tp = Type.from_value(arr_t)
+    out_tp = Type.from_value(out_arr_t)
+    if not in_tp.broadcastable_to(out_tp):
+        raise ValueError("Input is not broadcastable to output")
+
+    return Transformation(
+        [Parameter('output', Annotation(out_arr_t, 'o')),
+        Parameter('input', Annotation(arr_t, 'i'))],
+        """
+        ${output.store_same}(${input.load_idx}(
+        %for i in range(len(input.shape)):
+            %if input.shape[i] == 1:
+            0
+            %else:
+            ${idxs[i + len(output.shape) - len(input.shape)]}
+            %endif
+            %if i != len(input.shape) - 1:
+                ,
+            %endif
+        %endfor
+        ));
+        """,
+        connectors=['output'])
+
+
+def cast(arr_t, dtype):
+    """
+    Returns a typecast transformation of ``arr_t`` to ``dtype``
+    (1 output, 1 input): ``output = cast[dtype](input)``.
+    """
+    dest = Type.from_value(arr_t).with_dtype(dtype)
+    return Transformation(
+        [Parameter('output', Annotation(dest, 'o')),
+        Parameter('input', Annotation(arr_t, 'i'))],
+        "${output.store_same}(${cast}(${input.load_same}));",
+        render_kwds=dict(cast=functions.cast(dtype, arr_t.dtype)))
+
+
 def add_param(arr_t, param_dtype):
     """
     Returns an addition transformation with a dynamic parameter (1 output, 1 input, 1 scalar):

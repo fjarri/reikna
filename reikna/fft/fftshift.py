@@ -14,7 +14,7 @@ class FFTShift(Computation):
     Bases: :py:class:`~reikna.core.Computation`
 
     Shift the zero-frequency component to the center of the spectrum.
-    The interface is similar to ``numpy.fft.fftshift``,
+    The interface is similar to ``numpy.fft.fftshift`` (or ``ifftshift`` when ``inverse == True``),
     and the output is the same for the same array shape and axes.
 
     :param arr_t: an array-like defining the problem array.
@@ -27,13 +27,17 @@ class FFTShift(Computation):
 
         :param output: an array with the attributes of ``arr_t``.
         :param input: an array with the attributes of ``arr_t``.
+        :param inverse: a scalar value castable to integer.
+            If ``0``, the forward transform is applied (equivalent of ``numpy.fft.fftshift``),
+            if ``1``, the inverse one (equivalent of ``numpy.fft.ifftshift``).
     """
 
     def __init__(self, arr_t, axes=None):
 
         Computation.__init__(self, [
             Parameter('output', Annotation(arr_t, 'o')),
-            Parameter('input', Annotation(arr_t, 'i'))])
+            Parameter('input', Annotation(arr_t, 'i')),
+            Parameter('inverse', Annotation(numpy.int32), default=0)])
 
         if axes is None:
             axes = tuple(range(len(arr_t.shape)))
@@ -53,7 +57,7 @@ class FFTShift(Computation):
 
         return plan
 
-    def _build_plan(self, plan_factory, device_params, output, input_):
+    def _build_plan(self, plan_factory, device_params, output, input_, inverse):
 
         if helpers.product([input_.shape[i] for i in self._axes]) == 1:
             return self._build_trivial_plan(plan_factory, output, input_)
@@ -66,6 +70,7 @@ class FFTShift(Computation):
         if all(shape[axis] % 2 == 0 for axis in axes):
         # If all shift axes have even length, it is possible to perform the shift inplace
         # (by swapping pairs of elements).
+        # Note that the inplace fftshift is its own inverse.
             shape[axes[0]] //= 2
             plan.kernel_call(
                 TEMPLATE.get_def('fftshift_inplace'), [output, input_],
@@ -76,7 +81,7 @@ class FFTShift(Computation):
         # Resort to an out-of-place shift to a temporary array and then copy.
             temp = plan.temp_array_like(output)
             plan.kernel_call(
-                TEMPLATE.get_def('fftshift_outplace'), [temp, input_],
+                TEMPLATE.get_def('fftshift_outplace'), [temp, input_, inverse],
                 kernel_name="kernel_fftshift_outplace",
                 global_size=shape,
                 render_kwds=dict(axes=axes))

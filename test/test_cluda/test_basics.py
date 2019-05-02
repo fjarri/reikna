@@ -6,6 +6,7 @@ import reikna.cluda as cluda
 import reikna.cluda.dtypes as dtypes
 import reikna.cluda.functions as functions
 from reikna.cluda import tempalloc
+from reikna import concatenate, roll
 from reikna.helpers import product
 
 from helpers import *
@@ -401,3 +402,100 @@ def test_offsets_in_kernel(thr):
     dest_ref = src_base[src_offset:]
 
     assert diff_is_negligible(dest_dev.get(), dest_ref)
+
+
+class _GetSlices:
+    def __getitem__(self, index):
+        return index
+
+_get_slices = _GetSlices()
+
+_setitem_view_tests = [
+    (_get_slices[:, :], 1, "[:,:]=scalar"),
+    (_get_slices[:, 1], 1, "[:,i]=scalar"),
+    (_get_slices[1, :], 1, "[i,:]=scalar"),
+    (_get_slices[1, 2], 1, "[i,i]=scalar"),
+    (_get_slices[:, :], numpy.arange(10 * 20).reshape(10, 20), "[:,:]=array"),
+    (_get_slices[:, 2], numpy.arange(10), "[:,i]=array"),
+    (_get_slices[2, :], numpy.arange(20), "[i,:]=array"),
+]
+
+@pytest.mark.parametrize(
+    'setitem_test',
+    [test[:2] for test in _setitem_view_tests],
+    ids=[test[2] for test in _setitem_view_tests])
+def test_setitem_view(thr, setitem_test):
+    data = numpy.zeros((10, 20), numpy.int32)
+    data_dev = thr.to_device(data)
+
+    slices, value = setitem_test
+
+    data[slices] = value
+    data_dev[slices] = value
+
+    assert diff_is_negligible(data_dev.get(), data)
+
+
+_get_view_tests = [
+    (_get_slices[:, :], "[:,:]"),
+    (_get_slices[:, 1], "[:,i]"),
+    (_get_slices[1, :], "[i,:]"),
+    (_get_slices[1, 2], "[i,i]"),
+]
+
+@pytest.mark.parametrize(
+    'get_test_slices',
+    [test[0] for test in _get_view_tests],
+    ids=[test[1] for test in _get_view_tests])
+def test_get_view(thr, get_test_slices):
+    data = numpy.arange(10 * 20).reshape(10, 20).astype(numpy.int32)
+    data_dev = thr.to_device(data)
+
+    view_ref = data[get_test_slices]
+    view_dev = data_dev[get_test_slices]
+
+    assert diff_is_negligible(view_dev.get(), view_ref)
+
+
+def test_concatenate(some_thr):
+
+    template_shape = [10, None, 30]
+    axis = 1
+    dims = [3, 5, 10]
+
+    arrays = []
+    for i in range(len(dims)):
+        template_shape[axis] = dims[i]
+        arrays.append(get_test_array(tuple(template_shape), numpy.int32))
+
+    ref = numpy.concatenate(arrays, axis=axis)
+
+    arrays_dev = [some_thr.to_device(array) for array in arrays]
+    test = concatenate(arrays_dev, axis=axis)
+
+    assert diff_is_negligible(test.get(), ref)
+
+
+@pytest.mark.parametrize('shift', [-10, 0, 11])
+@pytest.mark.parametrize('axis', [0, 1, -1])
+def test_roll(some_thr, shift, axis):
+
+    array = get_test_array((5, 6, 7), numpy.int32)
+    array_dev = some_thr.to_device(array)
+    ref = numpy.roll(array, shift, axis=axis)
+    test = roll(array_dev, shift, axis=axis)
+
+    assert diff_is_negligible(test.get(), ref)
+
+
+@pytest.mark.parametrize('shift', [-1, 0, 1])
+@pytest.mark.parametrize('axis', [0, 1, -1])
+def test_roll_method(some_thr, shift, axis):
+
+    array = get_test_array((5, 6, 7), numpy.int32)
+    array = numpy.arange(12).reshape(3, 4).astype(numpy.int32)
+    array_dev = some_thr.to_device(array)
+    ref = numpy.roll(array, shift, axis=axis)
+    array_dev.roll(shift, axis=axis)
+
+    assert diff_is_negligible(array_dev.get(), ref)
