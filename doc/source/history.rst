@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.8.0 (current development version)
-===================================
+0.7.3 (1 May 2019)
+==================
 
 * ADDED: ``inverse`` parameter for :py:class:`~reikna.fft.FFTShift` (contributed by @drtpotter).
 
