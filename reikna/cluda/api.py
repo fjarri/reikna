@@ -277,7 +277,7 @@ class Thread:
         .. note::
 
             All of ``args`` and ``kwds`` must be hashable! If any of those are arrays,
-            they can be passed through :py:meth:`~reikna.core.signature.Type.from_value`.
+            they can be passed through ``Type.from_value()``.
         """
 
         # TODO: we could make given numpy arrays and GPU arrays hashable
