@@ -14,7 +14,7 @@ Release history
 
 * ADDED: :py:meth:`~reikna.core.Type.broadcastable_to` method for :py:class:`~reikna.core.Type`.
 
-* ADDED: the :py:func:`~reikna.transformations.copy` transformation now supports broadcasting.
+* ADDED: added :py:func:`~reikna.transformations.copy_broadcasted` transformation.
 
 * ADDED: :py:meth:`~reikna.api.Thread.get_cached_computation` method for :py:class:`~reikna.api.Thread`.
 

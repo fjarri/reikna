@@ -105,7 +105,7 @@ def test_broadcasted_copy(some_thr, in_shape):
     output_ref = numpy.broadcast_to(input_, shape)
 
     test = get_test_computation(output_dev)
-    copy = tr.copy(input_dev, output_dev)
+    copy = tr.copy_broadcasted(input_dev, output_dev)
 
     test.parameter.input.connect(copy, copy.output, input_prime=copy.input)
     testc = test.compile(some_thr)
