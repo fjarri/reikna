@@ -1,2 +1,2 @@
-from reikna.cluda.array_helpers import concatenate
+from reikna.cluda.array_helpers import concatenate, roll
 

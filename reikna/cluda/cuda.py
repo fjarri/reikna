@@ -13,7 +13,7 @@ import reikna.cluda.dtypes as dtypes
 from reikna.helpers import factors, wrap_in_tuple, product, min_buffer_size
 import reikna.cluda.api as api_base
 
-from reikna.cluda.array_helpers import setitem_method, get_method
+from reikna.cluda.array_helpers import setitem_method, get_method, roll_method
 
 
 cuda.init()
@@ -126,6 +126,9 @@ class Array(gpuarray.GPUArray):
 
     def __setitem__(self, index, value):
         setitem_method(self, index, value)
+
+    def roll(self, shift, axis=-1):
+        roll_method(self, shift, axis=axis)
 
     def get(self):
         if self.flags.forc:

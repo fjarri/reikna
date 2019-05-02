@@ -10,7 +10,7 @@ import reikna.cluda as cluda
 import reikna.cluda.dtypes as dtypes
 import reikna.cluda.api as api_base
 
-from reikna.cluda.array_helpers import setitem_method, get_method
+from reikna.cluda.array_helpers import setitem_method, get_method, roll_method
 
 
 def get_id():
@@ -56,6 +56,9 @@ class Array(clarray.Array):
 
     def __setitem__(self, index, value):
         setitem_method(self, index, value)
+
+    def roll(self, shift, axis=-1):
+        roll_method(self, shift, axis=axis)
 
     def get(self):
         if self.flags.forc:

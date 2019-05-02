@@ -6,7 +6,7 @@ import reikna.cluda as cluda
 import reikna.cluda.dtypes as dtypes
 import reikna.cluda.functions as functions
 from reikna.cluda import tempalloc
-from reikna import concatenate
+from reikna import concatenate, roll
 from reikna.helpers import product
 
 from helpers import *
@@ -474,3 +474,28 @@ def test_concatenate(some_thr):
     test = concatenate(arrays_dev, axis=axis)
 
     assert diff_is_negligible(test.get(), ref)
+
+
+@pytest.mark.parametrize('shift', [-10, 0, 11])
+@pytest.mark.parametrize('axis', [0, 1, -1])
+def test_roll(some_thr, shift, axis):
+
+    array = get_test_array((5, 6, 7), numpy.int32)
+    array_dev = some_thr.to_device(array)
+    ref = numpy.roll(array, shift, axis=axis)
+    test = roll(array_dev, shift, axis=axis)
+
+    assert diff_is_negligible(test.get(), ref)
+
+
+@pytest.mark.parametrize('shift', [-1, 0, 1])
+@pytest.mark.parametrize('axis', [0, 1, -1])
+def test_roll_method(some_thr, shift, axis):
+
+    array = get_test_array((5, 6, 7), numpy.int32)
+    array = numpy.arange(12).reshape(3, 4).astype(numpy.int32)
+    array_dev = some_thr.to_device(array)
+    ref = numpy.roll(array, shift, axis=axis)
+    array_dev.roll(shift, axis=axis)
+
+    assert diff_is_negligible(array_dev.get(), ref)

@@ -31,6 +31,16 @@
 
         The total size of the array data plus the offset (in bytes).
 
+    .. py:method:: roll(shift, axis=-1)
+
+        Cyclically shifts elements of ``array`` **inplace**
+        by ``shift`` positions to the right along ``axis``.
+        ``shift`` can be negative (in which case the elements are shifted to the left).
+        Elements that are shifted beyond the last position are re-introduced at the first
+        (and vice versa).
+
+        Works equivalently to ``numpy.roll`` (except ``axis=None`` is not supported).
+
     .. py:method:: get()
 
         Returns ``numpy.ndarray`` with the contents of the array.
