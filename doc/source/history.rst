@@ -16,7 +16,7 @@ Release history
 
 * ADDED: added :py:func:`~reikna.transformations.copy_broadcasted` transformation.
 
-* ADDED: :py:meth:`~reikna.api.Thread.get_cached_computation` method for :py:class:`~reikna.api.Thread`.
+* ADDED: :py:meth:`~reikna.cluda.api.Thread.get_cached_computation` method for :py:class:`~reikna.cluda.api.Thread`.
 
 * ADDED: arrays now support setting arbitrary slices with scalars or arrays.
 
