@@ -6,6 +6,7 @@ import reikna.cluda as cluda
 import reikna.cluda.dtypes as dtypes
 import reikna.cluda.functions as functions
 from reikna.cluda import tempalloc
+from reikna import concatenate
 from reikna.helpers import product
 
 from helpers import *
@@ -454,3 +455,22 @@ def test_get_view(thr, get_test_slices):
     view_dev = data_dev[get_test_slices]
 
     assert diff_is_negligible(view_dev.get(), view_ref)
+
+
+def test_concatenate(some_thr):
+
+    template_shape = [10, None, 30]
+    axis = 1
+    dims = [3, 5, 10]
+
+    arrays = []
+    for i in range(len(dims)):
+        template_shape[axis] = dims[i]
+        arrays.append(get_test_array(tuple(template_shape), numpy.int32))
+
+    ref = numpy.concatenate(arrays, axis=axis)
+
+    arrays_dev = [some_thr.to_device(array) for array in arrays]
+    test = concatenate(arrays_dev, axis=axis)
+
+    assert diff_is_negligible(test.get(), ref)

@@ -47,3 +47,9 @@ Result and attribute classes
 
 .. automodule:: reikna.core.transformation
     :members: TransformationParameter, KernelParameter
+
+
+Array tools
+-----------
+
+.. autofunction:: reikna.concatenate
