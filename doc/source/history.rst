@@ -3,6 +3,12 @@ Release history
 ***************
 
 
+0.8.0 (current development version)
+===================================
+
+Under construction.
+
+
 0.7.3 (1 May 2019)
 ==================
 
