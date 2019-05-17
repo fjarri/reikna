@@ -425,13 +425,24 @@ _setitem_view_tests = [
     [test[:2] for test in _setitem_view_tests],
     ids=[test[2] for test in _setitem_view_tests])
 def test_setitem_view(thr, setitem_test):
-    data = numpy.zeros((10, 20), numpy.int32)
+    data = numpy.arange(10 * 20).reshape(10, 20).astype(numpy.int32)
     data_dev = thr.to_device(data)
 
     slices, value = setitem_test
 
     data[slices] = value
     data_dev[slices] = value
+
+    assert diff_is_negligible(data_dev.get(), data)
+
+
+# A regression test for a 0-dim array as a source for __setitem__
+def test_setitem_0dim(thr):
+    data = numpy.arange(10 * 20).reshape(10, 20).astype(numpy.int32)
+    data_dev = thr.to_device(data)
+
+    data[1, 2] = data[2, 3]
+    data_dev[1, 2] = data_dev[2, 3]
 
     assert diff_is_negligible(data_dev.get(), data)
 

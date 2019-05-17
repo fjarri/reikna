@@ -17,31 +17,33 @@ def normalize_value(thr, gpu_array_type, val):
     """
     Transforms a given value (a scalar or an array)
     to a value that can be passed to a kernel.
+    Returns a pair (result, is_array), where ``is_array`` is a boolean
+    that helps distinguishing between zero-dimensional arrays and scalars.
     """
     if isinstance(val, gpu_array_type):
-        return val
+        return val, True
     elif isinstance(val, numpy.ndarray):
-        return thr.to_device(val)
+        return thr.to_device(val), True
     else:
         dtype = dtypes.detect_type(val)
-        return numpy.cast[dtype](val)
+        return numpy.cast[dtype](val), False
 
 
-def setitem_computation(dest, source):
+def setitem_computation(dest, source, is_array):
     """
     Returns a compiled computation that broadcasts ``source`` to ``dest``,
     where ``dest`` is a GPU array, and ``source`` is either a GPU array or a scalar.
     """
-    if len(source.shape) == 0:
-        trf = transformations.broadcast_param(dest)
-        return PureParallel.from_trf(trf, guiding_array=trf.output)
-    else:
+    if is_array:
         source_dt = Type.from_value(source).with_dtype(dest.dtype)
         trf = transformations.copy(source_dt, dest)
         comp = PureParallel.from_trf(trf, guiding_array=trf.output)
         cast_trf = transformations.cast(source, dest.dtype)
         comp.parameter.input.connect(cast_trf, cast_trf.output, src_input=cast_trf.input)
         return comp
+    else:
+        trf = transformations.broadcast_param(dest)
+        return PureParallel.from_trf(trf, guiding_array=trf.output)
 
 
 def setitem_method(array, index, value):
@@ -52,9 +54,9 @@ def setitem_method(array, index, value):
     # and it is easier to just call our own implementation every time.
 
     view = array[index]
-    value = normalize_value(array.thread, type(array), value)
+    value, is_array = normalize_value(array.thread, type(array), value)
     comp = array.thread.get_cached_computation(
-        setitem_computation, Type.from_value(view), Type.from_value(value))
+        setitem_computation, Type.from_value(view), Type.from_value(value), is_array)
     comp(view, value)
 
 
