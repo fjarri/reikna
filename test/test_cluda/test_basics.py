@@ -425,7 +425,7 @@ _setitem_view_tests = [
     [test[:2] for test in _setitem_view_tests],
     ids=[test[2] for test in _setitem_view_tests])
 def test_setitem_view(thr, setitem_test):
-    data = numpy.zeros((10, 20), numpy.int32)
+    data = numpy.arange(10 * 20).reshape(10, 20).astype(numpy.int32)
     data_dev = thr.to_device(data)
 
     slices, value = setitem_test
