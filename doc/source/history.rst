@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.8.0 (current development version)
-===================================
+0.7.4 (17 May 2019)
+===================
 
 * FIXED: a bug with ``Array.__setitem__`` with the source being a 0-dimensional array.
 
