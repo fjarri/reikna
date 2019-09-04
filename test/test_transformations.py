@@ -16,15 +16,15 @@ def pytest_generate_tests(metafunc):
     real_dtypes = [numpy.dtype('float32')]
     complex_dtypes = [numpy.dtype('complex64')]
 
-    if 'any_dtype' in metafunc.funcargnames:
+    if 'any_dtype' in metafunc.fixturenames:
         dtypes = int_dtypes + real_dtypes + complex_dtypes
         metafunc.parametrize('any_dtype', dtypes, ids=[str(x) for x in dtypes])
 
-    if 'rc_dtype' in metafunc.funcargnames:
+    if 'rc_dtype' in metafunc.fixturenames:
         dtypes = real_dtypes + complex_dtypes
         metafunc.parametrize('rc_dtype', dtypes, ids=[str(x) for x in dtypes])
 
-    if 'dtype_to_broadcast' in metafunc.funcargnames:
+    if 'dtype_to_broadcast' in metafunc.fixturenames:
 
         vals = []
         ids = []

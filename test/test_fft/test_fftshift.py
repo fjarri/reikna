@@ -59,17 +59,17 @@ def pytest_generate_tests(metafunc):
 
     idgen = lambda pair: str(pair[0]) + '_over_' + str(pair[1])
 
-    if 'errors_shape_and_axes' in metafunc.funcargnames:
+    if 'errors_shape_and_axes' in metafunc.fixturenames:
         metafunc.parametrize(
             'errors_shape_and_axes', errors_shapes_and_axes,
             ids=list(map(idgen, errors_shapes_and_axes)))
 
-    elif 'perf_even_shape_and_axes' in metafunc.funcargnames:
+    elif 'perf_even_shape_and_axes' in metafunc.fixturenames:
         metafunc.parametrize(
             'perf_even_shape_and_axes', perf_even_shapes_and_axes,
             ids=list(map(idgen, perf_even_shapes_and_axes)))
 
-    elif 'perf_odd_shape_and_axes' in metafunc.funcargnames:
+    elif 'perf_odd_shape_and_axes' in metafunc.fixturenames:
         metafunc.parametrize(
             'perf_odd_shape_and_axes', perf_odd_shapes_and_axes,
             ids=list(map(idgen, perf_odd_shapes_and_axes)))

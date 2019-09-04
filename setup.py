@@ -152,7 +152,7 @@ if __name__ == '__main__':
             pyopencl=["pyopencl>=2018.1.1"],
             pycuda=["pycuda>=2018.1.1"],
             dev=[
-                "pytest>=2.3",
+                "pytest>=5",
                 "pytest-cov",
                 "scipy",
                 "sphinx>=1.2",

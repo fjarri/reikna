@@ -48,7 +48,7 @@ def pair_thread_with_gs(metafunc, tp):
 
 
 def pytest_generate_tests(metafunc):
-    if 'thr_and_global_size' in metafunc.funcargnames:
+    if 'thr_and_global_size' in metafunc.fixturenames:
         parametrize_thread_tuple(metafunc, 'thr_and_global_size', pair_thread_with_gs)
 
 

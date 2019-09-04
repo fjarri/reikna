@@ -125,7 +125,7 @@ class BijectionHelper:
 
 def pytest_generate_tests(metafunc):
 
-    if 'test_bijection' in metafunc.funcargnames:
+    if 'test_bijection' in metafunc.fixturenames:
 
         vals = []
         ids = []
@@ -137,13 +137,13 @@ def pytest_generate_tests(metafunc):
 
         metafunc.parametrize('test_bijection', vals, ids=ids)
 
-    if 'test_sampler_int' in metafunc.funcargnames:
+    if 'test_sampler_int' in metafunc.fixturenames:
         vals = [
             UniformIntegerHelper(-10, 98)]
         ids = [test.name for test in vals]
         metafunc.parametrize('test_sampler_int', vals, ids=ids)
 
-    if 'test_sampler_float' in metafunc.funcargnames:
+    if 'test_sampler_float' in metafunc.fixturenames:
         vals = [
             UniformFloatHelper(-5, 7.7),
             NormalBMHelper(-2, 10),
