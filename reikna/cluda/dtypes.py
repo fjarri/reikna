@@ -1,5 +1,9 @@
 import itertools
-from fractions import gcd
+import sys
+if sys.version_info[0] >= 3:
+    from math import gcd
+else:
+    from fractions import gcd
 
 import numpy
 from reikna.helpers import bounding_power_of_2, log2, min_blocks
