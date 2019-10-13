@@ -130,10 +130,11 @@ class Array(gpuarray.GPUArray):
     def roll(self, shift, axis=-1):
         roll_method(self, shift, axis=axis)
 
-    def get(self):
+    def get(self, *args, **kwds):
         if self.flags.forc:
-            return gpuarray.GPUArray.get(self)
+            return gpuarray.GPUArray.get(self, *args, **kwds)
         else:
+            assert len(args) == 0 and len(kwds) == 0
             return get_method(self)
 
     def _tempalloc_update_buffer(self, data):
