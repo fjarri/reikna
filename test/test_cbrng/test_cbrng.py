@@ -115,7 +115,7 @@ class BijectionHelper:
     def reference(self, counters, keygen):
         result = numpy.empty_like(counters)
         for i in range(counters.shape[0]):
-            result[i] = self._reference_func(counters[i]['v'], keygen(i)['v'])
+            result[i]['v'] = self._reference_func(counters[i]['v'], keygen(i)['v'])
         return result
 
     def __str__(self):
