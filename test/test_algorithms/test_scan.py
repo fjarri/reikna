@@ -94,7 +94,9 @@ def check_scan(
 
 
 def test_scan_correctness(thr, corr_shape, exclusive):
-    check_scan(thr, corr_shape, axes=None, exclusive=exclusive, max_work_group_size=512)
+    check_scan(
+        thr, corr_shape, axes=None, exclusive=exclusive,
+        max_work_group_size=thr.device_params.max_work_group_size // 2)
 
 
 def test_scan_multiple_axes(thr):
