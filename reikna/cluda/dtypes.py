@@ -82,7 +82,10 @@ def normalize_type(dtype):
     ``numpy`` uses two different classes to represent dtypes,
     and one of them does not have some important attributes.
     """
-    return numpy.dtype(dtype)
+    if not isinstance(dtype, numpy.dtype):
+        return numpy.dtype(dtype)
+    else:
+        return dtype
 
 def normalize_types(dtypes):
     """
@@ -418,6 +421,21 @@ def ctype_module(dtype, ignore_alignment=False):
 
 
 def align(dtype):
+    dtype = normalize_type(dtype)
+
+    if len(dtype.shape) > 0:
+        new_base = align(dtype.base)
+        return numpy.dtype((new_base, dtype.shape))
+
+    if dtype.names is None:
+        return dtype
+
+    new_dtypes = [align(dtype.fields[name][0]) for name in dtype.names]
+    names = list(dtype.names)
+    return numpy.dtype(dict(names=dtype.names, formats=new_dtypes), align=True)
+
+
+def _align(dtype):
     """
     Returns a new struct dtype with the field offsets changed to the ones a compiler would use
     (without being given any explicit alignment qualifiers).
