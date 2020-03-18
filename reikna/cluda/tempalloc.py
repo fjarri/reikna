@@ -15,7 +15,7 @@ def extract_dependencies(dependencies):
     """
     results = set()
 
-    if isinstance(dependencies, collections.Iterable):
+    if isinstance(dependencies, Iterable):
         for dep in dependencies:
             results.update(extract_dependencies(dep))
     elif hasattr(dependencies, '__tempalloc__'):
