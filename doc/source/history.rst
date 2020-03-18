@@ -8,6 +8,8 @@ Release history
 
 * CHANGED: Updated test suite to support ``pytest`` 5.0+.
 
+* FIXED: circular references when using ``Thread``'s computaton cache.
+
 
 0.7.4 (17 May 2019)
 ===================

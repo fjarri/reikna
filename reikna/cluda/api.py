@@ -149,6 +149,36 @@ def get_platforms():
     raise NotImplementedError()
 
 
+class ThreadWeakRef:
+    """
+    A proxy object holding a weak reference to a `Thread` object,
+    thus helping to avoid circular references e.g. in computation cache.
+
+    We can't use `weakref.proxy()` here since some of `Thread`'s methods
+    pass `self` to created objects, and we want to intercept that,
+    passing our weakref wrapper instead.
+    """
+
+    def __init__(self, thread):
+        self.thread_cls = type(thread)
+        self.thread_ref = weakref.ref(thread)
+
+    def __getattr__(self, name):
+        return getattr(self.thread_ref(), name)
+
+    # These methods will pass `self` to created objects;
+    # make sure that `self` is the weakref wrapper.
+
+    def array(self, *args, **kwds):
+        return self.thread_cls.array(self, *args, **kwds)
+
+    def compile(self, *args, **kwds):
+        return self.thread_cls.compile(self, *args, **kwds)
+
+    def compile_static(self, *args, **kwds):
+        return self.thread_cls.compile_static(self, *args, **kwds)
+
+
 class Thread:
     """
     Wraps an existing context in the CLUDA thread object.
@@ -272,7 +302,8 @@ class Thread:
         if temp_alloc is not None:
             temp_alloc_params.update(temp_alloc)
 
-        self.temp_alloc = temp_alloc_params['cls'](weakref.proxy(self),
+        self.temp_alloc = temp_alloc_params['cls'](
+            ThreadWeakRef(self),
             pack_on_alloc=temp_alloc_params['pack_on_alloc'],
             pack_on_free=temp_alloc_params['pack_on_free'])
 
@@ -300,7 +331,7 @@ class Thread:
             return self._computation_cache[key]
         else:
             comp = cls(*args, **kwds)
-            compiled_comp = comp.compile(self)
+            compiled_comp = comp.compile(ThreadWeakRef(self))
             self._computation_cache[key] = compiled_comp
             return compiled_comp
 
