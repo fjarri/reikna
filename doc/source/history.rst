@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.8.0 (current development version)
-===================================
+0.7.5 (17 Mar 2020)
+===================
 
 * CHANGED: Updated test suite to support ``pytest`` 5.0+.
 
