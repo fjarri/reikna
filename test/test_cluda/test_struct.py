@@ -7,7 +7,7 @@ import reikna.cluda.dtypes as dtypes
 
 def pytest_generate_tests(metafunc):
 
-    if 'dtype_to_align' in metafunc.funcargnames:
+    if 'dtype_to_align' in metafunc.fixturenames:
 
         vals = []
         ids = []

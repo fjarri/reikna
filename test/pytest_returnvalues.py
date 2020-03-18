@@ -42,14 +42,9 @@ class ReturnValuesPlugin(object):
         # Could be done with raising a special exception and catching it here,
         # but it would be hard to import it from a test somewhere deep in the hierarchy.
         # Add it as a parameter value maybe?
-        if pyfuncitem._isyieldedfunction():
-            res = testfunction(*pyfuncitem._args)
-        else:
-            funcargs = pyfuncitem.funcargs
-            testargs = {}
-            for arg in pyfuncitem._fixtureinfo.argnames:
-                testargs[arg] = funcargs[arg]
-            res = testfunction(**testargs)
+        funcargs = pyfuncitem.funcargs
+        testargs = {arg: funcargs[arg] for arg in pyfuncitem._fixtureinfo.argnames}
+        res = testfunction(**testargs)
 
         pyfuncitem.retval = res
         return True # finished processing the callback
@@ -59,14 +54,18 @@ class ReturnValuesPlugin(object):
         outcome = yield
         report = outcome.get_result()
 
+        returns_mark = None
+        for mark in item.iter_markers():
+            if mark.name == 'returns':
+                returns_mark = mark
+
         # if the testcase has passed, and has 'perf' marker, process its results
-        if call.when == 'call' and report.passed and hasattr(item.function, 'returns'):
-            mark = item.function.returns
-            if len(mark.args) > 0:
-                if mark.args[0] in renderers:
-                    renderer = renderers[mark.args[0]]
+        if call.when == 'call' and report.passed and returns_mark is not None:
+            if len(returns_mark.args) > 0:
+                if returns_mark.args[0] in renderers:
+                    renderer = renderers[returns_mark.args[0]]
                 else:
-                    renderer = lambda x: repr(x) + " " + mark.args[0]
+                    renderer = lambda x: repr(x) + " " + returns_mark.args[0]
             else:
                 renderer = lambda x: repr(x)
 

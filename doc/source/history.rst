@@ -3,6 +3,16 @@ Release history
 ***************
 
 
+0.7.5 (17 Mar 2020)
+===================
+
+* CHANGED: Updated test suite to support ``pytest`` 5.0+.
+
+* ADDED: support built-in types and array types in :py:func:`~reikna.cluda.dtypes.align`.
+
+* FIXED: circular references when using ``Thread``'s computaton cache.
+
+
 0.7.4 (17 May 2019)
 ===================
 

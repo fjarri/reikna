@@ -1,5 +1,9 @@
 import itertools
-from fractions import gcd
+import sys
+if sys.version_info[0] >= 3:
+    from math import gcd
+else:
+    from fractions import gcd
 
 import numpy
 from reikna.helpers import bounding_power_of_2, log2, min_blocks
@@ -78,7 +82,10 @@ def normalize_type(dtype):
     ``numpy`` uses two different classes to represent dtypes,
     and one of them does not have some important attributes.
     """
-    return numpy.dtype(dtype)
+    if not isinstance(dtype, numpy.dtype):
+        return numpy.dtype(dtype)
+    else:
+        return dtype
 
 def normalize_types(dtypes):
     """
@@ -414,6 +421,21 @@ def ctype_module(dtype, ignore_alignment=False):
 
 
 def align(dtype):
+    dtype = normalize_type(dtype)
+
+    if len(dtype.shape) > 0:
+        new_base = align(dtype.base)
+        return numpy.dtype((new_base, dtype.shape))
+
+    if dtype.names is None:
+        return dtype
+
+    new_dtypes = [align(dtype.fields[name][0]) for name in dtype.names]
+    names = list(dtype.names)
+    return numpy.dtype(dict(names=dtype.names, formats=new_dtypes), align=True)
+
+
+def _align(dtype):
     """
     Returns a new struct dtype with the field offsets changed to the ones a compiler would use
     (without being given any explicit alignment qualifiers).

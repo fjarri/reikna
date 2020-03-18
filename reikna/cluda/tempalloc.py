@@ -1,4 +1,9 @@
+import sys
 import collections
+if sys.version_info[:2] >= (3, 8):
+    from collections.abc import Iterable
+else:
+    from collections import Iterable
 import weakref
 
 from reikna.helpers.sortedcollection import SortedCollection
@@ -10,7 +15,7 @@ def extract_dependencies(dependencies):
     """
     results = set()
 
-    if isinstance(dependencies, collections.Iterable):
+    if isinstance(dependencies, Iterable):
         for dep in dependencies:
             results.update(extract_dependencies(dep))
     elif hasattr(dependencies, '__tempalloc__'):

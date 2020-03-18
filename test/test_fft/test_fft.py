@@ -20,7 +20,7 @@ def pytest_generate_tests(metafunc):
         (4, 4, 4), (5, 5, 7), (7, 7, 7)] # 3D
     perf_mem_limit = 4 * 2**20
 
-    if 'local_shape_and_axes' in metafunc.funcargnames:
+    if 'local_shape_and_axes' in metafunc.fixturenames:
         def idgen(val):
             batch, size = val[0]
             return str(batch) + 'x' + str(size)
@@ -54,7 +54,7 @@ def pytest_generate_tests(metafunc):
 
         metafunc.parametrize('local_shape_and_axes', vals, ids=list(map(idgen, vals)))
 
-    elif 'global_shape_and_axes' in metafunc.funcargnames:
+    elif 'global_shape_and_axes' in metafunc.fixturenames:
         def idgen(val):
             outer_batch, size, inner_batch = val[0]
             return str(outer_batch) + 'x' + str(size) + 'x' + str(inner_batch)
@@ -91,7 +91,7 @@ def pytest_generate_tests(metafunc):
 
         metafunc.parametrize('global_shape_and_axes', vals, ids=list(map(idgen, vals)))
 
-    elif 'sequence_shape_and_axes' in metafunc.funcargnames:
+    elif 'sequence_shape_and_axes' in metafunc.fixturenames:
 
         def idgen(non2problem_shape_and_axes):
             shape, axes = non2problem_shape_and_axes
@@ -105,7 +105,7 @@ def pytest_generate_tests(metafunc):
 
         metafunc.parametrize('sequence_shape_and_axes', vals, ids=list(map(idgen, vals)))
 
-    elif 'perf_shape_and_axes' in metafunc.funcargnames:
+    elif 'perf_shape_and_axes' in metafunc.fixturenames:
 
         vals = []
         ids = []
@@ -117,7 +117,7 @@ def pytest_generate_tests(metafunc):
 
         metafunc.parametrize('perf_shape_and_axes', vals, ids=ids)
 
-    elif 'non2problem_perf_shape_and_axes' in metafunc.funcargnames:
+    elif 'non2problem_perf_shape_and_axes' in metafunc.fixturenames:
 
         vals = []
         ids = []

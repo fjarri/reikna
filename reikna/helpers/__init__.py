@@ -7,6 +7,11 @@ from __future__ import division
 import functools
 import itertools
 import collections
+import sys
+if sys.version_info[0] >= 3:
+    from collections.abc import Iterable
+else:
+    from collections import Iterable
 import os.path
 import warnings
 import inspect
@@ -228,7 +233,7 @@ def wrap_in_tuple(seq_or_elem):
         return tuple()
     elif isinstance(seq_or_elem, str):
         return (seq_or_elem,)
-    elif isinstance(seq_or_elem, collections.Iterable):
+    elif isinstance(seq_or_elem, Iterable):
         return tuple(seq_or_elem)
     else:
         return (seq_or_elem,)

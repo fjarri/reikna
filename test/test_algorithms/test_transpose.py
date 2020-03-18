@@ -9,7 +9,7 @@ from reikna.algorithms import Transpose
 
 
 def pytest_generate_tests(metafunc):
-    if 'shape_and_axes' in metafunc.funcargnames:
+    if 'shape_and_axes' in metafunc.fixturenames:
         dims = [2, 3, 4]
         shape_sets = {
             2: [(13, 11), (511, 134), (77, 2049)],

@@ -12,12 +12,12 @@ from reikna.helpers import product
 
 def pytest_generate_tests(metafunc):
 
-    if 'perf_bwo' in metafunc.funcargnames:
+    if 'perf_bwo' in metafunc.fixturenames:
         bwos = [8, 16, 32]
         ids=["8x8", "16x16", "32x32"]
         metafunc.parametrize('perf_bwo', bwos, ids=ids)
 
-    if 'perf_shape' in metafunc.funcargnames:
+    if 'perf_shape' in metafunc.fixturenames:
 
         mem_limit = 2 ** 20
         sizes = [16, 32, 64, 256, 512, 25]
@@ -33,13 +33,13 @@ def pytest_generate_tests(metafunc):
 
         metafunc.parametrize('perf_shape', perf_shapes, ids=ids)
 
-    if 'sizes' in metafunc.funcargnames:
+    if 'sizes' in metafunc.fixturenames:
         sizes = [
             (15, 17, 3), (122, 5, 1000), (45, 99, 40), (56, 78, 44)]
         ids = [str(size) for size in sizes]
         metafunc.parametrize('sizes', sizes, ids=ids)
 
-    if 'batches' in metafunc.funcargnames:
+    if 'batches' in metafunc.fixturenames:
         batches = [
             (tuple(), tuple()),
             (tuple(), (14,)),
@@ -48,13 +48,13 @@ def pytest_generate_tests(metafunc):
         ids = [str(batch) for batch in batches]
         metafunc.parametrize('batches', batches, ids=ids)
 
-    if 'transposed_a' in metafunc.funcargnames:
+    if 'transposed_a' in metafunc.fixturenames:
         metafunc.parametrize('transposed_a', [False, True], ids=['A', 'A.T'])
 
-    if 'transposed_b' in metafunc.funcargnames:
+    if 'transposed_b' in metafunc.fixturenames:
         metafunc.parametrize('transposed_b', [False, True], ids=['B', 'B.T'])
 
-    if 'arg_dtypes' in metafunc.funcargnames:
+    if 'arg_dtypes' in metafunc.fixturenames:
         arg_dtypes = [(False, False), (False, True), (True, False), (True, True)]
         mark = lambda x: 'c' if x else 'r'
         ids = [mark(t1) + mark(t2) for t1, t2 in arg_dtypes]

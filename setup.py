@@ -86,7 +86,7 @@ git_revision = "{git_revision}"
 release = {released}
 '''
 
-    VERSION = (0, 7, 4)
+    VERSION = (0, 7, 5)
     RELEASED = True
 
     version_str = '%d.%d.%d' % VERSION
@@ -152,7 +152,7 @@ if __name__ == '__main__':
             pyopencl=["pyopencl>=2018.1.1"],
             pycuda=["pycuda>=2018.1.1"],
             dev=[
-                "pytest>=2.3",
+                "pytest>=5",
                 "pytest-cov",
                 "scipy",
                 "sphinx>=1.2",

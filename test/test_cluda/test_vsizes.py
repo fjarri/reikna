@@ -94,7 +94,7 @@ def test_find_bounding_shape(virtual_size, available_shape):
 
 
 def pytest_generate_tests(metafunc):
-    if 'testvs' in metafunc.funcargnames:
+    if 'testvs' in metafunc.fixturenames:
         global_sizes = [
             (35,), (31*31*4,),
             (15, 13), (13, 35),
@@ -113,7 +113,7 @@ def pytest_generate_tests(metafunc):
 
         metafunc.parametrize('testvs', vals, ids=[str(x) for x in vals])
 
-    if 'incorrect_testvs' in metafunc.funcargnames:
+    if 'incorrect_testvs' in metafunc.fixturenames:
         vals = [
             # Bounding global size (32, 32) is too big for the grid limit and given block size
             VirtualSizesHelper((32, 32), (4, 4), (7, 8), (4, 4)),
