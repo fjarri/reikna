@@ -41,7 +41,7 @@ import numpy
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib.mlab import specgram
+from matplotlib.mlab import specgram, window_hanning
 
 from reikna.cluda import any_api
 from reikna.cluda import dtypes, functions
@@ -216,6 +216,10 @@ if __name__ == '__main__':
     fig = plt.figure()
     s = fig.add_subplot(2, 1, 1)
     spectre, freqs, ts = specgram(x, mode='magnitude', **params)
+
+    # Renormalize to match the computation
+    spectre *= window_hanning(numpy.ones(params['NFFT'])).sum()
+
     s.imshow(
         numpy.log10(spectre),
         extent=(ts[0], ts[-1], freqs[0], freqs[-1]),
