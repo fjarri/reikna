@@ -6,7 +6,7 @@ Release history
 0.8.0 (current development version)
 ===================================
 
-Under construction.
+* FIXED: an outdated API usage in ``examples/demo_fftn_with_transpose.py``.
 
 
 0.7.5 (17 Mar 2020)

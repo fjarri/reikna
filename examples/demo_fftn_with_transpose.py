@@ -79,7 +79,7 @@ class FFTWithTranspose(Computation):
                     + [current_axes[current_axis]])
 
                 # Transpose the array, saving the result in a temporary buffer
-                tr = Transpose(current_input, local_axes)
+                tr = Transpose(current_input, axes=local_axes)
                 temp = plan.temp_array_like(tr.parameter.output)
                 plan.computation_call(tr, temp, current_input)
 
