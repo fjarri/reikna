@@ -6,7 +6,7 @@ Release history
 0.8.0 (current development version)
 ===================================
 
-Under construction.
+* FIXED: use `nbytes` instead of intercepting allocation to determine the size of the array in temporary allocators. This helps when using temporary arrays with PyCUDA/PyOpenCL arithmetic operations.
 
 
 0.7.5 (17 Mar 2020)
