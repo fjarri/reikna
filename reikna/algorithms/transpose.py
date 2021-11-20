@@ -2,6 +2,7 @@ import numpy
 
 import reikna.helpers as helpers
 from reikna.core import Computation, Parameter, Annotation, Type
+from reikna.cluda import OutOfResourcesError
 
 TEMPLATE = helpers.template_for(__file__)
 
@@ -120,14 +121,7 @@ class Transpose(Computation):
             Parameter('input', Annotation(arr_t, 'i'))])
 
     def _add_transpose(self, plan, device_params,
-            mem_out, mem_in, batch_shape, height_shape, width_shape):
-
-        bso = self._block_width_override
-        block_width = device_params.local_mem_banks if bso is None else bso
-
-        if block_width ** 2 > device_params.max_work_group_size:
-            # If it is not CPU, current solution may affect performance
-            block_width = int(numpy.sqrt(device_params.max_work_group_size))
+            mem_out, mem_in, batch_shape, height_shape, width_shape, block_width):
 
         input_height = helpers.product(height_shape)
         input_width = helpers.product(width_shape)
@@ -166,7 +160,20 @@ class Transpose(Computation):
                 mem_out = plan.temp_array(
                     batch_shape + width_shape + height_shape, output.dtype)
 
-            self._add_transpose(plan, device_params,
-                mem_out, mem_in, batch_shape, height_shape, width_shape)
+            bso = self._block_width_override
+            block_width = device_params.local_mem_banks if bso is None else bso
+
+            if block_width ** 2 > device_params.max_work_group_size:
+                # If it is not CPU, current solution may affect performance
+                block_width = int(numpy.sqrt(device_params.max_work_group_size))
+
+            while block_width >= 1:
+                try:
+                    self._add_transpose(plan, device_params,
+                        mem_out, mem_in, batch_shape, height_shape, width_shape, block_width)
+                except OutOfResourcesError:
+                    block_width //= 2
+                    continue
+                break
 
         return plan
