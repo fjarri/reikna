@@ -60,13 +60,9 @@ class TemporaryManager:
             (the last two will be processed recursively).
         """
 
-        # Used to hook memory allocation in the array constructor
-        # and save the requested raw memory size.
+        # We don't want to allocate anything right away.
         class DummyAllocator:
-            def __init__(self):
-                self.size = None
             def __call__(self, size):
-                self.size = size
                 return 0
 
         new_id = self._id_counter
@@ -75,10 +71,12 @@ class TemporaryManager:
         allocator = DummyAllocator()
         array = self._thr.array(
             shape, dtype, strides=strides, offset=offset, nbytes=nbytes, allocator=allocator)
+        # Put back the default allocator so that Array functions knew what to use to allocate results.
+        array.allocator = lambda size: self._thr.allocate(size)
         array.__tempalloc_id__ = new_id
 
         dependencies = extract_dependencies(dependencies)
-        self._allocate(new_id, allocator.size, dependencies, self._pack_on_alloc)
+        self._allocate(new_id, array.nbytes, dependencies, self._pack_on_alloc)
         self._arrays[new_id] = weakref.ref(array, lambda _: self.free(new_id))
 
         if self._pack_on_alloc:

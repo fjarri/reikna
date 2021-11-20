@@ -12,6 +12,8 @@ Release history
 
 * FIXED: updated ``examples/demo_specgram.py``.
 
+* FIXED: use `nbytes` instead of intercepting allocation to determine the size of the array in temporary allocators. This helps when using temporary arrays with PyCUDA/PyOpenCL arithmetic operations.
+
 
 0.7.5 (17 Mar 2020)
 ===================
