@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.8.0 (current development version)
-===================================
+0.7.6 (20 Nov 2021)
+===================
 
 * ADDED: adaptive block size selection in ``Transpose``.
 
