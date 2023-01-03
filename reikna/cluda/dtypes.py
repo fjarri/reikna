@@ -184,7 +184,12 @@ def _fill_dtype_registry(respect_windows=True):
     import sys
     import platform
 
-    _register_dtype(numpy.bool, "bool")
+    #_register_dtype(numpy.bool, "bool")
+    # numpy.bool is/was and alias for python bool,
+    # but in later numpy versions this is not recognised anymore and will throw an error
+    _register_dtype(bool, "bool") # standard python bool is a valid numpy dtype
+    _register_dtype(numpy.bool_, "bool") #numpy bool (scalar type)
+
     _register_dtype(numpy.int8, "char")
     _register_dtype(numpy.uint8, "unsigned char")
     _register_dtype(numpy.int16, "short")
