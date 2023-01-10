@@ -204,13 +204,13 @@ class Thread(api_base.Thread):
         if dest is None:
             return arr_cpu
 
-    def _copy_array_buffer(self, dest, src, nbytes, src_offset=0, dest_offset=0):
+    def _copy_array_buffer(self, dest, src, nbytes, src_offset=0, dst_offset=0):
         self._memcpy_dtod(
-            dest.gpudata, src.gpudata, nbytes, src_offset=src_offset, dest_offset=dest_offset)
+            dest.gpudata, src.gpudata, nbytes, src_offset=src_offset, dst_offset=dst_offset)
 
-    def _memcpy_dtod(self, dest, src, nbytes, src_offset=0, dest_offset=0):
+    def _memcpy_dtod(self, dest, src, nbytes, src_offset=0, dst_offset=0):
         cuda.memcpy_dtod_async(
-            int(dest) + dest_offset,
+            int(dest) + dst_offset,
             int(src) + src_offset,
             nbytes, stream=self._queue)
 

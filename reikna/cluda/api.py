@@ -461,13 +461,13 @@ class Thread:
         """
         raise NotImplementedError()
 
-    def copy_array(self, arr, dest=None, src_offset=0, dest_offset=0, size=None):
+    def copy_array(self, arr, dest=None, src_offset=0, dst_offset=0, size=None):
         """
         Copies array on device.
 
         :param dest: the effect is the same as in :py:meth:`to_device`.
         :param src_offset: offset (in items of ``arr.dtype``) in the source array.
-        :param dest_offset: offset (in items of ``arr.dtype``) in the destination array.
+        :param dst_offset: offset (in items of ``arr.dtype``) in the destination array.
         :param size: how many elements of ``arr.dtype`` to copy.
         """
 
@@ -479,10 +479,10 @@ class Thread:
         itemsize = arr.dtype.itemsize
         nbytes = arr.nbytes if size is None else itemsize * size
         src_offset *= itemsize
-        dest_offset *= itemsize
+        dst_offset *= itemsize
 
         self._copy_array_buffer(arr_device, arr,
-            nbytes, src_offset=src_offset, dest_offset=dest_offset)
+            nbytes, src_offset=src_offset, dst_offset=dst_offset)
         self._synchronize()
 
         if dest is None:

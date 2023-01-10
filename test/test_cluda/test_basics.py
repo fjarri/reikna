@@ -376,7 +376,7 @@ def test_offsets_in_kernel(thr):
     """
 
     global_size = 100
-    dest_offset = 4
+    dst_offset = 4
     src_offset = 2
     dtype = dtypes.normalize_type(numpy.int32)
 
@@ -384,15 +384,15 @@ def test_offsets_in_kernel(thr):
         KERNEL void test(GLOBAL_MEM int *dest, GLOBAL_MEM int *src)
         {
             const SIZE_T i = get_global_id(0);
-            dest[i + ${dest_offset}] = src[i + ${src_offset}];
+            dest[i + ${dst_offset}] = src[i + ${src_offset}];
         }
         """,
-        render_kwds=dict(dest_offset=dest_offset, src_offset=src_offset))
+        render_kwds=dict(dst_offset=dst_offset, src_offset=src_offset))
     test = program.test
 
-    dest_dev_base = thr.array(global_size + dest_offset, dtype)
+    dest_dev_base = thr.array(global_size + dst_offset, dtype)
     dest_dev = thr.array(
-        global_size, dtype, offset=dest_offset * dtype.itemsize, base=dest_dev_base)
+        global_size, dtype, offset=dst_offset * dtype.itemsize, base=dest_dev_base)
 
     src_base = numpy.arange(global_size + src_offset).astype(dtype)
     src_dev_base = thr.to_device(src_base)

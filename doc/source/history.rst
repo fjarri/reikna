@@ -6,7 +6,11 @@ Release history
 0.8.0 (current development version)
 ===================================
 
+* CHANGED: `dest_offset` renamed to `dst_offset` to match `pyopencl`/`pycuda` API.
+
 * FIXED: register ``numpy.bool`` in addition to ``bool`` - it is a separate type now (@perdigao1).
+
+* FIXED: incompatibility with modern versions of `pyopencl`.
 
 
 0.7.6 (20 Nov 2021)

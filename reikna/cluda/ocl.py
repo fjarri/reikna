@@ -27,10 +27,16 @@ class Array(clarray.Array):
     """
     def __init__(
             self, thr, shape, dtype, strides=None, offset=0, nbytes=None,
-            allocator=None, base_data=None):
+            allocator=None, data=None, events=None,
+            _fast=False, _context=None, _queue=None, _size=None):
+
+        if thr is None:
+            thr = Thread(_queue)
+
         clarray.Array.__init__(
             self, thr._queue, shape, dtype, strides=strides, allocator=allocator,
-            data=base_data, offset=offset)
+            data=data, offset=offset, events=events,
+            _fast=_fast, _context=thr._context, _queue=thr._queue, _size=_size)
         self.nbytes = nbytes
         self.thread = thr
 
@@ -51,7 +57,7 @@ class Array(clarray.Array):
         # Let cl.Array calculate the new strides and offset
         return self.thread.array(
             shape=res.shape, dtype=res.dtype, strides=res.strides,
-            base_data=res.base_data,
+            base=res.base_data,
             offset=res.offset)
 
     def __setitem__(self, index, value):
@@ -88,7 +94,7 @@ class Thread(api_base.Thread):
 
     def array(
             self, shape, dtype, strides=None, offset=0, nbytes=None,
-            allocator=None, base=None, base_data=None):
+            allocator=None, base=None, data=None):
 
         if allocator is None:
             allocator = self.allocate
@@ -98,14 +104,16 @@ class Thread(api_base.Thread):
         if nbytes is None:
             nbytes = int(min_buffer_size(shape, dtype.itemsize, strides=strides, offset=offset))
 
-        if (offset != 0 or strides is not None) and base_data is None and base is None:
-            base_data = allocator(nbytes)
+        if (offset != 0 or strides is not None) and data is None and base is None:
+            data = allocator(nbytes)
         elif base is not None:
-            base_data = base.data
+            if isinstance(base, Array):
+                base = base.base_data
+            data = base
 
         return Array(
             self, shape, dtype, strides=strides, offset=offset,
-            allocator=allocator, base_data=base_data, nbytes=nbytes)
+            allocator=allocator, data=data, nbytes=nbytes)
 
     def allocate(self, size):
         return cl.Buffer(self._context, cl.mem_flags.READ_WRITE, size=size)
@@ -118,10 +126,10 @@ class Thread(api_base.Thread):
         if dest is None:
             return arr_cpu
 
-    def _copy_array_buffer(self, dest, src, nbytes, src_offset=0, dest_offset=0):
+    def _copy_array_buffer(self, dest, src, nbytes, src_offset=0, dst_offset=0):
         cl.enqueue_copy(
             self._queue, dest.data, src.data,
-            byte_count=nbytes, src_offset=src_offset, dest_offset=dest_offset)
+            byte_count=nbytes, src_offset=src_offset, dst_offset=dst_offset)
 
     def synchronize(self):
         self._queue.finish()
@@ -222,6 +230,6 @@ class Kernel(api_base.Kernel):
         self._global_size = wrap_in_tuple(global_size)
 
     def _prepared_call(self, *args):
-        # Passing base_data, assuming that the kernel knows how to handle the offset and the strides
+        # Passing data, assuming that the kernel knows how to handle the offset and the strides
         args = [x.base_data if isinstance(x, clarray.Array) else x for x in args]
         return self._kernel(self._thr._queue, self._global_size, self._local_size, *args)
