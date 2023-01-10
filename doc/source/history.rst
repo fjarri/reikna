@@ -6,7 +6,7 @@ Release history
 0.8.0 (current development version)
 ===================================
 
-Under construction.
+* FIXED: register ``numpy.bool`` in addition to ``bool`` - it is a separate type now (@perdigao1).
 
 
 0.7.6 (20 Nov 2021)
