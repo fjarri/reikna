@@ -4,11 +4,11 @@ import itertools
 import numpy
 import pytest
 
+from grunnur import Snippet, dtypes
+
 from helpers import *
 from reikna.algorithms import Reduce, Predicate, predicate_sum
 from reikna.helpers import template_def
-from reikna.cluda import Snippet
-import reikna.cluda.dtypes as dtypes
 
 
 shapes = [
@@ -105,7 +105,7 @@ def test_structure_type(thr):
             return result;
             """,
             render_kwds=dict(
-                ctype=dtypes.ctype_module(dtype))),
+                ctype=dtypes.ctype(dtype))),
         numpy.zeros(1, dtype)[0])
 
     rd = Reduce(a_dev, predicate, axes=(0,))

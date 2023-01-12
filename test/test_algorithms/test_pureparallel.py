@@ -1,10 +1,11 @@
 import numpy
 import pytest
 
+import grunnur.dtypes as dtypes
+
 from helpers import *
 from reikna.algorithms import PureParallel
 from reikna.core import Parameter, Annotation, Type, Computation
-import reikna.cluda.dtypes as dtypes
 from reikna.transformations import mul_param, copy
 
 

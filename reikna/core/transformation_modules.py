@@ -1,5 +1,6 @@
+from grunnur import Module, Snippet
+
 import reikna.helpers as helpers
-from reikna.cluda import Module, Snippet
 
 
 VALUE_NAME = "_val"
@@ -78,7 +79,7 @@ _snippet_kernel_declaration = helpers.template_def(
 def kernel_declaration(kernel_name, parameters):
     return Snippet(
         _snippet_kernel_declaration,
-        render_kwds=dict(
+        render_globals=dict(
             param_cnames_seq=param_cnames_seq,
             kernel_name=kernel_name,
             parameters=parameters))
@@ -104,7 +105,7 @@ _module_transformation = helpers.template_def(
             q_indices +
             value_param)
     %>
-    INLINE WITHIN_KERNEL ${'void' if output else connector_ctype} ${prefix}func(
+    INLINE FUNCTION ${'void' if output else connector_ctype} ${prefix}func(
         ${",\\n".join(signature)})
     {
         %if not output:
@@ -126,7 +127,7 @@ _module_transformation = helpers.template_def(
 def module_transformation(output, param, subtree_parameters, tr_snippet, tr_args):
     return Module(
         _module_transformation,
-        render_kwds=dict(
+        render_globals=dict(
             output=output,
             name=param.name,
             param_cnames_seq=param_cnames_seq, subtree_parameters=subtree_parameters,
@@ -153,7 +154,7 @@ _module_leaf_macro = helpers.template_def(
 def module_leaf_macro(output, param):
     return Module(
         _module_leaf_macro,
-        render_kwds=dict(
+        render_globals=dict(
             output=output,
             name=param.name,
             VALUE_NAME=VALUE_NAME,
@@ -176,7 +177,7 @@ _module_same_indices = helpers.template_def(
 def module_same_indices(output, param, subtree_parameters, module_idx):
     return Module(
         _module_same_indices,
-        render_kwds=dict(
+        render_globals=dict(
             output=output,
             name=param.name,
             VALUE_NAME=VALUE_NAME,
@@ -185,7 +186,7 @@ def module_same_indices(output, param, subtree_parameters, module_idx):
             nq_params=param_cnames_seq(subtree_parameters)))
 
 
-_snippet_disassemble_combined = Snippet.create(
+_snippet_disassemble_combined = Snippet.from_callable(
     lambda shape, slices, indices, combined_indices: """
     %for combined_index, slice_len in enumerate(slices):
     <%
@@ -203,7 +204,7 @@ _snippet_disassemble_combined = Snippet.create(
         %endfor
     %endfor
     """,
-    render_kwds=dict(product=helpers.product))
+    render_globals=dict(product=helpers.product))
 
 _module_combined = helpers.template_def(
     ['prefix', 'slices'],
@@ -220,7 +221,7 @@ _module_combined = helpers.template_def(
             q_combined_indices +
             value_param)
     %>
-    INLINE WITHIN_KERNEL ${'void' if output else connector_ctype} ${prefix}func(
+    INLINE FUNCTION ${'void' if output else connector_ctype} ${prefix}func(
         ${', '.join(signature)})
     {
         ${disassemble(shape, slices, indices, combined_indices)}
@@ -240,7 +241,7 @@ _module_combined = helpers.template_def(
 def module_combined(output, param, subtree_parameters, module_idx):
     return Module(
         _module_combined,
-        render_kwds=dict(
+        render_globals=dict(
             output=output,
             VALUE_NAME=VALUE_NAME,
             shape=param.annotation.type.shape,

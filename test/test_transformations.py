@@ -3,7 +3,8 @@ Test standard transformations
 """
 import pytest
 
-from reikna.cluda import Snippet
+from grunnur import Snippet
+
 from reikna.algorithms import PureParallel
 import reikna.transformations as tr
 from reikna.core import Parameter, Annotation, Type

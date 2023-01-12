@@ -1,7 +1,8 @@
 import numpy
 from numpy.polynomial import Hermite
 
-import reikna.cluda.dtypes as dtypes
+import grunnur.dtypes as dtypes
+
 from reikna.core import Computation, Parameter, Annotation, Type
 from reikna.algorithms import Transpose
 from reikna.linalg import MatrixMul

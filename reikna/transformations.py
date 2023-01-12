@@ -2,8 +2,9 @@
 This module contains a number of pre-created transformations.
 """
 
-import reikna.cluda.dtypes as dtypes
-import reikna.cluda.functions as functions
+import grunnur.dtypes as dtypes
+import grunnur.functions as functions
+
 from reikna.core import Transformation, Parameter, Annotation, Type
 
 

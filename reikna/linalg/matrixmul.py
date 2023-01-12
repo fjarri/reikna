@@ -1,8 +1,7 @@
+from grunnur import dtypes, functions, VirtualSizeError
+
 import reikna.helpers as helpers
 from reikna.core import Computation, Parameter, Annotation, Type
-import reikna.cluda.dtypes as dtypes
-from reikna.cluda import OutOfResourcesError
-from reikna.cluda import functions
 
 TEMPLATE = helpers.template_for(__file__)
 
@@ -119,7 +118,7 @@ class MatrixMul(Computation):
                         b_blocks * block_width),
                     local_size=(1, block_width, block_width),
                     render_kwds=render_kwds)
-            except OutOfResourcesError:
+            except VirtualSizeError:
                 continue
 
             return plan

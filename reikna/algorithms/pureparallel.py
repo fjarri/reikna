@@ -1,4 +1,5 @@
-from reikna.cluda import Snippet
+from grunnur import Snippet
+
 import reikna.helpers as helpers
 from reikna.core import Computation, Indices, Parameter, Annotation
 from reikna.core.transformation import TransformationParameter

@@ -2,11 +2,12 @@ import itertools
 import numpy
 import pytest
 
+import grunnur.dtypes as dtypes
+
 from helpers import *
 
 from reikna.helpers import product
 from reikna.dht import DHT, harmonic, get_spatial_grid
-import reikna.cluda.dtypes as dtypes
 
 
 class FunctionHelper:

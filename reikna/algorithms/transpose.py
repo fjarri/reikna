@@ -1,8 +1,9 @@
 import numpy
 
+from grunnur import VirtualSizeError
+
 import reikna.helpers as helpers
 from reikna.core import Computation, Parameter, Annotation, Type
-from reikna.cluda import OutOfResourcesError
 
 TEMPLATE = helpers.template_for(__file__)
 
@@ -171,7 +172,7 @@ class Transpose(Computation):
                 try:
                     self._add_transpose(plan, device_params,
                         mem_out, mem_in, batch_shape, height_shape, width_shape, block_width)
-                except OutOfResourcesError:
+                except VirtualSizeError:
                     block_width //= 2
                     continue
                 break

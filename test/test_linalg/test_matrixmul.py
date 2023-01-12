@@ -2,11 +2,11 @@ import time
 import numpy
 import pytest
 
+from grunnur import dtypes
+
 from helpers import *
 
 from reikna.linalg import MatrixMul
-import reikna.cluda.dtypes as dtypes
-from reikna.cluda import OutOfResourcesError
 from reikna.helpers import product
 
 

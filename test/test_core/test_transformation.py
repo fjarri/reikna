@@ -1,10 +1,10 @@
 import numpy
 import pytest
 
+from grunnur import functions
+
 from reikna.core import Parameter, Annotation, Transformation
 from reikna.core.signature import Type
-from reikna.cluda import functions, cuda_id
-
 from reikna.algorithms import PureParallel
 from reikna import transformations
 

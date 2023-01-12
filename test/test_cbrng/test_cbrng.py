@@ -5,6 +5,8 @@ import pytest
 import numpy
 from scipy.special import iv
 
+import grunnur.dtypes as dtypes
+
 from helpers import *
 from .cbrng_ref import philox as philox_ref
 from .cbrng_ref import threefry as threefry_ref
@@ -15,7 +17,6 @@ from reikna.cbrng import CBRNG
 from reikna.cbrng.bijections import threefry, philox
 from reikna.cbrng.tools import KeyGenerator
 from reikna.cbrng.samplers import uniform_integer, uniform_float, normal_bm, gamma, vonmises
-import reikna.cluda.dtypes as dtypes
 
 
 def uniform_discrete_mean_and_std(min, max):
