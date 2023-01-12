@@ -2,11 +2,12 @@ import itertools
 import numpy
 import pytest
 
+from grunnur import Array, dtypes
+
 from helpers import *
 
 from reikna.helpers import product
 from reikna.dht import DHT, harmonic, get_spatial_grid
-import reikna.cluda.dtypes as dtypes
 
 
 class FunctionHelper:
@@ -116,7 +117,7 @@ class FunctionHelper:
         return res ** self.order
 
 
-def check_errors_first_order(thr, mshape, batch, add_points=None, dtype=numpy.complex64):
+def check_errors_first_order(queue, mshape, batch, add_points=None, dtype=numpy.complex64):
 
     test_func = FunctionHelper(mshape, dtype, batch=batch, order=1)
 
@@ -124,31 +125,31 @@ def check_errors_first_order(thr, mshape, batch, add_points=None, dtype=numpy.co
         add_points = [0] * len(mshape)
     xs = [get_spatial_grid(n, 1, add_points=ap) for n, ap in zip(mshape, add_points)]
 
-    mdata_dev = thr.array((batch,) + mshape, dtype)
+    mdata_dev = Array.empty(queue.device, (batch,) + mshape, dtype)
     axes = list(range(1, len(mshape)+1))
 
     dht_fw = DHT(mdata_dev, inverse=False, axes=axes, add_points=[0] + add_points)
     dht_inv = DHT(mdata_dev, inverse=True, axes=axes, add_points=[0] + add_points)
-    dht_fw_c = dht_fw.compile(thr)
-    dht_inv_c = dht_inv.compile(thr)
+    dht_fw_c = dht_fw.compile(queue.device)
+    dht_inv_c = dht_inv.compile(queue.device)
 
     xdata = test_func(*xs)
-    xdata_dev = thr.to_device(xdata)
+    xdata_dev = Array.from_host(queue, xdata)
 
     # forward transform
-    dht_fw_c(mdata_dev, xdata_dev)
-    assert diff_is_negligible(mdata_dev.get(), test_func.mdata, atol=1e-6)
+    dht_fw_c(queue, mdata_dev, xdata_dev)
+    assert diff_is_negligible(mdata_dev.get(queue), test_func.mdata, atol=1e-6)
 
     # inverse transform
-    dht_inv_c(xdata_dev, mdata_dev)
-    assert diff_is_negligible(xdata_dev.get(), xdata, atol=1e-6)
+    dht_inv_c(queue, xdata_dev, mdata_dev)
+    assert diff_is_negligible(xdata_dev.get(queue), xdata, atol=1e-6)
 
 
 fo_shape_vals = [(5,), (20,), (50,), (3, 7), (10, 11), (5, 6, 7), (10, 11, 12)]
 @pytest.mark.parametrize('fo_shape', fo_shape_vals, ids=list(map(str, fo_shape_vals)))
 @pytest.mark.parametrize('fo_batch', [1, 10])
 @pytest.mark.parametrize('fo_add_points', ['0', '1', '1,2,...'])
-def test_first_order_errors(thr, fo_shape, fo_batch, fo_add_points):
+def test_first_order_errors(queue, fo_shape, fo_batch, fo_add_points):
     """
     Checks that after the transformation of the manually constructed function in coordinate space
     we get exactly mode numbers used for its construction.
@@ -162,13 +163,13 @@ def test_first_order_errors(thr, fo_shape, fo_batch, fo_add_points):
     else:
         add_points = list(range(1, len(fo_shape) + 1))
 
-    check_errors_first_order(thr, fo_shape, fo_batch,
+    check_errors_first_order(queue, fo_shape, fo_batch,
         add_points=add_points, dtype=numpy.complex64)
 
 
 @pytest.mark.parametrize('ho_order', [2, 3])
 @pytest.mark.parametrize('ho_shape', [20, 30, 50])
-def test_high_order_forward(thr, ho_order, ho_shape):
+def test_high_order_forward(queue, ho_order, ho_shape):
     """
     Checks that if we change the mode space while keeping mode population the same,
     the result of forward transformation for orders higher than 1 do not change.
@@ -186,21 +187,21 @@ def test_high_order_forward(thr, ho_order, ho_shape):
     xdata1 = f1(xs1)
     xdata2 = f2(xs2)
 
-    xdata1_dev = thr.to_device(xdata1)
-    xdata2_dev = thr.to_device(xdata2)
+    xdata1_dev = Array.from_host(queue, xdata1)
+    xdata2_dev = Array.from_host(queue, xdata2)
 
-    mdata1_dev = thr.array(ho_shape, dtype)
-    mdata2_dev = thr.array(ho_shape + 1, dtype)
+    mdata1_dev = Array.empty(queue.device, (ho_shape,), dtype)
+    mdata2_dev = Array.empty(queue.device, (ho_shape + 1,), dtype)
 
     dht_fw1 = DHT(mdata1_dev, inverse=False, order=ho_order)
     dht_fw2 = DHT(mdata2_dev, inverse=False, order=ho_order)
-    dht_fw1_c = dht_fw1.compile(thr)
-    dht_fw2_c = dht_fw2.compile(thr)
+    dht_fw1_c = dht_fw1.compile(queue.device)
+    dht_fw2_c = dht_fw2.compile(queue.device)
 
-    dht_fw1_c(mdata1_dev, xdata1_dev)
-    dht_fw2_c(mdata2_dev, xdata2_dev)
+    dht_fw1_c(queue, mdata1_dev, xdata1_dev)
+    dht_fw2_c(queue, mdata2_dev, xdata2_dev)
 
-    mdata1 = mdata1_dev.get()
-    mdata2 = mdata2_dev.get()
+    mdata1 = mdata1_dev.get(queue)
+    mdata2 = mdata2_dev.get(queue)
 
     assert diff_is_negligible(mdata1, mdata2[:-1], atol=1e-6)

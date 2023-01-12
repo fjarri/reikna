@@ -2,8 +2,11 @@
 This module contains a number of pre-created transformations.
 """
 
-import reikna.cluda.dtypes as dtypes
-import reikna.cluda.functions as functions
+import numpy
+
+import grunnur.dtypes as dtypes
+import grunnur.functions as functions
+
 from reikna.core import Transformation, Parameter, Annotation, Type
 
 
@@ -99,7 +102,7 @@ def add_const(arr_t, param):
     Returns an addition transformation with a fixed parameter (1 output, 1 input):
     ``output = input + param``.
     """
-    param_dtype = dtypes.detect_type(param)
+    param_dtype = dtypes.min_scalar_type(param)
     return Transformation(
         [Parameter('output', Annotation(arr_t, 'o')),
         Parameter('input', Annotation(arr_t, 'i'))],
@@ -127,7 +130,7 @@ def mul_const(arr_t, param):
     Returns a scaling transformation with a fixed parameter (1 output, 1 input):
     ``output = input * param``.
     """
-    param_dtype = dtypes.detect_type(param)
+    param_dtype = dtypes.min_scalar_type(param)
     return Transformation(
         [Parameter('output', Annotation(arr_t, 'o')),
         Parameter('input', Annotation(arr_t, 'i'))],
@@ -155,7 +158,7 @@ def div_const(arr_t, param):
     Returns a scaling transformation with a fixed parameter (1 output, 1 input):
     ``output = input / param``.
     """
-    param_dtype = dtypes.detect_type(param)
+    param_dtype = dtypes.min_scalar_type(param)
     return Transformation(
         [Parameter('output', Annotation(arr_t, 'o')),
         Parameter('input', Annotation(arr_t, 'i'))],
@@ -223,7 +226,8 @@ def norm_const(arr_t, order):
         """,
         render_kwds=dict(
             norm=functions.norm(arr_t.dtype),
-            order=order))
+            order=order,
+            dtypes=dtypes))
 
 
 def norm_param(arr_t):
@@ -267,7 +271,7 @@ def broadcast_const(arr_t, val):
     Returns a transformation that broadcasts the given constant to the array output
     (1 output): ``output = val``.
     """
-    val = dtypes.cast(arr_t.dtype)(val)
+    val = numpy.asarray(val, arr_t.dtype)
     if len(val.shape) != 0:
         raise ValueError("The constant must be a scalar")
     return Transformation(
@@ -277,7 +281,7 @@ def broadcast_const(arr_t, val):
         const ${output.ctype} val = ${dtypes.c_constant(val)};
         ${output.store_same}(val);
         """,
-        render_kwds=dict(val=val))
+        render_kwds=dict(val=val, dtypes=dtypes))
 
 
 def broadcast_param(arr_t):

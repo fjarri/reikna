@@ -129,6 +129,7 @@ if __name__ == '__main__':
     dependencies = [
         ('mako', '>= 1.0.0'),
         ('numpy', '>= 2.0.0'),
+        ('grunnur', '>= 0.4'),
         ('funcsigs', '>= 1.0.0')]
     requires = list(map(lambda nr: nr[0] + '(' + nr[1] + ')', dependencies))
     install_requires = list(map(lambda nr: nr[0] + ' ' + nr[1], dependencies))
@@ -139,7 +140,6 @@ if __name__ == '__main__':
             'reikna',
             'reikna/algorithms',
             'reikna/cbrng',
-            'reikna/cluda',
             'reikna/core',
             'reikna/fft',
             'reikna/helpers',
@@ -160,7 +160,6 @@ if __name__ == '__main__':
         package_data={
             'reikna': ['*.mako'],
             'reikna/algorithms': ['*.mako'],
-            'reikna/cluda': ['*.mako'],
             'reikna/cbrng': ['*.mako'],
             'reikna/fft': ['*.mako'],
             'reikna/linalg': ['*.mako'],

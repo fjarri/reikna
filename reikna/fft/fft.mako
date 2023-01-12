@@ -21,7 +21,7 @@ typedef ${dtypes.ctype(dtype)} complex_t;
 typedef ${dtypes.ctype(dtypes.real_for(dtype))} real_t;
 
 
-WITHIN_KERNEL void swap(complex_t *a, complex_t *b)
+FUNCTION void swap(complex_t *a, complex_t *b)
 {
     complex_t c = *a;
     *a = *b;
@@ -30,7 +30,7 @@ WITHIN_KERNEL void swap(complex_t *a, complex_t *b)
 
 // shifts the sequence (a1, a2, a3, a4, a5) transforming it to
 // (a5, a1, a2, a3, a4)
-WITHIN_KERNEL void shift32(
+FUNCTION void shift32(
     complex_t *a1, complex_t *a2, complex_t *a3, complex_t *a4, complex_t *a5)
 {
     complex_t c1, c2;
@@ -45,7 +45,7 @@ WITHIN_KERNEL void shift32(
     *a1 = c2;
 }
 
-WITHIN_KERNEL void _fftKernel2(complex_t *a)
+FUNCTION void _fftKernel2(complex_t *a)
 {
     complex_t c = a[0];
     a[0] = c + a[1];
@@ -53,7 +53,7 @@ WITHIN_KERNEL void _fftKernel2(complex_t *a)
 }
 #define fftKernel2(a, direction) _fftKernel2(a)
 
-WITHIN_KERNEL void _fftKernel2S(complex_t *d1, complex_t *d2)
+FUNCTION void _fftKernel2S(complex_t *d1, complex_t *d2)
 {
     complex_t c = *d1;
     *d1 = c + *d2;
@@ -61,7 +61,7 @@ WITHIN_KERNEL void _fftKernel2S(complex_t *d1, complex_t *d2)
 }
 #define fftKernel2S(d1, d2, direction) _fftKernel2S(d1, d2)
 
-WITHIN_KERNEL void fftKernel4(complex_t *a, const int direction)
+FUNCTION void fftKernel4(complex_t *a, const int direction)
 {
     fftKernel2S(a + 0, a + 2, direction);
     fftKernel2S(a + 1, a + 3, direction);
@@ -71,7 +71,7 @@ WITHIN_KERNEL void fftKernel4(complex_t *a, const int direction)
     swap(a + 1, a + 2);
 }
 
-WITHIN_KERNEL void fftKernel4s(complex_t *a0, complex_t *a1,
+FUNCTION void fftKernel4s(complex_t *a0, complex_t *a1,
     complex_t *a2, complex_t *a3, const int direction)
 {
     fftKernel2S(a0, a2, direction);
@@ -82,13 +82,13 @@ WITHIN_KERNEL void fftKernel4s(complex_t *a0, complex_t *a1,
     swap(a1, a2);
 }
 
-WITHIN_KERNEL void bitreverse8(complex_t *a)
+FUNCTION void bitreverse8(complex_t *a)
 {
     swap(a + 1, a + 4);
     swap(a + 3, a + 6);
 }
 
-WITHIN_KERNEL void fftKernel8(complex_t *a, const int direction)
+FUNCTION void fftKernel8(complex_t *a, const int direction)
 {
     const complex_t w1  = complex_ctr(
         ${wrap_const(numpy.sin(numpy.pi / 4))},
@@ -116,7 +116,7 @@ WITHIN_KERNEL void fftKernel8(complex_t *a, const int direction)
     bitreverse8(a);
 }
 
-WITHIN_KERNEL void bitreverse4x4(complex_t *a)
+FUNCTION void bitreverse4x4(complex_t *a)
 {
     swap(a + 1, a + 4);
     swap(a + 2, a + 8);
@@ -126,7 +126,7 @@ WITHIN_KERNEL void bitreverse4x4(complex_t *a)
     swap(a + 11, a + 14);
 }
 
-WITHIN_KERNEL void fftKernel16(complex_t *a, const int direction)
+FUNCTION void fftKernel16(complex_t *a, const int direction)
 {
     complex_t temp;
     const real_t w0 = ${wrap_const(numpy.cos(numpy.pi / 8))};
@@ -162,7 +162,7 @@ WITHIN_KERNEL void fftKernel16(complex_t *a, const int direction)
     bitreverse4x4(a);
 }
 
-WITHIN_KERNEL void bitreverse32(complex_t *a)
+FUNCTION void bitreverse32(complex_t *a)
 {
     shift32(a + 1, a + 2, a + 4, a + 8, a + 16);
     shift32(a + 3, a + 6, a + 12, a + 24, a + 17);
@@ -172,7 +172,7 @@ WITHIN_KERNEL void bitreverse32(complex_t *a)
     shift32(a + 15, a + 30, a + 29, a + 27, a + 23);
 }
 
-WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
+FUNCTION void fftKernel32(complex_t *a, const int direction)
 {
     complex_t temp;
     %for i in range(16):
@@ -193,7 +193,7 @@ WITHIN_KERNEL void fftKernel32(complex_t *a, const int direction)
 }
 
 // Calculates input and output weights for the Bluestein's algorithm
-WITHIN_KERNEL complex_t xweight(int dir_coeff, VSIZE_T pos)
+FUNCTION complex_t xweight(int dir_coeff, VSIZE_T pos)
 {
     // The modulo of 2 * fft_size_real does not change the result,
     // but greatly improves the precision by keeping the argument of sin()/cos() small.
@@ -734,8 +734,8 @@ WITHIN_KERNEL complex_t xweight(int dir_coeff, VSIZE_T pos)
     a[${i}] = complex_ctr(NAN, NAN);
     %endfor
 
-    const VSIZE_T thread_id = virtual_local_id(0);
-    const VSIZE_T group_id = virtual_group_id(0);
+    const VSIZE_T thread_id = ${static.local_id}(0);
+    const VSIZE_T group_id = ${static.group_id}(0);
 
     ## makes it easier to use it inside other definitions
     %if reverse_direction:
@@ -766,12 +766,12 @@ ${insertBaseKernels()}
 
 ${kernel_declaration}
 {
-    VIRTUAL_SKIP_THREADS;
+    if (${static.skip}()) return;
 
     ${insertVariableDefinitions(inverse, lmem_size, max_radix)}
 
     %if xforms_remainder != 0:
-    const VSIZE_T num_groups = virtual_num_groups(0);
+    const VSIZE_T num_groups = ${static.num_groups}(0);
     %endif
 
     ${insertGlobalLoadsAndTranspose(input, kweights, threads_per_xform, xforms_per_workgroup, max_radix,
@@ -831,7 +831,7 @@ ${insertBaseKernels()}
 
 ${kernel_declaration}
 {
-    VIRTUAL_SKIP_THREADS;
+    if (${static.skip}()) return;
 
     ${insertVariableDefinitions(direction, lmem_size, radix1)}
 

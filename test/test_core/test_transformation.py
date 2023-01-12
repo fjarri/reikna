@@ -1,10 +1,10 @@
 import numpy
 import pytest
 
+from grunnur import functions, Array
+
 from reikna.core import Parameter, Annotation, Transformation
 from reikna.core.signature import Type
-from reikna.cluda import functions, cuda_id
-
 from reikna.algorithms import PureParallel
 from reikna import transformations
 
@@ -34,7 +34,7 @@ def tr_2_to_1(arr, scalar):
         """,
         render_kwds= dict(
             mul=functions.mul(arr.dtype, arr.dtype),
-            cast=functions.cast(arr.dtype, scalar.dtype)))
+            cast=functions.cast(scalar.dtype, arr.dtype)))
 
 # Output1 = Input / 2, Output2 = Input / 2
 def tr_1_to_2(arr):
@@ -98,7 +98,7 @@ def test_signature_correctness():
         Parameter('coeff', Annotation(coeff_dtype))]
 
 
-def test_same_shape(thr):
+def test_same_shape(queue):
 
     N = 200
     coeff = 2
@@ -121,18 +121,19 @@ def test_same_shape(thr):
     d.parameter.C.connect(split, split.i1, C_half1=split.o1, C_half2=split.o2)
     d.parameter.C_half1.connect(identity, identity.i1, C_new_half1=identity.o1)
     d.parameter.D.connect(scale, scale.i1, D_prime=scale.o1, D_param=scale.s1)
-    dc = d.compile(thr)
+    dc = d.compile(queue.device)
 
     A_prime = get_test_array_like(d.parameter.A_prime)
     B_new_prime = get_test_array_like(d.parameter.B_new_prime)
 
-    A_prime_dev = thr.to_device(A_prime)
-    B_new_prime_dev = thr.to_device(B_new_prime)
-    C_new_half1_dev = thr.empty_like(d.parameter.A_prime)
-    C_half2_dev = thr.empty_like(d.parameter.A_prime)
-    D_prime_dev = thr.empty_like(d.parameter.A_prime)
+    A_prime_dev = Array.from_host(queue, A_prime)
+    B_new_prime_dev = Array.from_host(queue, B_new_prime)
+    C_new_half1_dev = Array.empty_like(queue.device, d.parameter.A_prime)
+    C_half2_dev = Array.empty_like(queue.device, d.parameter.A_prime)
+    D_prime_dev = Array.empty_like(queue.device, d.parameter.A_prime)
 
     dc(
+        queue,
         C_new_half1_dev, C_half2_dev,
         D_prime_dev, D_param,
         A_prime_dev, B_new_prime_dev,
@@ -145,12 +146,12 @@ def test_same_shape(thr):
     C_half2 = C / 2
     D_prime = D * D_param
 
-    assert diff_is_negligible(C_new_half1_dev.get(), C_new_half1)
-    assert diff_is_negligible(C_half2_dev.get(), C_half2)
-    assert diff_is_negligible(D_prime_dev.get(), D_prime)
+    assert diff_is_negligible(C_new_half1_dev.get(queue), C_new_half1)
+    assert diff_is_negligible(C_half2_dev.get(queue), C_half2)
+    assert diff_is_negligible(D_prime_dev.get(queue), D_prime)
 
 
-def test_connection_to_base(thr):
+def test_connection_to_base(queue):
 
     N = 200
     coeff = 2
@@ -174,23 +175,23 @@ def test_connection_to_base(thr):
         Parameter('B', Annotation(arr_type, 'i')),
         Parameter('coeff', Annotation(coeff_dtype))]
 
-    dc = d.compile(thr)
+    dc = d.compile(queue.device)
 
     B = get_test_array_like(d.parameter.B)
-    B_dev = thr.to_device(B)
-    C_prime_dev = thr.empty_like(d.parameter.B)
-    D_dev = thr.empty_like(d.parameter.B)
+    B_dev = Array.from_host(queue, B)
+    C_prime_dev = Array.empty_like(queue.device, d.parameter.B)
+    D_dev = Array.empty_like(queue.device, d.parameter.B)
 
-    dc(C_prime_dev, D_dev, B_dev, coeff)
+    dc(queue, C_prime_dev, D_dev, B_dev, coeff)
 
     C, D = mock_dummy(B, B, coeff)
     C_prime = C * coeff
 
-    assert diff_is_negligible(C_prime_dev.get(), C_prime)
-    assert diff_is_negligible(D_dev.get(), D)
+    assert diff_is_negligible(C_prime_dev.get(queue), C_prime)
+    assert diff_is_negligible(D_dev.get(queue), D)
 
 
-def test_nested_same_shape(thr):
+def test_nested_same_shape(queue):
 
     N = 2000
     coeff = 2
@@ -214,18 +215,19 @@ def test_nested_same_shape(thr):
     d.parameter.C.connect(split, split.i1, C_half1=split.o1, C_half2=split.o2)
     d.parameter.C_half1.connect(identity, identity.i1, C_new_half1=identity.o1)
     d.parameter.D.connect(scale, scale.i1, D_prime=scale.o1, D_param=scale.s1)
-    dc = d.compile(thr)
+    dc = d.compile(queue.device)
 
     A_prime = get_test_array_like(d.parameter.A_prime)
     B_new_prime = get_test_array_like(d.parameter.B_new_prime)
 
-    A_prime_dev = thr.to_device(A_prime)
-    B_new_prime_dev = thr.to_device(B_new_prime)
-    C_new_half1_dev = thr.empty_like(d.parameter.A_prime)
-    C_half2_dev = thr.empty_like(d.parameter.A_prime)
-    D_prime_dev = thr.empty_like(d.parameter.A_prime)
+    A_prime_dev = Array.from_host(queue, A_prime)
+    B_new_prime_dev = Array.from_host(queue, B_new_prime)
+    C_new_half1_dev = Array.empty_like(queue.device, d.parameter.A_prime)
+    C_half2_dev = Array.empty_like(queue.device, d.parameter.A_prime)
+    D_prime_dev = Array.empty_like(queue.device, d.parameter.A_prime)
 
     dc(
+        queue,
         C_new_half1_dev, C_half2_dev,
         D_prime_dev, D_param,
         A_prime_dev, B_new_prime_dev,
@@ -238,9 +240,9 @@ def test_nested_same_shape(thr):
     C_half2 = C / 2
     D_prime = D * D_param
 
-    assert diff_is_negligible(C_new_half1_dev.get(), C_new_half1)
-    assert diff_is_negligible(C_half2_dev.get(), C_half2)
-    assert diff_is_negligible(D_prime_dev.get(), D_prime)
+    assert diff_is_negligible(C_new_half1_dev.get(queue), C_new_half1)
+    assert diff_is_negligible(C_half2_dev.get(queue), C_half2)
+    assert diff_is_negligible(D_prime_dev.get(queue), D_prime)
 
 
 def test_strings_as_parameters():
@@ -410,7 +412,7 @@ def test_wrong_transformation_parameters():
         d.parameter.A.connect(identity, identity.o1, A_prime=identity.i1, A2='i2')
 
 
-def test_io_merge(some_thr):
+def test_io_merge(some_queue):
     """
     Check that one can end input and output transformation in the same node
     thus making its role 'io'.
@@ -426,8 +428,8 @@ def test_io_merge(some_thr):
 
     C = get_test_array_like(arr_type)
     D = get_test_array_like(arr_type)
-    C_dev = some_thr.to_device(C)
-    D_dev = some_thr.to_device(D)
+    C_dev = Array.from_host(some_queue, C)
+    D_dev = Array.from_host(some_queue, D)
 
     d = DummyAdvanced(C, coeff_dtype)
     scale = tr_scale(d.parameter.C, d.parameter.coeff1.dtype)
@@ -441,14 +443,14 @@ def test_io_merge(some_thr):
         Parameter('coeff1', Annotation(coeff_dtype)),
         Parameter('coeff2', Annotation(coeff_dtype))]
 
-    dc = d.compile(some_thr)
-    dc(C_dev, scale_out, scale_in, D_dev, coeff1, coeff2)
+    dc = d.compile(some_queue.device)
+    dc(some_queue, C_dev, scale_out, scale_in, D_dev, coeff1, coeff2)
 
     C_ref, D_ref = mock_dummy_advanced(C * scale_in, D, coeff1, coeff2)
     C_ref *= scale_out
 
-    C = C_dev.get()
-    D = D_dev.get()
+    C = C_dev.get(some_queue)
+    D = D_dev.get(some_queue)
 
     assert diff_is_negligible(C, C_ref)
     assert diff_is_negligible(D, D_ref)
@@ -477,9 +479,9 @@ class ExpressionIndexing(Computation):
         <%def name="kernel(kernel_declaration, output, input)">
         ${kernel_declaration}
         {
-            VIRTUAL_SKIP_THREADS;
-            VSIZE_T idx0 = virtual_global_id(0);
-            VSIZE_T idx1 = virtual_global_id(1);
+            if (${static.skip}()) return;
+            VSIZE_T idx0 = ${static.global_id}(0);
+            VSIZE_T idx1 = ${static.global_id}(1);
 
             ${output.ctype} a = ${input.load_idx}(idx0 + 1 - 1, idx1);
             ${output.store_idx}(idx0 + 1 - 1, idx1, a * 2);
@@ -495,7 +497,7 @@ class ExpressionIndexing(Computation):
         return plan
 
 
-def test_transformation_macros(thr):
+def test_transformation_macros(queue):
     """
     Regression test for #27.
     When expressions are passed to leaf load_idx/store_idx macros,
@@ -511,82 +513,33 @@ def test_transformation_macros(thr):
     a = get_test_array((N, 2), dtype)
 
     comp = ExpressionIndexing(a)
-    a_dev = thr.to_device(a)
-    res_dev = thr.empty_like(comp.parameter.output)
+    a_dev = Array.from_host(queue, a)
+    res_dev = Array.empty_like(queue.device, comp.parameter.output)
 
-    compc = comp.compile(thr)
-    compc(res_dev, a_dev)
+    compc = comp.compile(queue.device)
+    compc(queue, res_dev, a_dev)
 
     res_ref = a * 2
 
-    assert diff_is_negligible(res_dev.get(), res_ref)
+    assert diff_is_negligible(res_dev.get(queue), res_ref)
 
 
-def test_array_views(thr):
+def test_array_views(queue):
 
     a = get_test_array((6, 8, 10), numpy.int32)
 
-    a_dev = thr.to_device(a)
-    b_dev = thr.empty_like(a)
+    a_dev = Array.from_host(queue, a)
+    b_dev = Array.empty_like(queue.device, a)
 
     in_view = a_dev[2:4, ::2, ::-1]
     out_view = b_dev[4:, 1:5, :]
 
     move = PureParallel.from_trf(
         transformations.copy(in_view, out_arr_t=out_view),
-        guiding_array='output').compile(thr)
+        guiding_array='output').compile(queue.device)
 
-    move(out_view, in_view)
-    b_res = b_dev.get()[4:, 1:5, :]
+    move(queue, out_view, in_view)
+    b_res = b_dev.get(queue)[4:, 1:5, :]
     b_ref = a[2:4, ::2, ::-1]
 
     assert diff_is_negligible(b_res, b_ref)
-
-
-def test_array_offset(thr):
-
-    dtype = numpy.uint32
-    itemsize = dtypes.normalize_type(dtype).itemsize
-    offset_len = 10
-    arr_len = 16
-
-    # internal creation of the base array
-    a1 = thr.array((arr_len,), dtype, offset=itemsize * offset_len)
-
-    # providing base
-    a2_base = thr.array((arr_len + offset_len,), dtype)
-    a2 = thr.array((arr_len,), dtype, offset=itemsize * offset_len, base=a2_base)
-
-    # providing base_data
-    a3_base = thr.array((arr_len + offset_len,), dtype)
-    a3_data = a3_base.base_data
-    a3 = thr.array((arr_len,), dtype, offset=itemsize * offset_len, data=a3_data)
-
-    fill = PureParallel(
-        [
-            Parameter('output1', Annotation(a1, 'o')),
-            Parameter('output2', Annotation(a2, 'o')),
-            Parameter('output3', Annotation(a3, 'o')),
-        ],
-        """
-        ${output1.store_idx}((int)${idxs[0]} - ${offset_len}, ${idxs[0]});
-        ${output2.store_idx}((int)${idxs[0]} - ${offset_len}, ${idxs[0]});
-        ${output3.store_idx}((int)${idxs[0]} - ${offset_len}, ${idxs[0]});
-        """,
-        render_kwds=dict(offset_len=offset_len),
-        guiding_array=(arr_len + offset_len,)
-        ).compile(thr)
-
-    fill(a1, a2, a3)
-
-    offset_range = numpy.arange(offset_len, arr_len + offset_len).astype(dtype)
-    full_range = numpy.arange(arr_len + offset_len).astype(dtype)
-
-    assert diff_is_negligible(a1.get(), offset_range)
-
-    assert diff_is_negligible(a2_base.get(), full_range)
-    assert diff_is_negligible(a2.get(), offset_range)
-
-    assert diff_is_negligible(a3_base.get(), full_range)
-    assert diff_is_negligible(a3.get(), offset_range)
-

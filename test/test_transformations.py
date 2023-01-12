@@ -3,7 +3,8 @@ Test standard transformations
 """
 import pytest
 
-from reikna.cluda import Snippet
+from grunnur import Snippet, Array
+
 from reikna.algorithms import PureParallel
 import reikna.transformations as tr
 from reikna.core import Parameter, Annotation, Type
@@ -74,33 +75,33 @@ def get_test_computation(arr_t):
         """)
 
 
-def test_copy(some_thr, any_dtype):
+def test_copy(some_queue, any_dtype):
 
     input_ = get_test_array((1000,), any_dtype)
-    input_dev = some_thr.to_device(input_)
-    output_dev = some_thr.empty_like(input_dev)
+    input_dev = Array.from_host(some_queue, input_)
+    output_dev = Array.empty_like(some_queue.device, input_dev)
 
     test = get_test_computation(input_dev)
     copy = tr.copy(input_dev)
 
     test.parameter.input.connect(copy, copy.output, input_prime=copy.input)
     test.parameter.output.connect(copy, copy.input, output_prime=copy.output)
-    testc = test.compile(some_thr)
+    testc = test.compile(some_queue.device)
 
-    testc(output_dev, input_dev)
-    assert diff_is_negligible(output_dev.get(), input_)
+    testc(some_queue, output_dev, input_dev)
+    assert diff_is_negligible(output_dev.get(some_queue), input_)
 
 
 in_shapes = [(30,), (20, 1), (10, 20, 1)]
 @pytest.mark.parametrize('in_shape', in_shapes, ids=[str(in_shape) for in_shape in in_shapes])
-def test_broadcasted_copy(some_thr, in_shape):
+def test_broadcasted_copy(some_queue, in_shape):
 
     dtype = numpy.int32
     shape = (10, 20, 30)
 
     input_ = get_test_array(in_shape, dtype)
-    input_dev = some_thr.to_device(input_)
-    output_dev = some_thr.array(shape, dtype)
+    input_dev = Array.from_host(some_queue, input_)
+    output_dev = Array.empty(some_queue.device, shape, dtype)
 
     output_ref = numpy.broadcast_to(input_, shape)
 
@@ -108,56 +109,56 @@ def test_broadcasted_copy(some_thr, in_shape):
     copy = tr.copy_broadcasted(input_dev, output_dev)
 
     test.parameter.input.connect(copy, copy.output, input_prime=copy.input)
-    testc = test.compile(some_thr)
+    testc = test.compile(some_queue.device)
 
-    testc(output_dev, input_dev)
-    assert diff_is_negligible(output_dev.get(), output_ref)
+    testc(some_queue, output_dev, input_dev)
+    assert diff_is_negligible(output_dev.get(some_queue), output_ref)
 
 
-def test_cast(some_thr):
+def test_cast(some_queue):
 
     data = get_test_array((1000,), numpy.float32, high=10)
-    data_dev = some_thr.to_device(data)
+    data_dev = Array.from_host(some_queue, data)
 
     test = get_test_computation(Type(numpy.int32, (1000,)))
     cast = tr.cast(data, numpy.int32)
 
     test.parameter.input.connect(cast, cast.output, input_prime=cast.input)
-    testc = test.compile(some_thr)
+    testc = test.compile(some_queue.device)
 
-    output_dev = some_thr.empty_like(test.parameter.output)
+    output_dev = Array.empty_like(some_queue.device, test.parameter.output)
 
-    testc(output_dev, data_dev)
+    testc(some_queue, output_dev, data_dev)
 
-    assert diff_is_negligible(output_dev.get(), numpy.floor(data).astype(numpy.int32))
+    assert diff_is_negligible(output_dev.get(some_queue), numpy.floor(data).astype(numpy.int32))
 
 
-def test_add_param(some_thr, any_dtype):
+def test_add_param(some_queue, any_dtype):
 
     input = get_test_array((1000,), any_dtype)
     p1 = get_test_array((1,), any_dtype)[0]
     p2 = get_test_array((1,), any_dtype)[0]
-    input_dev = some_thr.to_device(input)
-    output_dev = some_thr.empty_like(input_dev)
+    input_dev = Array.from_host(some_queue, input)
+    output_dev = Array.empty_like(some_queue.device, input_dev)
 
     test = get_test_computation(input_dev)
     add = tr.add_param(input_dev, any_dtype)
 
     test.parameter.input.connect(add, add.output, input_prime=add.input, p1=add.param)
     test.parameter.output.connect(add, add.input, output_prime=add.output, p2=add.param)
-    testc = test.compile(some_thr)
+    testc = test.compile(some_queue.device)
 
-    testc(output_dev, p1, input_dev, p2)
-    assert diff_is_negligible(output_dev.get(), input + p1 + p2)
+    testc(some_queue, output_dev, p1, input_dev, p2)
+    assert diff_is_negligible(output_dev.get(some_queue), input + p1 + p2)
 
 
-def test_add_const(some_thr, any_dtype):
+def test_add_const(some_queue, any_dtype):
 
     input = get_test_array((1000,), any_dtype)
     p1 = get_test_array((1,), any_dtype)[0]
     p2 = get_test_array((1,), any_dtype)[0]
-    input_dev = some_thr.to_device(input)
-    output_dev = some_thr.empty_like(input_dev)
+    input_dev = Array.from_host(some_queue, input)
+    output_dev = Array.empty_like(some_queue.device, input_dev)
 
     test = get_test_computation(input_dev)
     add1 = tr.add_const(input_dev, p1)
@@ -165,38 +166,38 @@ def test_add_const(some_thr, any_dtype):
 
     test.parameter.input.connect(add1, add1.output, input_prime=add1.input)
     test.parameter.output.connect(add2, add2.input, output_prime=add2.output)
-    testc = test.compile(some_thr)
+    testc = test.compile(some_queue.device)
 
-    testc(output_dev, input_dev)
-    assert diff_is_negligible(output_dev.get(), input + p1 + p2)
+    testc(some_queue, output_dev, input_dev)
+    assert diff_is_negligible(output_dev.get(some_queue), input + p1 + p2)
 
 
-def test_mul_param(some_thr, any_dtype):
+def test_mul_param(some_queue, any_dtype):
 
     input = get_test_array((1000,), any_dtype)
     p1 = get_test_array((1,), any_dtype)[0]
     p2 = get_test_array((1,), any_dtype)[0]
-    input_dev = some_thr.to_device(input)
-    output_dev = some_thr.empty_like(input_dev)
+    input_dev = Array.from_host(some_queue, input)
+    output_dev = Array.empty_like(some_queue.device, input_dev)
 
     test = get_test_computation(input_dev)
     scale = tr.mul_param(input_dev, any_dtype)
 
     test.parameter.input.connect(scale, scale.output, input_prime=scale.input, p1=scale.param)
     test.parameter.output.connect(scale, scale.input, output_prime=scale.output, p2=scale.param)
-    testc = test.compile(some_thr)
+    testc = test.compile(some_queue.device)
 
-    testc(output_dev, p1, input_dev, p2)
-    assert diff_is_negligible(output_dev.get(), input * p1 * p2)
+    testc(some_queue, output_dev, p1, input_dev, p2)
+    assert diff_is_negligible(output_dev.get(some_queue), input * p1 * p2)
 
 
-def test_mul_const(some_thr, any_dtype):
+def test_mul_const(some_queue, any_dtype):
 
     input = get_test_array((1000,), any_dtype)
     p1 = get_test_array((1,), any_dtype)[0]
     p2 = get_test_array((1,), any_dtype)[0]
-    input_dev = some_thr.to_device(input)
-    output_dev = some_thr.empty_like(input_dev)
+    input_dev = Array.from_host(some_queue, input)
+    output_dev = Array.empty_like(some_queue.device, input_dev)
 
     test = get_test_computation(input_dev)
     scale1 = tr.mul_const(input_dev, p1)
@@ -204,42 +205,42 @@ def test_mul_const(some_thr, any_dtype):
 
     test.parameter.input.connect(scale1, scale1.output, input_prime=scale1.input)
     test.parameter.output.connect(scale2, scale2.input, output_prime=scale2.output)
-    testc = test.compile(some_thr)
+    testc = test.compile(some_queue.device)
 
-    testc(output_dev, input_dev)
-    assert diff_is_negligible(output_dev.get(), input * p1 * p2)
+    testc(some_queue, output_dev, input_dev)
+    assert diff_is_negligible(output_dev.get(some_queue), input * p1 * p2)
 
 
-def test_div_param(some_thr):
+def test_div_param(some_queue):
 
     dtype = numpy.float32
 
     input = get_test_array((1000,), dtype)
     p1 = get_test_array((1,), dtype)[0]
     p2 = get_test_array((1,), dtype)[0]
-    input_dev = some_thr.to_device(input)
-    output_dev = some_thr.empty_like(input_dev)
+    input_dev = Array.from_host(some_queue, input)
+    output_dev = Array.empty_like(some_queue.device, input_dev)
 
     test = get_test_computation(input_dev)
     scale = tr.div_param(input_dev, dtype)
 
     test.parameter.input.connect(scale, scale.output, input_prime=scale.input, p1=scale.param)
     test.parameter.output.connect(scale, scale.input, output_prime=scale.output, p2=scale.param)
-    testc = test.compile(some_thr)
+    testc = test.compile(some_queue.device)
 
-    testc(output_dev, p1, input_dev, p2)
-    assert diff_is_negligible(output_dev.get(), input / p1 / p2)
+    testc(some_queue, output_dev, p1, input_dev, p2)
+    assert diff_is_negligible(output_dev.get(some_queue), input / p1 / p2)
 
 
-def test_div_const(some_thr):
+def test_div_const(some_queue):
 
     dtype = numpy.float32
 
     input = get_test_array((1000,), dtype)
     p1 = get_test_array((1,), dtype)[0]
     p2 = get_test_array((1,), dtype)[0]
-    input_dev = some_thr.to_device(input)
-    output_dev = some_thr.empty_like(input_dev)
+    input_dev = Array.from_host(some_queue, input)
+    output_dev = Array.empty_like(some_queue.device, input_dev)
 
     test = get_test_computation(input_dev)
     scale1 = tr.div_const(input_dev, p1)
@@ -247,20 +248,20 @@ def test_div_const(some_thr):
 
     test.parameter.input.connect(scale1, scale1.output, input_prime=scale1.input)
     test.parameter.output.connect(scale2, scale2.input, output_prime=scale2.output)
-    testc = test.compile(some_thr)
+    testc = test.compile(some_queue.device)
 
-    testc(output_dev, input_dev)
-    assert diff_is_negligible(output_dev.get(), input / p1 / p2)
+    testc(some_queue, output_dev, input_dev)
+    assert diff_is_negligible(output_dev.get(some_queue), input / p1 / p2)
 
 
-def test_split_combine_complex(some_thr):
+def test_split_combine_complex(some_queue):
 
     i1 = get_test_array((1000,), numpy.float32)
     i2 = get_test_array((1000,), numpy.float32)
-    i1_dev = some_thr.to_device(i1)
-    i2_dev = some_thr.to_device(i2)
-    o1_dev = some_thr.empty_like(i1)
-    o2_dev = some_thr.empty_like(i2)
+    i1_dev = Array.from_host(some_queue, i1)
+    i2_dev = Array.from_host(some_queue, i2)
+    o1_dev = Array.empty_like(some_queue.device, i1)
+    o2_dev = Array.empty_like(some_queue.device, i2)
 
     base_t = Type(numpy.complex64, shape=1000)
     test = get_test_computation(base_t)
@@ -269,50 +270,50 @@ def test_split_combine_complex(some_thr):
 
     test.parameter.input.connect(combine, combine.output, i_real=combine.real, i_imag=combine.imag)
     test.parameter.output.connect(split, split.input, o_real=split.real, o_imag=split.imag)
-    testc = test.compile(some_thr)
+    testc = test.compile(some_queue.device)
 
-    testc(o1_dev, o2_dev, i1_dev, i2_dev)
-    assert diff_is_negligible(o1_dev.get(), i1)
-    assert diff_is_negligible(o2_dev.get(), i2)
+    testc(some_queue, o1_dev, o2_dev, i1_dev, i2_dev)
+    assert diff_is_negligible(o1_dev.get(some_queue), i1)
+    assert diff_is_negligible(o2_dev.get(some_queue), i2)
 
 
 @pytest.mark.parametrize('order', [1, 2, 0.5])
-def test_norm_param(some_thr, rc_dtype, order):
+def test_norm_param(some_queue, rc_dtype, order):
 
     input_ = get_test_array((1000,), rc_dtype)
-    input_dev = some_thr.to_device(input_)
+    input_dev = Array.from_host(some_queue, input_)
 
     norm = tr.norm_param(input_dev)
 
-    output_dev = some_thr.empty_like(norm.output)
+    output_dev = Array.empty_like(some_queue.device, norm.output)
 
     test = get_test_computation(output_dev)
     test.parameter.input.connect(norm, norm.output, input_prime=norm.input, order=norm.order)
-    testc = test.compile(some_thr)
+    testc = test.compile(some_queue.device)
 
-    testc(output_dev, input_dev, order)
-    assert diff_is_negligible(output_dev.get(), numpy.abs(input_) ** order)
+    testc(some_queue, output_dev, input_dev, order)
+    assert diff_is_negligible(output_dev.get(some_queue), numpy.abs(input_) ** order)
 
 
 @pytest.mark.parametrize('order', [1, 2, 0.5])
-def test_norm_const(some_thr, rc_dtype, order):
+def test_norm_const(some_queue, rc_dtype, order):
 
     input_ = get_test_array((1000,), rc_dtype)
-    input_dev = some_thr.to_device(input_)
+    input_dev = Array.from_host(some_queue, input_)
 
     norm = tr.norm_const(input_dev, order)
 
-    output_dev = some_thr.empty_like(norm.output)
+    output_dev = Array.empty_like(some_queue.device, norm.output)
 
     test = get_test_computation(output_dev)
     test.parameter.input.connect(norm, norm.output, input_prime=norm.input)
-    testc = test.compile(some_thr)
+    testc = test.compile(some_queue.device)
 
-    testc(output_dev, input_dev)
-    assert diff_is_negligible(output_dev.get(), numpy.abs(input_) ** order)
+    testc(some_queue, output_dev, input_dev)
+    assert diff_is_negligible(output_dev.get(some_queue), numpy.abs(input_) ** order)
 
 
-def test_broadcast_const(some_thr, dtype_to_broadcast):
+def test_broadcast_const(some_queue, dtype_to_broadcast):
 
     dtype = dtypes.align(dtype_to_broadcast)
     const = get_test_array(1, dtype)[0]
@@ -320,18 +321,18 @@ def test_broadcast_const(some_thr, dtype_to_broadcast):
     output_ref = numpy.empty((1000,), dtype)
     output_ref[:] = const
 
-    output_dev = some_thr.empty_like(output_ref)
+    output_dev = Array.empty_like(some_queue.device, output_ref)
 
     test = get_test_computation(output_dev)
     bc = tr.broadcast_const(output_dev, const)
     test.parameter.input.connect(bc, bc.output)
-    testc = test.compile(some_thr)
+    testc = test.compile(some_queue.device)
 
-    testc(output_dev)
-    assert diff_is_negligible(output_dev.get(), output_ref)
+    testc(some_queue, output_dev)
+    assert diff_is_negligible(output_dev.get(some_queue), output_ref)
 
 
-def test_broadcast_param(some_thr, dtype_to_broadcast):
+def test_broadcast_param(some_queue, dtype_to_broadcast):
 
     dtype = dtypes.align(dtype_to_broadcast)
     param = get_test_array(1, dtype)[0]
@@ -339,12 +340,12 @@ def test_broadcast_param(some_thr, dtype_to_broadcast):
     output_ref = numpy.empty((1000,), dtype)
     output_ref[:] = param
 
-    output_dev = some_thr.empty_like(output_ref)
+    output_dev = Array.empty_like(some_queue.device, output_ref)
 
     test = get_test_computation(output_dev)
     bc = tr.broadcast_param(output_dev)
     test.parameter.input.connect(bc, bc.output, param=bc.param)
-    testc = test.compile(some_thr)
+    testc = test.compile(some_queue.device)
 
-    testc(output_dev, param)
-    assert diff_is_negligible(output_dev.get(), output_ref)
+    testc(some_queue, output_dev, param)
+    assert diff_is_negligible(output_dev.get(some_queue), output_ref)

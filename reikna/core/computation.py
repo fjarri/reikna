@@ -1,7 +1,8 @@
 import weakref
 from collections import namedtuple
 
-from reikna.cluda import cuda_id
+from grunnur import cuda_api_id, Array, StaticKernel, VirtualManager, Buffer
+
 from reikna.helpers import Graph
 from reikna.core.signature import Parameter, Annotation, Type, Signature
 from reikna.core.transformation import TransformationTree, TransformationParameter
@@ -183,17 +184,17 @@ class Computation:
     def _translate_tree(self, translator):
         return self._tr_tree.translate(translator)
 
-    def _get_plan(self, tr_tree, translator, thread, fast_math, compiler_options, keep):
+    def _get_plan(self, tr_tree, translator, bound_device, virtual_manager, fast_math, compiler_options, keep):
         plan_factory = lambda: ComputationPlan(
-            tr_tree, translator, thread, fast_math, compiler_options, keep)
+            tr_tree, translator, bound_device, virtual_manager, fast_math, compiler_options, keep)
         args = [
             KernelArgument(param.name, param.annotation.type)
             for param in tr_tree.get_root_parameters()]
-        return self._build_plan(plan_factory, thread.device_params, *args)
+        return self._build_plan(plan_factory, bound_device.params, *args)
 
-    def compile(self, thread, fast_math=False, compiler_options=None, keep=False):
+    def compile(self, bound_device, virtual_manager=None, fast_math=False, compiler_options=None, keep=False):
         """
-        Compiles the computation with the given :py:class:`~reikna.cluda.api.Thread` object
+        Compiles the computation with the given :py:class:`grunnur.BoundDevice` object
         and returns a :py:class:`~reikna.core.computation.ComputationCallable` object.
         If ``fast_math`` is enabled, the compilation of all kernels is performed using
         the compiler options for fast and imprecise mathematical functions.
@@ -204,7 +205,7 @@ class Computation:
         """
         translator = Translator.identity()
         return self._get_plan(
-            self._tr_tree, translator, thread, fast_math, compiler_options, keep).finalize()
+            self._tr_tree, translator, bound_device, virtual_manager, fast_math, compiler_options, keep).finalize()
 
     def _build_plan(self, plan_factory, device_params, *args):
         """
@@ -214,7 +215,7 @@ class Computation:
 
         :param plan_factory: a callable returning a new
             :py:class:`~reikna.core.computation.ComputationPlan` object.
-        :param device_params: a :py:class:`~reikna.cluda.api.DeviceParameters` object corresponding
+        :param device_params: a :py:class:`grunnur.DeviceParameters` object corresponding
             to the thread the computation is being compiled for.
         :param args: :py:class:`~reikna.core.computation.KernelArgument` objects,
             corresponding to ``parameters`` specified during the creation
@@ -259,11 +260,12 @@ class ComputationPlan:
     Computation plan recorder.
     """
 
-    def __init__(self, tr_tree, translator, thread, fast_math, compiler_options, keep):
+    def __init__(self, tr_tree, translator, bound_device, virtual_manager, fast_math, compiler_options, keep):
         """__init__()""" # hide the signature from Sphinx
 
-        self._thread = thread
-        self._is_cuda = (thread.api.get_id() == cuda_id())
+        self._bound_device = bound_device
+        self._virtual_manager = virtual_manager
+        self._is_cuda = (bound_device.context.api.id == cuda_api_id())
         self._tr_tree = tr_tree
         self._translator = translator
         self._fast_math = fast_math
@@ -301,14 +303,14 @@ class ComputationPlan:
         name = self._translator(self._persistent_value_idgen())
         ann = Annotation(arr, 'i')
         self._internal_annotations[name] = ann
-        self._persistent_values[name] = self._thread.to_device(arr)
+        self._persistent_values[name] = Array.from_host(self._bound_device, arr)
         return KernelArgument(name, ann.type)
 
     def temp_array(self, shape, dtype, strides=None, offset=0, nbytes=None):
         """
         Adds a temporary GPU array to the plan, and returns the corresponding
         :py:class:`KernelArgument`.
-        See :py:meth:`~reikna.cluda.api.Thread.array` for the information about the parameters.
+        See :py:meth:`grunnur.Array` for the information about the parameters.
 
         Temporary arrays can share physical memory, but in such a way that
         their contents is guaranteed to persist between the first and the last use in a kernel
@@ -329,7 +331,7 @@ class ComputationPlan:
         name = self._translator(self._constant_value_idgen())
         ann = Annotation(arr, constant=True)
         self._internal_annotations[name] = ann
-        self._constant_arrays[name] = self._thread.to_device(arr)
+        self._constant_arrays[name] = Array.from_host(self._bound_device, arr)
         return KernelArgument(name, ann.type)
 
     def temp_array_like(self, arr):
@@ -463,10 +465,14 @@ class ComputationPlan:
         else:
             constant_arrays = None
 
-        kernel = self._thread.compile_static(
-            template_def, kernel_name, global_size, local_size=local_size,
+        kernel = StaticKernel(
+            [self._bound_device],
+            template_def,
+            kernel_name,
+            global_size,
+            local_size=local_size,
             render_args=[kernel_declaration] + kernel_argobjects,
-            render_kwds=render_kwds,
+            render_globals=render_kwds,
             fast_math=self._fast_math,
             compiler_options=self._compiler_options,
             constant_arrays=constant_arrays,
@@ -474,7 +480,7 @@ class ComputationPlan:
 
         if self._is_cuda:
             for name, arr in constant_arrays.items():
-                kernel.set_constant(name, arr)
+                kernel.set_constant_array(name, arr)
 
         self._kernels.append(PlannedKernelCall(kernel, kernel_leaf_names, adhoc_values))
 
@@ -498,7 +504,7 @@ class ComputationPlan:
         new_tree.reconnect(self._tr_tree)
 
         self._append_plan(computation._get_plan(
-            new_tree, translator, self._thread, self._fast_math,
+            new_tree, translator, self._bound_device, self._virtual_manager, self._fast_math,
             self._compiler_options, self._keep))
 
     def _append_plan(self, plan):
@@ -554,14 +560,20 @@ class ComputationPlan:
                     dependent_buffers.append(internal_args[dep])
 
             type_ = self._internal_annotations[name].type
-            new_buf = self._thread.temp_array(
-                type_.shape, type_.dtype, strides=type_.strides, offset=type_.offset,
-                dependencies=dependent_buffers)
+
+            if self._virtual_manager:
+                allocator = self._virtual_manager.allocator(dependent_buffers)
+            else:
+                allocator = Buffer.allocate
+
+            new_buf = Array.empty(self._bound_device,
+                type_.shape, type_.dtype, strides=type_.strides, first_element_offset=type_.offset,
+                allocator=allocator)
             internal_args[name] = new_buf
             all_buffers.append(new_buf)
 
         return ComputationCallable(
-            self._thread,
+            self._bound_device,
             self._tr_tree.get_leaf_parameters(),
             self._kernels,
             internal_args,
@@ -595,9 +607,9 @@ class ComputationCallable:
     A result of calling :py:meth:`~reikna.core.Computation.compile` on a computation.
     Represents a callable opaque GPGPU computation.
 
-    .. py:attribute:: thread
+    .. py:attribute:: bound_device
 
-        A :py:class:`~reikna.cluda.api.Thread` object used to compile the computation.
+        A :py:class:`grunnur.BoundDevice` object used to compile the computation.
 
     .. py:attribute:: signature
 
@@ -609,15 +621,15 @@ class ComputationCallable:
         to the callable's parameters.
     """
 
-    def __init__(self, thread, parameters, kernel_calls, internal_args, temp_buffers):
-        self.thread = thread
+    def __init__(self, bound_device, parameters, kernel_calls, internal_args, temp_buffers):
+        self.device = bound_device
         self.signature = Signature(parameters)
         self.parameter = make_parameter_container(self, parameters)
         self._kernel_calls = [kernel_call.finalize(internal_args) for kernel_call in kernel_calls]
         self._internal_args = internal_args
         self.__tempalloc__ = temp_buffers
 
-    def __call__(self, *args, **kwds):
+    def __call__(self, queue, *args, **kwds):
         """
         Execute the computation.
         In case of the OpenCL backend, returns a list of ``pyopencl.Event`` objects
@@ -626,7 +638,7 @@ class ComputationCallable:
         bound_args = self.signature.bind_with_defaults(args, kwds, cast=True)
         results = []
         for kernel_call in self._kernel_calls:
-            results.append(kernel_call(bound_args.arguments))
+            results.append(kernel_call(queue, bound_args.arguments))
         return results
 
 
@@ -638,11 +650,11 @@ class KernelCall:
         self._args = args
         self._external_arg_positions = external_arg_positions
 
-    def __call__(self, external_args):
+    def __call__(self, queue, external_args):
         for name, pos in self._external_arg_positions:
             self._args[pos] = external_args[name]
 
-        result = self._kernel(*self._args)
+        result = self._kernel(queue, *self._args)
 
         # releasing references to arrays
         for name, pos in self._external_arg_positions:

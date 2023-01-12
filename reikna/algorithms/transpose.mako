@@ -1,13 +1,13 @@
 <%def name="transpose(kernel_declaration, output, input)">
 <%
 	fields = dtypes.flatten_dtype(output.dtype)
-	paths = [('.' if len(path) > 0 else '') + '.'.join(path) for path, _ in fields]
-	ctypes = [dtypes.ctype(dtype) for _, dtype in fields]
-	suffixes = ['_' + '_'.join(path) for path, _ in fields]
+	paths = [field_info.c_path for field_info in fields]
+	ctypes = [dtypes.ctype(field_info.dtype) for field_info in fields]
+	suffixes = ['_' + '_'.join(field_info.path) for field_info in fields]
 %>
 ${kernel_declaration}
 {
-	VIRTUAL_SKIP_THREADS;
+	if (${static.skip}()) return;
 
 	// To prevent shared memory bank confilcts:
 	// - Load each component into a different array. Since the array size is a
@@ -27,13 +27,13 @@ ${kernel_declaration}
 	LOCAL_MEM ${ctype} block${suffix}[(${block_width} + 1) * ${block_width}];
 	%endfor
 
-	VSIZE_T lid_x = virtual_local_id(2);
-	VSIZE_T lid_y = virtual_local_id(1);
+	VSIZE_T lid_x = ${static.local_id}(2);
+	VSIZE_T lid_y = ${static.local_id}(1);
 
-	VSIZE_T gid_x = virtual_group_id(2);
-	VSIZE_T gid_y = virtual_group_id(1);
+	VSIZE_T gid_x = ${static.group_id}(2);
+	VSIZE_T gid_y = ${static.group_id}(1);
 
-	VSIZE_T batch_num = virtual_global_id(0);
+	VSIZE_T batch_num = ${static.global_id}(0);
 
 	VSIZE_T xBlock = ${block_width} * gid_x;
 	VSIZE_T yBlock = ${block_width} * gid_y;

@@ -1,8 +1,9 @@
 import numpy
 
+from grunnur import VirtualSizeError, dtypes
+
 import reikna.helpers as helpers
 from reikna.core import Computation, Parameter, Annotation, Type
-from reikna.cluda import OutOfResourcesError
 
 TEMPLATE = helpers.template_for(__file__)
 
@@ -131,12 +132,13 @@ class Transpose(Computation):
         grid_width = helpers.min_blocks(input_width, block_width)
 
         render_kwds = dict(
+            dtypes=dtypes,
             input_width=input_width, input_height=input_height, batch=batch,
             block_width=block_width,
             grid_width=grid_width,
             blocks_per_matrix=blocks_per_matrix,
-            input_slices=[len(batch_shape), len(height_shape), len(width_shape)],
-            output_slices=[len(batch_shape), len(width_shape), len(height_shape)])
+            input_slices=(len(batch_shape), len(height_shape), len(width_shape)),
+            output_slices=(len(batch_shape), len(width_shape), len(height_shape)))
 
         plan.kernel_call(
             TEMPLATE.get_def('transpose'), [mem_out, mem_in],
@@ -163,15 +165,15 @@ class Transpose(Computation):
             bso = self._block_width_override
             block_width = device_params.local_mem_banks if bso is None else bso
 
-            if block_width ** 2 > device_params.max_work_group_size:
+            if block_width ** 2 > device_params.max_total_local_size:
                 # If it is not CPU, current solution may affect performance
-                block_width = int(numpy.sqrt(device_params.max_work_group_size))
+                block_width = int(numpy.sqrt(device_params.max_total_local_size))
 
             while block_width >= 1:
                 try:
                     self._add_transpose(plan, device_params,
                         mem_out, mem_in, batch_shape, height_shape, width_shape, block_width)
-                except OutOfResourcesError:
+                except VirtualSizeError:
                     block_width //= 2
                     continue
                 break

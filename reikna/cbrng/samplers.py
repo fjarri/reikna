@@ -1,9 +1,8 @@
 import numpy
 
+from grunnur import Module, dtypes, functions
+
 import reikna.helpers as helpers
-import reikna.cluda.dtypes as dtypes
-from reikna.cluda import Module
-import reikna.cluda.functions as functions
 
 TEMPLATE = helpers.template_for(__file__)
 
@@ -51,7 +50,7 @@ class Sampler:
     def __init__(self, bijection, module, dtype, randoms_per_call=1, deterministic=False):
         """__init__()""" # hide the signature from Sphinx
         self.randoms_per_call = randoms_per_call
-        self.dtype = dtypes.normalize_type(dtype)
+        self.dtype = numpy.dtype(dtype)
         self.deterministic = deterministic
         self.bijection = bijection
         self.module = module
@@ -78,7 +77,7 @@ def uniform_integer(bijection, dtype, low, high=None):
     else:
         assert low < high - 1
 
-    dtype = dtypes.normalize_type(dtype)
+    dtype = numpy.dtype(dtype)
     ctype = dtypes.ctype(dtype)
 
     if dtype.kind == 'i':
@@ -97,11 +96,11 @@ def uniform_integer(bijection, dtype, low, high=None):
     raw_func = bijection.raw_functions[raw_dtype]
     max_num = 2 ** (raw_dtype.itemsize * 8)
 
-    raw_ctype = dtypes.ctype(dtypes.normalize_type(raw_dtype))
+    raw_ctype = dtypes.ctype(raw_dtype)
 
     module = Module(
         TEMPLATE.get_def("uniform_integer"),
-        render_kwds=dict(
+        render_globals=dict(
             bijection=bijection,
             dtype=dtype, ctype=ctype,
             raw_ctype=raw_ctype, raw_func=raw_func,
@@ -130,7 +129,7 @@ def uniform_float(bijection, dtype, low=0, high=1):
 
     module = Module(
         TEMPLATE.get_def("uniform_float"),
-        render_kwds=dict(
+        render_globals=dict(
             bijection=bijection, ctype=ctype,
             raw_func=raw_func, raw_max=raw_max, size=size, low=low))
 
@@ -164,7 +163,8 @@ def normal_bm(bijection, dtype, mean=0, std=1):
 
     module = Module(
         TEMPLATE.get_def("normal_bm"),
-        render_kwds=dict(
+        render_globals=dict(
+            dtypes=dtypes,
             complex_res=dtypes.is_complex(dtype),
             r_dtype=r_dtype, r_ctype=dtypes.ctype(r_dtype),
             c_dtype=c_dtype, c_ctype=dtypes.ctype(c_dtype),
@@ -197,7 +197,8 @@ def gamma(bijection, dtype, shape=1, scale=1):
 
     module = Module(
         TEMPLATE.get_def("gamma"),
-        render_kwds=dict(
+        render_globals=dict(
+            dtypes=dtypes,
             dtype=dtype, ctype=ctype, bijection=bijection,
             shape=shape, scale=dtypes.c_constant(scale, dtype),
             uf=uf, nbm=nbm))
@@ -223,7 +224,8 @@ def vonmises(bijection, dtype, mu=0, kappa=1):
 
     module = Module(
         TEMPLATE.get_def("vonmises"),
-        render_kwds=dict(
+        render_globals=dict(
+            dtypes=dtypes,
             dtype=dtype, ctype=ctype, bijection=bijection,
             mu=dtypes.c_constant(mu, dtype), kappa=kappa,
             uf=uf))

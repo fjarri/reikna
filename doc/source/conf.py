@@ -25,7 +25,7 @@ import sys, os, os.path
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest', 'sphinx.ext.mathjax']
+extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest', 'sphinx.ext.mathjax', "sphinx.ext.intersphinx"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -96,6 +96,12 @@ pygments_style = 'sphinx'
 
 # complain about broken links to Python objects
 nitpicky = True
+
+intersphinx_mapping = {
+    "numpy": ("https://numpy.org/doc/2.0", None),
+    "python": ("https://docs.python.org/3", None),
+    "grunnur": ("https://grunnur.readthedocs.io/en/v0.4.0/", None),
+}
 
 # -- Options for HTML output ---------------------------------------------------
 

@@ -12,7 +12,7 @@ typedef struct
 <%def name="uniform_integer(prefix)">
 ${result_struct(prefix, ctype, 1)}
 
-WITHIN_KERNEL ${prefix}Result ${prefix}sample(${bijection.module}State *state)
+FUNCTION ${prefix}Result ${prefix}sample(${bijection.module}State *state)
 {
     ${prefix}Result result;
     ${raw_ctype} non_offset = 0;
@@ -41,7 +41,7 @@ WITHIN_KERNEL ${prefix}Result ${prefix}sample(${bijection.module}State *state)
 <%def name="uniform_float(prefix)">
 ${result_struct(prefix, ctype, 1)}
 
-WITHIN_KERNEL ${prefix}Result ${prefix}sample(${bijection.module}State *state)
+FUNCTION ${prefix}Result ${prefix}sample(${bijection.module}State *state)
 {
     ${prefix}Result result;
     ${ctype} normalized = (${ctype})${bijection.module}${raw_func}(state) / ${raw_max};
@@ -63,7 +63,7 @@ ${result_struct(prefix, c_ctype, 1)}
 ${result_struct(prefix, r_ctype, 2)}
 %endif
 
-WITHIN_KERNEL ${prefix}Result ${prefix}sample(${bijection.module}State *state)
+FUNCTION ${prefix}Result ${prefix}sample(${bijection.module}State *state)
 {
     ${prefix}Result result;
     ${uf.module}Result r1 = ${uf.module}sample(state);
@@ -92,7 +92,7 @@ WITHIN_KERNEL ${prefix}Result ${prefix}sample(${bijection.module}State *state)
 <%def name="gamma(prefix)">
 ${result_struct(prefix, ctype, 1)}
 
-WITHIN_KERNEL ${prefix}Result ${prefix}sample(${bijection.module}State *state)
+FUNCTION ${prefix}Result ${prefix}sample(${bijection.module}State *state)
 {
     <%
         d = shape - 1. / 3
@@ -154,7 +154,7 @@ WITHIN_KERNEL ${prefix}Result ${prefix}sample(${bijection.module}State *state)
 
 ${result_struct(prefix, ctype, 1)}
 
-WITHIN_KERNEL ${prefix}Result ${prefix}sample(${bijection.module}State *state)
+FUNCTION ${prefix}Result ${prefix}sample(${bijection.module}State *state)
 {
     <%
         tau = 1 + (1 + 4 * kappa**2)**0.5

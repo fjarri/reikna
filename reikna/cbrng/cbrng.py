@@ -70,15 +70,15 @@ class CBRNG(Computation):
             TEMPLATE.get_def('cbrng'),
             [counters, randoms],
             kernel_name="kernel_cbrng",
-            global_size=helpers.product(counters.shape),
+            global_size=(helpers.product(counters.shape),),
             render_kwds=dict(
                 sampler=self._sampler,
                 keygen=self._keygen,
                 batch=helpers.product(randoms.shape[:-self._generators_dim]),
-                counters_slices=[self._generators_dim],
-                randoms_slices=[
+                counters_slices=(self._generators_dim,),
+                randoms_slices=(
                     len(randoms.shape) - self._generators_dim,
-                    self._generators_dim]))
+                    self._generators_dim)))
 
         return plan
 

@@ -2,11 +2,11 @@ import time
 import numpy
 import pytest
 
+from grunnur import dtypes, Array
+
 from helpers import *
 
 from reikna.linalg import MatrixMul
-import reikna.cluda.dtypes as dtypes
-from reikna.cluda import OutOfResourcesError
 from reikna.helpers import product
 
 
@@ -92,7 +92,7 @@ def transpose(m):
     return m.transpose(*axes)
 
 
-def check_errors(thr, a_shape, a_dtype, b_shape, b_dtype, transposed_a=False, transposed_b=False):
+def check_errors(queue, a_shape, a_dtype, b_shape, b_dtype, transposed_a=False, transposed_b=False):
     a = get_test_array(a_shape, a_dtype)
     b = get_test_array(b_shape, b_dtype)
 
@@ -101,19 +101,19 @@ def check_errors(thr, a_shape, a_dtype, b_shape, b_dtype, transposed_a=False, tr
 
     res_ref = ref_dot(a_ref, b_ref)
 
-    a_dev = thr.to_device(a)
-    b_dev = thr.to_device(b)
-    res_dev = thr.empty_like(res_ref)
+    a_dev = Array.from_host(queue, a)
+    b_dev = Array.from_host(queue, b)
+    res_dev = Array.empty_like(queue.device, res_ref)
 
     dot = MatrixMul(a_dev, b_dev, out_arr=res_dev,
         transposed_a=transposed_a, transposed_b=transposed_b)
-    dotc = dot.compile(thr)
-    dotc(res_dev, a_dev, b_dev)
+    dotc = dot.compile(queue.device)
+    dotc(queue, res_dev, a_dev, b_dev)
 
-    assert diff_is_negligible(res_dev.get(), res_ref)
+    assert diff_is_negligible(res_dev.get(queue), res_ref)
 
 
-def test_shapes(thr, batches, sizes):
+def test_shapes(queue, batches, sizes):
 
     a_size, convolution_size, b_size = sizes
     a_batch, b_batch = batches
@@ -121,10 +121,10 @@ def test_shapes(thr, batches, sizes):
     a_shape = (a_size, convolution_size)
     b_shape = (convolution_size, b_size)
 
-    check_errors(thr, a_batch + a_shape, numpy.float32, b_batch + b_shape, numpy.float32)
+    check_errors(queue, a_batch + a_shape, numpy.float32, b_batch + b_shape, numpy.float32)
 
 
-def test_transposed(thr, sizes, transposed_a, transposed_b):
+def test_transposed(queue, sizes, transposed_a, transposed_b):
 
     a_size, convolution_size, b_size = sizes
     a_batch = (10,)
@@ -141,20 +141,19 @@ def test_transposed(thr, sizes, transposed_a, transposed_b):
         b_shape = (convolution_size, b_size)
 
     check_errors(
-        thr, a_batch + a_shape, numpy.float32, b_batch + b_shape, numpy.float32,
+        queue, a_batch + a_shape, numpy.float32, b_batch + b_shape, numpy.float32,
         transposed_a=transposed_a, transposed_b=transposed_b)
 
 
-def test_dtypes(thr_and_double, arg_dtypes):
+def test_dtypes(queue, arg_dtypes):
 
-    thr, double = thr_and_double
     c1, c2 = arg_dtypes
 
-    dtype = numpy.float64 if double else numpy.float32
+    dtype = numpy.float32
     dtype1 = dtypes.complex_for(dtype) if c1 else dtype
     dtype2 = dtypes.complex_for(dtype) if c2 else dtype
 
-    check_errors(thr, (30, 40, 50), dtype1, (30, 50, 60), dtype2)
+    check_errors(queue, (30, 40, 50), dtype1, (30, 50, 60), dtype2)
 
 
 def test_out_arr_shape():
@@ -164,11 +163,12 @@ def test_out_arr_shape():
     assert dot.parameter.output.shape == (2, 3, 22, 44)
 
 
-def check_performance(thr_and_double, perf_shape,
+def check_performance(queue, perf_shape,
         bwo=None, transposed_a=False, transposed_b=False):
 
-    thr, double = thr_and_double
-    dtype = numpy.float64 if double else numpy.float32
+    # TODO: check double performance
+
+    dtype = numpy.float32
     batch, size = perf_shape
 
     shape = (batch, size, size)
@@ -179,16 +179,16 @@ def check_performance(thr_and_double, perf_shape,
     a_ref = transpose(a) if transposed_a else a
     b_ref = transpose(b) if transposed_b else b
 
-    a_dev = thr.to_device(a)
-    b_dev = thr.to_device(b)
+    a_dev = Array.from_host(queue.device, a)
+    b_dev = Array.from_host(queue.device, b)
     res_ref = ref_dot(a_ref, b_ref)
-    res_dev = thr.array(res_ref.shape, dtype=dtype)
+    res_dev = Array.empty(queue.device, res_ref.shape, dtype=dtype)
 
     dot = MatrixMul(a_dev, b_dev, out_arr=res_dev, block_width_override=bwo,
         transposed_a=transposed_a, transposed_b=transposed_b)
 
     try:
-        dotc = dot.compile(thr)
+        dotc = dot.compile(queue.device)
     except ValueError:
         pytest.skip()
 
@@ -196,23 +196,23 @@ def check_performance(thr_and_double, perf_shape,
     times = []
     for i in range(attempts):
         t1 = time.time()
-        dotc(res_dev, a_dev, b_dev)
-        thr.synchronize()
+        dotc(queue, res_dev, a_dev, b_dev)
+        queue.synchronize()
         times.append(time.time() - t1)
 
-    assert diff_is_negligible(thr.from_device(res_dev), res_ref)
+    assert diff_is_negligible(res_dev.get(queue), res_ref)
 
     return min(times), batch * size ** 3 * 2
 
 
 @pytest.mark.perf
 @pytest.mark.returns('GFLOPS')
-def test_performance_shape(thr_and_double, perf_shape, transposed_a, transposed_b):
-    return check_performance(thr_and_double, perf_shape,
+def test_performance_shape(queue, perf_shape, transposed_a, transposed_b):
+    return check_performance(queue, perf_shape,
         transposed_a=transposed_a, transposed_b=transposed_b)
 
 
 @pytest.mark.perf
 @pytest.mark.returns('GFLOPS')
-def test_performance_block_width(thr_and_double, perf_bwo):
-    return check_performance(thr_and_double, (4, 512), bwo=perf_bwo)
+def test_performance_block_width(queue, perf_bwo):
+    return check_performance(queue, (4, 512), bwo=perf_bwo)

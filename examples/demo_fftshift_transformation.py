@@ -13,10 +13,9 @@ single computation with a transformation against ``numpy`` implementation.
 import time
 import numpy
 
-from reikna.cluda import any_api
+from grunnur import any_api, Context, Queue, Array
 from reikna.fft import FFT, FFTShift
 
-import reikna.cluda.dtypes as dtypes
 from reikna.core import Transformation, Parameter, Annotation, Type
 
 
@@ -70,54 +69,54 @@ def fftshift(arr_t, axes=None):
         render_kwds=dict(axes=axes))
 
 
-def run_test(thr, shape, dtype, axes=None):
+def run_test(queue, shape, dtype, axes=None):
 
     data = numpy.random.normal(size=shape).astype(dtype)
 
     fft = FFT(data, axes=axes)
-    fftc = fft.compile(thr)
+    fftc = fft.compile(queue.device)
 
     shift = FFTShift(data, axes=axes)
-    shiftc = shift.compile(thr)
+    shiftc = shift.compile(queue.device)
 
     # FFT + shift as two separate computations
 
-    data_dev = thr.to_device(data)
+    data_dev = Array.from_host(queue.device, data)
 
     t_start = time.time()
-    fftc(data_dev, data_dev)
-    thr.synchronize()
+    fftc(queue, data_dev, data_dev)
+    queue.synchronize()
     t_gpu_fft = time.time() - t_start
 
     t_start = time.time()
-    shiftc(data_dev, data_dev)
-    thr.synchronize()
+    shiftc(queue, data_dev, data_dev)
+    queue.synchronize()
     t_gpu_shift = time.time() - t_start
 
-    data_dev = thr.to_device(data)
+    data_dev = Array.from_host(queue.device, data)
 
     t_start = time.time()
-    fftc(data_dev, data_dev)
-    shiftc(data_dev, data_dev)
-    thr.synchronize()
+    fftc(queue, data_dev, data_dev)
+    shiftc(queue, data_dev, data_dev)
+    queue.synchronize()
     t_gpu_separate = time.time() - t_start
 
-    data_gpu = data_dev.get()
+    data_gpu = data_dev.get(queue)
 
     # FFT + shift as a computation with a transformation
 
-    data_dev = thr.to_device(data)
+    data_dev = Array.from_host(queue, data)
 
     # a separate output array to avoid unsafety of the shift transformation
-    res_dev = thr.empty_like(data_dev)
+    res_dev = Array.empty_like(queue.device, data_dev)
 
     shift_tr = fftshift(data, axes=axes)
     fft2 = fft.parameter.output.connect(shift_tr, shift_tr.input, new_output=shift_tr.output)
-    fft2c = fft2.compile(thr)
+    fft2c = fft2.compile(queue.device)
 
     t_start = time.time()
-    fft2c(res_dev, data_dev)
-    thr.synchronize()
+    fft2c(queue, res_dev, data_dev)
+    queue.synchronize()
     t_gpu_combined = time.time() - t_start
 
     # Reference calculation with numpy
@@ -135,13 +134,13 @@ def run_test(thr, shape, dtype, axes=None):
     data_ref = numpy.fft.fftshift(data_ref, axes=axes)
     t_cpu_all = time.time() - t_start
 
-    data_gpu2 = res_dev.get()
+    data_gpu2 = res_dev.get(queue)
 
     # Checking that the results are correct
     # (note: this will require relaxing the tolerances
     # if complex64 is used instead of complex128)
-    assert numpy.allclose(data_ref, data_gpu)
-    assert numpy.allclose(data_ref, data_gpu2)
+    assert numpy.allclose(data_ref, data_gpu, atol=1e-2, rtol=1e-4)
+    assert numpy.allclose(data_ref, data_gpu2, atol=1e-2, rtol=1e-4)
 
     return dict(
         t_gpu_fft=t_gpu_fft,
@@ -158,16 +157,16 @@ def run_tests(thr, shape, dtype, axes=None, attempts=10):
     return {key:min(result[key] for result in results) for key in results[0]}
 
 if __name__ == '__main__':
-    api = any_api()
-    thr = api.Thread.create()
+    context = Context.from_devices([any_api.platforms[0].devices[0]])
+    queue = Queue(context.device)
 
     shape = (1024, 1024)
-    dtype = numpy.complex128
+    dtype = numpy.complex64
     axes = (0, 1)
 
-    results = run_tests(thr, shape, dtype, axes=axes)
+    results = run_tests(queue, shape, dtype, axes=axes)
 
-    print('device:', thr._device.name)
+    print('device:', queue.device.name)
     print('shape:', shape)
     print('dtype:', dtype)
     print('axes:', axes)

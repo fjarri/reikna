@@ -2,7 +2,7 @@
 
 ${kernel_declaration}
 {
-    VIRTUAL_SKIP_THREADS;
+    if (${static.skip}()) return;
 
     // Storage for sub-matrices of A and B
     // Not using dynamic local memory, because we need (in general) two different types,
@@ -12,11 +12,11 @@ ${kernel_declaration}
     LOCAL_MEM ${a.ctype} As[${block_width ** 2} + ${block_width}];
     LOCAL_MEM ${b.ctype} Bs[${block_width ** 2} + ${block_width}];
 
-    const VSIZE_T bx = virtual_group_id(2);
-    const VSIZE_T by = virtual_group_id(1);
-    const VSIZE_T tx = virtual_local_id(2);
-    const VSIZE_T ty = virtual_local_id(1);
-    const VSIZE_T matrix_num = virtual_global_id(0);
+    const VSIZE_T bx = ${static.group_id}(2);
+    const VSIZE_T by = ${static.group_id}(1);
+    const VSIZE_T tx = ${static.local_id}(2);
+    const VSIZE_T ty = ${static.local_id}(1);
+    const VSIZE_T matrix_num = ${static.global_id}(0);
 
     %if batched_a:
     const VSIZE_T A_num = matrix_num;
@@ -34,7 +34,7 @@ ${kernel_declaration}
 
     // Csub is used to store the element of the block sub-matrix
     // that is computed by the thread
-    ${output.ctype} Csub = ${dtypes.zero_ctr(output.dtype)};
+    ${output.ctype} Csub = ${dtypes.c_constant(numpy.asarray(0, output.dtype))};
 
     const VSIZE_T c_x = ${block_width} * bx + tx;
     const VSIZE_T c_y = ${block_width} * by + ty;
@@ -70,10 +70,10 @@ ${kernel_declaration}
 
         As[store_idx] = (a_x < ${a.shape[-1]} && a_y < ${a.shape[-2]})
             ? ${a.load_combined_idx(a_slices)}(A_num, a_y, a_x)
-            : ${dtypes.zero_ctr(a.dtype)};
+            : ${dtypes.c_constant(numpy.asarray(0, a.dtype))};
         Bs[store_idx] = (b_x < ${b.shape[-1]} && b_y < ${b.shape[-2]})
             ? ${b.load_combined_idx(b_slices)}(B_num, b_y, b_x)
-            : ${dtypes.zero_ctr(b.dtype)};
+            : ${dtypes.c_constant(numpy.asarray(0, b.dtype))};
 
         LOCAL_BARRIER;
 

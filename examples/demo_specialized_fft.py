@@ -21,10 +21,9 @@ import numpy
 
 from reikna.fft import FFT
 
+from grunnur import any_api, Array, Queue, Context, functions, dtypes
 import reikna.helpers as helpers
-from reikna.cluda import dtypes, any_api
 from reikna.core import Computation, Parameter, Annotation, Type, Transformation
-import reikna.cluda.functions as functions
 from reikna.algorithms import Reduce, Scan, predicate_sum
 
 TEMPLATE = helpers.template_for(__file__)
@@ -176,8 +175,8 @@ class RFFT(Computation):
         A = 0.5 * (1 - 1j * WNmk)
         B = 0.5 * (1 + 1j * WNmk)
 
-        A_arr = plan.persistent_array(A)
-        B_arr = plan.persistent_array(B)
+        A_arr = plan.persistent_array(A.astype(output.dtype))
+        B_arr = plan.persistent_array(B.astype(output.dtype))
 
         cfft_arr = Type(output.dtype, input_.shape[:-1] + (input_.shape[-1] // 2,))
         cfft = FFT(cfft_arr, axes=(len(input_.shape) - 1,))
@@ -248,8 +247,8 @@ class IRFFT(Computation):
         A = 0.5 * (1 - 1j * WNmk)
         B = 0.5 * (1 + 1j * WNmk)
 
-        A_arr = plan.persistent_array(A.conj())
-        B_arr = plan.persistent_array(B.conj())
+        A_arr = plan.persistent_array(A.conj().astype(dtypes.complex_for(output.dtype)))
+        B_arr = plan.persistent_array(B.conj().astype(dtypes.complex_for(output.dtype)))
 
         cfft_arr = Type(input_.dtype, input_.shape[:-1] + (N // 2,))
         cfft = FFT(cfft_arr, axes=(len(input_.shape) - 1,))
@@ -299,7 +298,7 @@ def get_prepare_prfft_scan(output):
             Parameter('output', Annotation(output, 'o')),
             Parameter('Y', Annotation(output, 'i')),
             Parameter('re_X_0', Annotation(
-                Type(dtypes.real_for(output.dtype), output.shape[:-1]), 'i'))
+                Type(dtypes.real_for(output.dtype), output.shape[:-1] + (1,)), 'i'))
         ],
         """
         ${Y.ctype} Y = ${Y.load_same};
@@ -307,7 +306,7 @@ def get_prepare_prfft_scan(output):
 
         if (${idxs[-1]} == 0)
         {
-            Y.x = Y.x / 2 + ${re_X_0.load_idx}(${", ".join(idxs[:-1])});
+            Y.x = Y.x / 2 + ${re_X_0.load_idx}(${", ".join(idxs[:-1] + ["0"])});
             Y.y /= 2;
         }
 
@@ -343,8 +342,8 @@ class APRFFT(Computation):
         coeffs1 = 4 * numpy.sin(2 * numpy.pi * numpy.arange(N//2) / N)
         coeffs2 = 2 * numpy.cos(2 * numpy.pi * numpy.arange(N//2) / N)
 
-        c1_arr = plan.persistent_array(coeffs1)
-        c2_arr = plan.persistent_array(coeffs2)
+        c1_arr = plan.persistent_array(coeffs1.astype(input_.dtype))
+        c2_arr = plan.persistent_array(coeffs2.astype(input_.dtype))
 
         multiply = get_multiply(input_)
 
@@ -438,7 +437,7 @@ def get_prepare_iprfft_output(y):
         [
             Parameter('x', Annotation(y, 'o')),
             Parameter('y', Annotation(y, 'i')),
-            Parameter('x0', Annotation(Type(y.dtype, y.shape[:-1]), 'i')),
+            Parameter('x0', Annotation(Type(y.dtype, y.shape[:-1] + (1,)), 'i')),
             Parameter('coeffs', Annotation(Type(y.dtype, (N//2,)), 'i')),
         ],
         """
@@ -449,7 +448,7 @@ def get_prepare_iprfft_output(y):
 
         if (${idxs[-1]} == 0)
         {
-            ${x0.ctype} x0 = ${x0.load_idx}(${", ".join(idxs[:-1])});
+            ${x0.ctype} x0 = ${x0.load_idx}(${", ".join(idxs[:-1] + ["0"])});
             x = x0 / ${N // 2};
         }
         else
@@ -489,7 +488,7 @@ class IAPRFFT(Computation):
 
         # The first element is unused
         coeffs = numpy.concatenate(
-            [[0], 1 / (4 * numpy.sin(2 * numpy.pi * numpy.arange(1, N//2) / N))])
+            [[0], 1 / (4 * numpy.sin(2 * numpy.pi * numpy.arange(1, N//2) / N))]).astype(numpy.float32)
         coeffs_arr = plan.persistent_array(coeffs)
 
         prepare_iprfft_input = get_prepare_iprfft_input(input_)
@@ -530,83 +529,83 @@ class IAPRFFT(Computation):
 # Tests
 
 
-def test_rfft(thr):
+def test_rfft(queue):
     N = 1024
-    a = numpy.random.normal(size=N)
+    a = numpy.random.normal(size=N).astype(numpy.float32)
 
-    rfft = RFFT(a).compile(thr)
+    rfft = RFFT(a).compile(queue.device)
 
     fa_numpy = numpy.fft.rfft(a)
     fa_ref = rfft_reference(a)
 
-    a_dev = thr.to_device(a)
-    fa_gpu = thr.empty_like(rfft.parameter.output)
-    rfft(fa_gpu, a_dev)
+    a_dev = Array.from_host(queue, a)
+    fa_gpu = Array.empty_like(queue.device, rfft.parameter.output)
+    rfft(queue, fa_gpu, a_dev)
 
     assert numpy.allclose(fa_numpy, fa_ref)
-    assert numpy.allclose(fa_numpy, fa_gpu.get())
+    assert numpy.allclose(fa_numpy, fa_gpu.get(queue), atol=1e-4, rtol=1e-4)
 
 
-def test_irfft(thr):
+def test_irfft(queue):
     N = 1024
-    fa = (numpy.random.normal(size=N//2+1) + 1j * numpy.random.normal(size=N//2+1))
+    fa = ((numpy.random.normal(size=N//2+1) + 1j * numpy.random.normal(size=N//2+1))).astype(numpy.complex64)
 
-    irfft = IRFFT(fa).compile(thr)
+    irfft = IRFFT(fa).compile(queue.device)
 
     a_numpy = numpy.fft.irfft(fa)
     a_ref = irfft_reference(fa)
 
-    fa_dev = thr.to_device(fa)
-    a_gpu = thr.empty_like(irfft.parameter.output)
-    irfft(a_gpu, fa_dev)
+    fa_dev = Array.from_host(queue, fa)
+    a_gpu = Array.empty_like(queue.device, irfft.parameter.output)
+    irfft(queue, a_gpu, fa_dev)
 
     assert numpy.allclose(a_numpy, a_ref)
-    assert numpy.allclose(a_numpy, a_gpu.get())
+    assert numpy.allclose(a_numpy, a_gpu.get(queue), atol=1e-4, rtol=1e-4)
 
 
-def test_aprfft(thr):
+def test_aprfft(queue):
     N = 1024
-    half_a = numpy.random.normal(size=N//2)
+    half_a = numpy.random.normal(size=N//2).astype(numpy.float32)
     a = numpy.concatenate([half_a, -half_a])
 
-    aprfft = APRFFT(half_a).compile(thr)
+    aprfft = APRFFT(half_a).compile(queue.device)
 
     fa_numpy = numpy.fft.rfft(a)[1::2]
     fa_ref = aprfft_reference(half_a)
 
-    half_a_dev = thr.to_device(half_a)
-    fa_dev = thr.empty_like(aprfft.parameter.output)
-    aprfft(fa_dev, half_a_dev)
+    half_a_dev = Array.from_host(queue, half_a)
+    fa_dev = Array.empty_like(queue.device, aprfft.parameter.output)
+    aprfft(queue, fa_dev, half_a_dev)
 
     assert numpy.allclose(fa_numpy, fa_ref)
-    assert numpy.allclose(fa_numpy, fa_dev.get())
+    assert numpy.allclose(fa_numpy, fa_dev.get(queue), atol=1e-4, rtol=1e-4)
 
 
-def test_iaprfft(thr):
+def test_iaprfft(queue):
     N = 1024
-    fa_odd_harmonics = (numpy.random.normal(size=N//4) + 1j * numpy.random.normal(size=N//4))
+    fa_odd_harmonics = ((numpy.random.normal(size=N//4) + 1j * numpy.random.normal(size=N//4))).astype(numpy.complex64)
 
     fa = numpy.zeros(N//2+1, fa_odd_harmonics.dtype)
     fa[1::2] = fa_odd_harmonics
 
-    iaprfft = IAPRFFT(fa_odd_harmonics).compile(thr)
+    iaprfft = IAPRFFT(fa_odd_harmonics).compile(queue.device)
 
     half_a_numpy = numpy.fft.irfft(fa)[:N//2]
     half_a_ref = iaprfft_reference(fa_odd_harmonics)
 
-    fa_oh_dev = thr.to_device(fa_odd_harmonics)
-    half_a_dev = thr.empty_like(iaprfft.parameter.output)
-    iaprfft(half_a_dev, fa_oh_dev)
+    fa_oh_dev = Array.from_host(queue, fa_odd_harmonics)
+    half_a_dev = Array.empty_like(queue.device, iaprfft.parameter.output)
+    iaprfft(queue, half_a_dev, fa_oh_dev)
 
-    assert numpy.allclose(half_a_numpy, half_a_ref)
-    assert numpy.allclose(half_a_numpy, half_a_dev.get())
+    assert numpy.allclose(half_a_numpy, half_a_ref, atol=1e-4, rtol=1e-4)
+    assert numpy.allclose(half_a_numpy, half_a_dev.get(queue), atol=1e-4, rtol=1e-4)
 
 
 if __name__ == '__main__':
-    api = any_api()
-    thr = api.Thread.create(interactive=True)
+    context = Context.from_devices([any_api.platforms[0].devices[0]])
+    queue = Queue(context.device)
 
-    test_rfft(thr)
-    test_irfft(thr)
-    test_aprfft(thr)
-    test_iaprfft(thr)
+    test_rfft(queue)
+    test_irfft(queue)
+    test_aprfft(queue)
+    test_iaprfft(queue)

@@ -1,8 +1,8 @@
 import numpy
 
+from grunnur import dtypes, VirtualSizeError
+
 import reikna.helpers as helpers
-from reikna.cluda import dtypes
-from reikna.cluda import OutOfResourcesError
 from reikna.core import Computation, Parameter, Annotation, Type
 from reikna.algorithms import Transpose
 
@@ -13,13 +13,14 @@ class Reduce(Computation):
     """
     Bases: :py:class:`~reikna.core.Computation`
 
-    Reduces the array over given axis using given binary operation.
+    Reduces the array over given axes using given binary operation.
+    The resulting array shape will be set to ``1`` in the reduced axes
+    (analogous to ``keepdims=True`` in ``numpy``).
 
     :param arr_t: an array-like defining the initial array.
     :param predicate: a :py:class:`~reikna.algorithms.Predicate` object.
     :param axes: a list of non-repeating axes to reduce over.
-        If ``None``, the whole array will be reduced
-        (in which case the shape of the output array is ``(1,)``).
+        If ``None``, array will be reduced over all axes.
     :param output_arr_t: an output array metadata (the `shape` must still
         correspond to the result of reducing the original array over given axes,
         but `offset` and `strides` can be set to the desired ones).
@@ -51,16 +52,19 @@ class Reduce(Computation):
                 raise ValueError("The predicate and the array must use the same data type")
             empty = predicate.empty
         else:
-            empty = dtypes.cast(arr_t.dtype)(predicate.empty)
+            empty = numpy.asarray(predicate.empty, dtype=arr_t.dtype)
 
         remaining_axes = tuple(a for a in range(dims) if a not in axes)
-        output_shape = tuple(arr_t.shape[a] for a in remaining_axes)
+        output_shape = tuple(1 if a in axes else arr_t.shape[a] for a in range(dims))
 
+        # If the reduction axes are not the inner ones,
+        # we will need to transpose before reducing to make them inner.
         if axes == tuple(range(dims - len(axes), dims)):
             self._transpose_axes = None
         else:
             self._transpose_axes = remaining_axes + axes
 
+        self._reduce_dims = len(axes)
         self._operation = predicate.operation
         self._empty = empty
 
@@ -99,7 +103,9 @@ class Reduce(Computation):
 
             cur_input = tr_output
 
-        axis_start = len(output.shape)
+        # At this point we need to reduce the innermost `_reduce_dims` axes
+
+        axis_start = len(input_.shape) - self._reduce_dims
         axis_end = len(input_.shape) - 1
 
         input_slices = (axis_start, axis_end - axis_start + 1)
@@ -133,6 +139,7 @@ class Reduce(Computation):
                 last_block_size = block_size * seq_size
 
             render_kwds = dict(
+                dtypes=dtypes,
                 seq_size=seq_size,
                 blocks_per_part=blocks_per_part,
                 last_block_size=last_block_size,
@@ -159,14 +166,14 @@ class Reduce(Computation):
 
     def _build_plan(self, plan_factory, device_params, output, input_):
 
-        max_wg_size = device_params.max_work_group_size
+        max_wg_size = device_params.max_total_local_size
 
         while max_wg_size >= 1:
 
             try:
                 plan = self._build_plan_for_wg_size(
                     plan_factory, device_params.warp_size, max_wg_size, output, input_)
-            except OutOfResourcesError:
+            except VirtualSizeError:
                 max_wg_size //= 2
                 continue
 

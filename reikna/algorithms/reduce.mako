@@ -7,27 +7,27 @@
     ctype = output.ctype
 
     fields = dtypes.flatten_dtype(output.dtype)
-    paths = [dtypes.c_path(path) for path, _ in fields]
-    ctypes = [dtypes.ctype(dtype) for _, dtype in fields]
-    suffixes = ['_' + '_'.join(str(elem) for elem in path) for path, _ in fields]
+    paths = [field_info.c_path for field_info in fields]
+    ctypes = [dtypes.ctype(field_info.dtype) for field_info in fields]
+    suffixes = ['_' + '_'.join(str(elem) for elem in field_info.path) for field_info in fields]
 %>
 
-INLINE WITHIN_KERNEL ${ctype} reduction_op(${ctype} input1, ${ctype} input2)
+INLINE FUNCTION ${ctype} reduction_op(${ctype} input1, ${ctype} input2)
 {
     ${operation('input1', 'input2')}
 }
 
 ${kernel_declaration}
 {
-    VIRTUAL_SKIP_THREADS;
+    if (${static.skip}()) return;
 
     %for ct, suffix in zip(ctypes, suffixes):
     LOCAL_MEM ${ct} local_mem${suffix}[${smem_size}];
     %endfor
 
-    const VSIZE_T tid = virtual_local_id(1);
-    const VSIZE_T bid = virtual_group_id(1);
-    const VSIZE_T part_num = virtual_global_id(0);
+    const VSIZE_T tid = ${static.local_id}(1);
+    const VSIZE_T bid = ${static.group_id}(1);
+    const VSIZE_T part_num = ${static.global_id}(0);
 
     const VSIZE_T index_in_part = ${block_size * seq_size} * bid + tid;
     const ${ctype} empty = ${dtypes.c_constant(empty)};

@@ -1,5 +1,7 @@
 import pytest
 
+from grunnur import Array, Queue
+
 from reikna.helpers import template_from
 from reikna.core import Computation, Parameter, Annotation, Transformation, Type
 
@@ -28,8 +30,8 @@ class Dummy(Computation):
         <%def name="dummy(kernel_declaration, output, arr1, arr2)">
         ${kernel_declaration}
         {
-            VIRTUAL_SKIP_THREADS;
-            const VSIZE_T i = virtual_global_id(0);
+            if (${static.skip}()) return;
+            const VSIZE_T i =  ${static.global_id}(0);
             ${arr1.ctype} x1 = ${arr1.load_idx}(i);
             ${arr2.ctype} x2 = ${arr2.load_idx}(0, i);
             ${arr2.ctype} x3 = ${arr2.load_idx}(1, i);
@@ -67,22 +69,22 @@ class DummyOuter(Computation):
         return plan
 
 
-def test_constant_arrays_computation(thr):
+def test_constant_arrays_computation(queue):
 
     N = 200
     arr1 = get_test_array(N, numpy.int32)
     arr2 = get_test_array((2, N), numpy.float32)
     ref = (arr1 * (arr2[0] + arr2[1])).astype(numpy.float32)
 
-    d = Dummy(N, arr1, arr2).compile(thr)
-    out_dev = thr.empty_like(d.parameter.output)
-    d(out_dev)
-    test = out_dev.get()
+    d = Dummy(N, arr1, arr2).compile(queue.device)
+    out_dev = Array.empty_like(queue.device, d.parameter.output)
+    d(queue, out_dev)
+    test = out_dev.get(queue)
 
     assert diff_is_negligible(test, ref)
 
 
-def test_constant_arrays_computation_nested(thr):
+def test_constant_arrays_computation_nested(queue):
     """
     Check that constant arrays from a nested computation are
     transfered to the outer computation.
@@ -93,9 +95,9 @@ def test_constant_arrays_computation_nested(thr):
     arr2 = get_test_array((2, N), numpy.float32)
     ref = (arr1 * (arr2[0] + arr2[1])).astype(numpy.float32)
 
-    d = DummyOuter(N, arr1, arr2).compile(thr)
-    out_dev = thr.empty_like(d.parameter.output)
-    d(out_dev)
-    test = out_dev.get()
+    d = DummyOuter(N, arr1, arr2).compile(queue.device)
+    out_dev = Array.empty_like(queue.device, d.parameter.output)
+    d(queue, out_dev)
+    test = out_dev.get(queue)
 
     assert diff_is_negligible(test, ref)

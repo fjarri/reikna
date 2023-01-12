@@ -1,4 +1,5 @@
-from reikna.cluda import Snippet
+from grunnur import Snippet
+
 import reikna.helpers as helpers
 from reikna.core import Computation, Indices, Parameter, Annotation
 from reikna.core.transformation import TransformationParameter
@@ -13,11 +14,11 @@ class PureParallel(Computation):
 
     :param parameters: a list of :py:class:`~reikna.core.Parameter` objects.
     :param code: a source code for the computation.
-        Can be a :py:class:`~reikna.cluda.Snippet` object which will be passed
+        Can be a :py:class:`grunnur.Snippet` object which will be passed
         :py:class:`~reikna.core.Indices` object for the ``guiding_array`` as the first
         positional argument, and :py:class:`~reikna.core.transformation.KernelParameter` objects
         corresponding to ``parameters`` as the rest of positional arguments.
-        If it is a string, such :py:class:`~reikna.cluda.Snippet` will be created out of it,
+        If it is a string, such :py:class:`grunnur.Snippet` will be created out of it,
         with the parameter names ``idxs`` for the first one and the names of ``parameters``
         for the remaining ones.
 
@@ -30,7 +31,7 @@ class PureParallel(Computation):
         :param args: corresponds to the given ``parameters``.
     """
 
-    def __init__(self, parameters, code, guiding_array=None, render_kwds=None):
+    def __init__(self, parameters, code, guiding_array=None, render_kwds={}):
 
         Computation.__init__(self, parameters)
 
@@ -40,7 +41,7 @@ class PureParallel(Computation):
             self._snippet = code
         else:
             self._snippet = Snippet(helpers.template_def(
-                ['idxs'] + self._root_parameters, code), render_kwds=render_kwds)
+                ['idxs'] + self._root_parameters, code), render_globals=render_kwds)
 
         if guiding_array is None:
             guiding_array = self._root_parameters[0]
@@ -103,10 +104,10 @@ class PureParallel(Computation):
             """
             ${kernel_declaration}
             {
-                VIRTUAL_SKIP_THREADS;
+                if (${static.skip}()) return;
 
                 %for i, idx in enumerate(idxs):
-                VSIZE_T ${idx} = virtual_global_id(${i});
+                VSIZE_T ${idx} = ${static.global_id}(${i});
                 %endfor
 
                 ${snippet(idxs, """ + arglist + """)}

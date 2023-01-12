@@ -4,11 +4,11 @@ import itertools
 import numpy
 import pytest
 
+from grunnur import Snippet, dtypes, Array
+
 from helpers import *
 from reikna.algorithms import Reduce, Predicate, predicate_sum
 from reikna.helpers import template_def
-from reikna.cluda import Snippet
-import reikna.cluda.dtypes as dtypes
 
 
 shapes = [
@@ -21,61 +21,61 @@ shapes_and_axes_ids = [str(shape) + "," + str(axis) for shape, axis in shapes_an
 
 
 @pytest.mark.parametrize(('shape', 'axis'), shapes_and_axes, ids=shapes_and_axes_ids)
-def test_normal(thr, shape, axis):
+def test_normal(queue, shape, axis):
 
     a = get_test_array(shape, numpy.int64)
-    a_dev = thr.to_device(a)
+    a_dev = Array.from_host(queue, a)
 
     rd = Reduce(a, predicate_sum(numpy.int64), axes=(axis,) if axis is not None else None)
 
-    b_dev = thr.empty_like(rd.parameter.output)
-    b_ref = a.sum(axis)
+    b_dev = Array.empty_like(queue.device, rd.parameter.output)
+    b_ref = a.sum(axis, keepdims=True)
 
-    rdc = rd.compile(thr)
-    rdc(b_dev, a_dev)
+    rdc = rd.compile(queue.device)
+    rdc(queue, b_dev, a_dev)
 
-    assert diff_is_negligible(b_dev.get(), b_ref)
+    assert diff_is_negligible(b_dev.get(queue), b_ref)
 
 
-def test_nondefault_function(thr):
+def test_nondefault_function(queue):
 
     shape = (100, 100)
     a = get_test_array(shape, numpy.int64)
-    a_dev = thr.to_device(a)
+    a_dev = Array.from_host(queue, a)
     b_ref = a.sum(0)
 
     predicate = Predicate(
-        Snippet.create(lambda v1, v2: "return ${v1} + ${v2};"),
+        Snippet.from_callable(lambda v1, v2: "return ${v1} + ${v2};"),
         0)
 
     rd = Reduce(a_dev, predicate, axes=(0,))
 
-    b_dev = thr.empty_like(rd.parameter.output)
+    b_dev = Array.empty_like(queue.device, rd.parameter.output)
 
-    rdc = rd.compile(thr)
-    rdc(b_dev, a_dev)
+    rdc = rd.compile(queue.device)
+    rdc(queue, b_dev, a_dev)
 
-    assert diff_is_negligible(b_dev.get(), b_ref)
+    assert diff_is_negligible(b_dev.get(queue), b_ref)
 
 
-def test_nonsequential_axes(thr):
+def test_nonsequential_axes(queue):
 
     shape = (50, 40, 30, 20)
     a = get_test_array(shape, numpy.int64)
-    a_dev = thr.to_device(a)
-    b_ref = a.sum(0).sum(1) # sum over axes 0 and 2 of the initial array
+    a_dev = Array.from_host(queue, a)
+    b_ref = a.sum(0, keepdims=True).sum(2, keepdims=True) # sum over axes 0 and 2 of the initial array
 
     rd = Reduce(a_dev, predicate_sum(numpy.int64), axes=(0,2))
 
-    b_dev = thr.empty_like(rd.parameter.output)
+    b_dev = Array.empty_like(queue.device, rd.parameter.output)
 
-    rdc = rd.compile(thr)
-    rdc(b_dev, a_dev)
+    rdc = rd.compile(queue.device)
+    rdc(queue, b_dev, a_dev)
 
-    assert diff_is_negligible(b_dev.get(), b_ref)
+    assert diff_is_negligible(b_dev.get(queue), b_ref)
 
 
-def test_structure_type(thr):
+def test_structure_type(queue):
 
     shape = (100, 100)
     dtype = dtypes.align(numpy.dtype([
@@ -87,7 +87,7 @@ def test_structure_type(thr):
         ]))
 
     a = get_test_array(shape, dtype)
-    a_dev = thr.to_device(a)
+    a_dev = Array.from_host(queue, a)
 
     # Have to construct the resulting array manually,
     # since numpy cannot reduce arrays with struct dtypes.
@@ -97,54 +97,54 @@ def test_structure_type(thr):
     b_ref['i2'] = a['i2'].sum(0)
 
     predicate = Predicate(
-        Snippet.create(lambda v1, v2: """
+        Snippet.from_callable(lambda v1, v2: """
             ${ctype} result = ${v1};
             result.i1 += ${v2}.i1;
             result.nested.v += ${v2}.nested.v;
             result.i2 += ${v2}.i2;
             return result;
             """,
-            render_kwds=dict(
-                ctype=dtypes.ctype_module(dtype))),
+            render_globals=dict(
+                ctype=dtypes.ctype(dtype))),
         numpy.zeros(1, dtype)[0])
 
     rd = Reduce(a_dev, predicate, axes=(0,))
 
-    b_dev = thr.empty_like(rd.parameter.output)
+    b_dev = Array.empty_like(queue.device, rd.parameter.output)
 
-    rdc = rd.compile(thr)
-    rdc(b_dev, a_dev)
-    b_res = b_dev.get()
+    rdc = rd.compile(queue.device)
+    rdc(queue, b_dev, a_dev)
+    b_res = b_dev.get(queue)
 
     assert diff_is_negligible(b_res, b_ref)
 
 
 @pytest.mark.perf
 @pytest.mark.returns('GB/s')
-def test_summation(thr):
+def test_summation(queue):
 
     perf_size = 2 ** 22
-    dtype = dtypes.normalize_type(numpy.int64)
+    dtype = numpy.dtype("int64")
 
     a = get_test_array(perf_size, dtype)
-    a_dev = thr.to_device(a)
+    a_dev = Array.from_host(queue.device, a)
 
     rd = Reduce(a, predicate_sum(dtype))
 
-    b_dev = thr.empty_like(rd.parameter.output)
+    b_dev = Array.empty_like(queue.device, rd.parameter.output)
     b_ref = numpy.array([a.sum()], dtype)
 
-    rdc = rd.compile(thr)
+    rdc = rd.compile(queue.device)
 
     attempts = 10
     times = []
     for i in range(attempts):
         t1 = time.time()
-        rdc(b_dev, a_dev)
-        thr.synchronize()
+        rdc(queue, b_dev, a_dev)
+        queue.synchronize()
         times.append(time.time() - t1)
 
-    assert diff_is_negligible(b_dev.get(), b_ref)
+    assert diff_is_negligible(b_dev.get(queue), b_ref)
 
     return min(times), perf_size * dtype.itemsize
 
