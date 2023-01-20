@@ -3,8 +3,8 @@ Release history
 ***************
 
 
-0.8.0 (current development version)
-===================================
+0.8.0 (19 Jan 2023)
+===================
 
 * CHANGED: `dest_offset` renamed to `dst_offset` to match `pyopencl`/`pycuda` API.
 
