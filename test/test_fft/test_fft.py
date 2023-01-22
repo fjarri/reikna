@@ -4,11 +4,12 @@ import time
 import numpy
 import pytest
 
+import grunnur.dtypes as dtypes
+
 from helpers import *
 
 from reikna.helpers import product
 from reikna.fft import FFT
-import reikna.cluda.dtypes as dtypes
 from reikna.transformations import mul_param
 
 

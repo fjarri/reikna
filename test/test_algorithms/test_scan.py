@@ -3,10 +3,10 @@ import time
 import numpy
 import pytest
 
+from grunnur import Snippet, dtypes
+
 from reikna.algorithms import Scan, Predicate, predicate_sum
-from reikna.cluda import Snippet
 import reikna.helpers as helpers
-import reikna.cluda.dtypes as dtypes
 
 from helpers import *
 
@@ -144,7 +144,7 @@ def test_scan_structure_type(thr, exclusive):
             return result;
             """,
             render_kwds=dict(
-                ctype=dtypes.ctype_module(dtype))),
+                ctype=dtypes.ctype(dtype))),
         numpy.zeros(1, dtype)[0])
 
     scan = Scan(a_dev, predicate, axes=(0,), exclusive=exclusive)

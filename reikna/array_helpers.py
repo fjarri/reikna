@@ -6,9 +6,10 @@
 
 import numpy
 
-import reikna.cluda.dtypes as dtypes
+import grunnur.dtypes as dtypes
+import grunnur.functions as functions
+
 import reikna.transformations as transformations
-import reikna.cluda.functions as functions
 from reikna.algorithms import PureParallel
 from reikna.core import Type, Parameter, Annotation, Computation
 

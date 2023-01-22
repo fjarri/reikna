@@ -1,9 +1,8 @@
 import numpy
 
+from grunnur import Module, dtypes, functions
+
 import reikna.helpers as helpers
-import reikna.cluda.dtypes as dtypes
-from reikna.cluda import Module
-import reikna.cluda.functions as functions
 
 TEMPLATE = helpers.template_for(__file__)
 

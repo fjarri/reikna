@@ -7,7 +7,6 @@ API reference
 
    version
    helpers
-   cluda
    core
    computations
    transformations

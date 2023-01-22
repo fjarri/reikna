@@ -1,6 +1,6 @@
 import numpy
 
-from reikna.cluda import Snippet
+from grunnur import Snippet
 
 
 class Predicate:

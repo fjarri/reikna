@@ -1,8 +1,8 @@
 import numpy
 
+from grunnur import dtypes, VirtualSizeError
+
 import reikna.helpers as helpers
-from reikna.cluda import dtypes
-from reikna.cluda import OutOfResourcesError
 from reikna.core import Computation, Parameter, Annotation, Type
 from reikna.algorithms import Transpose
 
@@ -166,7 +166,7 @@ class Reduce(Computation):
             try:
                 plan = self._build_plan_for_wg_size(
                     plan_factory, device_params.warp_size, max_wg_size, output, input_)
-            except OutOfResourcesError:
+            except VirtualSizeError:
                 max_wg_size //= 2
                 continue
 

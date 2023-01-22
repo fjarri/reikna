@@ -1,8 +1,9 @@
 import numpy
 
+import grunnur.dtypes as dtypes
+
 import reikna.helpers as helpers
 from reikna.core import Computation, Parameter, Annotation
-import reikna.cluda.dtypes as dtypes
 from reikna.algorithms import PureParallel
 from reikna.transformations import copy
 

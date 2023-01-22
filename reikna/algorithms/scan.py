@@ -1,11 +1,8 @@
 import numpy
 
-from reikna.cluda import ocl_api
+from grunnur import Snippet, dtypes
 
-from reikna.cluda import Snippet
 import reikna.helpers as helpers
-from reikna.cluda import dtypes
-from reikna.cluda import OutOfResourcesError
 from reikna.core import Computation, Parameter, Annotation, Type
 from reikna.algorithms import Transpose
 

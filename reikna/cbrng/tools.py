@@ -1,8 +1,8 @@
 import numpy
 
-from reikna.cluda import Module
+from grunnur import Module, dtypes
+
 import reikna.helpers as helpers
-from reikna.cluda import dtypes
 
 
 class KeyGenerator:
