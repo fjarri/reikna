@@ -26,7 +26,7 @@ def is_double(dtype):
     Returns ``True`` if ``dtype`` is double precision floating point.
     """
     dtype = normalize_type(dtype)
-    return numpy.issubdtype(dtype, numpy.float_) or numpy.issubdtype(dtype, numpy.complex_)
+    return numpy.issubdtype(dtype, numpy.float64) or numpy.issubdtype(dtype, numpy.complex128)
 
 def is_integer(dtype):
     """
@@ -133,7 +133,7 @@ def cast(dtype):
             # A non-numpy scalar
             return numpy.array([val], dtype)[0]
         elif val.dtype != dtype:
-            return numpy.cast[dtype](val)
+            return numpy.asarray(val, dtype)
         else:
             return val
     return _cast

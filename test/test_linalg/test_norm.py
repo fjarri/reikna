@@ -17,7 +17,7 @@ def reference_norm(arr, order=1, axes=None):
         arr = arr.sum(axis)
 
     # explicit cast to preven numpy promoting arr to float64 from float32 if it is 0-dimensional
-    res = arr ** numpy.cast[out_dtype](1. / order)
+    res = arr ** numpy.asarray(1. / order, out_dtype)
     return res
 
 

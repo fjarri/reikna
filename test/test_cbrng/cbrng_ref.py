@@ -189,13 +189,12 @@ PHILOX_M = {
 
 def philox_mulhilo(W, x, y):
     res = long_int(x) * long_int(y)
-    cast = numpy.cast[x.dtype]
-    return cast(res // (2 ** W)), cast(res % (2 ** W))
+    return numpy.asarray(res // (2 ** W), x.dtype), numpy.asarray(res % (2 ** W), x.dtype)
 
 
 def philox_round(W, N, rnd, ctr, key):
     ctr = ctr.copy()
-    rnd = numpy.cast[ctr.dtype](rnd)
+    rnd = numpy.asarray(rnd, ctr.dtype)
 
     if N == 2:
         key0 = key[0] + PHILOX_W[W][0] * rnd

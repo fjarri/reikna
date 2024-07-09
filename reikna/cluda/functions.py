@@ -20,7 +20,7 @@ def check_information_loss(out_dtype, expected_dtype):
     if dtypes.is_complex(expected_dtype) and not dtypes.is_complex(out_dtype):
         warn("Imaginary part ignored during the downcast from " +
             str(expected_dtype) + " to " + str(out_dtype),
-            numpy.ComplexWarning)
+            numpy.exceptions.ComplexWarning)
 
 
 def derive_out_dtype(out_dtype, *in_dtypes):

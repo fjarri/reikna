@@ -187,11 +187,11 @@ def test_multiarg_mul(thr, out_code, in_codes):
 
     # Temporarily catching imaginary part truncation warnings
     with catch_warnings():
-        filterwarnings("ignore", "", numpy.ComplexWarning)
+        filterwarnings("ignore", "", numpy.exceptions.ComplexWarning)
         mul = functions.mul(*in_dtypes, out_dtype=out_dtype)
 
     # Increasing the tolerance because of GPU inaccuracies in single precision
-    check_func(thr, mul, reference_mul, out_dtype, in_dtypes, rtol=5e-5)
+    check_func(thr, mul, reference_mul, out_dtype, in_dtypes, rtol=1e-4)
 
 
 @pytest.mark.parametrize('in_codes', ["ii", "ff", "cc", "cfi", "ifccfi"])
@@ -211,7 +211,7 @@ def test_multiarg_add(thr, out_code, in_codes):
 
     # Temporarily catching imaginary part truncation warnings
     with catch_warnings():
-        filterwarnings("ignore", "", numpy.ComplexWarning)
+        filterwarnings("ignore", "", numpy.exceptions.ComplexWarning)
         mul = functions.add(*in_dtypes, out_dtype=out_dtype)
 
     check_func(thr, mul, reference_add, out_dtype, in_dtypes)

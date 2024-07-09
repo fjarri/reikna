@@ -3,6 +3,12 @@ Release history
 ***************
 
 
+0.9.0 (unreleased)
+==================
+
+* CHANGED: Bumped dependencies: ``numpy>=2``, ``mako>=1``, ``funcsigs>=1``, ``pyopencl>=2024``, ``pycuda>=2024``.
+
+
 0.8.0 (19 Jan 2023)
 ===================
 

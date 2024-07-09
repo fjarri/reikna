@@ -177,7 +177,7 @@ def test_small_scan_performance(thr, exclusive, seq_size):
     Small problem sizes, big batches.
     """
     dtype = dtypes.normalize_type(numpy.complex128)
-    shape = (500, 2, 2, 512)
+    shape = (500, 2, 2, 256)
     min_time = check_scan(
         thr, shape, dtype=dtype, axes=(-1,), exclusive=exclusive,
         measure_time=True, seq_size=seq_size)

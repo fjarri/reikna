@@ -86,8 +86,8 @@ git_revision = "{git_revision}"
 release = {released}
 '''
 
-    VERSION = (0, 8, 0)
-    RELEASED = True
+    VERSION = (0, 9, 0)
+    RELEASED = False
 
     version_str = '%d.%d.%d' % VERSION
     full_version_str = version_str
@@ -127,9 +127,9 @@ if __name__ == '__main__':
 
     # seuptool's ``install_requires`` and distutil's ``requires`` have slightly different format
     dependencies = [
-        ('mako', '>= 0.8.0'),
-        ('numpy', '>= 1.6.0'),
-        ('funcsigs', '>= 0.3')]
+        ('mako', '>= 1.0.0'),
+        ('numpy', '>= 2.0.0'),
+        ('funcsigs', '>= 1.0.0')]
     requires = list(map(lambda nr: nr[0] + '(' + nr[1] + ')', dependencies))
     install_requires = list(map(lambda nr: nr[0] + ' ' + nr[1], dependencies))
 
@@ -149,8 +149,8 @@ if __name__ == '__main__':
         requires=requires,
         install_requires=install_requires,
         extras_require=dict(
-            pyopencl=["pyopencl>=2018.1.1"],
-            pycuda=["pycuda>=2018.1.1"],
+            pyopencl=["pyopencl>=2024"],
+            pycuda=["pycuda>=2024"],
             dev=[
                 "pytest>=5",
                 "pytest-cov",
@@ -177,13 +177,8 @@ if __name__ == '__main__':
             'Intended Audience :: Developers',
             'License :: OSI Approved :: MIT License',
             'Programming Language :: Python',
-            'Programming Language :: Python :: 2',
-            'Programming Language :: Python :: 2.6',
-            'Programming Language :: Python :: 2.7',
             'Programming Language :: Python :: 3',
-            'Programming Language :: Python :: 3.2',
-            'Programming Language :: Python :: 3.3',
-            'Programming Language :: Python :: 3.4',
+            'Programming Language :: Python :: 3.8',
             'Topic :: Software Development',
             'Topic :: Scientific/Engineering',
             'Operating System :: OS Independent'
