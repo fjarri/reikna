@@ -127,7 +127,7 @@ class Scan(Computation):
                 if wg_size > max_wg_size:
                     raise ValueError(
                         "Sequential size " + str(seq_size)
-                        + " cannot be set because of the maximum workgroup size " + max_wg_size)
+                        + " cannot be set because of the maximum workgroup size " + str(max_wg_size))
 
             wg_totals_size = helpers.min_blocks(scan_size, wg_size * seq_size)
             wg_totals = plan.temp_array((batch_size, wg_totals_size,), output.dtype)

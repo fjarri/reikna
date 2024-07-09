@@ -133,7 +133,7 @@ class Type:
             return cls(
                 val.dtype, shape=val.shape, strides=val.strides,
                 offset=val.offset, nbytes=val.nbytes)
-        elif numpy.issctype(val):
+        elif isinstance(val, numpy.dtype) or (isinstance(val, type) and issubclass(val, numpy.generic)):
             return cls(val)
         elif hasattr(val, 'dtype') and hasattr(val, 'shape'):
             strides = val.strides if hasattr(val, 'strides') else None

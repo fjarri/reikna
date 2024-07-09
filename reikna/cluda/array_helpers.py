@@ -26,7 +26,7 @@ def normalize_value(thr, gpu_array_type, val):
         return thr.to_device(val), True
     else:
         dtype = dtypes.detect_type(val)
-        return numpy.cast[dtype](val), False
+        return numpy.asarray(val, dtype), False
 
 
 def setitem_computation(dest, source, is_array):
