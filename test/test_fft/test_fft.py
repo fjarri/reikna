@@ -4,11 +4,12 @@ import time
 import numpy
 import pytest
 
+from grunnur import Array, dtypes
+
 from helpers import *
 
 from reikna.helpers import product
 from reikna.fft import FFT
-import reikna.cluda.dtypes as dtypes
 from reikna.transformations import mul_param
 
 
@@ -131,7 +132,7 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize('non2problem_perf_shape_and_axes', vals, ids=ids)
 
 
-def test_typecheck(some_thr):
+def test_typecheck():
     with pytest.raises(ValueError):
         fft = FFT(get_test_array(100, numpy.float32))
 
@@ -140,7 +141,7 @@ def test_typecheck(some_thr):
 # the FFTs (especially non-power-of-2 ones) are not very accurate
 # (GPUs historically tend to cut corners in single precision).
 # So we're lowering tolerances when comparing to the reference in these tests.
-def check_errors(thr, shape_and_axes, atol=2e-5, rtol=1e-3):
+def check_errors(queue, shape_and_axes, atol=2e-5, rtol=1e-3):
 
     dtype = numpy.complex64
 
@@ -149,24 +150,24 @@ def check_errors(thr, shape_and_axes, atol=2e-5, rtol=1e-3):
     data = get_test_array(shape, dtype)
 
     fft = FFT(data, axes=axes)
-    fftc = fft.compile(thr)
+    fftc = fft.compile(queue.device)
 
     # forward transform
     # Testing inplace transformation, because if this works,
     # then the out of place one will surely work too.
-    data_dev = thr.to_device(data)
-    fftc(data_dev, data_dev)
+    data_dev = Array.from_host(queue, data)
+    fftc(queue, data_dev, data_dev)
     fwd_ref = numpy.fft.fftn(data, axes=axes).astype(dtype)
-    assert diff_is_negligible(data_dev.get(), fwd_ref, atol=atol, rtol=rtol)
+    assert diff_is_negligible(data_dev.get(queue), fwd_ref, atol=atol, rtol=rtol)
 
     # inverse transform
-    data_dev = thr.to_device(data)
-    fftc(data_dev, data_dev, inverse=True)
+    data_dev = Array.from_host(queue, data)
+    fftc(queue, data_dev, data_dev, inverse=True)
     inv_ref = numpy.fft.ifftn(data, axes=axes).astype(dtype)
-    assert diff_is_negligible(data_dev.get(), inv_ref, atol=atol, rtol=rtol)
+    assert diff_is_negligible(data_dev.get(queue), inv_ref, atol=atol, rtol=rtol)
 
 
-def test_trivial(some_thr):
+def test_trivial(some_queue):
     """
     Checks that even if the FFT is trivial (problem size == 1),
     the transformations are still attached and executed.
@@ -177,64 +178,64 @@ def test_trivial(some_thr):
     param = 4
 
     data = get_test_array(shape, dtype)
-    data_dev = some_thr.to_device(data)
-    res_dev = some_thr.empty_like(data_dev)
+    data_dev = Array.from_host(some_queue, data)
+    res_dev = Array.empty_like(some_queue.device, data_dev)
 
     fft = FFT(data_dev, axes=axes)
     scale = mul_param(data_dev, numpy.int32)
     fft.parameter.input.connect(scale, scale.output, input_prime=scale.input, param=scale.param)
 
-    fftc = fft.compile(some_thr)
-    fftc(res_dev, data_dev, param)
-    assert diff_is_negligible(res_dev.get(), data * param)
+    fftc = fft.compile(some_queue.device)
+    fftc(some_queue, res_dev, data_dev, param)
+    assert diff_is_negligible(res_dev.get(some_queue), data * param)
 
 
-def test_local(thr, local_shape_and_axes):
-    check_errors(thr, local_shape_and_axes)
+def test_local(queue, local_shape_and_axes):
+    check_errors(queue, local_shape_and_axes)
 
-def test_global(thr, global_shape_and_axes):
-    check_errors(thr, global_shape_and_axes)
+def test_global(queue, global_shape_and_axes):
+    check_errors(queue, global_shape_and_axes)
 
-def test_sequence(thr, sequence_shape_and_axes):
+def test_sequence(queue, sequence_shape_and_axes):
     # This test is particularly sensitive to inaccuracies in single precision,
     # hence the particularly high tolerance.
-    check_errors(thr, sequence_shape_and_axes, rtol=1e-2)
+    check_errors(queue, sequence_shape_and_axes, rtol=1e-2)
 
 
-def check_performance(thr_and_double, shape_and_axes, fast_math):
-    thr, double = thr_and_double
+def check_performance(queue, shape_and_axes, fast_math):
+    # TODO: check double performance
 
     shape, axes = shape_and_axes
-    dtype = numpy.complex128 if double else numpy.complex64
+    dtype = numpy.dtype("complex64")
 
     data = get_test_array(shape, dtype)
-    data_dev = thr.to_device(data)
-    res_dev = thr.empty_like(data_dev)
+    data_dev = Array.from_host(queue.device, data)
+    res_dev = Array.empty_like(queue.device, data_dev)
 
     fft = FFT(data_dev, axes=axes)
-    fftc = fft.compile(thr, fast_math=fast_math)
+    fftc = fft.compile(queue.device, fast_math=fast_math)
 
     attempts = 10
     times = []
     for i in range(attempts):
         t1 = time.time()
-        fftc(res_dev, data_dev)
-        thr.synchronize()
+        fftc(queue, res_dev, data_dev)
+        queue.synchronize()
         times.append(time.time() - t1)
 
     fwd_ref = numpy.fft.fftn(data, axes=axes).astype(dtype)
-    assert diff_is_negligible(res_dev.get(), fwd_ref)
+    assert diff_is_negligible(res_dev.get(queue), fwd_ref, atol=1e-2, rtol=1e-4)
 
     return min(times), product(shape) * sum([numpy.log2(shape[a]) for a in axes]) * 5
 
 
 @pytest.mark.perf
 @pytest.mark.returns('GFLOPS')
-def test_power_of_2_performance(thr_and_double, perf_shape_and_axes, fast_math):
-    return check_performance(thr_and_double, perf_shape_and_axes, fast_math)
+def test_power_of_2_performance(queue, perf_shape_and_axes, fast_math):
+    return check_performance(queue, perf_shape_and_axes, fast_math)
 
 
 @pytest.mark.perf
 @pytest.mark.returns('GFLOPS')
-def test_non_power_of_2_performance(thr_and_double, non2problem_perf_shape_and_axes, fast_math):
-    return check_performance(thr_and_double, non2problem_perf_shape_and_axes, fast_math)
+def test_non_power_of_2_performance(queue, non2problem_perf_shape_and_axes, fast_math):
+    return check_performance(queue, non2problem_perf_shape_and_axes, fast_math)

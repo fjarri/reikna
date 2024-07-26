@@ -1,7 +1,8 @@
 import numpy
 
-from reikna.helpers import template_from, min_blocks
-import reikna.cluda.functions as functions
+import grunnur.functions as functions
+
+from reikna.helpers import template_from, min_blocks, product
 from reikna.core import Computation, Parameter, Annotation, Transformation
 
 
@@ -36,7 +37,7 @@ class Dummy(Computation):
             assert arr1.shape[0] == arr1.shape[1]
 
         self._same_A_B = same_A_B
-        self._persistent_array = numpy.arange(arr2.size).reshape(arr2.shape).astype(arr2.dtype)
+        self._persistent_array = numpy.arange(product(arr2.shape)).reshape(arr2.shape).astype(arr2.dtype)
 
         self._test_untyped_scalar = test_untyped_scalar
         self._test_kernel_adhoc_array = test_kernel_adhoc_array
@@ -61,9 +62,9 @@ class Dummy(Computation):
         <%def name="dummy(kernel_declaration, C, D, A, B, coeff)">
         ${kernel_declaration}
         {
-            VIRTUAL_SKIP_THREADS;
-            VSIZE_T idx0 = virtual_global_id(0);
-            VSIZE_T idx1 = virtual_global_id(1);
+            if (${static.skip}()) return;
+            VSIZE_T idx0 = ${static.global_id}(0);
+            VSIZE_T idx1 = ${static.global_id}(1);
 
             ${A.ctype} a = ${A.load_idx}(idx0, idx1);
             ${C.ctype} c = ${mul}(a, ${coeff});
@@ -87,9 +88,9 @@ class Dummy(Computation):
         <%def name="dummy2(kernel_declaration, CC, DD, C, D, pers_arr, const_coeff)">
         ${kernel_declaration}
         {
-            VIRTUAL_SKIP_THREADS;
-            VSIZE_T idx0 = virtual_global_id(0);
-            VSIZE_T idx1 = virtual_global_id(1);
+            if (${static.skip}()) return;
+            VSIZE_T idx0 = ${static.global_id}(0);
+            VSIZE_T idx1 = ${static.global_id}(1);
 
             ${CC.store_idx}(idx0, idx1, ${C.load_idx}(idx0, idx1));
 
@@ -233,9 +234,9 @@ class DummyAdvanced(Computation):
         <%def name="dummy(kernel_declaration, CC, C, D, coeff)">
         ${kernel_declaration}
         {
-            VIRTUAL_SKIP_THREADS;
-            VSIZE_T idx0 = virtual_global_id(0);
-            VSIZE_T idx1 = virtual_global_id(1);
+            if (${static.skip}()) return;
+            VSIZE_T idx0 = ${static.global_id}(0);
+            VSIZE_T idx1 = ${static.global_id}(1);
 
             ${CC.store_idx}(idx0, idx1,
                 ${C.load_idx}(idx0, idx1) +

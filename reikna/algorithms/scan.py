@@ -1,11 +1,8 @@
 import numpy
 
-from reikna.cluda import ocl_api
+from grunnur import Snippet, dtypes
 
-from reikna.cluda import Snippet
 import reikna.helpers as helpers
-from reikna.cluda import dtypes
-from reikna.cluda import OutOfResourcesError
 from reikna.core import Computation, Parameter, Annotation, Type
 from reikna.algorithms import Transpose
 
@@ -66,7 +63,7 @@ class Scan(Computation):
                 raise ValueError("The predicate and the array must use the same data type")
             empty = predicate.empty
         else:
-            empty = dtypes.cast(arr_t.dtype)(predicate.empty)
+            empty = numpy.asarray(predicate.empty, arr_t.dtype)
 
         self._predicate = predicate
 
@@ -103,7 +100,7 @@ class Scan(Computation):
             scan_size = helpers.product(scan_shape)
 
             if self._max_work_group_size is None:
-                max_wg_size = device_params.max_work_group_size
+                max_wg_size = device_params.max_total_local_size
             else:
                 max_wg_size = self._max_work_group_size
 
@@ -148,6 +145,7 @@ class Scan(Computation):
                     global_size=(batch_size, wg_size * wg_totals_size),
                     local_size=(1, wg_size),
                     render_kwds=dict(
+                        dtypes=dtypes,
                         slices=(len(batch_shape), len(scan_shape)),
                         log_num_banks=helpers.log2(device_params.local_mem_banks),
                         exclusive=self._exclusive,

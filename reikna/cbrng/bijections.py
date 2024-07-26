@@ -1,8 +1,8 @@
 import numpy
 
+from grunnur import Module, dtypes
+
 import reikna.helpers as helpers
-import reikna.cluda.dtypes as dtypes
-from reikna.cluda import Module
 
 TEMPLATE = helpers.template_for(__file__)
 
@@ -10,10 +10,10 @@ TEMPLATE = helpers.template_for(__file__)
 def create_struct_types(word_dtype, key_words, counter_words):
 
     key_dtype = dtypes.align(numpy.dtype([('v', (word_dtype, (key_words,)))]))
-    key_ctype = dtypes.ctype_module(key_dtype)
+    key_ctype = dtypes.ctype(key_dtype)
 
     counter_dtype = dtypes.align(numpy.dtype([('v', (word_dtype, (counter_words,)))]))
-    counter_ctype = dtypes.ctype_module(counter_dtype)
+    counter_ctype = dtypes.ctype(counter_dtype)
 
     return key_dtype, key_ctype, counter_dtype, counter_ctype
 
@@ -213,14 +213,15 @@ def threefry(bitness, counter_words, rounds=20):
 
     assert 1 <= rounds <= 72
 
-    word_dtype = dtypes.normalize_type(numpy.uint32 if bitness == 32 else numpy.uint64)
+    word_dtype = numpy.dtype("uint32") if bitness == 32 else numpy.dtype("uint64")
     key_words = counter_words
     key_dtype, key_ctype, counter_dtype, counter_ctype = create_struct_types(
         word_dtype, key_words, counter_words)
 
     module = Module(
         TEMPLATE.get_def("threefry"),
-        render_kwds=dict(
+        render_globals=dict(
+            dtypes=dtypes,
             word_dtype=word_dtype, word_ctype=dtypes.ctype(word_dtype),
             key_words=key_words, counter_words=counter_words,
             key_ctype=key_ctype, counter_ctype=counter_ctype,
@@ -260,14 +261,15 @@ def philox(bitness, counter_words, rounds=10):
     }
 
     assert 1 <= rounds <= 12
-    word_dtype = dtypes.normalize_type(numpy.uint32 if bitness == 32 else numpy.uint64)
+    word_dtype = numpy.dtype("uint32") if bitness == 32 else numpy.dtype("uint64")
     key_words = counter_words // 2
     key_dtype, key_ctype, counter_dtype, counter_ctype = create_struct_types(
         word_dtype, key_words, counter_words)
 
     module = Module(
         TEMPLATE.get_def("philox"),
-        render_kwds=dict(
+        render_globals=dict(
+            dtypes=dtypes,
             word_dtype=word_dtype, word_ctype=dtypes.ctype(word_dtype),
             key_words=key_words, counter_words=counter_words,
             key_ctype=key_ctype, counter_ctype=counter_ctype,

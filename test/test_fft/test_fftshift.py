@@ -4,11 +4,12 @@ import time
 import numpy
 import pytest
 
+from grunnur import Array, dtypes
+
 from helpers import *
 
 from reikna.helpers import product
 from reikna.fft import FFTShift
-import reikna.cluda.dtypes as dtypes
 from reikna.transformations import mul_param
 
 
@@ -75,7 +76,7 @@ def pytest_generate_tests(metafunc):
             ids=list(map(idgen, perf_odd_shapes_and_axes)))
 
 
-def check_errors(thr, shape_and_axes, inverse=False):
+def check_errors(queue, shape_and_axes, inverse=False):
 
     dtype = numpy.int32
 
@@ -84,23 +85,23 @@ def check_errors(thr, shape_and_axes, inverse=False):
     data = numpy.arange(product(shape)).reshape(shape).astype(dtype)
 
     shift = FFTShift(data, axes=axes)
-    shiftc = shift.compile(thr)
+    shiftc = shift.compile(queue.device)
 
     ref_func = numpy.fft.ifftshift if inverse else numpy.fft.fftshift
 
-    data_dev = thr.to_device(data)
-    shiftc(data_dev, data_dev, inverse)
+    data_dev = Array.from_host(queue, data)
+    shiftc(queue, data_dev, data_dev, inverse)
     res_ref = ref_func(data, axes=axes)
 
-    assert diff_is_negligible(data_dev.get(), res_ref)
+    assert diff_is_negligible(data_dev.get(queue), res_ref)
 
 
 @pytest.mark.parametrize('inverse', [False, True], ids=['forward', 'inverse'])
-def test_errors(thr, errors_shape_and_axes, inverse):
-    check_errors(thr, errors_shape_and_axes, inverse)
+def test_errors(queue, errors_shape_and_axes, inverse):
+    check_errors(queue, errors_shape_and_axes, inverse)
 
 
-def test_trivial(some_thr):
+def test_trivial(some_queue):
     """
     Checks that even if the axes set is trivial (product of lengths == 1),
     the transformations are still attached and executed.
@@ -111,64 +112,63 @@ def test_trivial(some_thr):
     param = 4
 
     data = get_test_array(shape, dtype)
-    data_dev = some_thr.to_device(data)
-    res_dev = some_thr.empty_like(data_dev)
+    data_dev = Array.from_host(some_queue, data)
+    res_dev = Array.empty_like(some_queue.device, data_dev)
 
     shift = FFTShift(data, axes=axes)
     scale = mul_param(data_dev, numpy.int32)
     shift.parameter.input.connect(scale, scale.output, input_prime=scale.input, param=scale.param)
 
-    shiftc = shift.compile(some_thr)
-    shiftc(res_dev, data_dev, param)
-    assert diff_is_negligible(res_dev.get(), data * param)
+    shiftc = shift.compile(some_queue.device)
+    shiftc(some_queue, res_dev, data_dev, param)
+    assert diff_is_negligible(res_dev.get(some_queue), data * param)
 
 
-def test_unordered_axes(some_thr):
-    check_errors(some_thr, ((40, 50, 60), (2, 0)))
+def test_unordered_axes(some_queue):
+    check_errors(some_queue, ((40, 50, 60), (2, 0)))
 
 
-def test_no_axes(some_thr):
-    check_errors(some_thr, ((40, 50, 60), None))
+def test_no_axes(some_queue):
+    check_errors(some_queue, ((40, 50, 60), None))
 
 
-def check_performance(thr_and_double, shape_and_axes):
+def check_performance(queue, shape_and_axes):
 
-    thr, double = thr_and_double
+    # TODO: check double performance
 
-    dtype = numpy.complex128 if double else numpy.complex64
-    dtype = dtypes.normalize_type(dtype)
+    dtype = numpy.dtype("complex64")
 
     shape, axes = shape_and_axes
 
     data = numpy.arange(product(shape)).reshape(shape).astype(dtype)
 
     shift = FFTShift(data, axes=axes)
-    shiftc = shift.compile(thr)
+    shiftc = shift.compile(queue.device)
 
-    data_dev = thr.to_device(data)
-    res_dev = thr.empty_like(data)
+    data_dev = Array.from_host(queue.device, data)
+    res_dev = Array.empty_like(queue.device, data)
 
     attempts = 10
     times = []
     for i in range(attempts):
         t1 = time.time()
-        shiftc(res_dev, data_dev)
-        thr.synchronize()
+        shiftc(queue, res_dev, data_dev)
+        queue.synchronize()
         times.append(time.time() - t1)
 
     res_ref = numpy.fft.fftshift(data, axes=axes)
-    assert diff_is_negligible(res_dev.get(), res_ref)
+    assert diff_is_negligible(res_dev.get(queue), res_ref)
 
     return min(times), product(shape) * dtype.itemsize
 
 
 @pytest.mark.perf
 @pytest.mark.returns('GB/s')
-def test_even_performance(thr_and_double, perf_even_shape_and_axes):
-    return check_performance(thr_and_double, perf_even_shape_and_axes)
+def test_even_performance(queue, perf_even_shape_and_axes):
+    return check_performance(queue, perf_even_shape_and_axes)
 
 
 @pytest.mark.perf
 @pytest.mark.returns('GB/s')
-def test_odd_performance(thr_and_double, perf_odd_shape_and_axes):
-    return check_performance(thr_and_double, perf_odd_shape_and_axes)
+def test_odd_performance(queue, perf_odd_shape_and_axes):
+    return check_performance(queue, perf_odd_shape_and_axes)

@@ -1,7 +1,8 @@
 import weakref
 
+from grunnur import Snippet
+
 from reikna.helpers import template_def
-from reikna.cluda import Snippet
 from reikna.core.signature import Signature, Type, Parameter, Annotation
 from reikna.core.transformation_modules import leaf_name, node_connector, module_transformation, \
     module_leaf_macro, module_same_indices, module_combined, kernel_declaration, index_cnames
@@ -69,7 +70,7 @@ class Transformation:
             self.connectors = [param.name for param in parameters if param.annotation.array]
 
         tr_param_names = ['idxs'] + [param.name for param in self.signature.parameters.values()]
-        self.snippet = Snippet(template_def(tr_param_names, code), render_kwds=render_kwds)
+        self.snippet = Snippet(template_def(tr_param_names, code), render_globals=render_kwds or {})
 
 
 class Node:

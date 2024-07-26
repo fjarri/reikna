@@ -8,8 +8,8 @@ Usage of computations
 =====================
 
 All ``reikna`` computation classes are derived from the :py:class:`~reikna.core.Computation` class and therefore share the same API and behavior.
-A computation object is an opaque typed function-like object containing all the information necessary to generate GPU kernels that implement some algorithm, along with necessary internal temporary and persistent memory buffers.
-Before use it needs to be compiled by calling :py:meth:`~reikna.core.Computation.compile` for a given :py:class:`~reikna.cluda.api.Thread` (thus using its associated device and queue).
+A computation object is an opaque typed function-like object containing all the information necessary to generate GPU kernels that implement some algorithm, along with necessary internal persistent memory buffers.
+Before use it needs to be compiled by calling :py:meth:`~reikna.core.Computation.compile` for a given :py:class:`grunnur.Device`.
 This method returns a :py:class:`~reikna.core.computation.ComputationCallable` object which takes GPU arrays and scalar parameters and calls its internal kernels.
 
 
@@ -39,11 +39,8 @@ As an example, let us consider a pure parallel computation object with one outpu
 
 .. testcode:: transformation_example
 
-    from __future__ import print_function
     import numpy
 
-    from reikna import cluda
-    from reikna.cluda import Snippet
     from reikna.core import Transformation, Type, Annotation, Parameter
     from reikna.algorithms import PureParallel
     import reikna.transformations as transformations
@@ -79,9 +76,9 @@ The computation signature is:
 
     >>> for param in comp.signature.parameters.values():
     ...     print(param.name + ":" + repr(param.annotation))
-    out:Annotation(Type(complex64, shape=(128,), strides=(8,)), role='o')
-    in1:Annotation(Type(complex64, shape=(128,), strides=(8,)), role='i')
-    in2:Annotation(Type(complex64, shape=(128,), strides=(8,)), role='i')
+    out:Annotation(Type(complex64, shape=(128,)), role='o')
+    in1:Annotation(Type(complex64, shape=(128,)), role='i')
+    in2:Annotation(Type(complex64, shape=(128,)), role='i')
     param:Annotation(float32)
 
 Now let us attach the transformation to the output which will split it into two halves: ``out1 = out / 2``, ``out2 = out / 2``:
@@ -119,10 +116,10 @@ But user-supplied parameters (``>>``) have changed, which can be also seen in th
 
     >>> for param in comp.signature.parameters.values():
     ...     print(param.name + ":" + repr(param.annotation))
-    out1:Annotation(Type(float32, shape=(128,), strides=(4,)), role='o')
-    out2:Annotation(Type(float32, shape=(128,), strides=(4,)), role='o')
-    in1:Annotation(Type(complex64, shape=(128,), strides=(8,)), role='i')
-    in2_prime:Annotation(Type(complex64, shape=(128,), strides=(8,)), role='i')
+    out1:Annotation(Type(float32, shape=(128,)), role='o')
+    out2:Annotation(Type(float32, shape=(128,)), role='o')
+    in1:Annotation(Type(complex64, shape=(128,)), role='i')
+    in2_prime:Annotation(Type(complex64, shape=(128,)), role='i')
     param2:Annotation(float32)
     param:Annotation(float32)
 
@@ -135,19 +132,20 @@ When ``prepare_for`` is called, the data types and shapes of the given arguments
 
 .. testcode:: transformation_example
 
-    api = cluda.ocl_api()
-    thr = api.Thread.create()
+    from grunnur import any_api, Context, Queue, Array
+    context = Context.from_devices([any_api.platforms[0].devices[0]])
+    queue = Queue(context.device)
 
     in1_t = comp.parameter.in1
     in2p_t = comp.parameter.in2_prime
 
-    out1 = thr.empty_like(comp.parameter.out1)
-    out2 = thr.empty_like(comp.parameter.out2)
-    in1 = thr.to_device(numpy.ones(in1_t.shape, in1_t.dtype))
-    in2_prime = thr.to_device(numpy.ones(in2p_t.shape, in2p_t.dtype))
+    out1 = Array.empty_like(queue.device, comp.parameter.out1)
+    out2 = Array.empty_like(queue.device, comp.parameter.out2)
+    in1 = Array.from_host(queue, numpy.ones(in1_t.shape, in1_t.dtype))
+    in2_prime = Array.from_host(queue, numpy.ones(in2p_t.shape, in2p_t.dtype))
 
-    c_comp = comp.compile(thr)
-    c_comp(out1, out2, in1, in2_prime, 4, 3)
+    c_comp = comp.compile(queue.device)
+    c_comp(queue, out1, out2, in1, in2_prime, 4, 3)
 
 
 Transformation restrictions

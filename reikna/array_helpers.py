@@ -1,14 +1,9 @@
-# FIXME: This module is a part of Array functionality, so it is located on CLUDA level,
-# but it requires some high-level Reikna functionality (computations and transformations).
-# So it is a bit of circular dependency.
-# Ideally, this should be moved to computation level, perhaps creating two versions of Array -
-# CLUDA level (without __setitem__) and Reikna level (with one).
-
 import numpy
 
-import reikna.cluda.dtypes as dtypes
+import grunnur.dtypes as dtypes
+import grunnur.functions as functions
+
 import reikna.transformations as transformations
-import reikna.cluda.functions as functions
 from reikna.algorithms import PureParallel
 from reikna.core import Type, Parameter, Annotation, Computation
 

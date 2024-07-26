@@ -17,7 +17,7 @@ import warnings
 import inspect
 import funcsigs
 
-from mako.template import Template
+from grunnur import Template
 
 
 class Graph:
@@ -85,21 +85,12 @@ def product(seq):
 
 
 def make_template(template, filename=False):
-    # Can't import submodules from reikna itself here, because it creates circular dependencies
-    # (computation modules have template_for() calls at the root level,
-    # so they get activated on import).
-    kwds = dict(
-        future_imports=['division'],
-        strict_undefined=True,
-        imports=['import numpy'])
-
     # Creating a template from a filename results in more comprehensible stack traces,
     # so we are taking advantage of this if possible.
     if filename:
-        kwds['filename'] = template
-        return Template(**kwds)
+        return Template.from_associated_file(template)
     else:
-        return Template(template, **kwds)
+        return Template.from_string(template)
 
 
 def template_from(template):
@@ -250,8 +241,7 @@ class ignore_integer_overflow():
 
     def __enter__(self):
         self.catch.__enter__()
-        warnings.filterwarnings("ignore", "overflow encountered in uint_scalars")
-        warnings.filterwarnings("ignore", "overflow encountered in ulong_scalars")
+        warnings.filterwarnings("ignore", "overflow encountered in scalar add")
 
     def __exit__(self, *args, **kwds):
         self.catch.__exit__(*args, **kwds)

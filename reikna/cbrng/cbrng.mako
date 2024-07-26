@@ -6,9 +6,9 @@
 
 ${kernel_declaration}
 {
-    VIRTUAL_SKIP_THREADS;
+    if (${static.skip}()) return;
 
-    const VSIZE_T idx = virtual_global_id(0);
+    const VSIZE_T idx = ${static.global_id}(0);
 
     ${bijection.module}Key key = ${keygen.module}key_from_int(idx);
 

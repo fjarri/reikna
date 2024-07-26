@@ -1,8 +1,8 @@
 import numpy
 
-from reikna.cluda import Module
+from grunnur import Module, dtypes
+
 import reikna.helpers as helpers
-from reikna.cluda import dtypes
 
 
 class KeyGenerator:
@@ -82,8 +82,8 @@ class KeyGenerator:
             for i in range(key_words32):
                 full_key['v'][i // 2] += key[i] << (32 if i % 2 == 0 else 0)
 
-        module = Module.create("""
-            WITHIN_KERNEL ${bijection.module}Key ${prefix}key_from_int(int idx)
+        module = Module.from_string("""
+            FUNCTION ${bijection.module}Key ${prefix}key_from_int(int idx)
             {
                 ${bijection.module}Key result;
 
@@ -98,7 +98,7 @@ class KeyGenerator:
                 return result;
             }
             """,
-            render_kwds=dict(
+            render_globals=dict(
                 bijection=bijection,
                 key=full_key))
 
@@ -110,5 +110,5 @@ class KeyGenerator:
         Uses the same algorithm as the module.
         """
         key = self._base_key.copy()
-        key['v'][-1] += dtypes.cast(key.dtype.fields['v'][0].base)(idx)
+        key['v'][-1] += numpy.asarray(idx, key.dtype.fields['v'][0].base)
         return key

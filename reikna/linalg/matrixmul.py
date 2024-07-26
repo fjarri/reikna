@@ -1,8 +1,7 @@
+from grunnur import dtypes, functions, VirtualSizeError
+
 import reikna.helpers as helpers
 from reikna.core import Computation, Parameter, Annotation, Type
-import reikna.cluda.dtypes as dtypes
-from reikna.cluda import OutOfResourcesError
-from reikna.cluda import functions
 
 TEMPLATE = helpers.template_for(__file__)
 
@@ -89,7 +88,7 @@ class MatrixMul(Computation):
 
             plan = plan_factory()
 
-            if block_width ** 2 > device_params.max_work_group_size:
+            if block_width ** 2 > device_params.max_total_local_size:
                 continue
 
             num_steps = helpers.min_blocks(self._convolution_size, block_width)
@@ -97,6 +96,7 @@ class MatrixMul(Computation):
             b_blocks = helpers.min_blocks(self._b_outer_size, block_width)
 
             render_kwds = dict(
+                dtypes=dtypes,
                 batched_a=(a_batch != 1),
                 batched_b=(b_batch != 1),
                 transposed_a=self._transposed_a,
@@ -119,7 +119,7 @@ class MatrixMul(Computation):
                         b_blocks * block_width),
                     local_size=(1, block_width, block_width),
                     render_kwds=render_kwds)
-            except OutOfResourcesError:
+            except VirtualSizeError:
                 continue
 
             return plan

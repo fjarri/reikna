@@ -6,21 +6,21 @@
 
 #define CONFLICT_FREE_OFFSET(n) ((n) >> ${log_num_banks})
 
-INLINE WITHIN_KERNEL ${ctype} predicate_op(${ctype} input1, ${ctype} input2)
+INLINE FUNCTION ${ctype} predicate_op(${ctype} input1, ${ctype} input2)
 {
     ${predicate.operation('input1', 'input2')}
 }
 
 ${kernel_declaration}
 {
-    VIRTUAL_SKIP_THREADS;
+    if (${static.skip}()) return;
 
     LOCAL_MEM ${ctype} temp[${wg_size + (wg_size >> log_num_banks)}];
 
-    VSIZE_T thid = virtual_local_id(1);
-    VSIZE_T batch_id = virtual_global_id(0);
-    VSIZE_T scan_id = virtual_global_id(1);
-    VSIZE_T wg_id = virtual_group_id(1);
+    VSIZE_T thid = ${static.local_id}(1);
+    VSIZE_T batch_id = ${static.global_id}(0);
+    VSIZE_T scan_id = ${static.global_id}(1);
+    VSIZE_T wg_id = ${static.group_id}(1);
     VSIZE_T global_offset = scan_id * ${seq_size};
 
     const ${ctype} empty = ${dtypes.c_constant(predicate.empty)};
@@ -152,10 +152,10 @@ ${kernel_declaration}
 
 ${kernel_declaration}
 {
-    VIRTUAL_SKIP_THREADS;
+    if (${static.skip}()) return;
 
-    VSIZE_T batch_id = virtual_global_id(0);
-    VSIZE_T scan_id = virtual_global_id(1);
+    VSIZE_T batch_id = ${static.global_id}(0);
+    VSIZE_T scan_id = ${static.global_id}(1);
 
     ${ctype} per_wg_result = ${per_wg_results.load_combined_idx(slices)}(batch_id, scan_id);
     ${ctype} wg_total = ${wg_totals.load_idx}(batch_id, scan_id / ${wg_size * seq_size});

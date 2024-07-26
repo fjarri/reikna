@@ -1,10 +1,10 @@
 <%def name="prepare_rfft_output(kernel_declaration, output, fft_results, A, B)">
 ${kernel_declaration}
 {
-    VIRTUAL_SKIP_THREADS;
+    if (${static.skip}()) return;
 
-    VSIZE_T batch_id = virtual_global_id(0);
-    VSIZE_T fft_id = virtual_global_id(1);
+    VSIZE_T batch_id = ${static.global_id}(0);
+    VSIZE_T fft_id = ${static.global_id}(1);
 
     int reverse_fft_id = fft_id == 0 ? 0 : ${N // 2} - fft_id;
 
@@ -34,10 +34,10 @@ ${kernel_declaration}
 <%def name="prepare_irfft_input(kernel_declaration, output, input, A, B)">
 ${kernel_declaration}
 {
-    VIRTUAL_SKIP_THREADS;
+    if (${static.skip}()) return;
 
-    VSIZE_T batch_id = virtual_global_id(0);
-    VSIZE_T fft_id = virtual_global_id(1);
+    VSIZE_T batch_id = ${static.global_id}(0);
+    VSIZE_T fft_id = ${static.global_id}(1);
 
     ${input.ctype} X = ${input.load_combined_idx(slices)}(batch_id, fft_id);
     ${input.ctype} X_rev = ${input.load_combined_idx(slices)}(batch_id, ${N // 2} - fft_id);

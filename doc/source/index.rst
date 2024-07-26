@@ -22,7 +22,7 @@ Community resources
 
 * `Issue tracker <http://github.com/fjarri/reikna/issues>`_, *ibid.*;
 
-* `Discussion forum <https://groups.google.com/d/forum/reikna>`_ on Google Groups.
+* `Discussion forum <https://github.com/fjarri/reikna/discussions>`_, *ibid.*
 
 ********
 Contents
@@ -32,7 +32,6 @@ Contents
    :maxdepth: 2
 
    introduction
-   tutorial-modules
    tutorial-basic
    tutorial-advanced
    api/index

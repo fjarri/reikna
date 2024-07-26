@@ -43,8 +43,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.mlab import specgram, window_hanning
 
-from reikna.cluda import any_api
-from reikna.cluda import dtypes, functions
+from grunnur import any_api, Array, Queue, Context, dtypes, functions
 from reikna.core import Computation, Transformation, Parameter, Annotation, Type
 from reikna.fft import FFT
 from reikna.algorithms import Transpose
@@ -69,7 +68,7 @@ def get_data():
     NFFT = 1024       # the length of the windowing segments
     Fs = int(1.0/dt)  # the sampling frequency
 
-    return x, dict(NFFT=NFFT, Fs=Fs, noverlap=900, pad_to=2048)
+    return x.astype(numpy.float32), dict(NFFT=NFFT, Fs=Fs, noverlap=900, pad_to=2048)
 
 
 def hanning_window(arr, NFFT):
@@ -101,6 +100,7 @@ def hanning_window(arr, NFFT):
         ${output.store_same}(${mul}(${input.load_same}, coeff));
         """,
         render_kwds=dict(
+            dtypes=dtypes,
             coeff_dtype=coeff_dtype, NFFT=NFFT,
             mul=functions.mul(arr.dtype, coeff_dtype)))
 
@@ -226,18 +226,18 @@ if __name__ == '__main__':
         aspect='auto',
         origin='lower')
 
-    api = any_api()
-    thr = api.Thread.create()
+    context = Context.from_devices([any_api.platforms[0].devices[0]])
+    queue = Queue(context.device)
 
     specgram_reikna = Spectrogram(
-        x, NFFT=params['NFFT'], noverlap=params['noverlap'], pad_to=params['pad_to']).compile(thr)
+        x, NFFT=params['NFFT'], noverlap=params['noverlap'], pad_to=params['pad_to']).compile(queue.device)
 
-    x_dev = thr.to_device(x)
-    spectre_dev = thr.empty_like(specgram_reikna.parameter.output)
-    specgram_reikna(spectre_dev, x_dev)
-    spectre_reikna = spectre_dev.get()
+    x_dev = Array.from_host(queue, x)
+    spectre_dev = Array.empty_like(queue.device, specgram_reikna.parameter.output)
+    specgram_reikna(queue, spectre_dev, x_dev)
+    spectre_reikna = spectre_dev.get(queue)
 
-    assert numpy.allclose(spectre, spectre_reikna)
+    assert numpy.allclose(spectre, spectre_reikna, atol=1e-4, rtol=1e-4)
 
     s = fig.add_subplot(2, 1, 2)
     im=s.imshow(

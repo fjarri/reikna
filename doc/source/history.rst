@@ -8,6 +8,8 @@ Release history
 
 * CHANGED: Bumped dependencies: ``numpy>=2``, ``mako>=1``, ``funcsigs>=1``, ``pyopencl>=2024``, ``pycuda>=2024``.
 
+* CHANGED: Moved the backend to ``grunnur``. All the ``cluda`` stuff is now there.
+
 
 0.8.0 (19 Jan 2023)
 ===================
@@ -531,7 +533,7 @@ Other stuff:
 
 * ADDED: ``reikna.elementwise.Elementwise`` now supports argument dependencies.
 
-* ADDED: Module support in CLUDA; see :ref:`tutorial-modules` for details.
+* ADDED: Module support in CLUDA; see ``tutorial-modules`` for details.
 
 * ADDED: :py:func:`~reikna.helpers.template_def`.
 

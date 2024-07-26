@@ -6,10 +6,10 @@
 %>
 ${kernel_declaration}
 {
-    VIRTUAL_SKIP_THREADS;
+    if (${static.skip}()) return;
 
     %for dim in range(dimensions):
-    VSIZE_T ${idx_names[dim]} = virtual_global_id(${dim});
+    VSIZE_T ${idx_names[dim]} = ${static.global_id}(${dim});
     %endfor
 
     %for dim in range(dimensions):
@@ -45,10 +45,10 @@ ${kernel_declaration}
 %>
 ${kernel_declaration}
 {
-    VIRTUAL_SKIP_THREADS;
+    if (${static.skip}()) return;
 
     %for dim in range(dimensions):
-    VSIZE_T ${idx_names[dim]} = virtual_global_id(${dim});
+    VSIZE_T ${idx_names[dim]} = ${static.global_id}(${dim});
     %endfor
 
     %for dim in range(dimensions):

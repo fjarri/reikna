@@ -5,6 +5,8 @@ import pytest
 import numpy
 from scipy.special import iv
 
+from grunnur import dtypes, Array, StaticKernel
+
 from helpers import *
 from .cbrng_ref import philox as philox_ref
 from .cbrng_ref import threefry as threefry_ref
@@ -15,7 +17,6 @@ from reikna.cbrng import CBRNG
 from reikna.cbrng.bijections import threefry, philox
 from reikna.cbrng.tools import KeyGenerator
 from reikna.cbrng.samplers import uniform_integer, uniform_float, normal_bm, gamma, vonmises
-import reikna.cluda.dtypes as dtypes
 
 
 def uniform_discrete_mean_and_std(min, max):
@@ -156,7 +157,7 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize('test_sampler_float', vals, ids=ids)
 
 
-def test_kernel_bijection(thr, test_bijection):
+def test_kernel_bijection(queue, test_bijection):
 
     size = 1000
     seed = 123
@@ -165,12 +166,13 @@ def test_kernel_bijection(thr, test_bijection):
     keygen = KeyGenerator.create(bijection, seed=seed, reserve_id_space=False)
     counters_ref = numpy.zeros(size, bijection.counter_dtype)
 
-    rng_kernel = thr.compile_static(
+    rng_kernel = StaticKernel([queue.device],
         """
         KERNEL void test(GLOBAL_MEM ${bijection.module}Counter *dest, int ctr)
         {
-            VIRTUAL_SKIP_THREADS;
-            const VSIZE_T idx = virtual_global_id(0);
+            if (${static.skip}()) return;
+
+            const VSIZE_T idx = ${static.global_id}(0);
 
             ${bijection.module}Key key = ${keygen.module}key_from_int(idx);
             ${bijection.module}Counter counter = ${bijection.module}make_counter_from_int(ctr);
@@ -179,22 +181,22 @@ def test_kernel_bijection(thr, test_bijection):
             dest[idx] = result;
         }
         """,
-        'test', size,
-        render_kwds=dict(bijection=bijection, keygen=keygen))
+        'test', (size,),
+        render_globals=dict(bijection=bijection, keygen=keygen))
 
-    dest = thr.array(size, bijection.counter_dtype)
+    dest = Array.empty(queue.device, (size,), bijection.counter_dtype)
 
-    rng_kernel(dest, numpy.int32(0))
+    rng_kernel(queue, dest, numpy.int32(0))
     dest_ref = test_bijection.reference(counters_ref, keygen.reference)
-    assert (dest.get() == dest_ref).all()
+    assert (dest.get(queue) == dest_ref).all()
 
-    rng_kernel(dest, numpy.int32(1))
+    rng_kernel(queue, dest, numpy.int32(1))
     counters_ref['v'][:,-1] = 1
     dest_ref = test_bijection.reference(counters_ref, keygen.reference)
-    assert (dest.get() == dest_ref).all()
+    assert (dest.get(queue) == dest_ref).all()
 
 
-def check_kernel_sampler(thr, sampler, ref):
+def check_kernel_sampler(queue, sampler, ref):
 
     size = 10000
     batch = 100
@@ -203,12 +205,12 @@ def check_kernel_sampler(thr, sampler, ref):
     bijection = sampler.bijection
     keygen = KeyGenerator.create(bijection, seed=seed)
 
-    rng_kernel = thr.compile_static(
+    rng_kernel = StaticKernel([queue.device],
         """
         KERNEL void test(GLOBAL_MEM ${ctype} *dest, int ctr_start)
         {
-            VIRTUAL_SKIP_THREADS;
-            const VSIZE_T idx = virtual_global_id(0);
+            if (${static.skip}()) return;
+            const VSIZE_T idx = ${static.global_id}(0);
 
             ${bijection.module}Key key = ${keygen.module}key_from_int(idx);
             ${bijection.module}Counter ctr = ${bijection.module}make_counter_from_int(ctr_start);
@@ -226,14 +228,14 @@ def check_kernel_sampler(thr, sampler, ref):
             }
         }
         """,
-        'test', size,
-        render_kwds=dict(
+        'test', (size,),
+        render_globals=dict(
             size=size, batch=batch, ctype=dtypes.ctype(sampler.dtype),
             bijection=bijection, keygen=keygen, sampler=sampler))
 
-    dest = thr.array((batch, sampler.randoms_per_call, size), sampler.dtype)
-    rng_kernel(dest, numpy.int32(0))
-    dest = dest.get()
+    dest = Array.empty(queue.device, (batch, sampler.randoms_per_call, size), sampler.dtype)
+    rng_kernel(queue, dest, numpy.int32(0))
+    dest = dest.get(queue)
 
     check_distribution(dest, ref)
 
@@ -279,59 +281,56 @@ def check_distribution(arr, ref):
         assert diff < 5 * v_std # about 1e-6 chance of fail
 
 
-def test_32_to_64_bit(thr):
+def test_32_to_64_bit(queue):
     bijection = philox(32, 4)
     ref = UniformIntegerHelper(0, 2**63-1)
     sampler = ref.get_sampler(bijection, numpy.uint64)
-    check_kernel_sampler(thr, sampler, ref)
+    check_kernel_sampler(queue, sampler, ref)
 
 
-def test_64_to_32_bit(thr):
+def test_64_to_32_bit(queue):
     bijection = philox(64, 4)
     ref = UniformIntegerHelper(0, 2**31-1)
     sampler = ref.get_sampler(bijection, numpy.uint32)
-    check_kernel_sampler(thr, sampler, ref)
+    check_kernel_sampler(queue, sampler, ref)
 
 
-def test_kernel_sampler_int(thr, test_sampler_int):
+def test_kernel_sampler_int(queue, test_sampler_int):
     bijection = philox(64, 4)
     check_kernel_sampler(
-        thr, test_sampler_int.get_sampler(bijection, numpy.int32), test_sampler_int)
+        queue, test_sampler_int.get_sampler(bijection, numpy.int32), test_sampler_int)
 
-def test_kernel_sampler_float(thr_and_double, test_sampler_float):
-    thr, double = thr_and_double
+def test_kernel_sampler_float(queue, test_sampler_float):
     bijection = philox(64, 4)
     check_kernel_sampler(
-        thr, test_sampler_float.get_sampler(bijection, double), test_sampler_float)
+        queue, test_sampler_float.get_sampler(bijection, False), test_sampler_float)
 
 
-def check_computation(thr, rng, ref):
-    dest_dev = thr.empty_like(rng.parameter.randoms)
+def check_computation(queue, rng, ref):
+    dest_dev = Array.empty_like(queue.device, rng.parameter.randoms)
     counters = rng.create_counters()
-    counters_dev = thr.to_device(counters)
-    rngc = rng.compile(thr)
+    counters_dev = Array.from_host(queue, counters)
+    rngc = rng.compile(queue.device)
 
-    rngc(counters_dev, dest_dev)
-    dest = dest_dev.get()
+    rngc(queue, counters_dev, dest_dev)
+    dest = dest_dev.get(queue)
     check_distribution(dest, ref)
 
 
-def test_computation_general(thr_and_double):
+def test_computation_general(queue):
 
     size = 10000
     batch = 101
 
-    thr, double = thr_and_double
-
     bijection = philox(64, 4)
     ref = NormalBMHelper(mean=-2, std=10)
-    sampler = ref.get_sampler(bijection, double)
+    sampler = ref.get_sampler(bijection, False)
 
     rng = CBRNG(Type(sampler.dtype, shape=(batch, size)), 1, sampler)
-    check_computation(thr, rng, ref)
+    check_computation(queue, rng, ref)
 
 
-def test_computation_convenience(thr):
+def test_computation_convenience(queue):
 
     size = 10000
     batch = 101
@@ -339,10 +338,10 @@ def test_computation_convenience(thr):
     ref = UniformIntegerHelper(0, 511)
     rng = CBRNG.uniform_integer(Type(numpy.int32, shape=(batch, size)), 1,
         sampler_kwds=dict(low=ref.extent[0], high=ref.extent[1]))
-    check_computation(thr, rng, ref)
+    check_computation(queue, rng, ref)
 
 
-def test_computation_uniqueness(thr):
+def test_computation_uniqueness(queue):
     """
     A regression test for the bug with a non-updating counter.
     """
@@ -352,43 +351,41 @@ def test_computation_uniqueness(thr):
 
     rng = CBRNG.normal_bm(Type(numpy.complex64, shape=(batch, size)), 1)
 
-    dest1_dev = thr.empty_like(rng.parameter.randoms)
-    dest2_dev = thr.empty_like(rng.parameter.randoms)
+    dest1_dev = Array.empty_like(queue.device, rng.parameter.randoms)
+    dest2_dev = Array.empty_like(queue.device, rng.parameter.randoms)
     counters = rng.create_counters()
-    counters_dev = thr.to_device(counters)
-    rngc = rng.compile(thr)
+    counters_dev = Array.from_host(queue, counters)
+    rngc = rng.compile(queue.device)
 
-    rngc(counters_dev, dest1_dev)
-    rngc(counters_dev, dest2_dev)
+    rngc(queue, counters_dev, dest1_dev)
+    rngc(queue, counters_dev, dest2_dev)
 
-    assert not diff_is_negligible(dest1_dev.get(), dest2_dev.get(), verbose=False)
+    assert not diff_is_negligible(dest1_dev.get(queue), dest2_dev.get(queue), verbose=False)
 
 
 @pytest.mark.perf
 @pytest.mark.returns('GB/s')
-def test_computation_performance(thr_and_double, fast_math, test_sampler_float):
-
-    thr, double = thr_and_double
+def test_computation_performance(queue, fast_math, test_sampler_float):
 
     size = 2 ** 15
     batch = 2 ** 6
 
     bijection = philox(64, 4)
-    sampler = test_sampler_float.get_sampler(bijection, double)
+    sampler = test_sampler_float.get_sampler(bijection, False)
 
     rng = CBRNG(Type(sampler.dtype, shape=(batch, size)), 1, sampler)
 
-    dest_dev = thr.empty_like(rng.parameter.randoms)
+    dest_dev = Array.empty_like(queue.device, rng.parameter.randoms)
     counters = rng.create_counters()
-    counters_dev = thr.to_device(counters)
-    rngc = rng.compile(thr, fast_math=fast_math)
+    counters_dev = Array.from_host(queue.device, counters)
+    rngc = rng.compile(queue.device, fast_math=fast_math)
 
     attempts = 10
     times = []
     for i in range(attempts):
         t1 = time.time()
-        rngc(counters_dev, dest_dev)
-        thr.synchronize()
+        rngc(queue, counters_dev, dest_dev)
+        queue.synchronize()
         times.append(time.time() - t1)
 
     byte_size = size * batch * sampler.dtype.itemsize

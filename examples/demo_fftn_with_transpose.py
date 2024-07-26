@@ -15,7 +15,7 @@ import time
 
 import numpy
 
-from reikna.cluda import any_api
+from grunnur import any_api, Context, Queue, Array
 from reikna.core import Computation, Parameter, Annotation
 from reikna.fft import FFT
 from reikna.algorithms import Transpose
@@ -109,10 +109,10 @@ class FFTWithTranspose(Computation):
 
 if __name__ == '__main__':
 
-    api = any_api()
-    thr = api.Thread.create()
+    context = Context.from_devices([any_api.platforms[0].devices[0]])
+    queue = Queue(context.device)
 
-    dtype = numpy.complex128
+    dtype = numpy.complex64
 
     shape = (1024, 16, 16, 16)
     axes = (1, 2, 3)
@@ -121,25 +121,25 @@ if __name__ == '__main__':
     data = data.astype(dtype)
 
     fft = FFT(data, axes=axes)
-    fftc = fft.compile(thr)
+    fftc = fft.compile(queue.device)
 
     fft2 = FFTWithTranspose(data, axes=axes)
-    fft2c = fft2.compile(thr)
+    fft2c = fft2.compile(queue.device)
 
-    data_dev = thr.to_device(data)
-    res_dev = thr.empty_like(data_dev)
+    data_dev = Array.from_host(queue.device, data)
+    res_dev = Array.empty_like(queue.device, data_dev)
 
     for comp, tag in [(fftc, "original FFT"), (fft2c, "transposition-based FFT")]:
         attempts = 10
         ts = []
         for i in range(attempts):
             t1 = time.time()
-            comp(res_dev, data_dev)
-            thr.synchronize()
+            comp(queue, res_dev, data_dev)
+            queue.synchronize()
             t2 = time.time()
             ts.append(t2 - t1)
 
         fwd_ref = numpy.fft.fftn(data, axes=axes).astype(dtype)
-        assert numpy.allclose(res_dev.get(), fwd_ref)
+        assert numpy.allclose(res_dev.get(queue), fwd_ref, atol=1e-4, rtol=1e-4)
 
         print(tag, min(ts), "s")

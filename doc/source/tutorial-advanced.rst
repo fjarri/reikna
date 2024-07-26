@@ -109,7 +109,7 @@ The second method is called when the computation is being compiled, and has to f
 In addition, the plan can include calls to nested computations.
 
 The method takes two predefined positional parameters, plus :py:class:`~reikna.core.computation.KernelArgument` objects corresponding to computation parameters.
-The ``plan_factory`` is a callable that creates a new :py:class:`~reikna.core.computation.ComputationPlan` object (in some cases you may want to recreate the plan, for example, if the workgroup size you were using turned out to be too big), and ``device_params`` is a :py:class:`~reikna.cluda.api.DeviceParameters` object, which is used to optimize the computation for the specific device.
+The ``plan_factory`` is a callable that creates a new :py:class:`~reikna.core.computation.ComputationPlan` object (in some cases you may want to recreate the plan, for example, if the workgroup size you were using turned out to be too big), and ``device_params`` is a :py:class:`grunnur.DeviceParams` object, which is used to optimize the computation for the specific device.
 The method must return a filled :py:class:`~reikna.core.computation.ComputationPlan` object.
 
 For our example we only need one action, which is the execution of an elementwise kernel:
@@ -124,8 +124,8 @@ For our example we only need one action, which is the execution of an elementwis
             <%def name='testcomp(kernel_declaration, k_output, k_input1, k_input2, k_param)'>
             ${kernel_declaration}
             {
-                VIRTUAL_SKIP_THREADS;
-                const VSIZE_T idx = virtual_global_id(0);
+                if (${static.skip}()) return;
+                const VSIZE_T idx = ${static.global_id}(0);
                 ${k_output.ctype} result =
                     ${k_input1.load_idx}(idx) +
                     ${mul}(${k_input2.load_idx}(idx), ${k_param});
@@ -143,8 +143,7 @@ For our example we only need one action, which is the execution of an elementwis
         return plan
 
 Every kernel call is based on the separate ``Mako`` template def.
-The template can be specified as a string using :py:func:`~reikna.helpers.template_def`, or loaded as a separate file.
-Usual pattern in this case is to call the template file same as the file where the computation class is defined (for example, ``testcomp.mako`` for ``testcomp.py``), and store it in some variable on module load using :py:func:`~reikna.helpers.template_for` as ``TEMPLATE = template_for(__file__)``.
+Usual pattern in this case is to call the template file same as the file where the computation class is defined (for example, ``testcomp.mako`` for ``testcomp.py``), and store it in some variable on module load using :py:func:`grunnur.Template.from_associated_file`.
 
 The template function should take the same number of positional arguments as the kernel plus one; you can view ``<%def ... >`` part as an actual kernel definition, but with the arguments being :py:class:`~reikna.core.transformation.KernelParameter` objects containing parameter metadata.
 The first argument will contain the string with the kernel declaration.
@@ -155,5 +154,5 @@ This will produce the corresponding request to the global memory or kernel argum
 If you need additional device functions, they have to be specified between ``<%def ... >`` and ``${kernel_declaration}``.
 Obviously, these functions can still use ``dtype`` and ``ctype`` object properties, although ``store_idx`` and ``load_idx`` will most likely result in compilation error (since they are rendered as macros using main kernel arguments).
 
-Since kernel call parameters (``global_size`` and ``local_size``) are specified on creation, all kernel calls are rendered as CLUDA static kernels (see :py:meth:`~reikna.cluda.api.Thread.compile_static`) and therefore can use all the corresponding macros and functions (like :c:func:`virtual_global_flat_id` in our kernel).
-Also, they must have :c:macro:`VIRTUAL_SKIP_THREADS` at the beginning of the kernel which remainder threads (which can be present, for example, if the workgroup size is not a multiple of the global size).
+Since kernel call parameters (``global_size`` and ``local_size``) are specified on creation, all kernel calls are rendered as :py:class:`grunnur.StaticKernel` and therefore can use all the corresponding macros and functions (specifically, the global ``static`` of type :py:class:`grunnur.vsize.VsizeModules`).
+Note that you must use :py:attr:`grunnur.vsize.VsizeModules.skip` as in the example above to skip the empty threads (which can be present, for example, if the workgroup size is not a multiple of the global size).

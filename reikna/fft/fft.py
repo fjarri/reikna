@@ -1,10 +1,9 @@
 import numpy
 
+from grunnur import functions, dtypes, VirtualSizeError
+
 import reikna.helpers as helpers
 from reikna.core import Computation, Parameter, Annotation
-from reikna.cluda import functions
-import reikna.cluda.dtypes as dtypes
-from reikna.cluda import OutOfResourcesError
 from reikna.algorithms import PureParallel
 from reikna.transformations import copy
 
@@ -208,7 +207,7 @@ def get_kweights(size_real, size_bound):
 def get_common_kwds(dtype, device_params):
     return dict(
         dtype=dtype,
-        min_mem_coalesce_width=device_params.min_mem_coalesce_width[dtype.itemsize],
+        min_mem_coalesce_width=device_params.align_words(dtype.itemsize),
         local_mem_banks=device_params.local_mem_banks,
         get_padding=get_padding,
         wrap_const=lambda x: dtypes.c_constant(x, dtypes.real_for(dtype)),
@@ -259,7 +258,7 @@ class LocalFFTKernel:
         threads_per_xform = fft_size // radix_array[0]
         local_size = max(64, threads_per_xform)
         if local_size > max_local_size:
-            raise OutOfResourcesError
+            raise VirtualSizeError
         xforms_per_workgroup = local_size // threads_per_xform
         workgroups_num = helpers.min_blocks(self._outer_batch, xforms_per_workgroup)
 
@@ -268,9 +267,10 @@ class LocalFFTKernel:
             kwds['local_mem_banks'], kwds['min_mem_coalesce_width'])
 
         if lmem_size * self._itemsize // 2 > self._local_mem_size:
-            raise OutOfResourcesError
+            raise VirtualSizeError
 
         kwds.update(dict(
+            dtypes=dtypes,
             fft_size=fft_size, fft_size_real=self._fft_size_real, radix_arr=radix_array,
             lmem_size=lmem_size, threads_per_xform=threads_per_xform,
             xforms_per_workgroup=xforms_per_workgroup,
@@ -349,10 +349,11 @@ class GlobalFFTKernel:
                 lmem_size = local_size * radix1
 
         if lmem_size * self._itemsize // 2 > self._local_mem_size:
-            raise OutOfResourcesError
+            raise VirtualSizeError
 
         kwds.update(self._constant_kwds)
         kwds.update(dict(
+            dtypes=dtypes,
             fft_size=self._fft_size, curr_size=self._curr_size, fft_size_real=self._fft_size_real,
             pass_num=self._pass_num,
             lmem_size=lmem_size, local_batch=local_batch, local_size=local_size,
@@ -543,15 +544,15 @@ class FFT(Computation):
             argnames = [mem_out, mem_in] + kweights_arg + [inverse]
 
             # Try to find local size for each of the kernels
-            local_size = device_params.max_work_group_size
+            local_size = device_params.max_total_local_size
             while local_size >= 1:
                 try:
                     gsize, lsize, kwds = kernel.prepare_for(local_size)
                     plan.kernel_call(
                         TEMPLATE.get_def(kernel.name), argnames,
                         kernel_name="kernel_fft",
-                        global_size=gsize, local_size=lsize, render_kwds=kwds)
-                except OutOfResourcesError:
+                        global_size=(gsize,), local_size=(lsize,), render_kwds=kwds)
+                except VirtualSizeError:
                     if isinstance(kernel, GlobalFFTKernel):
                         local_size //= 2
                         continue
@@ -570,10 +571,10 @@ class FFT(Computation):
 
         # While resource consumption of GlobalFFTKernel can be made lower by passing
         # lower value to prepare_for(), LocalFFTKernel may have to be split into several kernels.
-        # Therefore, if GlobalFFTKernel.prepare_for() raises OutOfResourcesError,
+        # Therefore, if GlobalFFTKernel.prepare_for() raises VirtualSizeError,
         # we just call prepare_for() with lower limit, but if LocalFFTKernel.prepare_for()
         # does that, we have to recreate the whole chain.
-        local_kernel_limit = device_params.max_work_group_size
+        local_kernel_limit = device_params.max_total_local_size
 
         while local_kernel_limit >= 1:
             try:

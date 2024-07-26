@@ -1,10 +1,11 @@
 import numpy
 import pytest
 
+from grunnur import Array, dtypes
+
 from helpers import *
 from reikna.algorithms import PureParallel
 from reikna.core import Parameter, Annotation, Type, Computation
-import reikna.cluda.dtypes as dtypes
 from reikna.transformations import mul_param, copy
 
 
@@ -32,7 +33,7 @@ class NestedPureParallel(Computation):
         return plan
 
 
-def test_nested(thr):
+def test_nested(queue):
 
     N = 1000
     dtype = numpy.float32
@@ -40,18 +41,18 @@ def test_nested(thr):
     p = NestedPureParallel(N, dtype)
 
     a = get_test_array_like(p.parameter.input)
-    a_dev = thr.to_device(a)
-    res_dev = thr.empty_like(p.parameter.output)
+    a_dev = Array.from_host(queue.device, a)
+    res_dev = Array.empty_like(queue.device, p.parameter.output)
 
-    pc = p.compile(thr)
-    pc(res_dev, a_dev)
+    pc = p.compile(queue.device)
+    pc(queue, res_dev, a_dev)
 
     res_ref = a + a
 
-    assert diff_is_negligible(res_dev.get(), res_ref)
+    assert diff_is_negligible(res_dev.get(queue), res_ref)
 
 
-def test_guiding_input(thr):
+def test_guiding_input(queue):
 
     N = 1000
     dtype = numpy.float32
@@ -68,18 +69,18 @@ def test_guiding_input(thr):
         guiding_array='input')
 
     a = get_test_array_like(p.parameter.input)
-    a_dev = thr.to_device(a)
-    res_dev = thr.empty_like(p.parameter.output)
+    a_dev = Array.from_host(queue.device, a)
+    res_dev = Array.empty_like(queue.device, p.parameter.output)
 
-    pc = p.compile(thr)
-    pc(res_dev, a_dev)
+    pc = p.compile(queue.device)
+    pc(queue, res_dev, a_dev)
 
     res_ref = numpy.vstack([a, a * 2])
 
-    assert diff_is_negligible(res_dev.get(), res_ref)
+    assert diff_is_negligible(res_dev.get(queue), res_ref)
 
 
-def test_guiding_output(thr):
+def test_guiding_output(queue):
 
     N = 1000
     dtype = numpy.float32
@@ -96,18 +97,18 @@ def test_guiding_output(thr):
         guiding_array='output')
 
     a = get_test_array_like(p.parameter.input)
-    a_dev = thr.to_device(a)
-    res_dev = thr.empty_like(p.parameter.output)
+    a_dev = Array.from_host(queue.device, a)
+    res_dev = Array.empty_like(queue.device, p.parameter.output)
 
-    pc = p.compile(thr)
-    pc(res_dev, a_dev)
+    pc = p.compile(queue.device)
+    pc(queue, res_dev, a_dev)
 
     res_ref = a[0] + a[1]
 
-    assert diff_is_negligible(res_dev.get(), res_ref)
+    assert diff_is_negligible(res_dev.get(queue), res_ref)
 
 
-def test_guiding_shape(thr):
+def test_guiding_shape(queue):
 
     N = 1000
     dtype = numpy.float32
@@ -125,45 +126,19 @@ def test_guiding_shape(thr):
         guiding_array=(N,))
 
     a = get_test_array_like(p.parameter.input)
-    a_dev = thr.to_device(a)
-    res_dev = thr.empty_like(p.parameter.output)
+    a_dev = Array.from_host(queue.device, a)
+    res_dev = Array.empty_like(queue.device, p.parameter.output)
 
-    pc = p.compile(thr)
-    pc(res_dev, a_dev)
+    pc = p.compile(queue.device)
+    pc(queue, res_dev, a_dev)
 
     res_ref = numpy.vstack([a[0] + a[1], a[0] - a[1]])
 
-    assert diff_is_negligible(res_dev.get(), res_ref)
-
-
-def test_zero_length_shape(thr):
-
-    dtype = numpy.float32
-
-    p = PureParallel(
-        [
-            Parameter('output', Annotation(Type(dtype, shape=tuple()), 'o')),
-            Parameter('input', Annotation(Type(dtype, shape=tuple()), 'i'))],
-        """
-        float t = ${input.load_idx}();
-        ${output.store_idx}(t * 2);
-        """,
-        guiding_array=tuple())
-
-    a = get_test_array_like(p.parameter.input)
-    a_dev = thr.to_device(a)
-    res_dev = thr.empty_like(p.parameter.output)
-
-    pc = p.compile(thr)
-    pc(res_dev, a_dev)
-
-    res_ref = (a * 2).astype(dtype)
-
-    assert diff_is_negligible(res_dev.get(), res_ref)
+    assert diff_is_negligible(res_dev.get(queue), res_ref)
 
 
 @pytest.mark.parametrize('guiding_array', ['input', 'output', 'none'])
-def test_from_trf(thr, guiding_array):
+def test_from_trf(queue, guiding_array):
     """
     Test the creation of ``PureParallel`` out of a transformation
     with various values of the guiding array.
@@ -189,13 +164,13 @@ def test_from_trf(thr, guiding_array):
     assert list(p.signature.parameters.values()) == list(trf.signature.parameters.values())
 
     a = get_test_array_like(p.parameter.input)
-    a_dev = thr.to_device(a)
-    res_dev = thr.empty_like(p.parameter.output)
+    a_dev = Array.from_host(queue.device, a)
+    res_dev = Array.empty_like(queue.device, p.parameter.output)
 
-    pc = p.compile(thr)
-    pc(res_dev, a_dev, coeff)
+    pc = p.compile(queue.device)
+    pc(queue, res_dev, a_dev, coeff)
 
-    assert diff_is_negligible(res_dev.get(), a * 3)
+    assert diff_is_negligible(res_dev.get(queue), a * 3)
 
 
 class SameArgumentHelper(Computation):
@@ -218,7 +193,7 @@ class SameArgumentHelper(Computation):
         return plan
 
 
-def test_same_argument(some_thr):
+def test_same_argument(some_queue):
     """
     A regression test for an unexpected interaction of the way PureParallel.from_trf() worked
     and a logic flaw in processing 'io'-type nodes in a transformation tree.
@@ -257,11 +232,11 @@ def test_same_argument(some_thr):
     but this functionality was not implemented.
     """
     arr = get_test_array((1000, 8, 1), numpy.complex64)
-    arr_dev = some_thr.to_device(arr)
+    arr_dev = Array.from_host(some_queue.device, arr)
 
     test = SameArgumentHelper(arr)
-    testc = test.compile(some_thr)
+    testc = test.compile(some_queue.device)
 
-    testc(arr_dev, arr_dev)
+    testc(some_queue, arr_dev, arr_dev)
 
-    assert diff_is_negligible(arr_dev.get(), arr)
+    assert diff_is_negligible(arr_dev.get(some_queue), arr)

@@ -6,15 +6,14 @@ This example illustrates how to:
 """
 
 import numpy
-from reikna.cluda import dtypes, any_api
+from grunnur import dtypes, any_api, Array, Queue, Context, Snippet
 from reikna.algorithms import Reduce, Predicate
-from reikna.cluda import Snippet
 from reikna.core import Annotation, Type, Transformation, Parameter
 
 
-# Pick the first available GPGPU API and make a Thread on it.
-api = any_api()
-thr = api.Thread.create()
+# Pick the first available GPGPU API and make a queue on it.
+context = Context.from_devices([any_api.platforms[0].devices[0]])
+queue = Queue(context.device)
 
 
 # Minmax data type and the corresponding structure.
@@ -24,7 +23,7 @@ mmc_dtype = dtypes.align(numpy.dtype([
     ("cur_max", numpy.int32),
     ("pad", numpy.int32),
     ]))
-mmc_c_decl = dtypes.ctype_module(mmc_dtype)
+mmc_c_decl = dtypes.ctype(mmc_dtype)
 
 
 # Create the "empty" element for our minmax monoid, that is
@@ -37,7 +36,7 @@ empty["cur_max"] = -(1 << 30)
 # Reduction predicate for the minmax.
 # v1 and v2 get the names of two variables to be processed.
 predicate = Predicate(
-    Snippet.create(lambda v1, v2: """
+    Snippet.from_callable(lambda v1, v2: """
         ${ctype} result = ${v1};
         if (${v2}.cur_min < result.cur_min)
             result.cur_min = ${v2}.cur_min;
@@ -45,7 +44,7 @@ predicate = Predicate(
             result.cur_max = ${v2}.cur_max;
         return result;
         """,
-        render_kwds=dict(ctype=mmc_c_decl)),
+        render_globals=dict(ctype=mmc_c_decl)),
     empty)
 
 
@@ -68,14 +67,14 @@ to_mmc = Transformation(
 # Create the reduction computation and attach the transformation above to its input.
 reduction = Reduce(to_mmc.output, predicate)
 reduction.parameter.input.connect(to_mmc, to_mmc.output, new_input=to_mmc.input)
-creduction = reduction.compile(thr)
+creduction = reduction.compile(queue.device)
 
 
 # Run the computation
-arr_dev = thr.to_device(arr)
-res_dev = thr.empty_like(reduction.parameter.output)
-creduction(res_dev, arr_dev)
-minmax = res_dev.get()
+arr_dev = Array.from_host(queue, arr)
+res_dev = Array.empty_like(queue.device, reduction.parameter.output)
+creduction(queue, res_dev, arr_dev)
+minmax = res_dev.get(queue)
 
 assert minmax["cur_min"] == arr.min()
 assert minmax["cur_max"] == arr.max()

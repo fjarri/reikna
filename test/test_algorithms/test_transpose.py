@@ -2,6 +2,7 @@ import itertools
 
 import numpy
 import pytest
+from grunnur import Array
 
 from helpers import *
 
@@ -28,16 +29,16 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize('shape_and_axes', vals,
             ids=[str(shape) + "," + str(axes) for shape, axes in vals])
 
-def test_errors(thr, shape_and_axes):
+def test_errors(queue, shape_and_axes):
     shape, axes = shape_and_axes
     a = get_test_array(shape, numpy.int32)
-    a_dev = thr.to_device(a)
+    a_dev = Array.from_host(queue, a)
     res_ref = numpy.transpose(a, axes)
 
     tr = Transpose(a, axes=axes)
-    res_dev = thr.empty_like(tr.parameter.output)
+    res_dev = Array.empty_like(queue.device, tr.parameter.output)
 
-    tr = tr.compile(thr)
-    tr(res_dev, a_dev)
+    tr = tr.compile(queue.device)
+    tr(queue, res_dev, a_dev)
 
-    assert diff_is_negligible(res_dev.get(), res_ref)
+    assert diff_is_negligible(res_dev.get(queue), res_ref)

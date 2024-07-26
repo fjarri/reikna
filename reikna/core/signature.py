@@ -1,8 +1,10 @@
 import funcsigs # backport of inspect.signature() and related objects for Py2
 import numpy
 
+from grunnur import Array
+import grunnur.dtypes as dtypes
+
 import reikna.helpers as helpers
-import reikna.cluda.dtypes as dtypes
 from reikna.helpers import wrap_in_tuple, product
 
 
@@ -40,8 +42,8 @@ class Type:
     def __init__(self, dtype, shape=None, strides=None, offset=0, nbytes=None):
         self.shape = tuple() if shape is None else wrap_in_tuple(shape)
         self.size = product(self.shape)
-        self.dtype = dtypes.normalize_type(dtype)
-        self.ctype = dtypes.ctype_module(self.dtype)
+        self.dtype = numpy.dtype(dtype)
+        self.ctype = dtypes.ctype(self.dtype)
 
         default_strides = helpers.default_strides(self.shape, self.dtype.itemsize)
         if strides is None:
@@ -58,7 +60,6 @@ class Type:
         self.nbytes = nbytes
 
         self.offset = offset
-        self._cast = dtypes.cast(self.dtype)
 
     def __eq__(self, other):
         return (
@@ -133,6 +134,10 @@ class Type:
             return cls(
                 val.dtype, shape=val.shape, strides=val.strides,
                 offset=val.offset, nbytes=val.nbytes)
+        elif isinstance(val, Array):
+            return cls(
+                val.dtype, shape=val.shape, strides=val.strides,
+                offset=val.first_element_offset, nbytes=val.buffer_size)
         elif isinstance(val, numpy.dtype) or (isinstance(val, type) and issubclass(val, numpy.generic)):
             return cls(val)
         elif hasattr(val, 'dtype') and hasattr(val, 'shape'):
@@ -150,7 +155,7 @@ class Type:
         Creates a :py:class:`Type` object corresponding to an array padded from all dimensions
         by `pad` elements.
         """
-        dtype = dtypes.normalize_type(dtype)
+        dtype = numpy.dtype(dtype)
         strides, offset, nbytes = helpers.padded_buffer_parameters(shape, dtype.itemsize, pad=pad)
         return cls(dtype, shape, strides=strides, offset=offset, nbytes=nbytes)
 
@@ -158,7 +163,7 @@ class Type:
         """
         Casts the given value to this type.
         """
-        return self._cast(val)
+        return numpy.asarray(val, dtype=self.dtype)
 
     def __repr__(self):
         if len(self.shape) > 0 or self.offset != 0:

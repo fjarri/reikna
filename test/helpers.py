@@ -1,8 +1,9 @@
 import numpy
 from numpy.lib.stride_tricks import as_strided
 
+from grunnur import dtypes
+
 from reikna.helpers import wrap_in_tuple
-from reikna.cluda import dtypes
 
 
 # Default tolerances for numpy.allclose().
@@ -22,7 +23,7 @@ def get_test_array_like(arr, **kwds):
 
 def get_test_array(shape, dtype, strides=None, offset=0, no_zeros=False, high=None):
     shape = wrap_in_tuple(shape)
-    dtype = dtypes.normalize_type(dtype)
+    dtype = numpy.dtype(dtype)
 
     if offset != 0:
         raise NotImplementedError()

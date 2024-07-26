@@ -5,14 +5,14 @@ This example illustrates how to:
 """
 
 import numpy
-from reikna.cluda import dtypes, any_api
+from grunnur import any_api, Array, Queue, Context, dtypes
 from reikna.fft import FFT
 from reikna.core import Annotation, Type, Transformation, Parameter
 
 
-# Pick the first available GPGPU API and make a Thread on it.
-api = any_api()
-thr = api.Thread.create()
+# Pick the first available GPGPU API and make a queue on it.
+context = Context.from_devices([any_api.platforms[0].devices[0]])
+queue = Queue(context.device)
 
 
 # A transformation that transforms a real array to a complex one
@@ -38,14 +38,14 @@ trf = get_complex_trf(arr)
 # Create the FFT computation and attach the transformation above to its input.
 fft = FFT(trf.output) # (A shortcut: using the array type saved in the transformation)
 fft.parameter.input.connect(trf, trf.output, new_input=trf.input)
-cfft = fft.compile(thr)
+cfft = fft.compile(queue.device)
 
 
 # Run the computation
-arr_dev = thr.to_device(arr)
-res_dev = thr.array(arr.shape, numpy.complex64)
-cfft(res_dev, arr_dev)
-result = res_dev.get()
+arr_dev = Array.from_host(queue, arr)
+res_dev = Array.empty(queue.device, arr.shape, numpy.complex64)
+cfft(queue, res_dev, arr_dev)
+result = res_dev.get(queue)
 
 reference = numpy.fft.fft(arr)
 
