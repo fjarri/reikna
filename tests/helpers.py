@@ -1,10 +1,8 @@
 import numpy
+from grunnur import dtypes
 from numpy.lib.stride_tricks import as_strided
 
-from grunnur import dtypes
-
 from reikna.helpers import wrap_in_tuple
-
 
 # Default tolerances for numpy.allclose().
 # Should be enough to detect a error, but not enough to trigger a fail

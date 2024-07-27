@@ -3,14 +3,12 @@ Test standard transformations
 """
 
 import pytest
+from grunnur import Array, Snippet
 
-from grunnur import Snippet, Array
-
-from reikna.algorithms import PureParallel
 import reikna.transformations as tr
-from reikna.core import Parameter, Annotation, Type
-
 from helpers import *
+from reikna.algorithms import PureParallel
+from reikna.core import Annotation, Parameter, Type
 
 
 def pytest_generate_tests(metafunc):

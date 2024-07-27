@@ -3,13 +3,11 @@ import time
 
 import numpy
 import pytest
-
 from grunnur import Array, dtypes
 
 from helpers import *
-
-from reikna.helpers import product
 from reikna.fft import FFT
+from reikna.helpers import product
 from reikna.transformations import mul_param
 
 

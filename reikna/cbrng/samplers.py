@@ -1,5 +1,4 @@
 import numpy
-
 from grunnur import Module, dtypes, functions
 
 import reikna.helpers as helpers

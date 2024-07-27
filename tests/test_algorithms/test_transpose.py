@@ -5,7 +5,6 @@ import pytest
 from grunnur import Array
 
 from helpers import *
-
 from reikna.algorithms import Transpose
 
 

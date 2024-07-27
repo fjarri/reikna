@@ -2,18 +2,18 @@ import weakref
 
 from grunnur import Snippet
 
-from reikna.helpers import template_def
-from reikna.core.signature import Signature, Type, Parameter, Annotation
-from reikna.core.transformation_modules import (
+from ..core.signature import Annotation, Parameter, Signature, Type
+from ..core.transformation_modules import (
+    index_cnames,
+    kernel_declaration,
     leaf_name,
-    node_connector,
-    module_transformation,
+    module_combined,
     module_leaf_macro,
     module_same_indices,
-    module_combined,
-    kernel_declaration,
-    index_cnames,
+    module_transformation,
+    node_connector,
 )
+from ..helpers import template_def
 
 
 class TransformationParameter(Type):

@@ -1,6 +1,5 @@
 import numpy
 import pytest
-
 from grunnur import Array
 
 from helpers import *

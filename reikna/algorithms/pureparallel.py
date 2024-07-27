@@ -1,8 +1,8 @@
 from grunnur import Snippet
 
-import reikna.helpers as helpers
-from reikna.core import Computation, Indices, Parameter, Annotation
-from reikna.core.transformation import TransformationParameter
+from .. import helpers
+from ..core import Annotation, Computation, Indices, Parameter
+from ..core.transformation import TransformationParameter
 
 
 class PureParallel(Computation):

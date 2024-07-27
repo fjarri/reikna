@@ -1,11 +1,9 @@
 import pytest
-
 from grunnur import Array, Queue
 
-from reikna.helpers import template_from
-from reikna.core import Computation, Parameter, Annotation, Transformation, Type
-
 from helpers import *
+from reikna.core import Annotation, Computation, Parameter, Transformation, Type
+from reikna.helpers import template_from
 
 
 class Dummy(Computation):

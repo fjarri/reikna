@@ -1,11 +1,10 @@
+import grunnur.dtypes as dtypes
 import numpy
 
-import grunnur.dtypes as dtypes
-
-import reikna.helpers as helpers
-from reikna.core import Computation, Parameter, Annotation
-from reikna.algorithms import PureParallel
-from reikna.transformations import copy
+from .. import helpers
+from ..algorithms import PureParallel
+from ..core import Annotation, Computation, Parameter
+from ..transformations import copy
 
 TEMPLATE = helpers.template_for(__file__)
 

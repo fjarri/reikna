@@ -1,22 +1,21 @@
 import itertools
 import time
 
-import pytest
 import numpy
+import pytest
+from grunnur import Array, StaticKernel, dtypes
 from scipy.special import iv
 
-from grunnur import dtypes, Array, StaticKernel
-
 from helpers import *
-from .cbrng_ref import philox as philox_ref
-from .cbrng_ref import threefry as threefry_ref
-
+from reikna.cbrng import CBRNG
+from reikna.cbrng.bijections import philox, threefry
+from reikna.cbrng.samplers import gamma, normal_bm, uniform_float, uniform_integer, vonmises
+from reikna.cbrng.tools import KeyGenerator
 from reikna.core import Type
 from reikna.helpers import product
-from reikna.cbrng import CBRNG
-from reikna.cbrng.bijections import threefry, philox
-from reikna.cbrng.tools import KeyGenerator
-from reikna.cbrng.samplers import uniform_integer, uniform_float, normal_bm, gamma, vonmises
+
+from .cbrng_ref import philox as philox_ref
+from .cbrng_ref import threefry as threefry_ref
 
 
 def uniform_discrete_mean_and_std(min, max):

@@ -1,9 +1,8 @@
+import grunnur.functions as functions
 import numpy
 
-import grunnur.functions as functions
-
-from reikna.helpers import template_from, min_blocks, product
-from reikna.core import Computation, Parameter, Annotation, Transformation
+from reikna.core import Annotation, Computation, Parameter, Transformation
+from reikna.helpers import min_blocks, product, template_from
 
 
 # Output = Input * Parameter

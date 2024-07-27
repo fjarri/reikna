@@ -36,19 +36,18 @@ will change the shape of the array. Currently such transformations can only be l
 transformation tree, so we will have to swap the cropping step and the spectrum calculating step.
 """
 
-import numpy
-
 import matplotlib
+import numpy
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from grunnur import Array, Context, Queue, any_api, dtypes, functions
 from matplotlib.mlab import specgram, window_hanning
 
-from grunnur import any_api, Array, Queue, Context, dtypes, functions
-from reikna.core import Computation, Transformation, Parameter, Annotation, Type
-from reikna.fft import FFT
-from reikna.algorithms import Transpose
 import reikna.transformations as transformations
+from reikna.algorithms import Transpose
+from reikna.core import Annotation, Computation, Parameter, Transformation, Type
+from reikna.fft import FFT
 
 
 def get_data():

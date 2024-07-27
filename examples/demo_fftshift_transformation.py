@@ -11,12 +11,12 @@ single computation with a transformation against ``numpy`` implementation.
 """
 
 import time
+
 import numpy
+from grunnur import Array, Context, Queue, any_api
 
-from grunnur import any_api, Context, Queue, Array
+from reikna.core import Annotation, Parameter, Transformation, Type
 from reikna.fft import FFT, FFTShift
-
-from reikna.core import Transformation, Parameter, Annotation, Type
 
 
 def fftshift(arr_t, axes=None):

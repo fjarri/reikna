@@ -14,11 +14,11 @@ because it will greatly simplify the FFT computation.
 import time
 
 import numpy
+from grunnur import Array, Context, Queue, any_api
 
-from grunnur import any_api, Context, Queue, Array
-from reikna.core import Computation, Parameter, Annotation
-from reikna.fft import FFT
 from reikna.algorithms import Transpose
+from reikna.core import Annotation, Computation, Parameter
+from reikna.fft import FFT
 
 
 class FFTWithTranspose(Computation):

@@ -1,6 +1,6 @@
-from reikna.core import Computation, Parameter, Annotation, Type
-from reikna.transformations import norm_const
-from reikna.algorithms import Reduce, predicate_sum
+from ..algorithms import Reduce, predicate_sum
+from ..core import Annotation, Computation, Parameter, Type
+from ..transformations import norm_const
 
 
 class EntrywiseNorm(Computation):

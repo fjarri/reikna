@@ -1,6 +1,5 @@
 import numpy
 import pytest
-
 from grunnur import Array, Queue
 
 from helpers import *

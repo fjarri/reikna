@@ -38,8 +38,8 @@ Predicates
 .. autofunction:: predicate_sum
 """
 
-from reikna.algorithms.pureparallel import PureParallel
-from reikna.algorithms.transpose import Transpose
-from reikna.algorithms.reduce import Reduce
-from reikna.algorithms.scan import Scan
-from reikna.algorithms.predicates import Predicate, predicate_sum
+from .predicates import Predicate, predicate_sum
+from .pureparallel import PureParallel
+from .reduce import Reduce
+from .scan import Scan
+from .transpose import Transpose

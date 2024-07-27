@@ -6,10 +6,10 @@ This example illustrates how to:
 """
 
 import numpy
-from grunnur import dtypes, any_api, Array, Queue, Context, Snippet
-from reikna.algorithms import Reduce, Predicate
-from reikna.core import Annotation, Type, Transformation, Parameter
+from grunnur import Array, Context, Queue, Snippet, any_api, dtypes
 
+from reikna.algorithms import Predicate, Reduce
+from reikna.core import Annotation, Parameter, Transformation, Type
 
 # Pick the first available GPGPU API and make a queue on it.
 context = Context.from_devices([any_api.platforms[0].devices[0]])

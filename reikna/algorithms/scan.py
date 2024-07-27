@@ -1,10 +1,9 @@
 import numpy
-
 from grunnur import Snippet, dtypes
 
-import reikna.helpers as helpers
-from reikna.core import Computation, Parameter, Annotation, Type
-from reikna.algorithms import Transpose
+from .. import helpers
+from ..core import Annotation, Computation, Parameter, Type
+from .transpose import Transpose
 
 TEMPLATE = helpers.template_for(__file__)
 

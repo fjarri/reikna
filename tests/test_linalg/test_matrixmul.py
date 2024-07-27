@@ -1,13 +1,12 @@
 import time
+
 import numpy
 import pytest
-
-from grunnur import dtypes, Array
+from grunnur import Array, dtypes
 
 from helpers import *
-
-from reikna.linalg import MatrixMul
 from reikna.helpers import product
+from reikna.linalg import MatrixMul
 
 
 def pytest_generate_tests(metafunc):

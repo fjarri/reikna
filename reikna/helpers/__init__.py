@@ -4,19 +4,18 @@ This module contains various auxiliary functions which are used throughout the l
 
 from __future__ import division
 
+import collections
 import functools
 import itertools
-import collections
 import sys
 
 if sys.version_info[0] >= 3:
     from collections.abc import Iterable
 else:
     from collections import Iterable
+import inspect
 import os.path
 import warnings
-import inspect
-import inspect
 
 from grunnur import Template
 

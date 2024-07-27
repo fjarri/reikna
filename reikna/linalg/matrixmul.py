@@ -1,7 +1,7 @@
-from grunnur import dtypes, functions, VirtualSizeError
+from grunnur import VirtualSizeError, dtypes, functions
 
-import reikna.helpers as helpers
-from reikna.core import Computation, Parameter, Annotation, Type
+from .. import helpers
+from ..core import Annotation, Computation, Parameter, Type
 
 TEMPLATE = helpers.template_for(__file__)
 

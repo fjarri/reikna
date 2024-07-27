@@ -1,15 +1,13 @@
-import time
 import itertools
+import time
 
 import numpy
 import pytest
-
-from grunnur import Snippet, dtypes, Array
+from grunnur import Array, Snippet, dtypes
 
 from helpers import *
-from reikna.algorithms import Reduce, Predicate, predicate_sum
+from reikna.algorithms import Predicate, Reduce, predicate_sum
 from reikna.helpers import template_def
-
 
 shapes = [
     (2,),

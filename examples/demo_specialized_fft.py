@@ -18,13 +18,12 @@ doi: 10.1109/TASSP.1979.1163235
 """
 
 import numpy
+from grunnur import Array, Context, Queue, any_api, dtypes, functions
 
-from reikna.fft import FFT
-
-from grunnur import any_api, Array, Queue, Context, functions, dtypes
 import reikna.helpers as helpers
-from reikna.core import Computation, Parameter, Annotation, Type, Transformation
 from reikna.algorithms import Reduce, Scan, predicate_sum
+from reikna.core import Annotation, Computation, Parameter, Transformation, Type
+from reikna.fft import FFT
 
 TEMPLATE = helpers.template_for(__file__)
 

@@ -2,12 +2,11 @@
 This module contains a number of pre-created transformations.
 """
 
-import numpy
-
 import grunnur.dtypes as dtypes
 import grunnur.functions as functions
+import numpy
 
-from reikna.core import Transformation, Parameter, Annotation, Type
+from .core import Annotation, Parameter, Transformation, Type
 
 
 def copy(arr_t, out_arr_t=None):

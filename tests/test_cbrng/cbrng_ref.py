@@ -9,12 +9,12 @@ It only guarantees to produce the same results as the original Random123.
 """
 
 from __future__ import print_function
+
 import sys
 
 import numpy
 
 from reikna.helpers import ignore_integer_overflow
-
 
 major, _, _, _, _ = sys.version_info
 if major < 3:

@@ -1,7 +1,5 @@
 import pytest
-
 from grunnur import Queue
-
 
 pytest_plugins = ["pytest_returnvalues"]
 

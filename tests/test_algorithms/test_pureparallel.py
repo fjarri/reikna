@@ -1,12 +1,11 @@
 import numpy
 import pytest
-
 from grunnur import Array, dtypes
 
 from helpers import *
 from reikna.algorithms import PureParallel
-from reikna.core import Parameter, Annotation, Type, Computation
-from reikna.transformations import mul_param, copy
+from reikna.core import Annotation, Computation, Parameter, Type
+from reikna.transformations import copy, mul_param
 
 
 class NestedPureParallel(Computation):

@@ -2,14 +2,11 @@ import time
 
 import numpy
 import pytest
+from grunnur import Array, Snippet, dtypes
 
-from grunnur import Snippet, dtypes, Array
-
-from reikna.algorithms import Scan, Predicate, predicate_sum
 import reikna.helpers as helpers
-
 from helpers import *
-
+from reikna.algorithms import Predicate, Scan, predicate_sum
 
 perf_shapes = [(1024 * 1024,), (1024 * 1024 * 8,), (1024 * 1024 * 64,)]
 

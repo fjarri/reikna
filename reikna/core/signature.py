@@ -1,11 +1,11 @@
 import inspect
-import numpy
 
-from grunnur import Array
 import grunnur.dtypes as dtypes
+import numpy
+from grunnur import Array
 
-import reikna.helpers as helpers
-from reikna.helpers import wrap_in_tuple, product
+from .. import helpers
+from ..helpers import product, wrap_in_tuple
 
 
 class Type:

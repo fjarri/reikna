@@ -1,7 +1,6 @@
 from grunnur import Module, Snippet
 
-import reikna.helpers as helpers
-
+from .. import helpers
 
 VALUE_NAME = "_val"
 INDEX_NAME = "_idx"

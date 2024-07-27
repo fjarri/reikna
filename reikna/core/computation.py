@@ -1,11 +1,11 @@
 import weakref
 from collections import namedtuple
 
-from grunnur import cuda_api_id, Array, StaticKernel, VirtualManager, Buffer
+from grunnur import Array, Buffer, StaticKernel, VirtualManager, cuda_api_id
 
-from reikna.helpers import Graph
-from reikna.core.signature import Parameter, Annotation, Type, Signature
-from reikna.core.transformation import TransformationTree, TransformationParameter
+from ..helpers import Graph
+from .signature import Annotation, Parameter, Signature, Type
+from .transformation import TransformationParameter, TransformationTree
 
 
 class ComputationParameter(Type):

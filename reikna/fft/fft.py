@@ -1,11 +1,10 @@
 import numpy
+from grunnur import VirtualSizeError, dtypes, functions
 
-from grunnur import functions, dtypes, VirtualSizeError
-
-import reikna.helpers as helpers
-from reikna.core import Computation, Parameter, Annotation
-from reikna.algorithms import PureParallel
-from reikna.transformations import copy
+from .. import helpers
+from ..algorithms import PureParallel
+from ..core import Annotation, Computation, Parameter
+from ..transformations import copy
 
 TEMPLATE = helpers.template_for(__file__)
 

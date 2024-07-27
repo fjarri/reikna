@@ -1,11 +1,10 @@
-import numpy
-
 import grunnur.dtypes as dtypes
 import grunnur.functions as functions
+import numpy
 
-import reikna.transformations as transformations
-from reikna.algorithms import PureParallel
-from reikna.core import Type, Parameter, Annotation, Computation
+from . import transformations
+from .algorithms import PureParallel
+from .core import Annotation, Computation, Parameter, Type
 
 
 def normalize_value(thr, gpu_array_type, val):

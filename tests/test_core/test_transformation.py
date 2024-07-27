@@ -1,16 +1,13 @@
 import numpy
 import pytest
-
-from grunnur import functions, Array
-
-from reikna.core import Parameter, Annotation, Transformation
-from reikna.core.signature import Type
-from reikna.algorithms import PureParallel
-from reikna import transformations
+from grunnur import Array, functions
 
 from helpers import *
+from reikna import transformations
+from reikna.algorithms import PureParallel
+from reikna.core import Annotation, Parameter, Transformation
+from reikna.core.signature import Type
 from test_core.dummy import *
-
 
 # Some transformations to use by tests
 

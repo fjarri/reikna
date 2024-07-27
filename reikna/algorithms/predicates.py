@@ -1,5 +1,4 @@
 import numpy
-
 from grunnur import Snippet
 
 
