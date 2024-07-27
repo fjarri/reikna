@@ -2,8 +2,6 @@
 This module contains various auxiliary functions which are used throughout the library.
 """
 
-from __future__ import division
-
 import collections
 import functools
 import itertools

@@ -8,8 +8,6 @@ is not for use in production.
 It only guarantees to produce the same results as the original Random123.
 """
 
-from __future__ import print_function
-
 import sys
 
 import numpy
