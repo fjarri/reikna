@@ -1,11 +1,10 @@
-import numpy
-
 import grunnur.dtypes as dtypes
 import grunnur.functions as functions
+import numpy
 
-import reikna.transformations as transformations
-from reikna.algorithms import PureParallel
-from reikna.core import Type, Parameter, Annotation, Computation
+from . import transformations
+from .algorithms import PureParallel
+from .core import Annotation, Computation, Parameter, Type
 
 
 def normalize_value(thr, gpu_array_type, val):
@@ -51,14 +50,16 @@ def setitem_method(array, index, value):
     view = array[index]
     value, is_array = normalize_value(array.thread, type(array), value)
     comp = array.thread.get_cached_computation(
-        setitem_computation, Type.from_value(view), Type.from_value(value), is_array)
+        setitem_computation, Type.from_value(view), Type.from_value(value), is_array
+    )
     comp(view, value)
 
 
 def get_method(array):
     temp = array.thread.array(array.shape, array.dtype)
     comp = array.thread.get_cached_computation(
-        setitem_computation, Type.from_value(temp), Type.from_value(array), True)
+        setitem_computation, Type.from_value(temp), Type.from_value(array), True
+    )
     comp(temp, array)
     return temp.get()
 
@@ -94,7 +95,8 @@ def concatenate(arrays, axis=0, out=None):
     for array in arrays[1:]:
         if not is_shape_compatible(template_shape, array.shape, axis):
             raise ValueError(
-                "Shapes are not compatible: " + str(template_shape) + " and " + str(shape))
+                "Shapes are not compatible: " + str(template_shape) + " and " + str(shape)
+            )
 
     out_shape = list(template_shape)
     out_shape[axis] = sum(array.shape[axis] for array in arrays)
@@ -105,10 +107,12 @@ def concatenate(arrays, axis=0, out=None):
     else:
         if out.shape != out_shape:
             raise ValueError(
-                "Incorrect output shape: expected " + str(out_shape) + ", got " + str(out.shape))
+                "Incorrect output shape: expected " + str(out_shape) + ", got " + str(out.shape)
+            )
         if out.dtype != dtype:
             raise ValueError(
-                "Incorrect output dtype: expected " + str(dtype) + ", got " + str(out.dtype))
+                "Incorrect output dtype: expected " + str(dtype) + ", got " + str(out.dtype)
+            )
 
     offset = 0
     slices = [slice(None) for i in range(len(out_shape))]
@@ -123,9 +127,10 @@ def concatenate(arrays, axis=0, out=None):
 def roll_computation(array, axis):
     return PureParallel(
         [
-            Parameter('output', Annotation(array, 'o')),
-            Parameter('input', Annotation(array, 'i')),
-            Parameter('shift', Annotation(Type(numpy.int32)))],
+            Parameter("output", Annotation(array, "o")),
+            Parameter("input", Annotation(array, "i")),
+            Parameter("shift", Annotation(Type(numpy.int32))),
+        ],
         """
         <%
             shape = input.shape
@@ -147,17 +152,21 @@ def roll_computation(array, axis):
             ${", ".join("output_" + name for name in idxs)},
             ${input.load_idx}(${", ".join(idxs)}));
         """,
-        guiding_array='input',
-        render_kwds=dict(axis=axis))
+        guiding_array="input",
+        render_kwds=dict(axis=axis),
+    )
 
 
 class RollInplace(Computation):
-
     def __init__(self, array, axis):
         self._axis = axis
-        Computation.__init__(self, [
-            Parameter('array', Annotation(array, 'io')),
-            Parameter('shift', Annotation(Type(numpy.int32)))])
+        Computation.__init__(
+            self,
+            [
+                Parameter("array", Annotation(array, "io")),
+                Parameter("shift", Annotation(Type(numpy.int32))),
+            ],
+        )
 
     def _build_plan(self, plan_factory, device_params, array, shift):
         plan = plan_factory()
@@ -183,14 +192,12 @@ def roll(array, shift, axis=-1):
     """
     temp = array.thread.array(array.shape, array.dtype)
     axis = axis % len(array.shape)
-    comp = array.thread.get_cached_computation(
-        roll_computation, Type.from_value(array), axis)
+    comp = array.thread.get_cached_computation(roll_computation, Type.from_value(array), axis)
     comp(temp, array, shift)
     return temp
 
 
 def roll_method(array, shift, axis=-1):
     axis = axis % len(array.shape)
-    comp = array.thread.get_cached_computation(
-        RollInplace, Type.from_value(array), axis)
+    comp = array.thread.get_cached_computation(RollInplace, Type.from_value(array), axis)
     comp(array, shift)

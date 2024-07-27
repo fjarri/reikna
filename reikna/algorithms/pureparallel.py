@@ -1,8 +1,8 @@
 from grunnur import Snippet
 
-import reikna.helpers as helpers
-from reikna.core import Computation, Indices, Parameter, Annotation
-from reikna.core.transformation import TransformationParameter
+from .. import helpers
+from ..core import Annotation, Computation, Indices, Parameter
+from ..core.transformation import TransformationParameter
 
 
 class PureParallel(Computation):
@@ -32,7 +32,6 @@ class PureParallel(Computation):
     """
 
     def __init__(self, parameters, code, guiding_array=None, render_kwds={}):
-
         Computation.__init__(self, parameters)
 
         self._root_parameters = list(self.signature.parameters.keys())
@@ -40,8 +39,10 @@ class PureParallel(Computation):
         if isinstance(code, Snippet):
             self._snippet = code
         else:
-            self._snippet = Snippet(helpers.template_def(
-                ['idxs'] + self._root_parameters, code), render_globals=render_kwds)
+            self._snippet = Snippet(
+                helpers.template_def(["idxs"] + self._root_parameters, code),
+                render_globals=render_kwds,
+            )
 
         if guiding_array is None:
             guiding_array = self._root_parameters[0]
@@ -65,7 +66,8 @@ class PureParallel(Computation):
         if isinstance(guiding_array, TransformationParameter):
             if not guiding_array.belongs_to(trf):
                 raise ValueError(
-                    "The transformation parameter must belong to the provided transformation")
+                    "The transformation parameter must belong to the provided transformation"
+                )
             guiding_array = str(guiding_array)
 
         guiding_param = trf.signature.parameters[guiding_array]
@@ -83,14 +85,12 @@ class PureParallel(Computation):
         # FIXME: find a solution which does not create an implicit dependence on
         # the way transformations are handled.
         res = cls(
-            list(trf.signature.parameters.values()),
-            trf.snippet,
-            guiding_array=guiding_param.name)
+            list(trf.signature.parameters.values()), trf.snippet, guiding_array=guiding_param.name
+        )
 
         return res
 
     def _build_plan(self, plan_factory, _device_params, *args):
-
         plan = plan_factory()
 
         # Using root_parameters to avoid duplicated names
@@ -100,7 +100,7 @@ class PureParallel(Computation):
         idxs = Indices(self._guiding_shape)
 
         template = helpers.template_def(
-            ['kernel_declaration'] + self._root_parameters,
+            ["kernel_declaration"] + self._root_parameters,
             """
             ${kernel_declaration}
             {
@@ -110,17 +110,19 @@ class PureParallel(Computation):
                 VSIZE_T ${idx} = ${static.global_id}(${i});
                 %endfor
 
-                ${snippet(idxs, """ + arglist + """)}
+                ${snippet(idxs, """
+            + arglist
+            + """)}
             }
-            """)
+            """,
+        )
 
         plan.kernel_call(
-            template, args,
+            template,
+            args,
             kernel_name="kernel_pure_parallel",
             global_size=(1,) if len(self._guiding_shape) == 0 else self._guiding_shape,
-            render_kwds=dict(
-                idxs=idxs,
-                product=helpers.product,
-                snippet=self._snippet))
+            render_kwds=dict(idxs=idxs, product=helpers.product, snippet=self._snippet),
+        )
 
         return plan

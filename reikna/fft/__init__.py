@@ -12,5 +12,5 @@ FFT frequency shift
     :members:
 """
 
-from reikna.fft.fft import FFT
-from reikna.fft.fftshift import FFTShift
+from .fft import FFT
+from .fftshift import FFTShift

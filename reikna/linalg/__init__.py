@@ -16,5 +16,5 @@ Matrix norms
     :members:
 """
 
-from reikna.linalg.matrixmul import MatrixMul
-from reikna.linalg.norm import EntrywiseNorm
+from .matrixmul import MatrixMul
+from .norm import EntrywiseNorm

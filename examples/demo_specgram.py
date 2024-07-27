@@ -36,37 +36,36 @@ will change the shape of the array. Currently such transformations can only be l
 transformation tree, so we will have to swap the cropping step and the spectrum calculating step.
 """
 
+import matplotlib
 import numpy
 
-import matplotlib
-matplotlib.use('Agg')
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from grunnur import Array, Context, Queue, any_api, dtypes, functions
 from matplotlib.mlab import specgram, window_hanning
 
-from grunnur import any_api, Array, Queue, Context, dtypes, functions
-from reikna.core import Computation, Transformation, Parameter, Annotation, Type
-from reikna.fft import FFT
-from reikna.algorithms import Transpose
 import reikna.transformations as transformations
+from reikna.algorithms import Transpose
+from reikna.core import Annotation, Computation, Parameter, Transformation, Type
+from reikna.fft import FFT
 
 
 def get_data():
-
     dt = 0.0005
     t = numpy.arange(0.0, 20.0, dt)
-    s1 = numpy.sin(2*numpy.pi*100*t)
-    s2 = 2*numpy.sin(2*numpy.pi*400*t)
+    s1 = numpy.sin(2 * numpy.pi * 100 * t)
+    s2 = 2 * numpy.sin(2 * numpy.pi * 400 * t)
 
     # create a transient "chirp"
     mask = numpy.where(numpy.logical_and(t > 10, t < 12), 1.0, 0.0)
     s2 = s2 * mask
 
     # add some noise into the mix
-    nse = 0.01*numpy.random.randn(len(t))
+    nse = 0.01 * numpy.random.randn(len(t))
 
-    x = s1 + s2 + nse # the signal
-    NFFT = 1024       # the length of the windowing segments
-    Fs = int(1.0/dt)  # the sampling frequency
+    x = s1 + s2 + nse  # the signal
+    NFFT = 1024  # the length of the windowing segments
+    Fs = int(1.0 / dt)  # the sampling frequency
 
     return x.astype(numpy.float32), dict(NFFT=NFFT, Fs=Fs, noverlap=900, pad_to=2048)
 
@@ -82,8 +81,8 @@ def hanning_window(arr, NFFT):
         coeff_dtype = arr.dtype
     return Transformation(
         [
-            Parameter('output', Annotation(arr, 'o')),
-            Parameter('input', Annotation(arr, 'i')),
+            Parameter("output", Annotation(arr, "o")),
+            Parameter("input", Annotation(arr, "i")),
         ],
         """
         ${dtypes.ctype(coeff_dtype)} coeff;
@@ -101,8 +100,11 @@ def hanning_window(arr, NFFT):
         """,
         render_kwds=dict(
             dtypes=dtypes,
-            coeff_dtype=coeff_dtype, NFFT=NFFT,
-            mul=functions.mul(arr.dtype, coeff_dtype)))
+            coeff_dtype=coeff_dtype,
+            NFFT=NFFT,
+            mul=functions.mul(arr.dtype, coeff_dtype),
+        ),
+    )
 
 
 def rolling_frame(arr, NFFT, noverlap, pad_to):
@@ -119,8 +121,8 @@ def rolling_frame(arr, NFFT, noverlap, pad_to):
 
     return Transformation(
         [
-            Parameter('output', Annotation(result_arr, 'o')),
-            Parameter('input', Annotation(arr, 'i')),
+            Parameter("output", Annotation(result_arr, "o")),
+            Parameter("input", Annotation(arr, "i")),
         ],
         """
         %if NFFT != output.shape[1]:
@@ -136,7 +138,8 @@ def rolling_frame(arr, NFFT, noverlap, pad_to):
         """,
         render_kwds=dict(frame_step=frame_step, NFFT=NFFT),
         # note that only the "store_same"-using argument can serve as a connector!
-        connectors=['output'])
+        connectors=["output"],
+    )
 
 
 def crop_frequencies(arr):
@@ -147,21 +150,20 @@ def crop_frequencies(arr):
     result_arr = Type(arr.dtype, (arr.shape[0], arr.shape[1] // 2 + 1))
     return Transformation(
         [
-            Parameter('output', Annotation(result_arr, 'o')),
-            Parameter('input', Annotation(arr, 'i')),
+            Parameter("output", Annotation(result_arr, "o")),
+            Parameter("input", Annotation(arr, "i")),
         ],
         """
         if (${idxs[1]} < ${input.shape[1] // 2 + 1})
             ${output.store_idx}(${idxs[0]}, ${idxs[1]}, ${input.load_same});
         """,
         # note that only the "load_same"-using argument can serve as a connector!
-        connectors=['input'])
+        connectors=["input"],
+    )
 
 
 class Spectrogram(Computation):
-
     def __init__(self, x, NFFT=256, noverlap=128, pad_to=None, window=hanning_window):
-
         assert dtypes.is_real(x.dtype)
         assert x.ndim == 1
 
@@ -179,26 +181,34 @@ class Spectrogram(Computation):
 
         fft = FFT(fft_arr, axes=(1,))
         fft.parameter.input.connect(
-            to_complex_trf, to_complex_trf.output,
-            input_real=to_complex_trf.real, input_imag=to_complex_trf.imag)
-        fft.parameter.input_imag.connect(
-            broadcast_zero_trf, broadcast_zero_trf.output)
+            to_complex_trf,
+            to_complex_trf.output,
+            input_real=to_complex_trf.real,
+            input_imag=to_complex_trf.imag,
+        )
+        fft.parameter.input_imag.connect(broadcast_zero_trf, broadcast_zero_trf.output)
         fft.parameter.input_real.connect(
-            window_trf, window_trf.output, unwindowed_input=window_trf.input)
+            window_trf, window_trf.output, unwindowed_input=window_trf.input
+        )
         fft.parameter.unwindowed_input.connect(
-            rolling_frame_trf, rolling_frame_trf.output, flat_input=rolling_frame_trf.input)
+            rolling_frame_trf, rolling_frame_trf.output, flat_input=rolling_frame_trf.input
+        )
         fft.parameter.output.connect(
-            amplitude_trf, amplitude_trf.input, amplitude=amplitude_trf.output)
-        fft.parameter.amplitude.connect(
-            crop_trf, crop_trf.input, cropped_amplitude=crop_trf.output)
+            amplitude_trf, amplitude_trf.input, amplitude=amplitude_trf.output
+        )
+        fft.parameter.amplitude.connect(crop_trf, crop_trf.input, cropped_amplitude=crop_trf.output)
 
         self._fft = fft
 
         self._transpose = Transpose(fft.parameter.cropped_amplitude)
 
-        Computation.__init__(self,
-            [Parameter('output', Annotation(self._transpose.parameter.output, 'o')),
-            Parameter('input', Annotation(fft.parameter.flat_input, 'i'))])
+        Computation.__init__(
+            self,
+            [
+                Parameter("output", Annotation(self._transpose.parameter.output, "o")),
+                Parameter("input", Annotation(fft.parameter.flat_input, "i")),
+            ],
+        )
 
     def _build_plan(self, plan_factory, device_params, output, input_):
         plan = plan_factory()
@@ -208,29 +218,30 @@ class Spectrogram(Computation):
         return plan
 
 
-if __name__ == '__main__':
-
+if __name__ == "__main__":
     numpy.random.seed(125)
     x, params = get_data()
 
     fig = plt.figure()
     s = fig.add_subplot(2, 1, 1)
-    spectre, freqs, ts = specgram(x, mode='magnitude', **params)
+    spectre, freqs, ts = specgram(x, mode="magnitude", **params)
 
     # Renormalize to match the computation
-    spectre *= window_hanning(numpy.ones(params['NFFT'])).sum()
+    spectre *= window_hanning(numpy.ones(params["NFFT"])).sum()
 
     s.imshow(
         numpy.log10(spectre),
         extent=(ts[0], ts[-1], freqs[0], freqs[-1]),
-        aspect='auto',
-        origin='lower')
+        aspect="auto",
+        origin="lower",
+    )
 
     context = Context.from_devices([any_api.platforms[0].devices[0]])
     queue = Queue(context.device)
 
     specgram_reikna = Spectrogram(
-        x, NFFT=params['NFFT'], noverlap=params['noverlap'], pad_to=params['pad_to']).compile(queue.device)
+        x, NFFT=params["NFFT"], noverlap=params["noverlap"], pad_to=params["pad_to"]
+    ).compile(queue.device)
 
     x_dev = Array.from_host(queue, x)
     spectre_dev = Array.empty_like(queue.device, specgram_reikna.parameter.output)
@@ -240,9 +251,10 @@ if __name__ == '__main__':
     assert numpy.allclose(spectre, spectre_reikna, atol=1e-4, rtol=1e-4)
 
     s = fig.add_subplot(2, 1, 2)
-    im=s.imshow(
+    im = s.imshow(
         numpy.log10(spectre_reikna),
         extent=(ts[0], ts[-1], freqs[0], freqs[-1]),
-        aspect='auto',
-        origin='lower')
-    fig.savefig('demo_specgram.png')
+        aspect="auto",
+        origin="lower",
+    )
+    fig.savefig("demo_specgram.png")

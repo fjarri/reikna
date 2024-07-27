@@ -14,29 +14,29 @@ because it will greatly simplify the FFT computation.
 import time
 
 import numpy
+from grunnur import Array, Context, Queue, any_api
 
-from grunnur import any_api, Context, Queue, Array
-from reikna.core import Computation, Parameter, Annotation
-from reikna.fft import FFT
 from reikna.algorithms import Transpose
+from reikna.core import Annotation, Computation, Parameter
+from reikna.fft import FFT
 
 
 class FFTWithTranspose(Computation):
-
     def __init__(self, arr_t, axes=None):
-
-        Computation.__init__(self, [
-            Parameter('output', Annotation(arr_t, 'o')),
-            Parameter('input', Annotation(arr_t, 'i')),
-            Parameter('inverse', Annotation(numpy.int32), default=0)])
+        Computation.__init__(
+            self,
+            [
+                Parameter("output", Annotation(arr_t, "o")),
+                Parameter("input", Annotation(arr_t, "i")),
+                Parameter("inverse", Annotation(numpy.int32), default=0),
+            ],
+        )
 
         if axes is None:
             axes = range(len(arr_t.shape))
         self._axes = tuple(sorted(axes))
 
-
     def _build_plan(self, plan_factory, device_params, output, input_, inverse):
-
         plan = plan_factory()
 
         num_axes = len(input_.shape)
@@ -46,14 +46,12 @@ class FFTWithTranspose(Computation):
 
         # Iterate over all the axes we need to FFT over
         for i, initial_axis in enumerate(self._axes):
-
             # Find out where the target axis is currently located
             current_axis = current_axes.index(initial_axis)
 
             # If it is not the innermost one, we will transpose the array
             # to bring it to the end.
             if current_axis != len(current_axes) - 1:
-
                 local_axes = list(range(num_axes))
 
                 # The `Transpose` computation is most efficient when we ask it
@@ -68,15 +66,17 @@ class FFTWithTranspose(Computation):
                 # on the current array
                 local_axes = (
                     local_axes[:current_axis]
-                    + local_axes[current_axis+1:]
-                    + [local_axes[current_axis]])
+                    + local_axes[current_axis + 1 :]
+                    + [local_axes[current_axis]]
+                )
 
                 # That's the corresponding permutation of the original axes
                 # (we need to keep track of it)
                 current_axes = (
                     current_axes[:current_axis]
-                    + current_axes[current_axis+1:]
-                    + [current_axes[current_axis]])
+                    + current_axes[current_axis + 1 :]
+                    + [current_axes[current_axis]]
+                )
 
                 # Transpose the array, saving the result in a temporary buffer
                 tr = Transpose(current_input, axes=local_axes)
@@ -107,8 +107,7 @@ class FFTWithTranspose(Computation):
         return plan
 
 
-if __name__ == '__main__':
-
+if __name__ == "__main__":
     context = Context.from_devices([any_api.platforms[0].devices[0]])
     queue = Queue(context.device)
 

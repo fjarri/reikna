@@ -1,0 +1,171 @@
+[project]
+name = "reikna"
+version = "0.10.0.dev"
+description = "Uniform API for PyOpenCL and PyCUDA."
+authors = [
+    {name = "Bogdan Opanchuk", email = "bogdan@opanchuk.net"},
+]
+dependencies = [
+    'numpy>=2',
+    'mako>=1',
+    'grunnur>=0.4',
+]
+requires-python = ">=3.10"
+license = "MIT"
+readme = "README.md"
+
+[project.urls]
+homepage = "https://github.com/fjarri/reikna"
+
+[project.optional-dependencies]
+pyopencl = [
+    "pyopencl>=2024",
+]
+pycuda = [
+    "pycuda>=2024",
+]
+tests = [
+    "pytest>=6",
+    "pytest-cov",
+    "pytest-grunnur>=0.3",
+]
+docs = [
+    "sphinx>=4",
+    "furo",
+    "setuptools-scm>=7",
+]
+lint = [
+    "mypy>=1.4",
+    "ruff>=0.2",
+]
+
+[tool.pdm.build]
+source-includes = [
+    "**/*.pyi",
+    "**/*.mako",
+    "examples/*.py",
+    "test/*.py",
+    "doc/source/*.rst",
+    "doc/source/*.py",
+    "doc/source/*.bat",
+    "doc/source/Makefile",
+]
+
+[tool.setuptools_scm]
+
+[build-system]
+requires = ["pdm-pep517"]
+build-backend = "pdm.pep517.api"
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers"
+markers = "perf: marks a performance test"
+
+[tool.mypy]
+strict = true
+warn_unreachable = true
+implicit_reexport = true
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    # It's a stylistic choice. Don't save on matches.
+    "C408",
+    # It's never a problem unless you mutate function arguments (which is rarely a good idea).
+    "B008",
+    "B006",
+    # The type of `self` is derived automatically.
+    "ANN101",
+    # We use `Any` quite a bit because we need to accept a lot of third-party unnormalized input.
+    "ANN401",
+    # The return type of `__init__` is derived automatically.
+    "ANN204",
+    # The type of `cls` in classmethods is derived automatically.
+    "ANN102",
+    # Doesn't mesh well with the way `black` puts the final parenthesis on a separate line
+    # in functions with one parameter and a long argument.
+    "COM812",
+    # The formatting message is actually useful in a traceback.
+    "EM102",
+    # Could be useful, but triggers on built-in exception classes (e.g. `ValueError`),
+    # which are supposed to be used like that.
+    "TRY003",
+    # Mutually exclusive with D213, which we prefer.
+    "D212",
+    # Mutually exclusive with D211, which we prefer.
+    "D203",
+    # Small project, no need to assign authors in TODOs.
+    "TD002",
+    # A trade-off between traceback noise and code noise. I prefer less code noise.
+    "EM101",
+    # Would be a good rule, but has weird false positives
+    # (it triggers even if it's only one sentence but a long one).
+    "D205",
+    # Not sure on this one. The code has been using third-person form before,
+    # but I can see the potential merit.
+    "D401",
+    # Not helpful. Issues ID should be enough to silence both of these.
+    "TD003",
+    "FIX002",
+    # Too much code noise. A concept of error can be conveyed
+    # without using the word "error" explicitly.
+    "N818",
+    # Too ham-fisted. 5 arguments is too small of a limit.
+    "PLR0913",
+    # Conflicts with the formatter, according to the warning.
+    "ISC001",
+    # Too many false positives, since Ruff cannot tell that the object is immutable.
+    "RUF009",
+    # Complains about Sphinx docs, examples etc
+    "INP001",
+    # How is it even a lint.
+    "ICN001",
+    # No need for module docstrings everywhere.
+    "D104",
+    "D100",
+    # Temporarily disabled, too inconvenient to update __all__.
+    "F401",
+    # Temporarily disabled - `__init__` is documented in the class docstring.
+    "D107",
+    # Too many spurious failures.
+    "D105",
+    # Temporarily disabled - will document later.
+    "D102",
+    "D101",
+    "D103",
+    "D106",
+    # Stylistic choice. Nothing wrong with it.
+    "TID252",
+    # You're going to tell me which packages to use now?
+    "S702",
+    # Triggers on code-like formulas in comments
+    "ERA001",
+    # Self was only introduced in 3.11
+    "PYI019",
+]
+
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+exclude = [
+    ".eggs",
+    ".git",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pypackages__",
+    "build",
+    "dist",
+]
+per-file-ignores = {}
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.isort]
+known-first-party = ["reikna"]

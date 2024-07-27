@@ -2,7 +2,6 @@
 temp/*
 *.tmproj
 *.egg-info
-reikna/version.py
 test/htmlcov/*
 test/.coverage
 doc/build

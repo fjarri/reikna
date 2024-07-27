@@ -2,12 +2,11 @@
 This module contains a number of pre-created transformations.
 """
 
-import numpy
-
 import grunnur.dtypes as dtypes
 import grunnur.functions as functions
+import numpy
 
-from reikna.core import Transformation, Parameter, Annotation, Type
+from .core import Annotation, Parameter, Transformation, Type
 
 
 def copy(arr_t, out_arr_t=None):
@@ -23,9 +22,12 @@ def copy(arr_t, out_arr_t=None):
             raise ValueError("Input and output arrays must have the same shape and data type")
 
     return Transformation(
-        [Parameter('output', Annotation(out_arr_t, 'o')),
-        Parameter('input', Annotation(arr_t, 'i'))],
-        "${output.store_same}(${input.load_same});")
+        [
+            Parameter("output", Annotation(out_arr_t, "o")),
+            Parameter("input", Annotation(arr_t, "i")),
+        ],
+        "${output.store_same}(${input.load_same});",
+    )
 
 
 def copy_broadcasted(arr_t, out_arr_t=None):
@@ -52,8 +54,10 @@ def copy_broadcasted(arr_t, out_arr_t=None):
         raise ValueError("Input is not broadcastable to output")
 
     return Transformation(
-        [Parameter('output', Annotation(out_arr_t, 'o')),
-        Parameter('input', Annotation(arr_t, 'i'))],
+        [
+            Parameter("output", Annotation(out_arr_t, "o")),
+            Parameter("input", Annotation(arr_t, "i")),
+        ],
         """
         ${output.store_same}(${input.load_idx}(
         %for i in range(len(input.shape)):
@@ -68,7 +72,8 @@ def copy_broadcasted(arr_t, out_arr_t=None):
         %endfor
         ));
         """,
-        connectors=['output'])
+        connectors=["output"],
+    )
 
 
 def cast(arr_t, dtype):
@@ -78,10 +83,10 @@ def cast(arr_t, dtype):
     """
     dest = Type.from_value(arr_t).with_dtype(dtype)
     return Transformation(
-        [Parameter('output', Annotation(dest, 'o')),
-        Parameter('input', Annotation(arr_t, 'i'))],
+        [Parameter("output", Annotation(dest, "o")), Parameter("input", Annotation(arr_t, "i"))],
         "${output.store_same}(${cast}(${input.load_same}));",
-        render_kwds=dict(cast=functions.cast(dtype, arr_t.dtype)))
+        render_kwds=dict(cast=functions.cast(dtype, arr_t.dtype)),
+    )
 
 
 def add_param(arr_t, param_dtype):
@@ -90,11 +95,14 @@ def add_param(arr_t, param_dtype):
     ``output = input + param``.
     """
     return Transformation(
-        [Parameter('output', Annotation(arr_t, 'o')),
-        Parameter('input', Annotation(arr_t, 'i')),
-        Parameter('param', Annotation(param_dtype))],
+        [
+            Parameter("output", Annotation(arr_t, "o")),
+            Parameter("input", Annotation(arr_t, "i")),
+            Parameter("param", Annotation(param_dtype)),
+        ],
         "${output.store_same}(${add}(${input.load_same}, ${param}));",
-        render_kwds=dict(add=functions.add(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype)))
+        render_kwds=dict(add=functions.add(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype)),
+    )
 
 
 def add_const(arr_t, param):
@@ -104,12 +112,13 @@ def add_const(arr_t, param):
     """
     param_dtype = dtypes.min_scalar_type(param)
     return Transformation(
-        [Parameter('output', Annotation(arr_t, 'o')),
-        Parameter('input', Annotation(arr_t, 'i'))],
+        [Parameter("output", Annotation(arr_t, "o")), Parameter("input", Annotation(arr_t, "i"))],
         "${output.store_same}(${add}(${input.load_same}, ${param}));",
         render_kwds=dict(
             add=functions.add(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype),
-            param=dtypes.c_constant(param, dtype=param_dtype)))
+            param=dtypes.c_constant(param, dtype=param_dtype),
+        ),
+    )
 
 
 def mul_param(arr_t, param_dtype):
@@ -118,11 +127,14 @@ def mul_param(arr_t, param_dtype):
     ``output = input * param``.
     """
     return Transformation(
-        [Parameter('output', Annotation(arr_t, 'o')),
-        Parameter('input', Annotation(arr_t, 'i')),
-        Parameter('param', Annotation(param_dtype))],
+        [
+            Parameter("output", Annotation(arr_t, "o")),
+            Parameter("input", Annotation(arr_t, "i")),
+            Parameter("param", Annotation(param_dtype)),
+        ],
         "${output.store_same}(${mul}(${input.load_same}, ${param}));",
-        render_kwds=dict(mul=functions.mul(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype)))
+        render_kwds=dict(mul=functions.mul(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype)),
+    )
 
 
 def mul_const(arr_t, param):
@@ -132,12 +144,13 @@ def mul_const(arr_t, param):
     """
     param_dtype = dtypes.min_scalar_type(param)
     return Transformation(
-        [Parameter('output', Annotation(arr_t, 'o')),
-        Parameter('input', Annotation(arr_t, 'i'))],
+        [Parameter("output", Annotation(arr_t, "o")), Parameter("input", Annotation(arr_t, "i"))],
         "${output.store_same}(${mul}(${input.load_same}, ${param}));",
         render_kwds=dict(
             mul=functions.mul(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype),
-            param=dtypes.c_constant(param, dtype=param_dtype)))
+            param=dtypes.c_constant(param, dtype=param_dtype),
+        ),
+    )
 
 
 def div_param(arr_t, param_dtype):
@@ -146,11 +159,14 @@ def div_param(arr_t, param_dtype):
     ``output = input / param``.
     """
     return Transformation(
-        [Parameter('output', Annotation(arr_t, 'o')),
-        Parameter('input', Annotation(arr_t, 'i')),
-        Parameter('param', Annotation(param_dtype))],
+        [
+            Parameter("output", Annotation(arr_t, "o")),
+            Parameter("input", Annotation(arr_t, "i")),
+            Parameter("param", Annotation(param_dtype)),
+        ],
         "${output.store_same}(${div}(${input.load_same}, ${param}));",
-        render_kwds=dict(div=functions.div(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype)))
+        render_kwds=dict(div=functions.div(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype)),
+    )
 
 
 def div_const(arr_t, param):
@@ -160,12 +176,13 @@ def div_const(arr_t, param):
     """
     param_dtype = dtypes.min_scalar_type(param)
     return Transformation(
-        [Parameter('output', Annotation(arr_t, 'o')),
-        Parameter('input', Annotation(arr_t, 'i'))],
+        [Parameter("output", Annotation(arr_t, "o")), Parameter("input", Annotation(arr_t, "i"))],
         "${output.store_same}(${div}(${input.load_same}, ${param}));",
         render_kwds=dict(
             div=functions.div(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype),
-            param=dtypes.c_constant(param, dtype=param_dtype)))
+            param=dtypes.c_constant(param, dtype=param_dtype),
+        ),
+    )
 
 
 def split_complex(input_arr_t):
@@ -175,13 +192,16 @@ def split_complex(input_arr_t):
     """
     output_t = Type(dtypes.real_for(input_arr_t.dtype), shape=input_arr_t.shape)
     return Transformation(
-        [Parameter('real', Annotation(output_t, 'o')),
-        Parameter('imag', Annotation(output_t, 'o')),
-        Parameter('input', Annotation(input_arr_t, 'i'))],
+        [
+            Parameter("real", Annotation(output_t, "o")),
+            Parameter("imag", Annotation(output_t, "o")),
+            Parameter("input", Annotation(input_arr_t, "i")),
+        ],
         """
             ${real.store_same}(${input.load_same}.x);
             ${imag.store_same}(${input.load_same}.y);
-        """)
+        """,
+    )
 
 
 def combine_complex(output_arr_t):
@@ -191,15 +211,18 @@ def combine_complex(output_arr_t):
     """
     input_t = Type(dtypes.real_for(output_arr_t.dtype), shape=output_arr_t.shape)
     return Transformation(
-        [Parameter('output', Annotation(output_arr_t, 'o')),
-        Parameter('real', Annotation(input_t, 'i')),
-        Parameter('imag', Annotation(input_t, 'i'))],
+        [
+            Parameter("output", Annotation(output_arr_t, "o")),
+            Parameter("real", Annotation(input_t, "i")),
+            Parameter("imag", Annotation(input_t, "i")),
+        ],
         """
         ${output.store_same}(
             COMPLEX_CTR(${output.ctype})(
                 ${real.load_same},
                 ${imag.load_same}));
-        """)
+        """,
+    )
 
 
 def norm_const(arr_t, order):
@@ -214,8 +237,9 @@ def norm_const(arr_t, order):
 
     return Transformation(
         [
-            Parameter('output', Annotation(Type(out_dtype, arr_t.shape), 'o')),
-            Parameter('input', Annotation(arr_t, 'i'))],
+            Parameter("output", Annotation(Type(out_dtype, arr_t.shape), "o")),
+            Parameter("input", Annotation(arr_t, "i")),
+        ],
         """
         ${input.ctype} val = ${input.load_same};
         ${output.ctype} norm = ${norm}(val);
@@ -224,10 +248,8 @@ def norm_const(arr_t, order):
         %endif
         ${output.store_same}(norm);
         """,
-        render_kwds=dict(
-            norm=functions.norm(arr_t.dtype),
-            order=order,
-            dtypes=dtypes))
+        render_kwds=dict(norm=functions.norm(arr_t.dtype), order=order, dtypes=dtypes),
+    )
 
 
 def norm_param(arr_t):
@@ -242,17 +264,18 @@ def norm_param(arr_t):
 
     return Transformation(
         [
-            Parameter('output', Annotation(Type(out_dtype, arr_t.shape), 'o')),
-            Parameter('input', Annotation(arr_t, 'i')),
-            Parameter('order', Annotation(Type(out_dtype)))],
+            Parameter("output", Annotation(Type(out_dtype, arr_t.shape), "o")),
+            Parameter("input", Annotation(arr_t, "i")),
+            Parameter("order", Annotation(Type(out_dtype))),
+        ],
         """
         ${input.ctype} val = ${input.load_same};
         ${output.ctype} norm = ${norm}(val);
         norm = pow(norm, ${order} / 2);
         ${output.store_same}(norm);
         """,
-        render_kwds=dict(
-            norm=functions.norm(arr_t.dtype)))
+        render_kwds=dict(norm=functions.norm(arr_t.dtype)),
+    )
 
 
 def ignore(arr_t):
@@ -260,10 +283,11 @@ def ignore(arr_t):
     Returns a transformation that ignores the output it is attached to.
     """
     return Transformation(
-        [Parameter('input', Annotation(arr_t, 'i'))],
+        [Parameter("input", Annotation(arr_t, "i"))],
         """
         // Ignoring intentionally
-        """)
+        """,
+    )
 
 
 def broadcast_const(arr_t, val):
@@ -275,13 +299,13 @@ def broadcast_const(arr_t, val):
     if len(val.shape) != 0:
         raise ValueError("The constant must be a scalar")
     return Transformation(
-        [
-            Parameter('output', Annotation(arr_t, 'o'))],
+        [Parameter("output", Annotation(arr_t, "o"))],
         """
         const ${output.ctype} val = ${dtypes.c_constant(val)};
         ${output.store_same}(val);
         """,
-        render_kwds=dict(val=val, dtypes=dtypes))
+        render_kwds=dict(val=val, dtypes=dtypes),
+    )
 
 
 def broadcast_param(arr_t):
@@ -291,8 +315,10 @@ def broadcast_param(arr_t):
     """
     return Transformation(
         [
-            Parameter('output', Annotation(arr_t, 'o')),
-            Parameter('param', Annotation(Type(arr_t.dtype)))],
+            Parameter("output", Annotation(arr_t, "o")),
+            Parameter("param", Annotation(Type(arr_t.dtype))),
+        ],
         """
         ${output.store_same}(${param});
-        """)
+        """,
+    )

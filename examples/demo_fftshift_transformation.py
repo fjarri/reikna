@@ -11,12 +11,12 @@ single computation with a transformation against ``numpy`` implementation.
 """
 
 import time
+
 import numpy
+from grunnur import Array, Context, Queue, any_api
 
-from grunnur import any_api, Context, Queue, Array
+from reikna.core import Annotation, Parameter, Transformation, Type
 from reikna.fft import FFT, FFTShift
-
-from reikna.core import Transformation, Parameter, Annotation, Type
 
 
 def fftshift(arr_t, axes=None):
@@ -38,8 +38,7 @@ def fftshift(arr_t, axes=None):
     # (at the moment of the writing).
     # Note the use of ``idxs`` template parameter to get access to element indices.
     return Transformation(
-        [Parameter('output', Annotation(arr_t, 'o')),
-        Parameter('input', Annotation(arr_t, 'i'))],
+        [Parameter("output", Annotation(arr_t, "o")), Parameter("input", Annotation(arr_t, "i"))],
         """
         <%
             dimensions = len(output.shape)
@@ -65,12 +64,12 @@ def fftshift(arr_t, axes=None):
         ${output.ctype} val = ${input.load_same};
         ${output.store_idx}(${', '.join(new_idx_names)}, val);
         """,
-        connectors=['input'],
-        render_kwds=dict(axes=axes))
+        connectors=["input"],
+        render_kwds=dict(axes=axes),
+    )
 
 
 def run_test(queue, shape, dtype, axes=None):
-
     data = numpy.random.normal(size=shape).astype(dtype)
 
     fft = FFT(data, axes=axes)
@@ -149,14 +148,16 @@ def run_test(queue, shape, dtype, axes=None):
         t_gpu_combined=t_gpu_combined,
         t_cpu_fft=t_cpu_fft,
         t_cpu_shift=t_cpu_shift,
-        t_cpu_all=t_cpu_all)
+        t_cpu_all=t_cpu_all,
+    )
 
 
 def run_tests(thr, shape, dtype, axes=None, attempts=10):
     results = [run_test(thr, shape, dtype, axes=axes) for i in range(attempts)]
-    return {key:min(result[key] for result in results) for key in results[0]}
+    return {key: min(result[key] for result in results) for key in results[0]}
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     context = Context.from_devices([any_api.platforms[0].devices[0]])
     queue = Queue(context.device)
 
@@ -166,26 +167,18 @@ if __name__ == '__main__':
 
     results = run_tests(queue, shape, dtype, axes=axes)
 
-    print('device:', queue.device.name)
-    print('shape:', shape)
-    print('dtype:', dtype)
-    print('axes:', axes)
+    print("device:", queue.device.name)
+    print("shape:", shape)
+    print("dtype:", dtype)
+    print("axes:", axes)
 
     for key, val in results.items():
-        print(key, ':', val)
+        print(key, ":", val)
 
-    print(
-        "Speedup for a separate calculation:",
-        results['t_cpu_all'] / results['t_gpu_separate'])
+    print("Speedup for a separate calculation:", results["t_cpu_all"] / results["t_gpu_separate"])
 
-    print(
-        "Speedup for a combined calculation:",
-        results['t_cpu_all'] / results['t_gpu_combined'])
+    print("Speedup for a combined calculation:", results["t_cpu_all"] / results["t_gpu_combined"])
 
-    print(
-        "Speedup for fft alone:",
-        results['t_cpu_fft'] / results['t_gpu_fft'])
+    print("Speedup for fft alone:", results["t_cpu_fft"] / results["t_gpu_fft"])
 
-    print(
-        "Speedup for shift alone:",
-        results['t_cpu_shift'] / results['t_gpu_shift'])
+    print("Speedup for shift alone:", results["t_cpu_shift"] / results["t_gpu_shift"])

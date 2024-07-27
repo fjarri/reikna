@@ -1,11 +1,10 @@
+import grunnur.dtypes as dtypes
 import numpy
 from numpy.polynomial import Hermite
 
-import grunnur.dtypes as dtypes
-
-from reikna.core import Computation, Parameter, Annotation, Type
-from reikna.algorithms import Transpose
-from reikna.linalg import MatrixMul
+from .algorithms import Transpose
+from .core import Annotation, Computation, Parameter, Type
+from .linalg import MatrixMul
 
 
 def factorial(num):
@@ -22,8 +21,9 @@ def factorial(num):
 
 def hermite(mode):
     """Returns an orthonormal Hermite polynomial"""
+
     def func(x_coord):
-        norm = 1. / (numpy.pi ** 0.25) / numpy.sqrt(float(factorial(mode) * 2 ** mode))
+        norm = 1.0 / (numpy.pi**0.25) / numpy.sqrt(float(factorial(mode) * 2**mode))
         return Hermite([0] * mode + [1])(x_coord) * norm
 
     return func
@@ -37,7 +37,7 @@ def h_roots(order):
 
     eps = 1.0e-14
     pim4 = numpy.pi ** (-0.25)
-    max_iter = 20 # Maximum iterations.
+    max_iter = 20  # Maximum iterations.
 
     roots = numpy.empty(order)
     weights = numpy.empty(order)
@@ -46,10 +46,9 @@ def h_roots(order):
     curr_root = numpy.sqrt(2 * order + 1) - 1.85575 * (2 * order + 1) ** (-0.16667)
 
     for i in range((order + 1) // 2):
-
         # Initial guesses for the following roots
         if i == 1:
-            curr_root -= 1.14 * order ** 0.426 / curr_root
+            curr_root -= 1.14 * order**0.426 / curr_root
         elif i == 2:
             curr_root = 1.86 * curr_root + 0.86 * roots[0]
         elif i == 3:
@@ -64,8 +63,13 @@ def h_roots(order):
 
             # Recurrence relation to get the Hermite polynomial evaluated at ``curr_root``
             for j in range(order):
-                pval, pval_prev = (curr_root * numpy.sqrt(2.0 / (j + 1)) * pval -
-                    numpy.sqrt(float(j) / (j + 1)) * pval_prev), pval
+                pval, pval_prev = (
+                    (
+                        curr_root * numpy.sqrt(2.0 / (j + 1)) * pval
+                        - numpy.sqrt(float(j) / (j + 1)) * pval_prev
+                    ),
+                    pval,
+                )
 
             # ``pval`` is now the desired Hermite polynomial
             # We next compute ``pderiv``, its derivative, using ``pval_prev``, the polynomial
@@ -80,7 +84,7 @@ def h_roots(order):
 
         roots[order - 1 - i] = curr_root
         roots[i] = -curr_root
-        weights[i] = 2.0 / (pderiv ** 2)
+        weights[i] = 2.0 / (pderiv**2)
         weights[order - 1 - i] = weights[i]
 
     return roots, weights
@@ -116,8 +120,9 @@ def get_spatial_grid_and_weights(modes, order, add_points=0):
     points = get_spatial_points(modes, order, add_points=add_points)
     roots, weights = h_roots(points)
 
-    return roots * numpy.sqrt(2.0 / (order + 1)), \
-        weights * numpy.exp(roots ** 2) * numpy.sqrt(2.0 / (order + 1))
+    return roots * numpy.sqrt(2.0 / (order + 1)), weights * numpy.exp(roots**2) * numpy.sqrt(
+        2.0 / (order + 1)
+    )
 
 
 def get_spatial_grid(modes, order, add_points=0):
@@ -146,7 +151,7 @@ def harmonic(mode):
     The normalization is chosen so that :math:`\int \phi_n^2(x) dx = 1`.
     """
     polynomial = hermite(mode)
-    return lambda x_coord: polynomial(x_coord) * numpy.exp(-(x_coord ** 2) / 2)
+    return lambda x_coord: polynomial(x_coord) * numpy.exp(-(x_coord**2) / 2)
 
 
 def get_transformation_matrix(modes, order, add_points):
@@ -207,7 +212,6 @@ class DHT(Computation):
     """
 
     def __init__(self, mode_arr, add_points=None, inverse=False, order=1, axes=None):
-
         if axes is None:
             axes = tuple(range(len(mode_arr.shape)))
         else:
@@ -224,7 +228,8 @@ class DHT(Computation):
         for axis in range(len(mode_arr.shape)):
             if axis in axes:
                 coord_shape[axis] = get_spatial_points(
-                    mode_arr.shape[axis], order, add_points=add_points[axis])
+                    mode_arr.shape[axis], order, add_points=add_points[axis]
+                )
         coord_arr = Type(mode_arr.dtype, shape=coord_shape)
 
         self._inverse = inverse
@@ -232,12 +237,14 @@ class DHT(Computation):
 
         if not inverse:
             parameters = [
-                Parameter('modes', Annotation(mode_arr, 'o')),
-                Parameter('coords', Annotation(coord_arr, 'i'))]
+                Parameter("modes", Annotation(mode_arr, "o")),
+                Parameter("coords", Annotation(coord_arr, "i")),
+            ]
         else:
             parameters = [
-                Parameter('coords', Annotation(coord_arr, 'o')),
-                Parameter('modes', Annotation(mode_arr, 'i'))]
+                Parameter("coords", Annotation(coord_arr, "o")),
+                Parameter("modes", Annotation(mode_arr, "i")),
+            ]
 
         Computation.__init__(self, parameters)
 
@@ -247,9 +254,7 @@ class DHT(Computation):
 
         if not self._inverse:
             weights = get_spatial_weights(modes, self._order, add_points)
-            tiled_weights = numpy.tile(
-                weights.reshape(weights.size, 1).astype(dtype),
-                (1, modes))
+            tiled_weights = numpy.tile(weights.reshape(weights.size, 1).astype(dtype), (1, modes))
             p_matrix = p_matrix.transpose() * tiled_weights
 
         return p_matrix
@@ -263,10 +268,9 @@ class DHT(Computation):
 
         cur_pos = current_axes.index(axis)
         if cur_pos != len(current_axes) - 1:
-
             # We can move the target axis to the end in different ways,
             # but this one will require only one transpose kernel.
-            optimal_transpose = lambda seq: seq[:cur_pos] + seq[cur_pos+1:] + [seq[cur_pos]]
+            optimal_transpose = lambda seq: seq[:cur_pos] + seq[cur_pos + 1 :] + [seq[cur_pos]]
 
             tr_axes = optimal_transpose(seq_axes)
             new_axes = optimal_transpose(current_axes)
@@ -281,7 +285,6 @@ class DHT(Computation):
         return current_mem, current_axes
 
     def _build_plan(self, plan_factory, _device_params, output_arr, input_arr):
-
         plan = plan_factory()
 
         dtype = input_arr.dtype
@@ -297,7 +300,8 @@ class DHT(Computation):
             current_mem, current_axes = self._add_transpose(plan, current_mem, current_axes, axis)
 
             tr_matrix = plan.persistent_array(
-                self._get_transformation_matrix(p_dtype, mode_shape[axis], self._add_points[axis]))
+                self._get_transformation_matrix(p_dtype, mode_shape[axis], self._add_points[axis])
+            )
 
             dot = MatrixMul(current_mem, tr_matrix)
             if i == len(self._axes) - 1 and current_axes == seq_axes:

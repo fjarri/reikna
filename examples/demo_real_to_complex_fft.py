@@ -5,10 +5,10 @@ This example illustrates how to:
 """
 
 import numpy
-from grunnur import any_api, Array, Queue, Context, dtypes
-from reikna.fft import FFT
-from reikna.core import Annotation, Type, Transformation, Parameter
+from grunnur import Array, Context, Queue, any_api, dtypes
 
+from reikna.core import Annotation, Parameter, Transformation, Type
+from reikna.fft import FFT
 
 # Pick the first available GPGPU API and make a queue on it.
 context = Context.from_devices([any_api.platforms[0].devices[0]])
@@ -20,14 +20,17 @@ queue = Queue(context.device)
 def get_complex_trf(arr):
     complex_dtype = dtypes.complex_for(arr.dtype)
     return Transformation(
-        [Parameter('output', Annotation(Type(complex_dtype, arr.shape), 'o')),
-        Parameter('input', Annotation(arr, 'i'))],
+        [
+            Parameter("output", Annotation(Type(complex_dtype, arr.shape), "o")),
+            Parameter("input", Annotation(arr, "i")),
+        ],
         """
         ${output.store_same}(
             COMPLEX_CTR(${output.ctype})(
                 ${input.load_same},
                 0));
-        """)
+        """,
+    )
 
 
 arr = numpy.random.normal(size=3000).astype(numpy.float32)
@@ -36,7 +39,7 @@ trf = get_complex_trf(arr)
 
 
 # Create the FFT computation and attach the transformation above to its input.
-fft = FFT(trf.output) # (A shortcut: using the array type saved in the transformation)
+fft = FFT(trf.output)  # (A shortcut: using the array type saved in the transformation)
 fft.parameter.input.connect(trf, trf.output, new_input=trf.input)
 cfft = fft.compile(queue.device)
 

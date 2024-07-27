@@ -1,0 +1,5 @@
+# Extend the `pyproject.toml` file in the parent directory.
+extend = "../pyproject.toml"
+
+[lint]
+select = ["I"] # don't need style checking for `conf.py`, only import sorting

@@ -1,11 +1,11 @@
 import weakref
 from collections import namedtuple
 
-from grunnur import cuda_api_id, Array, StaticKernel, VirtualManager, Buffer
+from grunnur import Array, Buffer, StaticKernel, VirtualManager, cuda_api_id
 
-from reikna.helpers import Graph
-from reikna.core.signature import Parameter, Annotation, Type, Signature
-from reikna.core.transformation import TransformationTree, TransformationParameter
+from ..helpers import Graph
+from .signature import Annotation, Parameter, Signature, Type
+from .transformation import TransformationParameter, TransformationTree
 
 
 class ComputationParameter(Type):
@@ -18,10 +18,11 @@ class ComputationParameter(Type):
     """
 
     def __init__(self, computation, name, type_):
-        """__init__()""" # hide the signature from Sphinx
+        """__init__()"""  # hide the signature from Sphinx
 
         Type.__init__(
-            self, type_.dtype, shape=type_.shape, strides=type_.strides, offset=type_.offset)
+            self, type_.dtype, shape=type_.shape, strides=type_.strides, offset=type_.offset
+        )
         self._computation = weakref.ref(computation)
         self._name = name
 
@@ -53,7 +54,7 @@ class Translator:
         if name in self._mapping:
             return self._mapping[name]
         else:
-            return (self._prefix + '_' if self._prefix != '' else '') + name
+            return (self._prefix + "_" if self._prefix != "" else "") + name
 
     def get_nested(self, known_old, known_new, prefix):
         """Returns a new ``Translator`` with an extended prefix."""
@@ -71,7 +72,7 @@ def check_external_parameter_name(name):
     to prevent them from conflicting with internal names.
     """
     # Raising errors here so we can provide better explanation for the user
-    if name.startswith('_'):
+    if name.startswith("_"):
         raise ValueError("External parameter name cannot start with the underscore.")
 
 
@@ -79,11 +80,10 @@ def make_parameter_container(parent, parameters):
     """
     Creates a convenience object with ``ComputationParameter`` attributes.
     """
-    params_container = namedtuple(
-        'ComputationParameters', [param.name for param in parameters])
+    params_container = namedtuple("ComputationParameters", [param.name for param in parameters])
     param_objs = [
-        ComputationParameter(parent, param.name, param.annotation.type)
-        for param in parameters]
+        ComputationParameter(parent, param.name, param.annotation.type) for param in parameters
+    ]
     return params_container(*param_objs)
 
 
@@ -163,8 +163,11 @@ class Computation:
 
         if param_name in tr_from_comp:
             raise ValueError(
-                "Parameter '" + param_name + "' cannot be supplied " +
-                "both as the main connector and one of the child connections")
+                "Parameter '"
+                + param_name
+                + "' cannot be supplied "
+                + "both as the main connector and one of the child connections"
+            )
 
         tr_from_comp[param_name] = _tr_connector
         comp_from_tr = {}
@@ -173,7 +176,8 @@ class Computation:
             if isinstance(tr_connection, TransformationParameter):
                 if not tr_connection.belongs_to(_trf):
                     raise ValueError(
-                        "The transformation parameter must belong to the provided transformation")
+                        "The transformation parameter must belong to the provided transformation"
+                    )
             tr_connection_name = str(tr_connection)
             comp_from_tr[tr_connection_name] = comp_connection_name
 
@@ -184,15 +188,21 @@ class Computation:
     def _translate_tree(self, translator):
         return self._tr_tree.translate(translator)
 
-    def _get_plan(self, tr_tree, translator, bound_device, virtual_manager, fast_math, compiler_options, keep):
+    def _get_plan(
+        self, tr_tree, translator, bound_device, virtual_manager, fast_math, compiler_options, keep
+    ):
         plan_factory = lambda: ComputationPlan(
-            tr_tree, translator, bound_device, virtual_manager, fast_math, compiler_options, keep)
+            tr_tree, translator, bound_device, virtual_manager, fast_math, compiler_options, keep
+        )
         args = [
             KernelArgument(param.name, param.annotation.type)
-            for param in tr_tree.get_root_parameters()]
+            for param in tr_tree.get_root_parameters()
+        ]
         return self._build_plan(plan_factory, bound_device.params, *args)
 
-    def compile(self, bound_device, virtual_manager=None, fast_math=False, compiler_options=None, keep=False):
+    def compile(
+        self, bound_device, virtual_manager=None, fast_math=False, compiler_options=None, keep=False
+    ):
         """
         Compiles the computation with the given :py:class:`grunnur.BoundDevice` object
         and returns a :py:class:`~reikna.core.computation.ComputationCallable` object.
@@ -205,7 +215,14 @@ class Computation:
         """
         translator = Translator.identity()
         return self._get_plan(
-            self._tr_tree, translator, bound_device, virtual_manager, fast_math, compiler_options, keep).finalize()
+            self._tr_tree,
+            translator,
+            bound_device,
+            virtual_manager,
+            fast_math,
+            compiler_options,
+            keep,
+        ).finalize()
 
     def _build_plan(self, plan_factory, device_params, *args):
         """
@@ -246,9 +263,10 @@ class KernelArgument(Type):
     """
 
     def __init__(self, name, type_):
-        """__init__()""" # hide the signature from Sphinx
+        """__init__()"""  # hide the signature from Sphinx
         Type.__init__(
-            self, type_.dtype, shape=type_.shape, strides=type_.strides, offset=type_.offset)
+            self, type_.dtype, shape=type_.shape, strides=type_.strides, offset=type_.offset
+        )
         self.name = name
 
     def __repr__(self):
@@ -260,22 +278,24 @@ class ComputationPlan:
     Computation plan recorder.
     """
 
-    def __init__(self, tr_tree, translator, bound_device, virtual_manager, fast_math, compiler_options, keep):
-        """__init__()""" # hide the signature from Sphinx
+    def __init__(
+        self, tr_tree, translator, bound_device, virtual_manager, fast_math, compiler_options, keep
+    ):
+        """__init__()"""  # hide the signature from Sphinx
 
         self._bound_device = bound_device
         self._virtual_manager = virtual_manager
-        self._is_cuda = (bound_device.context.api.id == cuda_api_id())
+        self._is_cuda = bound_device.context.api.id == cuda_api_id()
         self._tr_tree = tr_tree
         self._translator = translator
         self._fast_math = fast_math
         self._compiler_options = compiler_options
         self._keep = keep
 
-        self._nested_comp_idgen = IdGen('_nested')
-        self._persistent_value_idgen = IdGen('_value')
-        self._constant_value_idgen = IdGen('_constant')
-        self._temp_array_idgen = IdGen('_temp')
+        self._nested_comp_idgen = IdGen("_nested")
+        self._persistent_value_idgen = IdGen("_value")
+        self._constant_value_idgen = IdGen("_constant")
+        self._temp_array_idgen = IdGen("_temp")
 
         self._external_annotations = self._tr_tree.get_root_annotations()
         self._persistent_values = {}
@@ -301,7 +321,7 @@ class ComputationPlan:
         :py:class:`KernelArgument`.
         """
         name = self._translator(self._persistent_value_idgen())
-        ann = Annotation(arr, 'i')
+        ann = Annotation(arr, "i")
         self._internal_annotations[name] = ann
         self._persistent_values[name] = Array.from_host(self._bound_device, arr)
         return KernelArgument(name, ann.type)
@@ -318,7 +338,8 @@ class ComputationPlan:
         """
         name = self._translator(self._temp_array_idgen())
         ann = Annotation(
-            Type(dtype, shape=shape, strides=strides, offset=offset, nbytes=nbytes), 'io')
+            Type(dtype, shape=shape, strides=strides, offset=offset, nbytes=nbytes), "io"
+        )
         self._internal_annotations[name] = ann
         self._temp_arrays.add(name)
         return KernelArgument(name, ann.type)
@@ -343,20 +364,19 @@ class ComputationPlan:
 
             Note that ``pycuda.GPUArray`` objects do not have the ``offset`` attribute.
         """
-        if hasattr(arr, 'strides'):
+        if hasattr(arr, "strides"):
             strides = arr.strides
         else:
             strides = None
-        if hasattr(arr, 'offset'):
+        if hasattr(arr, "offset"):
             offset = arr.offset
         else:
             offset = 0
-        if hasattr(arr, 'nbytes'):
+        if hasattr(arr, "nbytes"):
             nbytes = arr.nbytes
         else:
             nbytes = None
-        return self.temp_array(
-            arr.shape, arr.dtype, strides=strides, offset=offset, nbytes=nbytes)
+        return self.temp_array(arr.shape, arr.dtype, strides=strides, offset=offset, nbytes=nbytes)
 
     def _get_annotation(self, name):
         if name in self._external_annotations:
@@ -372,12 +392,12 @@ class ComputationPlan:
         Does not change the plan state.
         """
         processed_args = []
-        adhoc_idgen = IdGen('_adhoc')
+        adhoc_idgen = IdGen("_adhoc")
         adhoc_values = {}
 
         for arg in args:
             if not isinstance(arg, KernelArgument):
-                if hasattr(arg, 'shape') and hasattr(arg, 'dtype'):
+                if hasattr(arg, "shape") and hasattr(arg, "dtype"):
                     if len(arg.shape) > 0:
                         raise ValueError("Arrays are not allowed as ad hoc arguments")
 
@@ -410,7 +430,6 @@ class ComputationPlan:
 
         args = []
         for arg, param in zip(bound_args.args, signature.parameters.values()):
-
             if not isinstance(arg, KernelArgument):
                 if param.annotation.array:
                     raise ValueError("Ad hoc arguments are only allowed for scalar parameters")
@@ -421,15 +440,23 @@ class ComputationPlan:
             if not annotation.can_be_argument_for(param.annotation):
                 raise TypeError(
                     "Got {annotation} for '{name}', expected {param_annotation}".format(
-                        annotation=annotation, name=param.name,
-                        param_annotation=param.annotation))
+                        annotation=annotation, name=param.name, param_annotation=param.annotation
+                    )
+                )
 
             args.append(arg)
 
         return [arg.name for arg in args]
 
-    def kernel_call(self, template_def, args, global_size,
-            local_size=None, render_kwds=None, kernel_name='_kernel_func'):
+    def kernel_call(
+        self,
+        template_def,
+        args,
+        global_size,
+        local_size=None,
+        render_kwds=None,
+        kernel_name="_kernel_func",
+    ):
         """
         Adds a kernel call to the plan.
 
@@ -449,7 +476,8 @@ class ComputationPlan:
         subtree = self._tr_tree.get_subtree(processed_args)
 
         kernel_declaration, kernel_leaf_names = subtree.get_kernel_declaration(
-            kernel_name, skip_constants=self._is_cuda)
+            kernel_name, skip_constants=self._is_cuda
+        )
         kernel_argobjects = subtree.get_kernel_argobjects()
 
         if render_kwds is None:
@@ -476,7 +504,8 @@ class ComputationPlan:
             fast_math=self._fast_math,
             compiler_options=self._compiler_options,
             constant_arrays=constant_arrays,
-            keep=self._keep)
+            keep=self._keep,
+        )
 
         if self._is_cuda:
             for name, arr in constant_arrays.items():
@@ -499,13 +528,22 @@ class ComputationPlan:
         # but we need to translate its tree to integrate names of its nodes into
         # the parent namespace.
         translator = self._translator.get_nested(
-            signature.parameters, argnames, self._nested_comp_idgen())
+            signature.parameters, argnames, self._nested_comp_idgen()
+        )
         new_tree = computation._translate_tree(translator)
         new_tree.reconnect(self._tr_tree)
 
-        self._append_plan(computation._get_plan(
-            new_tree, translator, self._bound_device, self._virtual_manager, self._fast_math,
-            self._compiler_options, self._keep))
+        self._append_plan(
+            computation._get_plan(
+                new_tree,
+                translator,
+                self._bound_device,
+                self._virtual_manager,
+                self._fast_math,
+                self._compiler_options,
+                self._keep,
+            )
+        )
 
     def _append_plan(self, plan):
         self._kernels += plan._kernels
@@ -518,7 +556,6 @@ class ComputationPlan:
         self._internal_annotations.update(plan._internal_annotations)
 
     def finalize(self):
-
         # We need to add inferred dependencies between temporary buffers.
         # Basically, we assume that if some buffer X was used first in kernel M
         # and last in kernel N, all buffers in kernels from M+1 till N-1 depend on it
@@ -566,9 +603,14 @@ class ComputationPlan:
             else:
                 allocator = Buffer.allocate
 
-            new_buf = Array.empty(self._bound_device,
-                type_.shape, type_.dtype, strides=type_.strides, first_element_offset=type_.offset,
-                allocator=allocator)
+            new_buf = Array.empty(
+                self._bound_device,
+                type_.shape,
+                type_.dtype,
+                strides=type_.strides,
+                first_element_offset=type_.offset,
+                allocator=allocator,
+            )
             internal_args[name] = new_buf
             all_buffers.append(new_buf)
 
@@ -577,11 +619,11 @@ class ComputationPlan:
             self._tr_tree.get_leaf_parameters(),
             self._kernels,
             internal_args,
-            all_buffers)
+            all_buffers,
+        )
 
 
 class PlannedKernelCall:
-
     def __init__(self, kernel, argnames, adhoc_values):
         self._kernel = kernel
         self.argnames = argnames
@@ -643,9 +685,8 @@ class ComputationCallable:
 
 
 class KernelCall:
-
     def __init__(self, kernel, argnames, args, external_arg_positions):
-        self._argnames = argnames # primarily for debugging purposes
+        self._argnames = argnames  # primarily for debugging purposes
         self._kernel = kernel
         self._args = args
         self._external_arg_positions = external_arg_positions

@@ -1,7 +1,7 @@
-from grunnur import dtypes, functions, VirtualSizeError
+from grunnur import VirtualSizeError, dtypes, functions
 
-import reikna.helpers as helpers
-from reikna.core import Computation, Parameter, Annotation, Type
+from .. import helpers
+from ..core import Annotation, Computation, Parameter, Type
 
 TEMPLATE = helpers.template_for(__file__)
 
@@ -33,9 +33,15 @@ class MatrixMul(Computation):
         :param matrix_b: the second argument.
     """
 
-    def __init__(self, a_arr, b_arr, out_arr=None, block_width_override=None,
-            transposed_a=False, transposed_b=False):
-
+    def __init__(
+        self,
+        a_arr,
+        b_arr,
+        out_arr=None,
+        block_width_override=None,
+        transposed_a=False,
+        transposed_b=False,
+    ):
         if len(a_arr.shape) == 1:
             a_arr = Type(a_arr.dtype, shape=(1,) + a_arr.shape)
 
@@ -59,10 +65,14 @@ class MatrixMul(Computation):
 
             out_arr = Type(out_dtype, shape=out_shape)
 
-        Computation.__init__(self, [
-            Parameter('output', Annotation(out_arr, 'o')),
-            Parameter('matrix_a', Annotation(a_arr, 'i')),
-            Parameter('matrix_b', Annotation(b_arr, 'i'))])
+        Computation.__init__(
+            self,
+            [
+                Parameter("output", Annotation(out_arr, "o")),
+                Parameter("matrix_a", Annotation(a_arr, "i")),
+                Parameter("matrix_b", Annotation(b_arr, "i")),
+            ],
+        )
 
         self._block_width_override = block_width_override
         self._a_outer_size = a_outer_size
@@ -78,17 +88,16 @@ class MatrixMul(Computation):
             block_widths = [bwo]
         else:
             nbanks = device_params.local_mem_banks
-            block_widths = [2 ** n for n in range(helpers.log2(nbanks), -1, -1)]
+            block_widths = [2**n for n in range(helpers.log2(nbanks), -1, -1)]
 
         a_batch = helpers.product(matrix_a.shape[:-2])
         b_batch = helpers.product(matrix_b.shape[:-2])
         batch = max(a_batch, b_batch)
 
         for block_width in block_widths:
-
             plan = plan_factory()
 
-            if block_width ** 2 > device_params.max_total_local_size:
+            if block_width**2 > device_params.max_total_local_size:
                 continue
 
             num_steps = helpers.min_blocks(self._convolution_size, block_width)
@@ -106,19 +115,18 @@ class MatrixMul(Computation):
                 b_slices=(len(matrix_b.shape) - 2, 1, 1),
                 output_slices=(len(output.shape) - 2, 1, 1),
                 block_width=block_width,
-                mul=functions.mul(matrix_a.dtype, matrix_b.dtype, out_dtype=output.dtype))
+                mul=functions.mul(matrix_a.dtype, matrix_b.dtype, out_dtype=output.dtype),
+            )
 
             try:
                 plan.kernel_call(
-                    TEMPLATE.get_def('matrixmul'),
+                    TEMPLATE.get_def("matrixmul"),
                     [output, matrix_a, matrix_b],
                     kernel_name="kernel_matrixmul",
-                    global_size=(
-                        batch,
-                        a_blocks * block_width,
-                        b_blocks * block_width),
+                    global_size=(batch, a_blocks * block_width, b_blocks * block_width),
                     local_size=(1, block_width, block_width),
-                    render_kwds=render_kwds)
+                    render_kwds=render_kwds,
+                )
             except VirtualSizeError:
                 continue
 

@@ -1,7 +1,6 @@
 from grunnur import Module, Snippet
 
-import reikna.helpers as helpers
-
+from .. import helpers
 
 VALUE_NAME = "_val"
 INDEX_NAME = "_idx"
@@ -24,7 +23,6 @@ def index_cnames_seq(param, qualified=False):
 
 
 def flat_index_expr(param):
-
     type_ = param.annotation.type
 
     # FIXME: assuming that offset is a multiple of dtype.itemsize
@@ -39,16 +37,27 @@ def flat_index_expr(param):
     # Need to investigate what happens in this case on some concrete example.
     if not all(stride % type_.dtype.itemsize == 0 for stride in type_.strides):
         raise ValueError(
-            "Some of the strides " + str(type_.strides) +
-            "are not multiples of the itemsize" + str(type_.dtype.itemsize))
+            "Some of the strides "
+            + str(type_.strides)
+            + "are not multiples of the itemsize"
+            + str(type_.dtype.itemsize)
+        )
 
     item_strides = [stride // type_.dtype.itemsize for stride in type_.strides]
 
     names = index_cnames(param.annotation.type.shape)
 
-    return " + ".join([
-        "(" + name + ")" + " * " + "(" + str(stride) + ")"
-        for name, stride in zip(names, item_strides)]) + " + (" + str(item_offset) + ")"
+    return (
+        " + ".join(
+            [
+                "(" + name + ")" + " * " + "(" + str(stride) + ")"
+                for name, stride in zip(names, item_strides)
+            ]
+        )
+        + " + ("
+        + str(item_offset)
+        + ")"
+    )
 
 
 def param_cname(param, qualified=False):
@@ -60,7 +69,7 @@ def param_cname(param, qualified=False):
     if qualified:
         ctype = param.annotation.type.ctype
         if param.annotation.array:
-            qualifier = ("CONSTANT_MEM" if param.annotation.constant else "GLOBAL_MEM")
+            qualifier = "CONSTANT_MEM" if param.annotation.constant else "GLOBAL_MEM"
             return qualifier + " " + str(ctype) + " *" + name
         else:
             return str(ctype) + " " + name
@@ -73,16 +82,17 @@ def param_cnames_seq(parameters, qualified=False):
 
 
 _snippet_kernel_declaration = helpers.template_def(
-    [],
-    "KERNEL void ${kernel_name}(${', '.join(param_cnames_seq(parameters, qualified=True))})")
+    [], "KERNEL void ${kernel_name}(${', '.join(param_cnames_seq(parameters, qualified=True))})"
+)
+
 
 def kernel_declaration(kernel_name, parameters):
     return Snippet(
         _snippet_kernel_declaration,
         render_globals=dict(
-            param_cnames_seq=param_cnames_seq,
-            kernel_name=kernel_name,
-            parameters=parameters))
+            param_cnames_seq=param_cnames_seq, kernel_name=kernel_name, parameters=parameters
+        ),
+    )
 
 
 def node_connector(output):
@@ -93,7 +103,7 @@ def node_connector(output):
 
 
 _module_transformation = helpers.template_def(
-    ['prefix'],
+    ["prefix"],
     """
     // ${'output' if output else 'input'} transformation node for "${name}"
     <%
@@ -122,7 +132,9 @@ _module_transformation = helpers.template_def(
     %>
     #define ${prefix}(${', '.join(nq_indices + value)}) ${prefix}func(\\
         ${', '.join(nq_params + nq_indices + value)})
-    """)
+    """,
+)
+
 
 def module_transformation(output, param, subtree_parameters, tr_snippet, tr_args):
     return Module(
@@ -130,18 +142,21 @@ def module_transformation(output, param, subtree_parameters, tr_snippet, tr_args
         render_globals=dict(
             output=output,
             name=param.name,
-            param_cnames_seq=param_cnames_seq, subtree_parameters=subtree_parameters,
+            param_cnames_seq=param_cnames_seq,
+            subtree_parameters=subtree_parameters,
             q_indices=index_cnames_seq(param, qualified=True),
             VALUE_NAME=VALUE_NAME,
             nq_params=param_cnames_seq(subtree_parameters),
             nq_indices=index_cnames_seq(param),
             connector_ctype=param.annotation.type.ctype,
             tr_snippet=tr_snippet,
-            tr_args=tr_args))
+            tr_args=tr_args,
+        ),
+    )
 
 
 _module_leaf_macro = helpers.template_def(
-    ['prefix'],
+    ["prefix"],
     """
     // leaf ${'output' if output else 'input'} macro for "${name}"
     %if output:
@@ -149,7 +164,9 @@ _module_leaf_macro = helpers.template_def(
     %else:
     #define ${prefix}(${', '.join(index_seq)}) (${lname}[${index_expr}])
     %endif
-    """)
+    """,
+)
+
 
 def module_leaf_macro(output, param):
     return Module(
@@ -160,11 +177,13 @@ def module_leaf_macro(output, param):
             VALUE_NAME=VALUE_NAME,
             lname=leaf_name(param.name),
             index_seq=index_cnames_seq(param),
-            index_expr=flat_index_expr(param)))
+            index_expr=flat_index_expr(param),
+        ),
+    )
 
 
 _module_same_indices = helpers.template_def(
-    ['prefix'],
+    ["prefix"],
     """
     // ${'output' if output else 'input'} for a transformation for "${name}"
     %if output:
@@ -172,7 +191,9 @@ _module_same_indices = helpers.template_def(
     %else:
     #define ${prefix} ${module_idx}(${', '.join(nq_indices)})
     %endif
-    """)
+    """,
+)
+
 
 def module_same_indices(output, param, subtree_parameters, module_idx):
     return Module(
@@ -183,7 +204,9 @@ def module_same_indices(output, param, subtree_parameters, module_idx):
             VALUE_NAME=VALUE_NAME,
             module_idx=module_idx,
             nq_indices=index_cnames_seq(param),
-            nq_params=param_cnames_seq(subtree_parameters)))
+            nq_params=param_cnames_seq(subtree_parameters),
+        ),
+    )
 
 
 _snippet_disassemble_combined = Snippet.from_callable(
@@ -204,10 +227,11 @@ _snippet_disassemble_combined = Snippet.from_callable(
         %endfor
     %endfor
     """,
-    render_globals=dict(product=helpers.product))
+    render_globals=dict(product=helpers.product),
+)
 
 _module_combined = helpers.template_def(
-    ['prefix', 'slices'],
+    ["prefix", "slices"],
     """
     <%
         value_param = [str(connector_ctype) + ' ' + VALUE_NAME] if output else []
@@ -236,7 +260,9 @@ _module_combined = helpers.template_def(
     %>
     #define ${prefix}(${', '.join(nq_combined_indices + value)}) ${prefix}func(\\
         ${', '.join(nq_params + nq_combined_indices + value)})
-    """)
+    """,
+)
+
 
 def module_combined(output, param, subtree_parameters, module_idx):
     return Module(
@@ -250,6 +276,9 @@ def module_combined(output, param, subtree_parameters, module_idx):
             connector_ctype=param.annotation.type.ctype,
             nq_indices=index_cnames_seq(param),
             q_indices=index_cnames_seq(param, qualified=True),
-            param_cnames_str=param_cnames_seq, subtree_parameters=subtree_parameters,
+            param_cnames_str=param_cnames_seq,
+            subtree_parameters=subtree_parameters,
             nq_params=param_cnames_seq(subtree_parameters),
-            indices=index_cnames(param.annotation.type.shape)))
+            indices=index_cnames(param.annotation.type.shape),
+        ),
+    )

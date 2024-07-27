@@ -2,26 +2,23 @@
 This module contains various auxiliary functions which are used throughout the library.
 """
 
-from __future__ import division
-
+import collections
 import functools
 import itertools
-import collections
 import sys
+
 if sys.version_info[0] >= 3:
     from collections.abc import Iterable
 else:
     from collections import Iterable
+import inspect
 import os.path
 import warnings
-import inspect
-import funcsigs
 
 from grunnur import Template
 
 
 class Graph:
-
     def __init__(self, pairs=None):
         self._pairs = set()
         self._nodes = collections.defaultdict(set)
@@ -98,7 +95,7 @@ def template_from(template):
     Creates a Mako template object from a given string.
     If ``template`` already has ``render()`` method, does nothing.
     """
-    if hasattr(template, 'render'):
+    if hasattr(template, "render"):
         return template
     else:
         return make_template(template)
@@ -109,12 +106,12 @@ def extract_signature_and_value(func_or_str, default_parameters=None):
         if default_parameters is None:
             parameters = []
         else:
-            kind = funcsigs.Parameter.POSITIONAL_OR_KEYWORD
-            parameters = [funcsigs.Parameter(name, kind=kind) for name in default_parameters]
+            kind = inspect.Parameter.POSITIONAL_OR_KEYWORD
+            parameters = [inspect.Parameter(name, kind=kind) for name in default_parameters]
 
-        return funcsigs.Signature(parameters), func_or_str
+        return inspect.Signature(parameters), func_or_str
 
-    signature = funcsigs.signature(func_or_str)
+    signature = inspect.signature(func_or_str)
 
     # pass mock values to extract the value
     args = [None] * len(signature.parameters)
@@ -126,17 +123,17 @@ def template_def(signature, code):
     Returns a ``Mako`` template with the given ``signature``.
 
     :param signature: a list of postitional argument names,
-        or a ``Signature`` object from ``funcsigs`` module.
+        or a ``Signature`` object from ``inspect`` module.
     :code: a body of the template.
     """
-    if not isinstance(signature, funcsigs.Signature):
+    if not isinstance(signature, inspect.Signature):
         # treating ``signature`` as a list of positional arguments
         # HACK: Signature or Parameter constructors are not documented.
-        kind = funcsigs.Parameter.POSITIONAL_OR_KEYWORD
-        signature = funcsigs.Signature([funcsigs.Parameter(name, kind=kind) for name in signature])
+        kind = inspect.Parameter.POSITIONAL_OR_KEYWORD
+        signature = inspect.Signature([inspect.Parameter(name, kind=kind) for name in signature])
 
     template_src = "<%def name='_func" + str(signature) + "'>\n" + code + "\n</%def>"
-    return template_from(template_src).get_def('_func')
+    return template_from(template_src).get_def("_func")
 
 
 def template_for(filename):
@@ -146,7 +143,7 @@ def template_for(filename):
     Typically used in computation modules as ``template_for(__filename__)``.
     """
     name, _ext = os.path.splitext(os.path.abspath(filename))
-    return make_template(name + '.mako', filename=True)
+    return make_template(name + ".mako", filename=True)
 
 
 def min_blocks(length, block):
@@ -164,8 +161,8 @@ def log2(num):
     """
     pos = 0
     for pow_ in [16, 8, 4, 2, 1]:
-        if num >= 2 ** pow_:
-            num //= (2 ** pow_)
+        if num >= 2**pow_:
+            num //= 2**pow_
             pos += pow_
     return pos
 
@@ -189,12 +186,12 @@ def factors(num, limit=None):
     if limit is None or limit > num:
         limit = num
 
-    float_sqrt = num ** 0.5
+    float_sqrt = num**0.5
     int_sqrt = int(round(float_sqrt))
 
     result = []
 
-    if int_sqrt ** 2 == num:
+    if int_sqrt**2 == num:
         int_limit = int_sqrt + 1
     else:
         int_limit = int(float_sqrt) + 1
@@ -205,7 +202,7 @@ def factors(num, limit=None):
             result.append((i, div))
 
     if limit > result[-1][0]:
-        if int_sqrt ** 2 == num:
+        if int_sqrt**2 == num:
             to_rev = result[:-1]
         else:
             to_rev = result
@@ -230,7 +227,7 @@ def wrap_in_tuple(seq_or_elem):
         return (seq_or_elem,)
 
 
-class ignore_integer_overflow():
+class ignore_integer_overflow:
     """
     Context manager for ignoring integer overflow in numpy operations on scalars
     (not ignored by default because of a bug in numpy).
@@ -291,7 +288,7 @@ def default_strides(shape, itemsize):
     Return the default strides (corresponding to a contiguous array) for an array
     of shape ``shape`` and elements of size ``itemsize`` bytes.
     """
-    return tuple(product(shape[j+1:]) * itemsize for j in range(len(shape)))
+    return tuple(product(shape[j + 1 :]) * itemsize for j in range(len(shape)))
 
 
 def min_buffer_size(shape, itemsize, strides=None, offset=0):
@@ -303,9 +300,9 @@ def min_buffer_size(shape, itemsize, strides=None, offset=0):
     if strides is None:
         strides = default_strides(shape, itemsize)
 
-    data_size = sum(
-        (stride * (l - 1) if stride > 0 else 0)
-        for stride, l in zip(strides, shape)) + itemsize
+    data_size = (
+        sum((stride * (l - 1) if stride > 0 else 0) for stride, l in zip(strides, shape)) + itemsize
+    )
     return data_size + offset
 
 
