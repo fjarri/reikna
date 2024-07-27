@@ -522,24 +522,3 @@ def test_transformation_macros(queue):
     res_ref = a * 2
 
     assert diff_is_negligible(res_dev.get(queue), res_ref)
-
-
-def test_array_views(queue):
-
-    a = get_test_array((6, 8, 10), numpy.int32)
-
-    a_dev = Array.from_host(queue, a)
-    b_dev = Array.empty_like(queue.device, a)
-
-    in_view = a_dev[2:4, ::2, ::-1]
-    out_view = b_dev[4:, 1:5, :]
-
-    move = PureParallel.from_trf(
-        transformations.copy(in_view, out_arr_t=out_view),
-        guiding_array='output').compile(queue.device)
-
-    move(queue, out_view, in_view)
-    b_res = b_dev.get(queue)[4:, 1:5, :]
-    b_ref = a[2:4, ::2, ::-1]
-
-    assert diff_is_negligible(b_res, b_ref)

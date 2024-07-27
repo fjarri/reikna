@@ -1,4 +1,4 @@
-import funcsigs # backport of inspect.signature() and related objects for Py2
+import inspect
 import numpy
 
 from grunnur import Array
@@ -253,7 +253,7 @@ class Annotation:
         return ann
 
 
-class Parameter(funcsigs.Parameter):
+class Parameter(inspect.Parameter):
     """
     Computation parameter,
     in the same sense as it is used for functions in the standard library.
@@ -264,18 +264,18 @@ class Parameter(funcsigs.Parameter):
     :param default: default value for the parameter, can only be specified for scalars.
     """
 
-    def __init__(self, name, annotation, default=funcsigs.Parameter.empty):
+    def __init__(self, name, annotation, default=inspect.Parameter.empty):
 
-        if default is not funcsigs.Parameter.empty:
+        if default is not inspect.Parameter.empty:
             if annotation.array:
                 raise ValueError("Array parameters cannot have default values")
             default = annotation.type(default)
 
         # HACK: Parameter constructor is not documented.
         # But I need to create these objects somehow.
-        funcsigs.Parameter.__init__(
+        inspect.Parameter.__init__(
             self, name, annotation=annotation,
-            kind=funcsigs.Parameter.POSITIONAL_OR_KEYWORD,
+            kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
             default=default)
 
     def rename(self, new_name):
@@ -293,7 +293,7 @@ class Parameter(funcsigs.Parameter):
         return Parameter(self.name, process(self.annotation), default=self.default)
 
 
-class Signature(funcsigs.Signature):
+class Signature(inspect.Signature):
     """
     Computation signature,
     in the same sense as it is used for functions in the standard library.
@@ -308,7 +308,7 @@ class Signature(funcsigs.Signature):
     def __init__(self, parameters):
         # HACK: Signature constructor is not documented.
         # But I need to create these objects somehow.
-        funcsigs.Signature.__init__(self, parameters)
+        inspect.Signature.__init__(self, parameters)
 
     def bind_with_defaults(self, args, kwds, cast=False):
         """

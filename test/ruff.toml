@@ -1,0 +1,30 @@
+# Extend the `pyproject.toml` file in the parent directory.
+extend = "../pyproject.toml"
+
+[lint]
+flake8-pytest-style.fixture-parentheses = false
+
+ignore = [
+    # assert usage is what we do in tests
+    "S101",
+    # have to access private members sometimes
+    "SLF001",
+    # skipping type annotations for now
+    "ANN001",
+    "ANN002",
+    "ANN003",
+    "ANN201",
+    "ANN202",
+    # no docstrings in tests
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D107",
+    # Yeah, that's great if your context manager calls are a few characters long
+    "SIM117",
+    # Too many false positives in the testing context.
+    "PLR2004",
+    # Lambdas are often useful for tests
+    "E731",
+]

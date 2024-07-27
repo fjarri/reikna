@@ -15,7 +15,7 @@ else:
 import os.path
 import warnings
 import inspect
-import funcsigs
+import inspect
 
 from grunnur import Template
 
@@ -109,12 +109,12 @@ def extract_signature_and_value(func_or_str, default_parameters=None):
         if default_parameters is None:
             parameters = []
         else:
-            kind = funcsigs.Parameter.POSITIONAL_OR_KEYWORD
-            parameters = [funcsigs.Parameter(name, kind=kind) for name in default_parameters]
+            kind = inspect.Parameter.POSITIONAL_OR_KEYWORD
+            parameters = [inspect.Parameter(name, kind=kind) for name in default_parameters]
 
-        return funcsigs.Signature(parameters), func_or_str
+        return inspect.Signature(parameters), func_or_str
 
-    signature = funcsigs.signature(func_or_str)
+    signature = inspect.signature(func_or_str)
 
     # pass mock values to extract the value
     args = [None] * len(signature.parameters)
@@ -126,14 +126,14 @@ def template_def(signature, code):
     Returns a ``Mako`` template with the given ``signature``.
 
     :param signature: a list of postitional argument names,
-        or a ``Signature`` object from ``funcsigs`` module.
+        or a ``Signature`` object from ``inspect`` module.
     :code: a body of the template.
     """
-    if not isinstance(signature, funcsigs.Signature):
+    if not isinstance(signature, inspect.Signature):
         # treating ``signature`` as a list of positional arguments
         # HACK: Signature or Parameter constructors are not documented.
-        kind = funcsigs.Parameter.POSITIONAL_OR_KEYWORD
-        signature = funcsigs.Signature([funcsigs.Parameter(name, kind=kind) for name in signature])
+        kind = inspect.Parameter.POSITIONAL_OR_KEYWORD
+        signature = inspect.Signature([inspect.Parameter(name, kind=kind) for name in signature])
 
     template_src = "<%def name='_func" + str(signature) + "'>\n" + code + "\n</%def>"
     return template_from(template_src).get_def('_func')
