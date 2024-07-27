@@ -58,7 +58,7 @@ requires = ["pdm-pep517"]
 build-backend = "pdm.pep517.api"
 
 [tool.pytest.ini_options]
-addopts = "-p no:pytest_grunnur --strict-markers"
+addopts = "--strict-markers"
 markers = "perf: marks a performance test"
 
 [tool.mypy]
