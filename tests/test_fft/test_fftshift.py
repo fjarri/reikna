@@ -14,7 +14,6 @@ from reikna.transformations import mul_param
 
 
 def pytest_generate_tests(metafunc):
-
     errors_shapes_and_axes = [
         ((10,), (0,)),
         ((11,), (0,)),
@@ -27,15 +26,14 @@ def pytest_generate_tests(metafunc):
         ((101, 80, 61), (0, 1, 2)),
         ((101, 80, 61), (0, 2)),
         ((20, 31, 80, 61), (0, 2)),
-        ]
+    ]
 
     perf_shapes = [
-        (2**4,), # 1D, small size
-        (2**18,), # 1D, large size
-
-        (2**4, 2**4), # 2D, small size
-        (2**9, 2**9), # 2D, large size
-        ]
+        (2**4,),  # 1D, small size
+        (2**18,),  # 1D, large size
+        (2**4, 2**4),  # 2D, small size
+        (2**9, 2**9),  # 2D, large size
+    ]
     perf_even_shapes_and_axes = []
     perf_odd_shapes_and_axes = []
 
@@ -58,26 +56,31 @@ def pytest_generate_tests(metafunc):
                 full_shape[axis] -= 1
             perf_odd_shapes_and_axes.append((tuple(full_shape), axes))
 
-    idgen = lambda pair: str(pair[0]) + '_over_' + str(pair[1])
+    idgen = lambda pair: str(pair[0]) + "_over_" + str(pair[1])
 
-    if 'errors_shape_and_axes' in metafunc.fixturenames:
+    if "errors_shape_and_axes" in metafunc.fixturenames:
         metafunc.parametrize(
-            'errors_shape_and_axes', errors_shapes_and_axes,
-            ids=list(map(idgen, errors_shapes_and_axes)))
+            "errors_shape_and_axes",
+            errors_shapes_and_axes,
+            ids=list(map(idgen, errors_shapes_and_axes)),
+        )
 
-    elif 'perf_even_shape_and_axes' in metafunc.fixturenames:
+    elif "perf_even_shape_and_axes" in metafunc.fixturenames:
         metafunc.parametrize(
-            'perf_even_shape_and_axes', perf_even_shapes_and_axes,
-            ids=list(map(idgen, perf_even_shapes_and_axes)))
+            "perf_even_shape_and_axes",
+            perf_even_shapes_and_axes,
+            ids=list(map(idgen, perf_even_shapes_and_axes)),
+        )
 
-    elif 'perf_odd_shape_and_axes' in metafunc.fixturenames:
+    elif "perf_odd_shape_and_axes" in metafunc.fixturenames:
         metafunc.parametrize(
-            'perf_odd_shape_and_axes', perf_odd_shapes_and_axes,
-            ids=list(map(idgen, perf_odd_shapes_and_axes)))
+            "perf_odd_shape_and_axes",
+            perf_odd_shapes_and_axes,
+            ids=list(map(idgen, perf_odd_shapes_and_axes)),
+        )
 
 
 def check_errors(queue, shape_and_axes, inverse=False):
-
     dtype = numpy.int32
 
     shape, axes = shape_and_axes
@@ -96,7 +99,7 @@ def check_errors(queue, shape_and_axes, inverse=False):
     assert diff_is_negligible(data_dev.get(queue), res_ref)
 
 
-@pytest.mark.parametrize('inverse', [False, True], ids=['forward', 'inverse'])
+@pytest.mark.parametrize("inverse", [False, True], ids=["forward", "inverse"])
 def test_errors(queue, errors_shape_and_axes, inverse):
     check_errors(queue, errors_shape_and_axes, inverse)
 
@@ -133,7 +136,6 @@ def test_no_axes(some_queue):
 
 
 def check_performance(queue, shape_and_axes):
-
     # TODO: check double performance
 
     dtype = numpy.dtype("complex64")
@@ -163,12 +165,12 @@ def check_performance(queue, shape_and_axes):
 
 
 @pytest.mark.perf
-@pytest.mark.returns('GB/s')
+@pytest.mark.returns("GB/s")
 def test_even_performance(queue, perf_even_shape_and_axes):
     return check_performance(queue, perf_even_shape_and_axes)
 
 
 @pytest.mark.perf
-@pytest.mark.returns('GB/s')
+@pytest.mark.returns("GB/s")
 def test_odd_performance(queue, perf_odd_shape_and_axes):
     return check_performance(queue, perf_odd_shape_and_axes)

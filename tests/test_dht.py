@@ -53,7 +53,8 @@ class FunctionHelper:
         else:
             # If there are many modes, fill some random ones
             rand_coord = lambda: tuple(
-                numpy.random.randint(0, mshape[i]) for i in range(len(mshape)))
+                numpy.random.randint(0, mshape[i]) for i in range(len(mshape))
+            )
 
             if batch is not None:
                 for b in range(batch):
@@ -64,7 +65,7 @@ class FunctionHelper:
                     modelist.append(rand_coord())
 
         # add corner modes, to make sure extreme cases are still processed correctly
-        corner_modes = itertools.product(*[(0, mshape[i]-1) for i in range(len(mshape))])
+        corner_modes = itertools.product(*[(0, mshape[i] - 1) for i in range(len(mshape))])
         for modenum in corner_modes:
             if batch is not None:
                 for b in range(batch):
@@ -72,7 +73,7 @@ class FunctionHelper:
             else:
                 modelist.append(modenum)
 
-        modelist = set(modelist) # remove duplicates
+        modelist = set(modelist)  # remove duplicates
 
         # Assign coefficients
         modes = []
@@ -114,11 +115,10 @@ class FunctionHelper:
 
             target += coeff * product([self.harmonics[m](xx) for m, xx in zip(coord, xxs)])
 
-        return res ** self.order
+        return res**self.order
 
 
 def check_errors_first_order(queue, mshape, batch, add_points=None, dtype=numpy.complex64):
-
     test_func = FunctionHelper(mshape, dtype, batch=batch, order=1)
 
     if add_points is None:
@@ -126,7 +126,7 @@ def check_errors_first_order(queue, mshape, batch, add_points=None, dtype=numpy.
     xs = [get_spatial_grid(n, 1, add_points=ap) for n, ap in zip(mshape, add_points)]
 
     mdata_dev = Array.empty(queue.device, (batch,) + mshape, dtype)
-    axes = list(range(1, len(mshape)+1))
+    axes = list(range(1, len(mshape) + 1))
 
     dht_fw = DHT(mdata_dev, inverse=False, axes=axes, add_points=[0] + add_points)
     dht_inv = DHT(mdata_dev, inverse=True, axes=axes, add_points=[0] + add_points)
@@ -146,9 +146,11 @@ def check_errors_first_order(queue, mshape, batch, add_points=None, dtype=numpy.
 
 
 fo_shape_vals = [(5,), (20,), (50,), (3, 7), (10, 11), (5, 6, 7), (10, 11, 12)]
-@pytest.mark.parametrize('fo_shape', fo_shape_vals, ids=list(map(str, fo_shape_vals)))
-@pytest.mark.parametrize('fo_batch', [1, 10])
-@pytest.mark.parametrize('fo_add_points', ['0', '1', '1,2,...'])
+
+
+@pytest.mark.parametrize("fo_shape", fo_shape_vals, ids=list(map(str, fo_shape_vals)))
+@pytest.mark.parametrize("fo_batch", [1, 10])
+@pytest.mark.parametrize("fo_add_points", ["0", "1", "1,2,..."])
 def test_first_order_errors(queue, fo_shape, fo_batch, fo_add_points):
     """
     Checks that after the transformation of the manually constructed function in coordinate space
@@ -156,19 +158,20 @@ def test_first_order_errors(queue, fo_shape, fo_batch, fo_add_points):
     Also checks that inverse transform returns the initial array.
     """
 
-    if fo_add_points == '0':
+    if fo_add_points == "0":
         add_points = None
-    elif fo_add_points == '1':
+    elif fo_add_points == "1":
         add_points = [1] * len(fo_shape)
     else:
         add_points = list(range(1, len(fo_shape) + 1))
 
-    check_errors_first_order(queue, fo_shape, fo_batch,
-        add_points=add_points, dtype=numpy.complex64)
+    check_errors_first_order(
+        queue, fo_shape, fo_batch, add_points=add_points, dtype=numpy.complex64
+    )
 
 
-@pytest.mark.parametrize('ho_order', [2, 3])
-@pytest.mark.parametrize('ho_shape', [20, 30, 50])
+@pytest.mark.parametrize("ho_order", [2, 3])
+@pytest.mark.parametrize("ho_shape", [20, 30, 50])
 def test_high_order_forward(queue, ho_order, ho_shape):
     """
     Checks that if we change the mode space while keeping mode population the same,

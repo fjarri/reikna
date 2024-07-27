@@ -8,11 +8,10 @@ TEMPLATE = helpers.template_for(__file__)
 
 
 def create_struct_types(word_dtype, key_words, counter_words):
-
-    key_dtype = dtypes.align(numpy.dtype([('v', (word_dtype, (key_words,)))]))
+    key_dtype = dtypes.align(numpy.dtype([("v", (word_dtype, (key_words,)))]))
     key_ctype = dtypes.ctype(key_dtype)
 
-    counter_dtype = dtypes.align(numpy.dtype([('v', (word_dtype, (counter_words,)))]))
+    counter_dtype = dtypes.align(numpy.dtype([("v", (word_dtype, (counter_words,)))]))
     counter_ctype = dtypes.ctype(counter_dtype)
 
     return key_dtype, key_ctype, counter_dtype, counter_ctype
@@ -119,14 +118,15 @@ class Bijection:
 
         Returns uniformly distributed unsigned 64-bit word and updates the state.
     """
+
     def __init__(self, module, word_dtype, key_dtype, counter_dtype):
-        """__init__()""" # hide the signature from Sphinx
+        """__init__()"""  # hide the signature from Sphinx
 
         self.module = module
         self.word_dtype = word_dtype
 
-        self.key_words = key_dtype.fields['v'][0].shape[0]
-        self.counter_words = counter_dtype.fields['v'][0].shape[0]
+        self.key_words = key_dtype.fields["v"][0].shape[0]
+        self.counter_words = counter_dtype.fields["v"][0].shape[0]
 
         self.counter_dtype = counter_dtype
         self.key_dtype = key_dtype
@@ -134,15 +134,14 @@ class Bijection:
         # Compensate for the mysterious distinction numpy makes between
         # a predefined dtype and a generic dtype.
         self.raw_functions = {
-            numpy.uint32: 'get_raw_uint32',
-            numpy.dtype('uint32'): 'get_raw_uint32',
-            numpy.uint64: 'get_raw_uint64',
-            numpy.dtype('uint64'): 'get_raw_uint64',
+            numpy.uint32: "get_raw_uint32",
+            numpy.dtype("uint32"): "get_raw_uint32",
+            numpy.uint64: "get_raw_uint64",
+            numpy.dtype("uint64"): "get_raw_uint64",
         }
 
     def __process_modules__(self, process):
-        return Bijection(
-            process(self.module), self.word_dtype, self.key_dtype, self.counter_dtype)
+        return Bijection(process(self.module), self.word_dtype, self.key_dtype, self.counter_dtype)
 
 
 def threefry(bitness, counter_words, rounds=20):
@@ -160,7 +159,6 @@ def threefry(bitness, counter_words, rounds=20):
         # These are the R_256 constants from the Threefish reference sources
         # with names changed to R_64x4...
         (64, 4): numpy.array([[14, 52, 23, 5, 25, 46, 58, 32], [16, 57, 40, 37, 33, 12, 22, 32]]).T,
-
         # Output from skein_rot_search: (srs64_B64-X1000)
         # Random seed = 1. BlockSize = 128 bits. sampleCnt =  1024. rounds =  8, minHW_or=57
         # Start: Tue Mar  1 10:07:48 2011
@@ -174,7 +172,6 @@ def threefry(bitness, counter_words, rounds=20):
         # 9 rounds: minHW = 64  [ 64 64 64 64 ]
         # 10 rounds: minHW = 64  [ 64 64 64 64 ]
         # 11 rounds: minHW = 64  [ 64 64 64 64 ]
-
         # Output from skein_rot_search: (srs-B128-X5000.out)
         # Random seed = 1. BlockSize = 64 bits. sampleCnt =  1024. rounds =  8, minHW_or=28
         # Start: Mon Aug 24 22:41:36 2009
@@ -189,12 +186,11 @@ def threefry(bitness, counter_words, rounds=20):
         # 9 rounds: minHW = 32  [ 32 32 32 32 ]
         # 10 rounds: minHW = 32  [ 32 32 32 32 ]
         # 11 rounds: minHW = 32  [ 32 32 32 32 ]
-
         # Output from skein_rot_search (srs32x2-X5000.out)
         # Random seed = 1. BlockSize = 64 bits. sampleCnt =  1024. rounds =  8, minHW_or=28
         # Start: Tue Jul 12 11:11:33 2011
         # rMin = 0.334. #0206[*07] [CRC=1D9765C0. hw_OR=32. cnt=16384. blkSize=  64].format
-        (32, 2): numpy.array([[13, 15, 26, 6, 17, 29, 16, 24]]).T
+        (32, 2): numpy.array([[13, 15, 26, 6, 17, 29, 16, 24]]).T,
         # 4 rounds: minHW =  4  [  4  4  4  4 ]
         # 5 rounds: minHW =  6  [  6  8  6  8 ]
         # 6 rounds: minHW =  9  [  9 12  9 12 ]
@@ -206,27 +202,31 @@ def threefry(bitness, counter_words, rounds=20):
     }
 
     # Taken from Skein
-    PARITY_CONSTANTS = {
-        64: numpy.uint64(0x1BD11BDAA9FC1A22),
-        32: numpy.uint32(0x1BD11BDA)
-    }
+    PARITY_CONSTANTS = {64: numpy.uint64(0x1BD11BDAA9FC1A22), 32: numpy.uint32(0x1BD11BDA)}
 
     assert 1 <= rounds <= 72
 
     word_dtype = numpy.dtype("uint32") if bitness == 32 else numpy.dtype("uint64")
     key_words = counter_words
     key_dtype, key_ctype, counter_dtype, counter_ctype = create_struct_types(
-        word_dtype, key_words, counter_words)
+        word_dtype, key_words, counter_words
+    )
 
     module = Module(
         TEMPLATE.get_def("threefry"),
         render_globals=dict(
             dtypes=dtypes,
-            word_dtype=word_dtype, word_ctype=dtypes.ctype(word_dtype),
-            key_words=key_words, counter_words=counter_words,
-            key_ctype=key_ctype, counter_ctype=counter_ctype,
-            rounds=rounds, rotation_constants=ROTATION_CONSTANTS[(bitness, counter_words)],
-            parity_constant=PARITY_CONSTANTS[bitness]))
+            word_dtype=word_dtype,
+            word_ctype=dtypes.ctype(word_dtype),
+            key_words=key_words,
+            counter_words=counter_words,
+            key_ctype=key_ctype,
+            counter_ctype=counter_ctype,
+            rounds=rounds,
+            rotation_constants=ROTATION_CONSTANTS[(bitness, counter_words)],
+            parity_constant=PARITY_CONSTANTS[bitness],
+        ),
+    )
 
     return Bijection(module, word_dtype, key_dtype, counter_dtype)
 
@@ -244,36 +244,43 @@ def philox(bitness, counter_words, rounds=10):
 
     W_CONSTANTS = {
         64: [
-            numpy.uint64(0x9E3779B97F4A7C15), # golden ratio
-            numpy.uint64(0xBB67AE8584CAA73B) # sqrt(3)-1
+            numpy.uint64(0x9E3779B97F4A7C15),  # golden ratio
+            numpy.uint64(0xBB67AE8584CAA73B),  # sqrt(3)-1
         ],
         32: [
-            numpy.uint32(0x9E3779B9), # golden ratio
-            numpy.uint32(0xBB67AE85) # sqrt(3)-1
-        ]
+            numpy.uint32(0x9E3779B9),  # golden ratio
+            numpy.uint32(0xBB67AE85),  # sqrt(3)-1
+        ],
     }
 
     M_CONSTANTS = {
-        (64,2): [numpy.uint64(0xD2B74407B1CE6E93)],
-        (64,4): [numpy.uint64(0xD2E7470EE14C6C93), numpy.uint64(0xCA5A826395121157)],
-        (32,2): [numpy.uint32(0xD256D193)],
-        (32,4): [numpy.uint32(0xD2511F53), numpy.uint32(0xCD9E8D57)]
+        (64, 2): [numpy.uint64(0xD2B74407B1CE6E93)],
+        (64, 4): [numpy.uint64(0xD2E7470EE14C6C93), numpy.uint64(0xCA5A826395121157)],
+        (32, 2): [numpy.uint32(0xD256D193)],
+        (32, 4): [numpy.uint32(0xD2511F53), numpy.uint32(0xCD9E8D57)],
     }
 
     assert 1 <= rounds <= 12
     word_dtype = numpy.dtype("uint32") if bitness == 32 else numpy.dtype("uint64")
     key_words = counter_words // 2
     key_dtype, key_ctype, counter_dtype, counter_ctype = create_struct_types(
-        word_dtype, key_words, counter_words)
+        word_dtype, key_words, counter_words
+    )
 
     module = Module(
         TEMPLATE.get_def("philox"),
         render_globals=dict(
             dtypes=dtypes,
-            word_dtype=word_dtype, word_ctype=dtypes.ctype(word_dtype),
-            key_words=key_words, counter_words=counter_words,
-            key_ctype=key_ctype, counter_ctype=counter_ctype,
-            rounds=rounds, w_constants=W_CONSTANTS[bitness],
-            m_constants=M_CONSTANTS[(bitness, counter_words)]))
+            word_dtype=word_dtype,
+            word_ctype=dtypes.ctype(word_dtype),
+            key_words=key_words,
+            counter_words=counter_words,
+            key_ctype=key_ctype,
+            counter_ctype=counter_ctype,
+            rounds=rounds,
+            w_constants=W_CONSTANTS[bitness],
+            m_constants=M_CONSTANTS[(bitness, counter_words)],
+        ),
+    )
 
     return Bijection(module, word_dtype, key_dtype, counter_dtype)

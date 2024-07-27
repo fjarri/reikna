@@ -68,17 +68,20 @@ class Type:
             and self.dtype == other.dtype
             and self.strides == other.strides
             and self.offset == other.offset
-            and self.nbytes == self.nbytes)
+            and self.nbytes == self.nbytes
+        )
 
     def __hash__(self):
-        return hash((
-            self.__class__,
-            self.shape,
-            self.dtype,
-            self.strides,
-            self.offset,
-            self.nbytes,
-            ))
+        return hash(
+            (
+                self.__class__,
+                self.shape,
+                self.dtype,
+                self.strides,
+                self.offset,
+                self.nbytes,
+            )
+        )
 
     def __ne__(self, other):
         return not (self == other)
@@ -110,7 +113,7 @@ class Type:
         if len(self.shape) > len(other.shape):
             return False
 
-        for i in range(1, len(self.shape)+1):
+        for i in range(1, len(self.shape) + 1):
             if not (self.shape[-i] == 1 or self.shape[-i] == other.shape[-i]):
                 return False
 
@@ -121,7 +124,8 @@ class Type:
         Creates a :py:class:`Type` object with its ``dtype`` attribute replaced by the given dtype.
         """
         return Type(
-            dtype, shape=self.shape, strides=self.strides, offset=self.offset, nbytes=self.nbytes)
+            dtype, shape=self.shape, strides=self.strides, offset=self.offset, nbytes=self.nbytes
+        )
 
     @classmethod
     def from_value(cls, val):
@@ -132,20 +136,29 @@ class Type:
             # Creating a new object, because ``val`` may be some derivative of Type,
             # used as a syntactic sugar, and we do not want it to confuse us later.
             return cls(
-                val.dtype, shape=val.shape, strides=val.strides,
-                offset=val.offset, nbytes=val.nbytes)
+                val.dtype,
+                shape=val.shape,
+                strides=val.strides,
+                offset=val.offset,
+                nbytes=val.nbytes,
+            )
         elif isinstance(val, Array):
             return cls(
-                val.dtype, shape=val.shape, strides=val.strides,
-                offset=val.first_element_offset, nbytes=val.buffer_size)
-        elif isinstance(val, numpy.dtype) or (isinstance(val, type) and issubclass(val, numpy.generic)):
+                val.dtype,
+                shape=val.shape,
+                strides=val.strides,
+                offset=val.first_element_offset,
+                nbytes=val.buffer_size,
+            )
+        elif isinstance(val, numpy.dtype) or (
+            isinstance(val, type) and issubclass(val, numpy.generic)
+        ):
             return cls(val)
-        elif hasattr(val, 'dtype') and hasattr(val, 'shape'):
-            strides = val.strides if hasattr(val, 'strides') else None
-            offset = val.offset if hasattr(val, 'offset') else 0
-            nbytes = val.nbytes if hasattr(val, 'nbytes') else None
-            return cls(
-                val.dtype, shape=val.shape, strides=strides, offset=offset, nbytes=nbytes)
+        elif hasattr(val, "dtype") and hasattr(val, "shape"):
+            strides = val.strides if hasattr(val, "strides") else None
+            offset = val.offset if hasattr(val, "offset") else 0
+            nbytes = val.nbytes if hasattr(val, "nbytes") else None
+            return cls(val.dtype, shape=val.shape, strides=strides, offset=offset, nbytes=nbytes)
         else:
             return cls(dtypes.detect_type(val))
 
@@ -181,8 +194,12 @@ class Type:
 
     def __process_modules__(self, process):
         tp = Type(
-            self.dtype, shape=self.shape, strides=self.strides,
-            offset=self.offset, nbytes=self.nbytes)
+            self.dtype,
+            shape=self.shape,
+            strides=self.strides,
+            offset=self.offset,
+            nbytes=self.nbytes,
+        )
         tp.ctype = process(tp.ctype)
         return tp
 
@@ -205,27 +222,28 @@ class Annotation:
 
         if role is None:
             if len(self.type.shape) == 0:
-                role = 's'
+                role = "s"
             elif constant:
-                role = 'i'
+                role = "i"
             else:
-                role = 'io'
+                role = "io"
 
-        assert role in ('i', 'o', 'io', 's')
+        assert role in ("i", "o", "io", "s")
         self.role = role
         self.constant = constant
-        if role == 's':
+        if role == "s":
             self.array = False
             self.input = False
             self.output = False
         else:
             self.array = True
-            self.input = 'i' in role
-            self.output = 'o' in role
+            self.input = "i" in role
+            self.output = "o" in role
 
     def __eq__(self, other):
-        return (self.type == other.type
-            and self.role == other.role and self.constant == other.constant)
+        return (
+            self.type == other.type and self.role == other.role and self.constant == other.constant
+        )
 
     def can_be_argument_for(self, annotation):
         if not self.type.compatible_with(annotation.type):
@@ -234,7 +252,7 @@ class Annotation:
         if self.role == annotation.role:
             return True
 
-        if self.role == 'io' and annotation.array:
+        if self.role == "io" and annotation.array:
             return True
 
         return False
@@ -242,8 +260,10 @@ class Annotation:
     def __repr__(self):
         if self.array:
             return "Annotation({type_}, role={role}{constant})".format(
-                type_=self.type, role=repr(self.role),
-                constant=", constant" if self.constant else "")
+                type_=self.type,
+                role=repr(self.role),
+                constant=", constant" if self.constant else "",
+            )
         else:
             return "Annotation({dtype})".format(dtype=self.type.dtype)
 
@@ -265,7 +285,6 @@ class Parameter(inspect.Parameter):
     """
 
     def __init__(self, name, annotation, default=inspect.Parameter.empty):
-
         if default is not inspect.Parameter.empty:
             if annotation.array:
                 raise ValueError("Array parameters cannot have default values")
@@ -274,9 +293,12 @@ class Parameter(inspect.Parameter):
         # HACK: Parameter constructor is not documented.
         # But I need to create these objects somehow.
         inspect.Parameter.__init__(
-            self, name, annotation=annotation,
+            self,
+            name,
+            annotation=annotation,
             kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-            default=default)
+            default=default,
+        )
 
     def rename(self, new_name):
         """
@@ -286,8 +308,11 @@ class Parameter(inspect.Parameter):
         return Parameter(new_name, self.annotation, default=self.default)
 
     def __eq__(self, other):
-        return (self.name == other.name and self.annotation == other.annotation
-            and self.default == other.default)
+        return (
+            self.name == other.name
+            and self.annotation == other.annotation
+            and self.default == other.default
+        )
 
     def __process_modules__(self, process):
         return Parameter(self.name, process(self.annotation), default=self.default)
@@ -321,6 +346,7 @@ class Signature(inspect.Signature):
                 bound_args.arguments[param.name] = param.default
             elif cast:
                 if not param.annotation.array:
-                    bound_args.arguments[param.name] = \
-                        param.annotation.type(bound_args.arguments[param.name])
+                    bound_args.arguments[param.name] = param.annotation.type(
+                        bound_args.arguments[param.name]
+                    )
         return bound_args

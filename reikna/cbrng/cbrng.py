@@ -41,7 +41,6 @@ class CBRNG(Computation):
     """
 
     def __init__(self, randoms_arr, generators_dim, sampler, seed=None):
-
         self._sampler = sampler
         self._keygen = KeyGenerator.create(sampler.bijection, seed=seed, reserve_id_space=True)
 
@@ -52,9 +51,13 @@ class CBRNG(Computation):
         self._generators_dim = generators_dim
         self._counters_t = Type(sampler.bijection.counter_dtype, shape=counters_size)
 
-        Computation.__init__(self, [
-            Parameter('counters', Annotation(self._counters_t, 'io')),
-            Parameter('randoms', Annotation(randoms_arr, 'o'))])
+        Computation.__init__(
+            self,
+            [
+                Parameter("counters", Annotation(self._counters_t, "io")),
+                Parameter("randoms", Annotation(randoms_arr, "o")),
+            ],
+        )
 
     def create_counters(self):
         """
@@ -63,22 +66,21 @@ class CBRNG(Computation):
         return numpy.zeros(self._counters_t.shape, self._counters_t.dtype)
 
     def _build_plan(self, plan_factory, _device_params, counters, randoms):
-
         plan = plan_factory()
 
         plan.kernel_call(
-            TEMPLATE.get_def('cbrng'),
+            TEMPLATE.get_def("cbrng"),
             [counters, randoms],
             kernel_name="kernel_cbrng",
             global_size=(helpers.product(counters.shape),),
             render_kwds=dict(
                 sampler=self._sampler,
                 keygen=self._keygen,
-                batch=helpers.product(randoms.shape[:-self._generators_dim]),
+                batch=helpers.product(randoms.shape[: -self._generators_dim]),
                 counters_slices=(self._generators_dim,),
-                randoms_slices=(
-                    len(randoms.shape) - self._generators_dim,
-                    self._generators_dim)))
+                randoms_slices=(len(randoms.shape) - self._generators_dim, self._generators_dim),
+            ),
+        )
 
         return plan
 
@@ -86,7 +88,6 @@ class CBRNG(Computation):
 # For some reason, closure did not work correctly.
 # This class encapsulates the context and provides a classmethod for a given sampler.
 class _ConvenienceCtr:
-
     def __init__(self, sampler_name):
         self._sampler_func = SAMPLERS[sampler_name]
 

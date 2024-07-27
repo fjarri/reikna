@@ -33,16 +33,20 @@ class EntrywiseNorm(Computation):
         rd = Reduce(Type(out_dtype, arr_t.shape), predicate_sum(out_dtype), axes=axes)
 
         res_t = rd.parameter.output
-        tr_sum = norm_const(res_t, 1. / order)
+        tr_sum = norm_const(res_t, 1.0 / order)
 
         rd.parameter.input.connect(tr_elems, tr_elems.output, input_prime=tr_elems.input)
         rd.parameter.output.connect(tr_sum, tr_sum.input, output_prime=tr_sum.output)
 
         self._rd = rd
 
-        Computation.__init__(self, [
-            Parameter('output', Annotation(res_t, 'o')),
-            Parameter('input', Annotation(arr_t, 'i'))])
+        Computation.__init__(
+            self,
+            [
+                Parameter("output", Annotation(res_t, "o")),
+                Parameter("input", Annotation(arr_t, "i")),
+            ],
+        )
 
     def _build_plan(self, plan_factory, device_params, output, input_):
         plan = plan_factory()

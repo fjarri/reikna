@@ -9,12 +9,14 @@ from reikna.core import Computation, Parameter, Annotation, Transformation
 # Output = Input * Parameter
 def tr_scale(arr, coeff_t):
     return Transformation(
-        [Parameter('o1', Annotation(arr, 'o')),
-        Parameter('i1', Annotation(arr, 'i')),
-        Parameter('s1', Annotation(coeff_t))],
+        [
+            Parameter("o1", Annotation(arr, "o")),
+            Parameter("i1", Annotation(arr, "i")),
+            Parameter("s1", Annotation(coeff_t)),
+        ],
         "${o1.store_same}(${mul}(${i1.load_same}, ${s1}));",
-        render_kwds=dict(
-            mul=functions.mul(arr.dtype, coeff_t, out_dtype=arr.dtype)))
+        render_kwds=dict(mul=functions.mul(arr.dtype, coeff_t, out_dtype=arr.dtype)),
+    )
 
 
 class Dummy(Computation):
@@ -23,11 +25,16 @@ class Dummy(Computation):
     Used to perform core and transformation tests.
     """
 
-    def __init__(self, arr1, arr2, coeff, same_A_B=False,
-            test_incorrect_parameter_name=False,
-            test_untyped_scalar=False,
-            test_kernel_adhoc_array=False):
-
+    def __init__(
+        self,
+        arr1,
+        arr2,
+        coeff,
+        same_A_B=False,
+        test_incorrect_parameter_name=False,
+        test_untyped_scalar=False,
+        test_kernel_adhoc_array=False,
+    ):
         assert len(arr1.shape) == 2
         assert len(arr2.shape) == (2 if same_A_B else 1)
         assert arr1.dtype == arr2.dtype
@@ -37,17 +44,23 @@ class Dummy(Computation):
             assert arr1.shape[0] == arr1.shape[1]
 
         self._same_A_B = same_A_B
-        self._persistent_array = numpy.arange(product(arr2.shape)).reshape(arr2.shape).astype(arr2.dtype)
+        self._persistent_array = (
+            numpy.arange(product(arr2.shape)).reshape(arr2.shape).astype(arr2.dtype)
+        )
 
         self._test_untyped_scalar = test_untyped_scalar
         self._test_kernel_adhoc_array = test_kernel_adhoc_array
 
-        Computation.__init__(self, [
-            Parameter(('_C' if test_incorrect_parameter_name else 'C'), Annotation(arr1, 'o')),
-            Parameter('D', Annotation(arr2, 'o')),
-            Parameter('A', Annotation(arr1, 'i')),
-            Parameter('B', Annotation(arr2, 'i')),
-            Parameter('coeff', Annotation(coeff))])
+        Computation.__init__(
+            self,
+            [
+                Parameter(("_C" if test_incorrect_parameter_name else "C"), Annotation(arr1, "o")),
+                Parameter("D", Annotation(arr2, "o")),
+                Parameter("A", Annotation(arr1, "i")),
+                Parameter("B", Annotation(arr2, "i")),
+                Parameter("coeff", Annotation(coeff)),
+            ],
+        )
 
     def _build_plan(self, plan_factory, device_params, C, D, A, B, coeff):
         plan = plan_factory()
@@ -119,20 +132,27 @@ class Dummy(Computation):
         arr = plan.persistent_array(self._persistent_array)
 
         plan.kernel_call(
-            template.get_def('dummy'),
+            template.get_def("dummy"),
             [C_temp, D_temp, A, B, coeff],
             global_size=A.shape,
             local_size=(block_size, block_size),
-            render_kwds=dict(mul=mul, div=div, same_A_B=self._same_A_B))
+            render_kwds=dict(mul=mul, div=div, same_A_B=self._same_A_B),
+        )
 
         plan.kernel_call(
-            template.get_def('dummy2'),
-            [C, D, C_temp, D_temp,
+            template.get_def("dummy2"),
+            [
+                C,
+                D,
+                C_temp,
+                D_temp,
                 (self._persistent_array if self._test_kernel_adhoc_array else arr),
-                (10 if self._test_untyped_scalar else numpy.float32(10))],
+                (10 if self._test_untyped_scalar else numpy.float32(10)),
+            ],
             global_size=A.shape,
             local_size=(block_size, block_size),
-            render_kwds=dict(mul=mul, same_A_B=self._same_A_B))
+            render_kwds=dict(mul=mul, same_A_B=self._same_A_B),
+        )
 
         return plan
 
@@ -147,12 +167,18 @@ class DummyNested(Computation):
     Dummy computation class with a nested computation inside.
     """
 
-    def __init__(self, arr1, arr2, coeff, second_coeff, same_A_B=False,
-            test_computation_adhoc_array=False,
-            test_computation_incorrect_role=False,
-            test_computation_incorrect_type=False,
-            test_same_arg_as_i_and_o=False):
-
+    def __init__(
+        self,
+        arr1,
+        arr2,
+        coeff,
+        second_coeff,
+        same_A_B=False,
+        test_computation_adhoc_array=False,
+        test_computation_incorrect_role=False,
+        test_computation_incorrect_type=False,
+        test_same_arg_as_i_and_o=False,
+    ):
         self._second_coeff = second_coeff
         self._same_A_B = same_A_B
         self._test_same_arg_as_i_and_o = test_same_arg_as_i_and_o
@@ -161,12 +187,16 @@ class DummyNested(Computation):
         self._test_computation_incorrect_role = test_computation_incorrect_role
         self._test_computation_incorrect_type = test_computation_incorrect_type
 
-        Computation.__init__(self, [
-            Parameter('C', Annotation(arr1, 'o')),
-            Parameter('D', Annotation(arr2, 'o')),
-            Parameter('A', Annotation(arr1, 'i')),
-            Parameter('B', Annotation(arr2, 'i')),
-            Parameter('coeff', Annotation(coeff))])
+        Computation.__init__(
+            self,
+            [
+                Parameter("C", Annotation(arr1, "o")),
+                Parameter("D", Annotation(arr2, "o")),
+                Parameter("A", Annotation(arr1, "i")),
+                Parameter("B", Annotation(arr2, "i")),
+                Parameter("coeff", Annotation(coeff)),
+            ],
+        )
 
     def _build_plan(self, plan_factory, device_params, C, D, A, B, coeff):
         plan = plan_factory()
@@ -183,10 +213,13 @@ class DummyNested(Computation):
             (numpy.empty_like(C_temp) if self._test_computation_adhoc_array else C_temp),
             (B if self._test_computation_incorrect_role else D_temp),
             (B if self._test_computation_incorrect_type else A),
-            0.4, B, coeff)
+            0.4,
+            B,
+            coeff,
+        )
 
         if self._test_same_arg_as_i_and_o:
-            _trash = plan.temp_array_like(C) # ignoring this result
+            _trash = plan.temp_array_like(C)  # ignoring this result
             nested2 = Dummy(A, B, coeff, same_A_B=self._same_A_B)
             plan.computation_call(nested2, _trash, D_temp, C_temp, D_temp, coeff)
 
@@ -208,11 +241,15 @@ class DummyAdvanced(Computation):
     """
 
     def __init__(self, arr, coeff):
-        Computation.__init__(self, [
-            Parameter('C', Annotation(arr, 'io')),
-            Parameter('D', Annotation(arr, 'io')),
-            Parameter('coeff1', Annotation(coeff)),
-            Parameter('coeff2', Annotation(coeff))])
+        Computation.__init__(
+            self,
+            [
+                Parameter("C", Annotation(arr, "io")),
+                Parameter("D", Annotation(arr, "io")),
+                Parameter("coeff1", Annotation(coeff)),
+                Parameter("coeff2", Annotation(coeff)),
+            ],
+        )
 
     def _build_plan(self, plan_factory, device_params, C, D, coeff1, coeff2):
         plan = plan_factory()
@@ -247,10 +284,11 @@ class DummyAdvanced(Computation):
 
         # Testing a kernel call which uses the same argument for two parameters.
         plan.kernel_call(
-            template.get_def('dummy'),
+            template.get_def("dummy"),
             [C, C_temp, C_temp, coeff2],
             global_size=C.shape,
-            render_kwds=dict(mul=mul))
+            render_kwds=dict(mul=mul),
+        )
 
         return plan
 

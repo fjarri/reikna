@@ -12,12 +12,16 @@ from helpers import *
 
 
 perf_shapes = [(1024 * 1024,), (1024 * 1024 * 8,), (1024 * 1024 * 64,)]
+
+
 @pytest.fixture(params=perf_shapes, ids=list(map(str, perf_shapes)))
 def large_perf_shape(request):
     return request.param
 
 
-corr_shapes = [(15,), (511,), (512,), (513,), (512*512+1,), (512*512*4+5,)]
+corr_shapes = [(15,), (511,), (512,), (513,), (512 * 512 + 1,), (512 * 512 * 4 + 5,)]
+
+
 @pytest.fixture(params=corr_shapes, ids=list(map(str, corr_shapes)))
 def corr_shape(request):
     return request.param
@@ -42,7 +46,8 @@ def ref_scan(arr, axes=None, exclusive=False):
         unchanged_ndim = arr.ndim - len(axes)
         temp = arr.transpose(transpose_to)
         temp2 = temp.reshape(
-            temp.shape[:unchanged_ndim] + (helpers.product(temp.shape[unchanged_ndim:]),))
+            temp.shape[:unchanged_ndim] + (helpers.product(temp.shape[unchanged_ndim:]),)
+        )
         temp2 = numpy.cumsum(temp2, axis=-1)
         res = temp2.reshape(temp.shape).transpose(transpose_from)
 
@@ -53,10 +58,16 @@ def ref_scan(arr, axes=None, exclusive=False):
 
 
 def check_scan(
-        queue, shape, axes, exclusive=False,
-        measure_time=False, dtype=numpy.int64, max_work_group_size=None, predicate=None,
-        seq_size=None):
-
+    queue,
+    shape,
+    axes,
+    exclusive=False,
+    measure_time=False,
+    dtype=numpy.int64,
+    max_work_group_size=None,
+    predicate=None,
+    seq_size=None,
+):
     # Note: the comparison will only work if the custom predicate is
     # functionally equivalent to `predicate_sum`.
     if predicate is None:
@@ -65,8 +76,13 @@ def check_scan(
     arr = get_test_array(shape, dtype)
 
     scan = Scan(
-        arr, predicate, axes=axes, exclusive=exclusive,
-        max_work_group_size=max_work_group_size, seq_size=seq_size).compile(queue.device)
+        arr,
+        predicate,
+        axes=axes,
+        exclusive=exclusive,
+        max_work_group_size=max_work_group_size,
+        seq_size=seq_size,
+    ).compile(queue.device)
 
     arr_dev = Array.from_host(queue, arr)
     res_dev = Array.from_host(queue, numpy.ones_like(arr) * (-1))
@@ -96,35 +112,45 @@ def check_scan(
 
 def test_scan_correctness(queue, corr_shape, exclusive):
     check_scan(
-        queue, corr_shape, axes=None, exclusive=exclusive,
-        max_work_group_size=queue.device.params.max_total_local_size // 2)
+        queue,
+        corr_shape,
+        axes=None,
+        exclusive=exclusive,
+        max_work_group_size=queue.device.params.max_total_local_size // 2,
+    )
 
 
 def test_scan_multiple_axes(queue):
-    check_scan(queue, (10, 20, 30, 40), axes=(2,3))
+    check_scan(queue, (10, 20, 30, 40), axes=(2, 3))
 
 
 def test_scan_non_innermost_axes(queue):
-    check_scan(queue, (10, 20, 30, 40), axes=(1,2))
+    check_scan(queue, (10, 20, 30, 40), axes=(1, 2))
 
 
 def test_scan_custom_predicate(queue):
-    predicate = Predicate(
-        Snippet.from_callable(lambda v1, v2: "return ${v1} + ${v2};"),
-        0)
-    check_scan(queue, (10, 20, 30, 40), axes=(1,2), predicate=predicate)
+    predicate = Predicate(Snippet.from_callable(lambda v1, v2: "return ${v1} + ${v2};"), 0)
+    check_scan(queue, (10, 20, 30, 40), axes=(1, 2), predicate=predicate)
 
 
 def test_scan_structure_type(queue, exclusive):
-
     shape = (100, 100)
-    dtype = dtypes.align(numpy.dtype([
-        ('i1', numpy.uint32),
-        ('nested', numpy.dtype([
-            ('v', numpy.uint64),
-            ])),
-        ('i2', numpy.uint32)
-        ]))
+    dtype = dtypes.align(
+        numpy.dtype(
+            [
+                ("i1", numpy.uint32),
+                (
+                    "nested",
+                    numpy.dtype(
+                        [
+                            ("v", numpy.uint64),
+                        ]
+                    ),
+                ),
+                ("i2", numpy.uint32),
+            ]
+        )
+    )
 
     a = get_test_array(shape, dtype)
     a_dev = Array.from_host(queue, a)
@@ -132,21 +158,23 @@ def test_scan_structure_type(queue, exclusive):
     # Have to construct the resulting array manually,
     # since numpy cannot scan arrays with struct dtypes.
     b_ref = numpy.empty(shape, dtype)
-    b_ref['i1'] = ref_scan(a['i1'], axes=0, exclusive=exclusive)
-    b_ref['nested']['v'] = ref_scan(a['nested']['v'], axes=0, exclusive=exclusive)
-    b_ref['i2'] = ref_scan(a['i2'], axes=0, exclusive=exclusive)
+    b_ref["i1"] = ref_scan(a["i1"], axes=0, exclusive=exclusive)
+    b_ref["nested"]["v"] = ref_scan(a["nested"]["v"], axes=0, exclusive=exclusive)
+    b_ref["i2"] = ref_scan(a["i2"], axes=0, exclusive=exclusive)
 
     predicate = Predicate(
-        Snippet.from_callable(lambda v1, v2: """
+        Snippet.from_callable(
+            lambda v1, v2: """
             ${ctype} result = ${v1};
             result.i1 += ${v2}.i1;
             result.nested.v += ${v2}.nested.v;
             result.i2 += ${v2}.i2;
             return result;
             """,
-            render_globals=dict(
-                ctype=dtypes.ctype(dtype))),
-        numpy.zeros(1, dtype)[0])
+            render_globals=dict(ctype=dtypes.ctype(dtype)),
+        ),
+        numpy.zeros(1, dtype)[0],
+    )
 
     scan = Scan(a_dev, predicate, axes=(0,), exclusive=exclusive)
 
@@ -160,19 +188,20 @@ def test_scan_structure_type(queue, exclusive):
 
 
 @pytest.mark.perf
-@pytest.mark.returns('GB/s')
+@pytest.mark.returns("GB/s")
 def test_large_scan_performance(queue, large_perf_shape, exclusive):
     """
     Large problem sizes.
     """
     dtype = numpy.dtype("int64")
     min_time = check_scan(
-        queue, large_perf_shape, dtype=dtype, axes=None, exclusive=exclusive, measure_time=True)
+        queue, large_perf_shape, dtype=dtype, axes=None, exclusive=exclusive, measure_time=True
+    )
     return min_time, helpers.product(large_perf_shape) * dtype.itemsize
 
 
 @pytest.mark.perf
-@pytest.mark.returns('GB/s')
+@pytest.mark.returns("GB/s")
 def test_small_scan_performance(queue, exclusive, seq_size):
     """
     Small problem sizes, big batches.
@@ -180,6 +209,12 @@ def test_small_scan_performance(queue, exclusive, seq_size):
     dtype = numpy.dtype("complex64")
     shape = (500, 2, 2, 256)
     min_time = check_scan(
-        queue, shape, dtype=dtype, axes=(-1,), exclusive=exclusive,
-        measure_time=True, seq_size=seq_size)
+        queue,
+        shape,
+        dtype=dtype,
+        axes=(-1,),
+        exclusive=exclusive,
+        measure_time=True,
+        seq_size=seq_size,
+    )
     return min_time, helpers.product(shape) * dtype.itemsize

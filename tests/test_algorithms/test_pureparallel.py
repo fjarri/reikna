@@ -10,22 +10,27 @@ from reikna.transformations import mul_param, copy
 
 
 class NestedPureParallel(Computation):
-
     def __init__(self, size, dtype):
+        Computation.__init__(
+            self,
+            [
+                Parameter("output", Annotation(Type(dtype, shape=size), "o")),
+                Parameter("input", Annotation(Type(dtype, shape=size), "i")),
+            ],
+        )
 
-        Computation.__init__(self, [
-            Parameter('output', Annotation(Type(dtype, shape=size), 'o')),
-            Parameter('input', Annotation(Type(dtype, shape=size), 'i'))])
-
-        self._p = PureParallel([
-                Parameter('output', Annotation(Type(dtype, shape=size), 'o')),
-                Parameter('i1', Annotation(Type(dtype, shape=size), 'i')),
-                Parameter('i2', Annotation(Type(dtype, shape=size), 'i'))],
+        self._p = PureParallel(
+            [
+                Parameter("output", Annotation(Type(dtype, shape=size), "o")),
+                Parameter("i1", Annotation(Type(dtype, shape=size), "i")),
+                Parameter("i2", Annotation(Type(dtype, shape=size), "i")),
+            ],
             """
             ${i1.ctype} t1 = ${i1.load_idx}(${idxs[0]});
             ${i2.ctype} t2 = ${i2.load_idx}(${idxs[0]});
             ${output.store_idx}(${idxs[0]}, t1 + t2);
-            """)
+            """,
+        )
 
     def _build_plan(self, plan_factory, device_params, output, input_):
         plan = plan_factory()
@@ -34,7 +39,6 @@ class NestedPureParallel(Computation):
 
 
 def test_nested(queue):
-
     N = 1000
     dtype = numpy.float32
 
@@ -53,20 +57,21 @@ def test_nested(queue):
 
 
 def test_guiding_input(queue):
-
     N = 1000
     dtype = numpy.float32
 
     p = PureParallel(
         [
-            Parameter('output', Annotation(Type(dtype, shape=(2, N)), 'o')),
-            Parameter('input', Annotation(Type(dtype, shape=N), 'i'))],
+            Parameter("output", Annotation(Type(dtype, shape=(2, N)), "o")),
+            Parameter("input", Annotation(Type(dtype, shape=N), "i")),
+        ],
         """
         float t = ${input.load_idx}(${idxs[0]});
         ${output.store_idx}(0, ${idxs[0]}, t);
         ${output.store_idx}(1, ${idxs[0]}, t * 2);
         """,
-        guiding_array='input')
+        guiding_array="input",
+    )
 
     a = get_test_array_like(p.parameter.input)
     a_dev = Array.from_host(queue.device, a)
@@ -81,20 +86,21 @@ def test_guiding_input(queue):
 
 
 def test_guiding_output(queue):
-
     N = 1000
     dtype = numpy.float32
 
     p = PureParallel(
         [
-            Parameter('output', Annotation(Type(dtype, shape=N), 'o')),
-            Parameter('input', Annotation(Type(dtype, shape=(2, N)), 'i'))],
+            Parameter("output", Annotation(Type(dtype, shape=N), "o")),
+            Parameter("input", Annotation(Type(dtype, shape=(2, N)), "i")),
+        ],
         """
         float t1 = ${input.load_idx}(0, ${idxs[0]});
         float t2 = ${input.load_idx}(1, ${idxs[0]});
         ${output.store_idx}(${idxs[0]}, t1 + t2);
         """,
-        guiding_array='output')
+        guiding_array="output",
+    )
 
     a = get_test_array_like(p.parameter.input)
     a_dev = Array.from_host(queue.device, a)
@@ -109,21 +115,22 @@ def test_guiding_output(queue):
 
 
 def test_guiding_shape(queue):
-
     N = 1000
     dtype = numpy.float32
 
     p = PureParallel(
         [
-            Parameter('output', Annotation(Type(dtype, shape=(2, N)), 'o')),
-            Parameter('input', Annotation(Type(dtype, shape=(2, N)), 'i'))],
+            Parameter("output", Annotation(Type(dtype, shape=(2, N)), "o")),
+            Parameter("input", Annotation(Type(dtype, shape=(2, N)), "i")),
+        ],
         """
         float t1 = ${input.load_idx}(0, ${idxs[0]});
         float t2 = ${input.load_idx}(1, ${idxs[0]});
         ${output.store_idx}(0, ${idxs[0]}, t1 + t2);
         ${output.store_idx}(1, ${idxs[0]}, t1 - t2);
         """,
-        guiding_array=(N,))
+        guiding_array=(N,),
+    )
 
     a = get_test_array_like(p.parameter.input)
     a_dev = Array.from_host(queue.device, a)
@@ -137,7 +144,7 @@ def test_guiding_shape(queue):
     assert diff_is_negligible(res_dev.get(queue), res_ref)
 
 
-@pytest.mark.parametrize('guiding_array', ['input', 'output', 'none'])
+@pytest.mark.parametrize("guiding_array", ["input", "output", "none"])
 def test_from_trf(queue, guiding_array):
     """
     Test the creation of ``PureParallel`` out of a transformation
@@ -151,11 +158,11 @@ def test_from_trf(queue, guiding_array):
     arr_t = Type(dtype, shape=N)
     trf = mul_param(arr_t, dtype)
 
-    if guiding_array == 'input':
+    if guiding_array == "input":
         arr = trf.input
-    elif guiding_array == 'output':
+    elif guiding_array == "output":
         arr = trf.output
-    elif guiding_array == 'none':
+    elif guiding_array == "none":
         arr = None
 
     p = PureParallel.from_trf(trf, guiding_array=arr)
@@ -174,15 +181,17 @@ def test_from_trf(queue, guiding_array):
 
 
 class SameArgumentHelper(Computation):
-
     def __init__(self, arr):
-
         copy_trf = copy(arr, out_arr_t=arr)
         self._copy_comp = PureParallel.from_trf(copy_trf, copy_trf.input)
 
-        Computation.__init__(self, [
-            Parameter('outer_output', Annotation(arr, 'o')),
-            Parameter('outer_input', Annotation(arr, 'i'))])
+        Computation.__init__(
+            self,
+            [
+                Parameter("outer_output", Annotation(arr, "o")),
+                Parameter("outer_input", Annotation(arr, "i")),
+            ],
+        )
 
     def _build_plan(self, plan_factory, device_params, output, input_):
         plan = plan_factory()

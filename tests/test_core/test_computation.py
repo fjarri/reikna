@@ -8,7 +8,6 @@ from test_core.dummy import *
 
 
 def test_dummy(queue):
-
     N = 200
     coeff = 2
     A = get_test_array((N, N), numpy.complex64)
@@ -30,7 +29,6 @@ def test_dummy(queue):
 
 
 def test_nested_dummy(queue):
-
     N = 2000
     coeff = 2
     second_coeff = 3
@@ -178,8 +176,8 @@ def test_same_arg_as_i_and_o(some_queue):
     N = 2000
     coeff = 2
     second_coeff = 3
-    A = numpy.ones((N,N)).astype(numpy.complex64) # get_test_array((N, N), numpy.complex64)
-    B = numpy.ones(N).astype(numpy.complex64) # get_test_array(N, numpy.complex64)
+    A = numpy.ones((N, N)).astype(numpy.complex64)  # get_test_array((N, N), numpy.complex64)
+    B = numpy.ones(N).astype(numpy.complex64)  # get_test_array(N, numpy.complex64)
 
     A_dev = Array.from_host(some_queue, A)
     B_dev = Array.from_host(some_queue, B)
@@ -187,7 +185,8 @@ def test_same_arg_as_i_and_o(some_queue):
     D_dev = Array.empty(some_queue.device, B_dev.shape, B_dev.dtype)
 
     d = DummyNested(
-        A_dev, B_dev, numpy.float32, second_coeff, test_same_arg_as_i_and_o=True).compile(some_queue.device)
+        A_dev, B_dev, numpy.float32, second_coeff, test_same_arg_as_i_and_o=True
+    ).compile(some_queue.device)
     d(some_queue, C_dev, D_dev, A_dev, B_dev, coeff)
     C = C_dev.get(some_queue)
     D = D_dev.get(some_queue)

@@ -20,7 +20,7 @@ class KeyGenerator:
     """
 
     def __init__(self, module, base_key):
-        """__init__()""" # hide the signature from Sphinx
+        """__init__()"""  # hide the signature from Sphinx
         self.module = module
         self._base_key = base_key
 
@@ -44,9 +44,9 @@ class KeyGenerator:
 
         if reserve_id_space:
             if bijection.key_words == 1 and bijection.word_dtype.itemsize == 4:
-            # It's too hard to compress both global and thread-dependent part
-            # in a single 32-bit word.
-            # Let the user handle this himself.
+                # It's too hard to compress both global and thread-dependent part
+                # in a single 32-bit word.
+                # Let the user handle this himself.
                 raise ValueError("Cannor reserve ID space in a 32-bit key")
 
             if bijection.word_dtype.itemsize == 4:
@@ -77,12 +77,13 @@ class KeyGenerator:
 
         full_key = numpy.zeros(1, bijection.key_dtype)[0]
         if bijection.word_dtype.itemsize == 4:
-            full_key['v'][:key_words32] = key
+            full_key["v"][:key_words32] = key
         else:
             for i in range(key_words32):
-                full_key['v'][i // 2] += key[i] << (32 if i % 2 == 0 else 0)
+                full_key["v"][i // 2] += key[i] << (32 if i % 2 == 0 else 0)
 
-        module = Module.from_string("""
+        module = Module.from_string(
+            """
             FUNCTION ${bijection.module}Key ${prefix}key_from_int(int idx)
             {
                 ${bijection.module}Key result;
@@ -98,9 +99,8 @@ class KeyGenerator:
                 return result;
             }
             """,
-            render_globals=dict(
-                bijection=bijection,
-                key=full_key))
+            render_globals=dict(bijection=bijection, key=full_key),
+        )
 
         return cls(module, full_key)
 
@@ -110,5 +110,5 @@ class KeyGenerator:
         Uses the same algorithm as the module.
         """
         key = self._base_key.copy()
-        key['v'][-1] += numpy.asarray(idx, key.dtype.fields['v'][0].base)
+        key["v"][-1] += numpy.asarray(idx, key.dtype.fields["v"][0].base)
         return key

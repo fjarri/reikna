@@ -14,17 +14,24 @@ from reikna.transformations import mul_param
 
 
 def pytest_generate_tests(metafunc):
-
     perf_log_shapes = [
-        (4,), (10,), (13,), # 1D
-        (4, 4), (7, 7), (10, 10), # 2D
-        (4, 4, 4), (5, 5, 7), (7, 7, 7)] # 3D
+        (4,),
+        (10,),
+        (13,),  # 1D
+        (4, 4),
+        (7, 7),
+        (10, 10),  # 2D
+        (4, 4, 4),
+        (5, 5, 7),
+        (7, 7, 7),
+    ]  # 3D
     perf_mem_limit = 4 * 2**20
 
-    if 'local_shape_and_axes' in metafunc.fixturenames:
+    if "local_shape_and_axes" in metafunc.fixturenames:
+
         def idgen(val):
             batch, size = val[0]
-            return str(batch) + 'x' + str(size)
+            return str(batch) + "x" + str(size)
 
         # These values are supposed to check all code paths in
         # fft.mako::insertGlobalLoadsAndTranspose.
@@ -36,12 +43,12 @@ def pytest_generate_tests(metafunc):
         # 2. ``xforms_per_workgroup`` still > 1
         #    (which will allow us to have ``xforms_remainder != 0``)
 
-        mem_limit = 2 ** 20
+        mem_limit = 2**20
         size_powers = (3, 7, 8, 9, 10, 12)
 
         vals = []
         for p in size_powers:
-            size = 2 ** p
+            size = 2**p
             batch = mem_limit // size
 
             # "size / 2 - 1" will lead to full FFT of size ``size``
@@ -53,21 +60,22 @@ def pytest_generate_tests(metafunc):
                 for b in (1, batch - 1, batch):
                     vals.append(((b, s), (1,)))
 
-        metafunc.parametrize('local_shape_and_axes', vals, ids=list(map(idgen, vals)))
+        metafunc.parametrize("local_shape_and_axes", vals, ids=list(map(idgen, vals)))
 
-    elif 'global_shape_and_axes' in metafunc.fixturenames:
+    elif "global_shape_and_axes" in metafunc.fixturenames:
+
         def idgen(val):
             outer_batch, size, inner_batch = val[0]
-            return str(outer_batch) + 'x' + str(size) + 'x' + str(inner_batch)
+            return str(outer_batch) + "x" + str(size) + "x" + str(inner_batch)
 
         # These values are supposed to check all code paths in
         # fft.mako::fft_global.
-        mem_limit = 2 ** 22
+        mem_limit = 2**22
         size_powers = (3, 7, 9, 10)
 
         vals = []
         for p in size_powers:
-            size = 2 ** p
+            size = 2**p
             batch = mem_limit // size // 64
 
             # "size / 2 - 1" will lead to full FFT of size ``size``
@@ -82,7 +90,7 @@ def pytest_generate_tests(metafunc):
                         vals.append(((ob, s, ib), (1,)))
 
         # big size (supposed to be > local_kernel_limit * MAX_RADIX)
-        big_size = 2 ** 15
+        big_size = 2**15
         batch = mem_limit // big_size // 8
         vals.append(((1, big_size, 1), (1,)))
         vals.append(((1, big_size, 2), (1,)))
@@ -90,36 +98,35 @@ def pytest_generate_tests(metafunc):
         vals.append(((batch, big_size, 3), (1,)))
         vals.append(((batch - 1, big_size, 3), (1,)))
 
-        metafunc.parametrize('global_shape_and_axes', vals, ids=list(map(idgen, vals)))
+        metafunc.parametrize("global_shape_and_axes", vals, ids=list(map(idgen, vals)))
 
-    elif 'sequence_shape_and_axes' in metafunc.fixturenames:
+    elif "sequence_shape_and_axes" in metafunc.fixturenames:
 
         def idgen(non2problem_shape_and_axes):
             shape, axes = non2problem_shape_and_axes
-            return str(shape) + 'over' + str(axes)
+            return str(shape) + "over" + str(axes)
 
         vals = [
             ((3, 255, 7), (2, 0)),
             ((17, 200, 131), (1, 0)),
             ((7, 1000, 11), (1, 2)),
-            ((15, 900, 57), (2, 0, 1))]
+            ((15, 900, 57), (2, 0, 1)),
+        ]
 
-        metafunc.parametrize('sequence_shape_and_axes', vals, ids=list(map(idgen, vals)))
+        metafunc.parametrize("sequence_shape_and_axes", vals, ids=list(map(idgen, vals)))
 
-    elif 'perf_shape_and_axes' in metafunc.fixturenames:
-
+    elif "perf_shape_and_axes" in metafunc.fixturenames:
         vals = []
         ids = []
         for log_shape in perf_log_shapes:
-            shape = tuple(2 ** x for x in log_shape)
+            shape = tuple(2**x for x in log_shape)
             batch = perf_mem_limit // (2 ** sum(log_shape))
             vals.append(((batch,) + shape, tuple(range(1, len(shape) + 1))))
             ids.append(str(batch) + "x" + str(shape))
 
-        metafunc.parametrize('perf_shape_and_axes', vals, ids=ids)
+        metafunc.parametrize("perf_shape_and_axes", vals, ids=ids)
 
-    elif 'non2problem_perf_shape_and_axes' in metafunc.fixturenames:
-
+    elif "non2problem_perf_shape_and_axes" in metafunc.fixturenames:
         vals = []
         ids = []
         for log_shape in perf_log_shapes:
@@ -129,7 +136,7 @@ def pytest_generate_tests(metafunc):
                 vals.append(((batch,) + shape, tuple(range(1, len(shape) + 1))))
                 ids.append(str(batch) + "x" + str(shape))
 
-        metafunc.parametrize('non2problem_perf_shape_and_axes', vals, ids=ids)
+        metafunc.parametrize("non2problem_perf_shape_and_axes", vals, ids=ids)
 
 
 def test_typecheck():
@@ -142,7 +149,6 @@ def test_typecheck():
 # (GPUs historically tend to cut corners in single precision).
 # So we're lowering tolerances when comparing to the reference in these tests.
 def check_errors(queue, shape_and_axes, atol=2e-5, rtol=1e-3):
-
     dtype = numpy.complex64
 
     shape, axes = shape_and_axes
@@ -193,8 +199,10 @@ def test_trivial(some_queue):
 def test_local(queue, local_shape_and_axes):
     check_errors(queue, local_shape_and_axes)
 
+
 def test_global(queue, global_shape_and_axes):
     check_errors(queue, global_shape_and_axes)
+
 
 def test_sequence(queue, sequence_shape_and_axes):
     # This test is particularly sensitive to inaccuracies in single precision,
@@ -230,12 +238,12 @@ def check_performance(queue, shape_and_axes, fast_math):
 
 
 @pytest.mark.perf
-@pytest.mark.returns('GFLOPS')
+@pytest.mark.returns("GFLOPS")
 def test_power_of_2_performance(queue, perf_shape_and_axes, fast_math):
     return check_performance(queue, perf_shape_and_axes, fast_math)
 
 
 @pytest.mark.perf
-@pytest.mark.returns('GFLOPS')
+@pytest.mark.returns("GFLOPS")
 def test_non_power_of_2_performance(queue, non2problem_perf_shape_and_axes, fast_math):
     return check_performance(queue, non2problem_perf_shape_and_axes, fast_math)

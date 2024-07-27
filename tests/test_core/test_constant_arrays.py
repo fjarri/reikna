@@ -19,9 +19,12 @@ class Dummy(Computation):
         assert arr2.shape == (2, length)
         self._arr1 = arr1
         self._arr2 = arr2
-        Computation.__init__(self, [
-            Parameter('output', Annotation(Type(numpy.float32, length), 'o')),
-            ])
+        Computation.__init__(
+            self,
+            [
+                Parameter("output", Annotation(Type(numpy.float32, length), "o")),
+            ],
+        )
 
     def _build_plan(self, plan_factory, device_params, output):
         plan = plan_factory()
@@ -43,24 +46,23 @@ class Dummy(Computation):
         arr1 = plan.constant_array(self._arr1)
         arr2 = plan.constant_array(self._arr2)
 
-        plan.kernel_call(
-            template.get_def('dummy'),
-            [output, arr1, arr2],
-            global_size=output.shape)
+        plan.kernel_call(template.get_def("dummy"), [output, arr1, arr2], global_size=output.shape)
 
         return plan
 
 
 class DummyOuter(Computation):
-
     def __init__(self, length, arr1, arr2):
         assert arr1.shape == (length,)
         assert arr2.shape == (2, length)
         self._arr1 = arr1
         self._arr2 = arr2
-        Computation.__init__(self, [
-            Parameter('output', Annotation(Type(numpy.float32, length), 'o')),
-            ])
+        Computation.__init__(
+            self,
+            [
+                Parameter("output", Annotation(Type(numpy.float32, length), "o")),
+            ],
+        )
 
     def _build_plan(self, plan_factory, device_params, output):
         plan = plan_factory()
@@ -70,7 +72,6 @@ class DummyOuter(Computation):
 
 
 def test_constant_arrays_computation(queue):
-
     N = 200
     arr1 = get_test_array(N, numpy.int32)
     arr2 = get_test_array((2, N), numpy.float32)

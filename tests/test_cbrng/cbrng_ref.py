@@ -7,6 +7,7 @@ This implementation favors simplicity over speed and therefore
 is not for use in production.
 It only guarantees to produce the same results as the original Random123.
 """
+
 from __future__ import print_function
 import sys
 
@@ -27,7 +28,6 @@ THREEFRY_ROTATION = {
     # These are the R_256 constants from the Threefish reference sources
     # with names changed to R_64x4...
     (64, 4): numpy.array([[14, 52, 23, 5, 25, 46, 58, 32], [16, 57, 40, 37, 33, 12, 22, 32]]).T,
-
     # Output from skein_rot_search: (srs64_B64-X1000)
     # Random seed = 1. BlockSize = 128 bits. sampleCnt =  1024. rounds =  8, minHW_or=57
     # Start: Tue Mar  1 10:07:48 2011
@@ -41,7 +41,6 @@ THREEFRY_ROTATION = {
     # 9 rounds: minHW = 64  [ 64 64 64 64 ]
     # 10 rounds: minHW = 64  [ 64 64 64 64 ]
     # 11 rounds: minHW = 64  [ 64 64 64 64 ]
-
     # Output from skein_rot_search: (srs-B128-X5000.out)
     # Random seed = 1. BlockSize = 64 bits. sampleCnt =  1024. rounds =  8, minHW_or=28
     # Start: Mon Aug 24 22:41:36 2009
@@ -56,12 +55,11 @@ THREEFRY_ROTATION = {
     # 9 rounds: minHW = 32  [ 32 32 32 32 ]
     # 10 rounds: minHW = 32  [ 32 32 32 32 ]
     # 11 rounds: minHW = 32  [ 32 32 32 32 ]
-
     # Output from skein_rot_search (srs32x2-X5000.out)
     # Random seed = 1. BlockSize = 64 bits. sampleCnt =  1024. rounds =  8, minHW_or=28
     # Start: Tue Jul 12 11:11:33 2011
     # rMin = 0.334. #0206[*07] [CRC=1D9765C0. hw_OR=32. cnt=16384. blkSize=  64].format
-    (32, 2): numpy.array([[13, 15, 26, 6, 17, 29, 16, 24]]).T
+    (32, 2): numpy.array([[13, 15, 26, 6, 17, 29, 16, 24]]).T,
     # 4 rounds: minHW =  4  [  4  4  4  4 ]
     # 5 rounds: minHW =  6  [  6  8  6  8 ]
     # 6 rounds: minHW =  9  [  9 12  9 12 ]
@@ -70,14 +68,10 @@ THREEFRY_ROTATION = {
     # 9 rounds: minHW = 32  [ 32 32 32 32 ]
     # 10 rounds: minHW = 32  [ 32 32 32 32 ]
     # 11 rounds: minHW = 32  [ 32 32 32 32 ]
-
 }
 
 
-THREEFRY_KS_PARITY = {
-    64: 0x1BD11BDAA9FC1A22,
-    32: 0x1BD11BDA
-}
+THREEFRY_KS_PARITY = {64: 0x1BD11BDAA9FC1A22, 32: 0x1BD11BDA}
 
 
 def threefry_rotate(W, R, x):
@@ -133,7 +127,6 @@ def threefry(W, N, ctr, key, Nrounds=None):
 
     with ignore_integer_overflow():
         for rnd in range(Nrounds):
-
             # FIXME: In the current version of Random123 (1.06),
             # there is a bug in R_idx calculation for N == 2, where
             #    R_idx = rnd % 8 if rnd < 20 else (rnd - 4) % 8
@@ -163,33 +156,33 @@ def threefry(W, N, ctr, key, Nrounds=None):
                 for i in range(N):
                     X[i] += ks[(rnd // 4 + i + 1) % (N + 1)]
 
-                X[N-1] += dtype(rnd // 4 + 1)
+                X[N - 1] += dtype(rnd // 4 + 1)
 
     return X
 
 
 PHILOX_W = {
     64: [
-        numpy.uint64(0x9E3779B97F4A7C15), # golden ratio
-        numpy.uint64(0xBB67AE8584CAA73B) # sqrt(3)-1
+        numpy.uint64(0x9E3779B97F4A7C15),  # golden ratio
+        numpy.uint64(0xBB67AE8584CAA73B),  # sqrt(3)-1
     ],
     32: [
-        numpy.uint32(0x9E3779B9), # golden ratio
-        numpy.uint32(0xBB67AE85) # sqrt(3)-1
-    ]
+        numpy.uint32(0x9E3779B9),  # golden ratio
+        numpy.uint32(0xBB67AE85),  # sqrt(3)-1
+    ],
 }
 
 PHILOX_M = {
-    (64,2): [numpy.uint64(0xD2B74407B1CE6E93)],
-    (64,4): [numpy.uint64(0xD2E7470EE14C6C93), numpy.uint64(0xCA5A826395121157)],
-    (32,2): [numpy.uint32(0xD256D193)],
-    (32,4): [numpy.uint32(0xD2511F53), numpy.uint32(0xCD9E8D57)]
+    (64, 2): [numpy.uint64(0xD2B74407B1CE6E93)],
+    (64, 4): [numpy.uint64(0xD2E7470EE14C6C93), numpy.uint64(0xCA5A826395121157)],
+    (32, 2): [numpy.uint32(0xD256D193)],
+    (32, 4): [numpy.uint32(0xD2511F53), numpy.uint32(0xCD9E8D57)],
 }
 
 
 def philox_mulhilo(W, x, y):
     res = long_int(x) * long_int(y)
-    return numpy.asarray(res // (2 ** W), x.dtype), numpy.asarray(res % (2 ** W), x.dtype)
+    return numpy.asarray(res // (2**W), x.dtype), numpy.asarray(res % (2**W), x.dtype)
 
 
 def philox_round(W, N, rnd, ctr, key):
@@ -198,14 +191,14 @@ def philox_round(W, N, rnd, ctr, key):
 
     if N == 2:
         key0 = key[0] + PHILOX_W[W][0] * rnd
-        hi, lo = philox_mulhilo(W, PHILOX_M[(W,N)][0], ctr[0])
+        hi, lo = philox_mulhilo(W, PHILOX_M[(W, N)][0], ctr[0])
         ctr[0] = hi ^ key0 ^ ctr[1]
         ctr[1] = lo
     else:
         key0 = key[0] + PHILOX_W[W][0] * rnd
         key1 = key[1] + PHILOX_W[W][1] * rnd
-        hi0, lo0 = philox_mulhilo(W, PHILOX_M[(W,N)][0], ctr[0])
-        hi1, lo1 = philox_mulhilo(W, PHILOX_M[(W,N)][1], ctr[2])
+        hi0, lo0 = philox_mulhilo(W, PHILOX_M[(W, N)][0], ctr[0])
+        hi1, lo1 = philox_mulhilo(W, PHILOX_M[(W, N)][1], ctr[2])
         ctr[0] = hi1 ^ ctr[1] ^ key0
         ctr[1] = lo1
         ctr[2] = hi0 ^ ctr[3] ^ key1
@@ -240,6 +233,7 @@ def philox(W, N, ctr, key, Nrounds=None):
 
 # Some simple testcases to compare with Random123 results.
 
+
 def myhex(x):
     s = hex(x)[2:-1]
     return "0" * (2 * x.nbytes - len(s)) + s
@@ -250,14 +244,13 @@ def test(name):
 
     for W in (32, 64):
         for N in (2, 4):
-
             dtype = numpy.uint32 if W == 32 else numpy.uint64
-            if name == 'threefry':
+            if name == "threefry":
                 key = kk[:N].astype(dtype)
                 rounds = 72 if N == 4 else 32
                 func = threefry
-            elif name == 'philox':
-                key = kk[:N//2].astype(dtype)
+            elif name == "philox":
+                key = kk[: N // 2].astype(dtype)
                 rounds = 10
                 func = philox
 
@@ -270,7 +263,6 @@ def test(name):
                 print("ctr " + str(i) + ": " + " ".join([myhex(i) for i in res]))
 
 
-if __name__ == '__main__':
-    test('threefry')
-    test('philox')
-
+if __name__ == "__main__":
+    test("threefry")
+    test("philox")

@@ -7,9 +7,10 @@ import pytest
 
 # renderers
 renderers = {
-    'GFLOPS': lambda x: "{f:.2f} GFLOPS".format(f=float(x[1]) / x[0] / 1e9),
-    'GB/s': lambda x: "{f:.2f} GB/s".format(f=float(x[1]) / x[0] / 2 ** 30)
+    "GFLOPS": lambda x: "{f:.2f} GFLOPS".format(f=float(x[1]) / x[0] / 1e9),
+    "GB/s": lambda x: "{f:.2f} GB/s".format(f=float(x[1]) / x[0] / 2**30),
 }
+
 
 def pytest_configure(config):
     config.pluginmanager.register(ReturnValuesPlugin(config), "returnvalues")
@@ -17,7 +18,6 @@ def pytest_configure(config):
 
 
 class ReturnValuesPlugin(object):
-
     def __init__(self, config):
         pass
 
@@ -27,7 +27,7 @@ class ReturnValuesPlugin(object):
         out, letter, msg = outcome.get_result()
 
         # if we have some result attached to the testcase, print it instead of 'PASSED'
-        if hasattr(report, 'retval'):
+        if hasattr(report, "retval"):
             msg = report.retval
 
         outcome.force_result((out, letter, msg))
@@ -47,7 +47,7 @@ class ReturnValuesPlugin(object):
         res = testfunction(**testargs)
 
         pyfuncitem.retval = res
-        return True # finished processing the callback
+        return True  # finished processing the callback
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_runtest_makereport(self, item, call):
@@ -56,11 +56,11 @@ class ReturnValuesPlugin(object):
 
         returns_mark = None
         for mark in item.iter_markers():
-            if mark.name == 'returns':
+            if mark.name == "returns":
                 returns_mark = mark
 
         # if the testcase has passed, and has 'perf' marker, process its results
-        if call.when == 'call' and report.passed and returns_mark is not None:
+        if call.when == "call" and report.passed and returns_mark is not None:
             if len(returns_mark.args) > 0:
                 if returns_mark.args[0] in renderers:
                     renderer = renderers[returns_mark.args[0]]

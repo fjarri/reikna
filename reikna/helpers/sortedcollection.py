@@ -8,7 +8,7 @@ from bisect import bisect_left, bisect_right
 
 
 class SortedCollection(object):
-    '''Sequence sorted by a key function.
+    """Sequence sorted by a key function.
 
     SortedCollection() is much easier to work with than using bisect() directly.
     It supports key functions like those use in sorted(), min(), and max().
@@ -74,7 +74,7 @@ class SortedCollection(object):
      ('david', 'thomas', 32),
      ('roger', 'young', 30)]
 
-    '''
+    """
 
     def __init__(self, iterable=(), key=None):
         self._given_key = key
@@ -94,7 +94,7 @@ class SortedCollection(object):
     def _delkey(self):
         self._setkey(None)
 
-    key = property(_getkey, _setkey, _delkey, 'key function')
+    key = property(_getkey, _setkey, _delkey, "key function")
 
     def clear(self):
         self.__init__([], self._key)
@@ -115,10 +115,10 @@ class SortedCollection(object):
         return reversed(self._items)
 
     def __repr__(self):
-        return '%s(%r, key=%s)' % (
+        return "%s(%r, key=%s)" % (
             self.__class__.__name__,
             self._items,
-            getattr(self._given_key, '__name__', repr(self._given_key))
+            getattr(self._given_key, "__name__", repr(self._given_key)),
         )
 
     def __reduce__(self):
@@ -131,132 +131,133 @@ class SortedCollection(object):
         return item in self._items[i:j]
 
     def index(self, item):
-        'Find the position of an item.  Raise ValueError if not found.'
+        "Find the position of an item.  Raise ValueError if not found."
         k = self._key(item)
         i = bisect_left(self._keys, k)
         j = bisect_right(self._keys, k)
         return self._items[i:j].index(item) + i
 
     def count(self, item):
-        'Return number of occurrences of item'
+        "Return number of occurrences of item"
         k = self._key(item)
         i = bisect_left(self._keys, k)
         j = bisect_right(self._keys, k)
         return self._items[i:j].count(item)
 
     def insert(self, item):
-        'Insert a new item.  If equal keys are found, add to the left'
+        "Insert a new item.  If equal keys are found, add to the left"
         k = self._key(item)
         i = bisect_left(self._keys, k)
         self._keys.insert(i, k)
         self._items.insert(i, item)
 
     def insert_right(self, item):
-        'Insert a new item.  If equal keys are found, add to the right'
+        "Insert a new item.  If equal keys are found, add to the right"
         k = self._key(item)
         i = bisect_right(self._keys, k)
         self._keys.insert(i, k)
         self._items.insert(i, item)
 
     def remove(self, item):
-        'Remove first occurence of item.  Raise ValueError if not found'
+        "Remove first occurence of item.  Raise ValueError if not found"
         i = self.index(item)
         del self._keys[i]
         del self._items[i]
 
     def find(self, k):
-        'Return first item with a key == k.  Raise ValueError if not found.'
+        "Return first item with a key == k.  Raise ValueError if not found."
         i = bisect_left(self._keys, k)
         if i != len(self) and self._keys[i] == k:
             return self._items[i]
-        raise ValueError('No item found with key equal to: %r' % (k,))
+        raise ValueError("No item found with key equal to: %r" % (k,))
 
     def find_le(self, k):
-        'Return last item with a key <= k.  Raise ValueError if not found.'
+        "Return last item with a key <= k.  Raise ValueError if not found."
         i = bisect_right(self._keys, k)
         if i:
-            return self._items[i-1]
-        raise ValueError('No item found with key at or below: %r' % (k,))
+            return self._items[i - 1]
+        raise ValueError("No item found with key at or below: %r" % (k,))
 
     def find_lt(self, k):
-        'Return last item with a key < k.  Raise ValueError if not found.'
+        "Return last item with a key < k.  Raise ValueError if not found."
         i = bisect_left(self._keys, k)
         if i:
-            return self._items[i-1]
-        raise ValueError('No item found with key below: %r' % (k,))
+            return self._items[i - 1]
+        raise ValueError("No item found with key below: %r" % (k,))
 
     def argfind_ge(self, k):
-        'Return the index of the first item with a key >= equal to k.  Raise ValueError if not found'
+        "Return the index of the first item with a key >= equal to k.  Raise ValueError if not found"
         i = bisect_left(self._keys, k)
         if i != len(self):
             return i
-        raise ValueError('No item found with key at or above: %r' % (k,))
+        raise ValueError("No item found with key at or above: %r" % (k,))
 
     def find_ge(self, k):
-        'Return first item with a key >= equal to k.  Raise ValueError if not found'
+        "Return first item with a key >= equal to k.  Raise ValueError if not found"
         return self._items[self.argfind_ge(k)]
 
     def find_gt(self, k):
-        'Return first item with a key > k.  Raise ValueError if not found'
+        "Return first item with a key > k.  Raise ValueError if not found"
         i = bisect_right(self._keys, k)
         if i != len(self):
             return self._items[i]
-        raise ValueError('No item found with key above: %r' % (k,))
+        raise ValueError("No item found with key above: %r" % (k,))
 
 
 # ---------------------------  Simple demo and tests  -------------------------
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     def ve2no(f, *args):
-        'Convert ValueError result to -1'
+        "Convert ValueError result to -1"
         try:
             return f(*args)
         except ValueError:
             return -1
 
     def slow_index(seq, k):
-        'Location of match or -1 if not found'
+        "Location of match or -1 if not found"
         for i, item in enumerate(seq):
             if item == k:
                 return i
         return -1
 
     def slow_find(seq, k):
-        'First item with a key equal to k. -1 if not found'
+        "First item with a key equal to k. -1 if not found"
         for item in seq:
             if item == k:
                 return item
         return -1
 
     def slow_find_le(seq, k):
-        'Last item with a key less-than or equal to k.'
+        "Last item with a key less-than or equal to k."
         for item in reversed(seq):
             if item <= k:
                 return item
         return -1
 
     def slow_find_lt(seq, k):
-        'Last item with a key less-than k.'
+        "Last item with a key less-than k."
         for item in reversed(seq):
             if item < k:
                 return item
         return -1
 
     def slow_find_ge(seq, k):
-        'First item with a key-value greater-than or equal to k.'
+        "First item with a key-value greater-than or equal to k."
         for item in seq:
             if item >= k:
                 return item
         return -1
 
     def slow_find_gt(seq, k):
-        'First item with a key-value greater-than or equal to k.'
+        "First item with a key-value greater-than or equal to k."
         for item in seq:
             if item > k:
                 return item
         return -1
 
     from random import choice
+
     pool = [1.5, 2, 2.0, 3, 3.0, 3.5, 4, 4.0, 4.5]
     for i in range(500):
         for n in range(6):
@@ -271,52 +272,55 @@ if __name__ == '__main__':
                 assert repr(ve2no(sc.find_ge, probe)) == repr(slow_find_ge(s, probe))
                 assert repr(ve2no(sc.find_gt, probe)) == repr(slow_find_gt(s, probe))
             for i, item in enumerate(s):
-                assert repr(item) == repr(sc[i])        # test __getitem__
-                assert item in sc                       # test __contains__ and __iter__
+                assert repr(item) == repr(sc[i])  # test __getitem__
+                assert item in sc  # test __contains__ and __iter__
                 assert s.count(item) == sc.count(item)  # test count()
-            assert len(sc) == n                         # test __len__
-            assert list(map(repr, reversed(sc))) == list(map(repr, reversed(s)))    # test __reversed__
-            assert list(sc.copy()) == list(sc)          # test copy()
-            sc.clear()                                  # test clear()
+            assert len(sc) == n  # test __len__
+            assert list(map(repr, reversed(sc))) == list(
+                map(repr, reversed(s))
+            )  # test __reversed__
+            assert list(sc.copy()) == list(sc)  # test copy()
+            sc.clear()  # test clear()
             assert len(sc) == 0
 
-    sd = SortedCollection('The quick Brown Fox jumped'.split(), key=str.lower)
-    assert sd._keys == ['brown', 'fox', 'jumped', 'quick', 'the']
-    assert sd._items == ['Brown', 'Fox', 'jumped', 'quick', 'The']
+    sd = SortedCollection("The quick Brown Fox jumped".split(), key=str.lower)
+    assert sd._keys == ["brown", "fox", "jumped", "quick", "the"]
+    assert sd._items == ["Brown", "Fox", "jumped", "quick", "The"]
     assert sd._key == str.lower
     assert repr(sd) == "SortedCollection(['Brown', 'Fox', 'jumped', 'quick', 'The'], key=lower)"
     sd.key = str.upper
     assert sd._key == str.upper
     assert len(sd) == 5
-    assert list(reversed(sd)) == ['The', 'quick', 'jumped', 'Fox', 'Brown']
+    assert list(reversed(sd)) == ["The", "quick", "jumped", "Fox", "Brown"]
     for item in sd:
         assert item in sd
     for i, item in enumerate(sd):
         assert item == sd[i]
-    sd.insert('jUmPeD')
-    sd.insert_right('QuIcK')
-    assert sd._keys ==['BROWN', 'FOX', 'JUMPED', 'JUMPED', 'QUICK', 'QUICK', 'THE']
-    assert sd._items == ['Brown', 'Fox', 'jUmPeD', 'jumped', 'quick', 'QuIcK', 'The']
-    assert sd.find_le('JUMPED') == 'jumped', sd.find_le('JUMPED')
-    assert sd.find_ge('JUMPED') == 'jUmPeD'
-    assert sd.find_le('GOAT') == 'Fox'
-    assert sd.find_ge('GOAT') == 'jUmPeD'
-    assert sd.find('FOX') == 'Fox'
-    assert sd[3] == 'jumped'
-    assert sd[3:5] ==['jumped', 'quick']
-    assert sd[-2] == 'QuIcK'
-    assert sd[-4:-2] == ['jumped', 'quick']
+    sd.insert("jUmPeD")
+    sd.insert_right("QuIcK")
+    assert sd._keys == ["BROWN", "FOX", "JUMPED", "JUMPED", "QUICK", "QUICK", "THE"]
+    assert sd._items == ["Brown", "Fox", "jUmPeD", "jumped", "quick", "QuIcK", "The"]
+    assert sd.find_le("JUMPED") == "jumped", sd.find_le("JUMPED")
+    assert sd.find_ge("JUMPED") == "jUmPeD"
+    assert sd.find_le("GOAT") == "Fox"
+    assert sd.find_ge("GOAT") == "jUmPeD"
+    assert sd.find("FOX") == "Fox"
+    assert sd[3] == "jumped"
+    assert sd[3:5] == ["jumped", "quick"]
+    assert sd[-2] == "QuIcK"
+    assert sd[-4:-2] == ["jumped", "quick"]
     for i, item in enumerate(sd):
         assert sd.index(item) == i
     try:
-        sd.index('xyzpdq')
+        sd.index("xyzpdq")
     except ValueError:
         pass
     else:
-        assert 0, 'Oops, failed to notify of missing value'
-    sd.remove('jumped')
-    assert list(sd) == ['Brown', 'Fox', 'jUmPeD', 'quick', 'QuIcK', 'The']
+        assert 0, "Oops, failed to notify of missing value"
+    sd.remove("jumped")
+    assert list(sd) == ["Brown", "Fox", "jUmPeD", "quick", "QuIcK", "The"]
 
     import doctest
     from operator import itemgetter
+
     print(doctest.testmod())

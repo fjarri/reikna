@@ -14,52 +14,60 @@ from test_core.dummy import *
 
 # Some transformations to use by tests
 
+
 # Identity transformation: Output = Input
 def tr_identity(arr):
     return Transformation(
-        [Parameter('o1', Annotation(arr, 'o')),
-        Parameter('i1', Annotation(arr, 'i'))],
-        "${o1.store_same}(${i1.load_same});")
+        [Parameter("o1", Annotation(arr, "o")), Parameter("i1", Annotation(arr, "i"))],
+        "${o1.store_same}(${i1.load_same});",
+    )
+
 
 # Output = Input1 * Parameter1 + Input 2
 def tr_2_to_1(arr, scalar):
     return Transformation(
-        [Parameter('o1', Annotation(arr, 'o')),
-        Parameter('i1', Annotation(arr, 'i')),
-        Parameter('i2', Annotation(arr, 'i')),
-        Parameter('s1', Annotation(scalar))],
+        [
+            Parameter("o1", Annotation(arr, "o")),
+            Parameter("i1", Annotation(arr, "i")),
+            Parameter("i2", Annotation(arr, "i")),
+            Parameter("s1", Annotation(scalar)),
+        ],
         """
         ${o1.ctype} t = ${mul}(${cast}(${s1}), ${i1.load_same});
         ${o1.store_same}(t + ${i2.load_same});
         """,
-        render_kwds= dict(
-            mul=functions.mul(arr.dtype, arr.dtype),
-            cast=functions.cast(scalar.dtype, arr.dtype)))
+        render_kwds=dict(
+            mul=functions.mul(arr.dtype, arr.dtype), cast=functions.cast(scalar.dtype, arr.dtype)
+        ),
+    )
+
 
 # Output1 = Input / 2, Output2 = Input / 2
 def tr_1_to_2(arr):
     return Transformation(
-        [Parameter('o1', Annotation(arr, 'o')),
-        Parameter('o2', Annotation(arr, 'o')),
-        Parameter('i1', Annotation(arr, 'i'))],
+        [
+            Parameter("o1", Annotation(arr, "o")),
+            Parameter("o2", Annotation(arr, "o")),
+            Parameter("i1", Annotation(arr, "i")),
+        ],
         """
         ${o1.ctype} t = ${mul}(${i1.load_same}, 0.5);
         ${o1.store_same}(t);
         ${o2.store_same}(t);
         """,
-        render_kwds=dict(
-            mul=functions.mul(arr.dtype, numpy.float32)))
+        render_kwds=dict(mul=functions.mul(arr.dtype, numpy.float32)),
+    )
 
 
 def test_io_parameter_in_transformation():
     with pytest.raises(ValueError):
         tr = Transformation(
-            [Parameter('o1', Annotation(Type(numpy.float32, shape=100), 'io'))],
-            "${o1.store_same}(${o1.load_same});")
+            [Parameter("o1", Annotation(Type(numpy.float32, shape=100), "io"))],
+            "${o1.store_same}(${o1.load_same});",
+        )
 
 
 def test_signature_correctness():
-
     N = 200
     coeff_dtype = numpy.float32
     arr_type = Type(numpy.complex64, (N, N))
@@ -68,11 +76,12 @@ def test_signature_correctness():
 
     # Root signature
     assert list(d.signature.parameters.values()) == [
-        Parameter('C', Annotation(arr_type, 'o')),
-        Parameter('D', Annotation(arr_type, 'o')),
-        Parameter('A', Annotation(arr_type, 'i')),
-        Parameter('B', Annotation(arr_type, 'i')),
-        Parameter('coeff', Annotation(coeff_dtype))]
+        Parameter("C", Annotation(arr_type, "o")),
+        Parameter("D", Annotation(arr_type, "o")),
+        Parameter("A", Annotation(arr_type, "i")),
+        Parameter("B", Annotation(arr_type, "i")),
+        Parameter("coeff", Annotation(coeff_dtype)),
+    ]
 
     identity = tr_identity(d.parameter.A)
     join = tr_2_to_1(d.parameter.A, d.parameter.coeff)
@@ -88,18 +97,18 @@ def test_signature_correctness():
     d.parameter.D.connect(scale, scale.i1, D_prime=scale.o1, D_param=scale.s1)
 
     assert list(d.signature.parameters.values()) == [
-        Parameter('C_new_half1', Annotation(arr_type, 'o')),
-        Parameter('C_half2', Annotation(arr_type, 'o')),
-        Parameter('D_prime', Annotation(arr_type, 'o')),
-        Parameter('D_param', Annotation(coeff_dtype)),
-        Parameter('A_prime', Annotation(arr_type, 'i')),
-        Parameter('B_new_prime', Annotation(arr_type, 'i')),
-        Parameter('B_param', Annotation(coeff_dtype)),
-        Parameter('coeff', Annotation(coeff_dtype))]
+        Parameter("C_new_half1", Annotation(arr_type, "o")),
+        Parameter("C_half2", Annotation(arr_type, "o")),
+        Parameter("D_prime", Annotation(arr_type, "o")),
+        Parameter("D_param", Annotation(coeff_dtype)),
+        Parameter("A_prime", Annotation(arr_type, "i")),
+        Parameter("B_new_prime", Annotation(arr_type, "i")),
+        Parameter("B_param", Annotation(coeff_dtype)),
+        Parameter("coeff", Annotation(coeff_dtype)),
+    ]
 
 
 def test_same_shape(queue):
-
     N = 200
     coeff = 2
     B_param = 3
@@ -134,10 +143,15 @@ def test_same_shape(queue):
 
     dc(
         queue,
-        C_new_half1_dev, C_half2_dev,
-        D_prime_dev, D_param,
-        A_prime_dev, B_new_prime_dev,
-        B_param, coeff)
+        C_new_half1_dev,
+        C_half2_dev,
+        D_prime_dev,
+        D_param,
+        A_prime_dev,
+        B_new_prime_dev,
+        B_param,
+        coeff,
+    )
 
     A = A_prime
     B = A_prime * B_param + B_new_prime
@@ -152,7 +166,6 @@ def test_same_shape(queue):
 
 
 def test_connection_to_base(queue):
-
     N = 200
     coeff = 2
 
@@ -170,10 +183,11 @@ def test_connection_to_base(queue):
     d.parameter.C.connect(scale, scale.i1, C_prime=scale.o1, coeff=scale.s1)
 
     assert list(d.signature.parameters.values()) == [
-        Parameter('C_prime', Annotation(arr_type, 'o')),
-        Parameter('D', Annotation(arr_type, 'o')),
-        Parameter('B', Annotation(arr_type, 'i')),
-        Parameter('coeff', Annotation(coeff_dtype))]
+        Parameter("C_prime", Annotation(arr_type, "o")),
+        Parameter("D", Annotation(arr_type, "o")),
+        Parameter("B", Annotation(arr_type, "i")),
+        Parameter("coeff", Annotation(coeff_dtype)),
+    ]
 
     dc = d.compile(queue.device)
 
@@ -192,7 +206,6 @@ def test_connection_to_base(queue):
 
 
 def test_nested_same_shape(queue):
-
     N = 2000
     coeff = 2
     second_coeff = 7
@@ -228,10 +241,15 @@ def test_nested_same_shape(queue):
 
     dc(
         queue,
-        C_new_half1_dev, C_half2_dev,
-        D_prime_dev, D_param,
-        A_prime_dev, B_new_prime_dev,
-        B_param, coeff)
+        C_new_half1_dev,
+        C_half2_dev,
+        D_prime_dev,
+        D_param,
+        A_prime_dev,
+        B_new_prime_dev,
+        B_param,
+        coeff,
+    )
 
     A = A_prime
     B = A_prime * B_param + B_new_prime
@@ -258,14 +276,15 @@ def test_strings_as_parameters():
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
     identity = tr_identity(d.parameter.A)
 
-    d.connect('A', identity, 'o1', A_prime='i1')
+    d.connect("A", identity, "o1", A_prime="i1")
 
     assert list(d.signature.parameters.values()) == [
-        Parameter('C', Annotation(arr_type, 'o')),
-        Parameter('D', Annotation(arr_type, 'o')),
-        Parameter('A_prime', Annotation(arr_type, 'i')),
-        Parameter('B', Annotation(arr_type, 'i')),
-        Parameter('coeff', Annotation(coeff_dtype))]
+        Parameter("C", Annotation(arr_type, "o")),
+        Parameter("D", Annotation(arr_type, "o")),
+        Parameter("A_prime", Annotation(arr_type, "i")),
+        Parameter("B", Annotation(arr_type, "i")),
+        Parameter("coeff", Annotation(coeff_dtype)),
+    ]
 
 
 def test_alien_parameters():
@@ -284,10 +303,10 @@ def test_alien_parameters():
     identity2 = tr_identity(d.parameter.A)
 
     with pytest.raises(ValueError):
-        d.connect(d2.parameter.A, identity, 'o1', A_prime='i1')
+        d.connect(d2.parameter.A, identity, "o1", A_prime="i1")
 
     with pytest.raises(ValueError):
-        d.connect(d.parameter.A, identity, identity2.o1, A_prime='i1')
+        d.connect(d.parameter.A, identity, identity2.o1, A_prime="i1")
 
     with pytest.raises(ValueError):
         d.parameter.A.connect(identity, identity.o1, A_prime=identity2.i1)
@@ -321,12 +340,12 @@ def test_wrong_connector():
 
     # Connector is missing
     with pytest.raises(ValueError):
-        d.connect('AA', identity, identity.o1, A_pp=identity.i1)
+        d.connect("AA", identity, identity.o1, A_pp=identity.i1)
 
     # Node 'A' exists, but it is not a part of the signature
     # (hidden by previously connected transformation).
     with pytest.raises(ValueError):
-        d.connect('B', identity, identity.o1, A=identity.i1)
+        d.connect("B", identity, identity.o1, A=identity.i1)
 
 
 def test_type_mismatch():
@@ -340,7 +359,7 @@ def test_type_mismatch():
     identity = tr_identity(Type(numpy.complex64, (N, N + 1)))
 
     with pytest.raises(ValueError):
-        d.connect('A', identity, identity.o1, A_prime=identity.i1)
+        d.connect("A", identity, identity.o1, A_prime=identity.i1)
 
 
 def test_wrong_data_path():
@@ -360,12 +379,13 @@ def test_wrong_data_path():
     d.parameter.C.connect(identity, identity.o1, C_in=identity.i1)
     d.parameter.D.connect(identity, identity.i1, D_out=identity.o1)
     assert list(d.signature.parameters.values()) == [
-        Parameter('C', Annotation(arr_type, 'o')),
-        Parameter('C_in', Annotation(arr_type, 'i')),
-        Parameter('D_out', Annotation(arr_type, 'o')),
-        Parameter('D', Annotation(arr_type, 'i')),
-        Parameter('coeff1', Annotation(coeff_dtype)),
-        Parameter('coeff2', Annotation(coeff_dtype))]
+        Parameter("C", Annotation(arr_type, "o")),
+        Parameter("C_in", Annotation(arr_type, "i")),
+        Parameter("D_out", Annotation(arr_type, "o")),
+        Parameter("D", Annotation(arr_type, "i")),
+        Parameter("coeff1", Annotation(coeff_dtype)),
+        Parameter("coeff2", Annotation(coeff_dtype)),
+    ]
 
     # Now input to C is hidden by the previously connected transformation
     with pytest.raises(ValueError):
@@ -382,12 +402,13 @@ def test_wrong_data_path():
     # Output of C is still available though
     d.parameter.C.connect(identity, identity.i1, C_out=identity.o1)
     assert list(d.signature.parameters.values()) == [
-        Parameter('C_out', Annotation(arr_type, 'o')),
-        Parameter('C_in', Annotation(arr_type, 'i')),
-        Parameter('D_out', Annotation(arr_type, 'o')),
-        Parameter('D', Annotation(arr_type, 'i')),
-        Parameter('coeff1', Annotation(coeff_dtype)),
-        Parameter('coeff2', Annotation(coeff_dtype))]
+        Parameter("C_out", Annotation(arr_type, "o")),
+        Parameter("C_in", Annotation(arr_type, "i")),
+        Parameter("D_out", Annotation(arr_type, "o")),
+        Parameter("D", Annotation(arr_type, "i")),
+        Parameter("coeff1", Annotation(coeff_dtype)),
+        Parameter("coeff2", Annotation(coeff_dtype)),
+    ]
 
 
 def test_wrong_transformation_parameters():
@@ -405,11 +426,11 @@ def test_wrong_transformation_parameters():
 
     # ``identity`` does not have ``input`` parameter
     with pytest.raises(ValueError):
-        d.parameter.A.connect(identity, identity.o1, A_prime='input')
+        d.parameter.A.connect(identity, identity.o1, A_prime="input")
 
     # ``identity`` does not have ``i2`` parameter
     with pytest.raises(ValueError):
-        d.parameter.A.connect(identity, identity.o1, A_prime=identity.i1, A2='i2')
+        d.parameter.A.connect(identity, identity.o1, A_prime=identity.i1, A2="i2")
 
 
 def test_io_merge(some_queue):
@@ -436,12 +457,13 @@ def test_io_merge(some_queue):
     d.parameter.C.connect(scale, scale.o1, C_prime=scale.i1, scale_in=scale.s1)
     d.parameter.C.connect(scale, scale.i1, C_prime=scale.o1, scale_out=scale.s1)
     assert list(d.signature.parameters.values()) == [
-        Parameter('C_prime', Annotation(arr_type, 'io')),
-        Parameter('scale_out', Annotation(coeff_dtype)),
-        Parameter('scale_in', Annotation(coeff_dtype)),
-        Parameter('D', Annotation(arr_type, 'io')),
-        Parameter('coeff1', Annotation(coeff_dtype)),
-        Parameter('coeff2', Annotation(coeff_dtype))]
+        Parameter("C_prime", Annotation(arr_type, "io")),
+        Parameter("scale_out", Annotation(coeff_dtype)),
+        Parameter("scale_in", Annotation(coeff_dtype)),
+        Parameter("D", Annotation(arr_type, "io")),
+        Parameter("coeff1", Annotation(coeff_dtype)),
+        Parameter("coeff2", Annotation(coeff_dtype)),
+    ]
 
     dc = d.compile(some_queue.device)
     dc(some_queue, C_dev, scale_out, scale_in, D_dev, coeff1, coeff2)
@@ -467,10 +489,13 @@ class ExpressionIndexing(Computation):
 
         # reset strides/offset of the input and return a contiguous array
         res_t = Type(arr_t.dtype, arr_t.shape)
-        Computation.__init__(self, [
-            Parameter('output', Annotation(res_t, 'o')),
-            Parameter('input', Annotation(arr_t, 'i'))
-            ])
+        Computation.__init__(
+            self,
+            [
+                Parameter("output", Annotation(res_t, "o")),
+                Parameter("input", Annotation(arr_t, "i")),
+            ],
+        )
 
     def _build_plan(self, plan_factory, device_params, output, input_):
         plan = plan_factory()
@@ -489,10 +514,7 @@ class ExpressionIndexing(Computation):
         </%def>
         """)
 
-        plan.kernel_call(
-            template.get_def('kernel'),
-            [output, input_],
-            global_size=output.shape)
+        plan.kernel_call(template.get_def("kernel"), [output, input_], global_size=output.shape)
 
         return plan
 

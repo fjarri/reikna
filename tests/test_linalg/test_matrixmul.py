@@ -11,54 +11,47 @@ from reikna.helpers import product
 
 
 def pytest_generate_tests(metafunc):
-
-    if 'perf_bwo' in metafunc.fixturenames:
+    if "perf_bwo" in metafunc.fixturenames:
         bwos = [8, 16, 32]
-        ids=["8x8", "16x16", "32x32"]
-        metafunc.parametrize('perf_bwo', bwos, ids=ids)
+        ids = ["8x8", "16x16", "32x32"]
+        metafunc.parametrize("perf_bwo", bwos, ids=ids)
 
-    if 'perf_shape' in metafunc.fixturenames:
-
-        mem_limit = 2 ** 20
+    if "perf_shape" in metafunc.fixturenames:
+        mem_limit = 2**20
         sizes = [16, 32, 64, 256, 512, 25]
 
         perf_shapes = []
 
         for size in sizes:
-            perf_shapes.append((mem_limit // size ** 2, size))
+            perf_shapes.append((mem_limit // size**2, size))
 
         ids = []
         for batch, size in perf_shapes:
-            ids.append(str(batch) + 'x' + str(size) + "," + str(size))
+            ids.append(str(batch) + "x" + str(size) + "," + str(size))
 
-        metafunc.parametrize('perf_shape', perf_shapes, ids=ids)
+        metafunc.parametrize("perf_shape", perf_shapes, ids=ids)
 
-    if 'sizes' in metafunc.fixturenames:
-        sizes = [
-            (15, 17, 3), (122, 5, 1000), (45, 99, 40), (56, 78, 44)]
+    if "sizes" in metafunc.fixturenames:
+        sizes = [(15, 17, 3), (122, 5, 1000), (45, 99, 40), (56, 78, 44)]
         ids = [str(size) for size in sizes]
-        metafunc.parametrize('sizes', sizes, ids=ids)
+        metafunc.parametrize("sizes", sizes, ids=ids)
 
-    if 'batches' in metafunc.fixturenames:
-        batches = [
-            (tuple(), tuple()),
-            (tuple(), (14,)),
-            ((35,), tuple()),
-            ((12,), (12,))]
+    if "batches" in metafunc.fixturenames:
+        batches = [(tuple(), tuple()), (tuple(), (14,)), ((35,), tuple()), ((12,), (12,))]
         ids = [str(batch) for batch in batches]
-        metafunc.parametrize('batches', batches, ids=ids)
+        metafunc.parametrize("batches", batches, ids=ids)
 
-    if 'transposed_a' in metafunc.fixturenames:
-        metafunc.parametrize('transposed_a', [False, True], ids=['A', 'A.T'])
+    if "transposed_a" in metafunc.fixturenames:
+        metafunc.parametrize("transposed_a", [False, True], ids=["A", "A.T"])
 
-    if 'transposed_b' in metafunc.fixturenames:
-        metafunc.parametrize('transposed_b', [False, True], ids=['B', 'B.T'])
+    if "transposed_b" in metafunc.fixturenames:
+        metafunc.parametrize("transposed_b", [False, True], ids=["B", "B.T"])
 
-    if 'arg_dtypes' in metafunc.fixturenames:
+    if "arg_dtypes" in metafunc.fixturenames:
         arg_dtypes = [(False, False), (False, True), (True, False), (True, True)]
-        mark = lambda x: 'c' if x else 'r'
+        mark = lambda x: "c" if x else "r"
         ids = [mark(t1) + mark(t2) for t1, t2 in arg_dtypes]
-        metafunc.parametrize('arg_dtypes', arg_dtypes, ids=ids)
+        metafunc.parametrize("arg_dtypes", arg_dtypes, ids=ids)
 
 
 def ref_dot(a, b):
@@ -105,8 +98,9 @@ def check_errors(queue, a_shape, a_dtype, b_shape, b_dtype, transposed_a=False, 
     b_dev = Array.from_host(queue, b)
     res_dev = Array.empty_like(queue.device, res_ref)
 
-    dot = MatrixMul(a_dev, b_dev, out_arr=res_dev,
-        transposed_a=transposed_a, transposed_b=transposed_b)
+    dot = MatrixMul(
+        a_dev, b_dev, out_arr=res_dev, transposed_a=transposed_a, transposed_b=transposed_b
+    )
     dotc = dot.compile(queue.device)
     dotc(queue, res_dev, a_dev, b_dev)
 
@@ -114,7 +108,6 @@ def check_errors(queue, a_shape, a_dtype, b_shape, b_dtype, transposed_a=False, 
 
 
 def test_shapes(queue, batches, sizes):
-
     a_size, convolution_size, b_size = sizes
     a_batch, b_batch = batches
 
@@ -125,7 +118,6 @@ def test_shapes(queue, batches, sizes):
 
 
 def test_transposed(queue, sizes, transposed_a, transposed_b):
-
     a_size, convolution_size, b_size = sizes
     a_batch = (10,)
     b_batch = (10,)
@@ -141,12 +133,17 @@ def test_transposed(queue, sizes, transposed_a, transposed_b):
         b_shape = (convolution_size, b_size)
 
     check_errors(
-        queue, a_batch + a_shape, numpy.float32, b_batch + b_shape, numpy.float32,
-        transposed_a=transposed_a, transposed_b=transposed_b)
+        queue,
+        a_batch + a_shape,
+        numpy.float32,
+        b_batch + b_shape,
+        numpy.float32,
+        transposed_a=transposed_a,
+        transposed_b=transposed_b,
+    )
 
 
 def test_dtypes(queue, arg_dtypes):
-
     c1, c2 = arg_dtypes
 
     dtype = numpy.float32
@@ -163,9 +160,7 @@ def test_out_arr_shape():
     assert dot.parameter.output.shape == (2, 3, 22, 44)
 
 
-def check_performance(queue, perf_shape,
-        bwo=None, transposed_a=False, transposed_b=False):
-
+def check_performance(queue, perf_shape, bwo=None, transposed_a=False, transposed_b=False):
     # TODO: check double performance
 
     dtype = numpy.float32
@@ -184,8 +179,14 @@ def check_performance(queue, perf_shape,
     res_ref = ref_dot(a_ref, b_ref)
     res_dev = Array.empty(queue.device, res_ref.shape, dtype=dtype)
 
-    dot = MatrixMul(a_dev, b_dev, out_arr=res_dev, block_width_override=bwo,
-        transposed_a=transposed_a, transposed_b=transposed_b)
+    dot = MatrixMul(
+        a_dev,
+        b_dev,
+        out_arr=res_dev,
+        block_width_override=bwo,
+        transposed_a=transposed_a,
+        transposed_b=transposed_b,
+    )
 
     try:
         dotc = dot.compile(queue.device)
@@ -202,17 +203,18 @@ def check_performance(queue, perf_shape,
 
     assert diff_is_negligible(res_dev.get(queue), res_ref)
 
-    return min(times), batch * size ** 3 * 2
+    return min(times), batch * size**3 * 2
 
 
 @pytest.mark.perf
-@pytest.mark.returns('GFLOPS')
+@pytest.mark.returns("GFLOPS")
 def test_performance_shape(queue, perf_shape, transposed_a, transposed_b):
-    return check_performance(queue, perf_shape,
-        transposed_a=transposed_a, transposed_b=transposed_b)
+    return check_performance(
+        queue, perf_shape, transposed_a=transposed_a, transposed_b=transposed_b
+    )
 
 
 @pytest.mark.perf
-@pytest.mark.returns('GFLOPS')
+@pytest.mark.returns("GFLOPS")
 def test_performance_block_width(queue, perf_bwo):
     return check_performance(queue, (4, 512), bwo=perf_bwo)

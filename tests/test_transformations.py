@@ -1,6 +1,7 @@
 """
 Test standard transformations
 """
+
 import pytest
 
 from grunnur import Snippet, Array
@@ -13,70 +14,68 @@ from helpers import *
 
 
 def pytest_generate_tests(metafunc):
-    int_dtypes = [numpy.dtype('int32'), numpy.dtype('int64')]
-    real_dtypes = [numpy.dtype('float32')]
-    complex_dtypes = [numpy.dtype('complex64')]
+    int_dtypes = [numpy.dtype("int32"), numpy.dtype("int64")]
+    real_dtypes = [numpy.dtype("float32")]
+    complex_dtypes = [numpy.dtype("complex64")]
 
-    if 'any_dtype' in metafunc.fixturenames:
+    if "any_dtype" in metafunc.fixturenames:
         dtypes = int_dtypes + real_dtypes + complex_dtypes
-        metafunc.parametrize('any_dtype', dtypes, ids=[str(x) for x in dtypes])
+        metafunc.parametrize("any_dtype", dtypes, ids=[str(x) for x in dtypes])
 
-    if 'rc_dtype' in metafunc.fixturenames:
+    if "rc_dtype" in metafunc.fixturenames:
         dtypes = real_dtypes + complex_dtypes
-        metafunc.parametrize('rc_dtype', dtypes, ids=[str(x) for x in dtypes])
+        metafunc.parametrize("rc_dtype", dtypes, ids=[str(x) for x in dtypes])
 
-    if 'dtype_to_broadcast' in metafunc.fixturenames:
-
+    if "dtype_to_broadcast" in metafunc.fixturenames:
         vals = []
         ids = []
 
         # a simple dtype
         vals.append(numpy.float32)
-        ids.append('simple')
+        ids.append("simple")
 
         # numpy itemsize == 9, but on device it will be aligned to 4, so the total size will be 12
-        dtype = numpy.dtype([('val1', numpy.int32), ('val2', numpy.int32), ('pad', numpy.int8)])
+        dtype = numpy.dtype([("val1", numpy.int32), ("val2", numpy.int32), ("pad", numpy.int8)])
         vals.append(dtype)
         ids.append("small_pad")
 
-        dtype_nested = numpy.dtype([
-            ('val1', numpy.int32), ('pad', numpy.int8)])
-        dtype = numpy.dtype([
-            ('val1', numpy.int32),
-            ('val2', numpy.int16),
-            ('nested', dtype_nested)])
+        dtype_nested = numpy.dtype([("val1", numpy.int32), ("pad", numpy.int8)])
+        dtype = numpy.dtype(
+            [("val1", numpy.int32), ("val2", numpy.int16), ("nested", dtype_nested)]
+        )
         vals.append(dtype)
         ids.append("nested")
 
-        dtype_nested = numpy.dtype(dict(
-            names=['val1', 'pad'],
-            formats=[numpy.int8, numpy.int8]))
-        dtype = numpy.dtype(dict(
-            names=['pad', 'struct_arr', 'regular_arr'],
-            formats=[
-                numpy.int32,
-                numpy.dtype((dtype_nested, 2)),
-                numpy.dtype((numpy.int16, (2, 3)))]))
+        dtype_nested = numpy.dtype(dict(names=["val1", "pad"], formats=[numpy.int8, numpy.int8]))
+        dtype = numpy.dtype(
+            dict(
+                names=["pad", "struct_arr", "regular_arr"],
+                formats=[
+                    numpy.int32,
+                    numpy.dtype((dtype_nested, 2)),
+                    numpy.dtype((numpy.int16, (2, 3))),
+                ],
+            )
+        )
         vals.append(dtype)
         ids.append("nested_array")
 
-        metafunc.parametrize('dtype_to_broadcast', vals, ids=ids)
+        metafunc.parametrize("dtype_to_broadcast", vals, ids=ids)
 
 
 def get_test_computation(arr_t):
     return PureParallel(
-        [Parameter('output', Annotation(arr_t, 'o')),
-        Parameter('input', Annotation(arr_t, 'i'))],
+        [Parameter("output", Annotation(arr_t, "o")), Parameter("input", Annotation(arr_t, "i"))],
         """
         <%
             all_idxs = ", ".join(idxs)
         %>
         ${output.store_idx}(${all_idxs}, ${input.load_idx}(${all_idxs}));
-        """)
+        """,
+    )
 
 
 def test_copy(some_queue, any_dtype):
-
     input_ = get_test_array((1000,), any_dtype)
     input_dev = Array.from_host(some_queue, input_)
     output_dev = Array.empty_like(some_queue.device, input_dev)
@@ -93,9 +92,10 @@ def test_copy(some_queue, any_dtype):
 
 
 in_shapes = [(30,), (20, 1), (10, 20, 1)]
-@pytest.mark.parametrize('in_shape', in_shapes, ids=[str(in_shape) for in_shape in in_shapes])
-def test_broadcasted_copy(some_queue, in_shape):
 
+
+@pytest.mark.parametrize("in_shape", in_shapes, ids=[str(in_shape) for in_shape in in_shapes])
+def test_broadcasted_copy(some_queue, in_shape):
     dtype = numpy.int32
     shape = (10, 20, 30)
 
@@ -116,7 +116,6 @@ def test_broadcasted_copy(some_queue, in_shape):
 
 
 def test_cast(some_queue):
-
     data = get_test_array((1000,), numpy.float32, high=10)
     data_dev = Array.from_host(some_queue, data)
 
@@ -134,7 +133,6 @@ def test_cast(some_queue):
 
 
 def test_add_param(some_queue, any_dtype):
-
     input = get_test_array((1000,), any_dtype)
     p1 = get_test_array((1,), any_dtype)[0]
     p2 = get_test_array((1,), any_dtype)[0]
@@ -153,7 +151,6 @@ def test_add_param(some_queue, any_dtype):
 
 
 def test_add_const(some_queue, any_dtype):
-
     input = get_test_array((1000,), any_dtype)
     p1 = get_test_array((1,), any_dtype)[0]
     p2 = get_test_array((1,), any_dtype)[0]
@@ -173,7 +170,6 @@ def test_add_const(some_queue, any_dtype):
 
 
 def test_mul_param(some_queue, any_dtype):
-
     input = get_test_array((1000,), any_dtype)
     p1 = get_test_array((1,), any_dtype)[0]
     p2 = get_test_array((1,), any_dtype)[0]
@@ -192,7 +188,6 @@ def test_mul_param(some_queue, any_dtype):
 
 
 def test_mul_const(some_queue, any_dtype):
-
     input = get_test_array((1000,), any_dtype)
     p1 = get_test_array((1,), any_dtype)[0]
     p2 = get_test_array((1,), any_dtype)[0]
@@ -212,7 +207,6 @@ def test_mul_const(some_queue, any_dtype):
 
 
 def test_div_param(some_queue):
-
     dtype = numpy.float32
 
     input = get_test_array((1000,), dtype)
@@ -233,7 +227,6 @@ def test_div_param(some_queue):
 
 
 def test_div_const(some_queue):
-
     dtype = numpy.float32
 
     input = get_test_array((1000,), dtype)
@@ -255,7 +248,6 @@ def test_div_const(some_queue):
 
 
 def test_split_combine_complex(some_queue):
-
     i1 = get_test_array((1000,), numpy.float32)
     i2 = get_test_array((1000,), numpy.float32)
     i1_dev = Array.from_host(some_queue, i1)
@@ -277,9 +269,8 @@ def test_split_combine_complex(some_queue):
     assert diff_is_negligible(o2_dev.get(some_queue), i2)
 
 
-@pytest.mark.parametrize('order', [1, 2, 0.5])
+@pytest.mark.parametrize("order", [1, 2, 0.5])
 def test_norm_param(some_queue, rc_dtype, order):
-
     input_ = get_test_array((1000,), rc_dtype)
     input_dev = Array.from_host(some_queue, input_)
 
@@ -295,9 +286,8 @@ def test_norm_param(some_queue, rc_dtype, order):
     assert diff_is_negligible(output_dev.get(some_queue), numpy.abs(input_) ** order)
 
 
-@pytest.mark.parametrize('order', [1, 2, 0.5])
+@pytest.mark.parametrize("order", [1, 2, 0.5])
 def test_norm_const(some_queue, rc_dtype, order):
-
     input_ = get_test_array((1000,), rc_dtype)
     input_dev = Array.from_host(some_queue, input_)
 
@@ -314,7 +304,6 @@ def test_norm_const(some_queue, rc_dtype, order):
 
 
 def test_broadcast_const(some_queue, dtype_to_broadcast):
-
     dtype = dtypes.align(dtype_to_broadcast)
     const = get_test_array(1, dtype)[0]
 
@@ -333,7 +322,6 @@ def test_broadcast_const(some_queue, dtype_to_broadcast):
 
 
 def test_broadcast_param(some_queue, dtype_to_broadcast):
-
     dtype = dtypes.align(dtype_to_broadcast)
     param = get_test_array(1, dtype)[0]
 

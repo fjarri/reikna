@@ -34,11 +34,14 @@ class FFTShift(Computation):
     """
 
     def __init__(self, arr_t, axes=None):
-
-        Computation.__init__(self, [
-            Parameter('output', Annotation(arr_t, 'o')),
-            Parameter('input', Annotation(arr_t, 'i')),
-            Parameter('inverse', Annotation(numpy.int32), default=0)])
+        Computation.__init__(
+            self,
+            [
+                Parameter("output", Annotation(arr_t, "o")),
+                Parameter("input", Annotation(arr_t, "i")),
+                Parameter("inverse", Annotation(numpy.int32), default=0),
+            ],
+        )
 
         if axes is None:
             axes = tuple(range(len(arr_t.shape)))
@@ -59,7 +62,6 @@ class FFTShift(Computation):
         return plan
 
     def _build_plan(self, plan_factory, device_params, output, input_, inverse):
-
         if helpers.product([input_.shape[i] for i in self._axes]) == 1:
             return self._build_trivial_plan(plan_factory, output, input_)
 
@@ -69,23 +71,27 @@ class FFTShift(Computation):
         shape = list(input_.shape)
 
         if all(shape[axis] % 2 == 0 for axis in axes):
-        # If all shift axes have even length, it is possible to perform the shift inplace
-        # (by swapping pairs of elements).
-        # Note that the inplace fftshift is its own inverse.
+            # If all shift axes have even length, it is possible to perform the shift inplace
+            # (by swapping pairs of elements).
+            # Note that the inplace fftshift is its own inverse.
             shape[axes[0]] //= 2
             plan.kernel_call(
-                TEMPLATE.get_def('fftshift_inplace'), [output, input_],
+                TEMPLATE.get_def("fftshift_inplace"),
+                [output, input_],
                 kernel_name="kernel_fftshift_inplace",
                 global_size=shape,
-                render_kwds=dict(axes=axes))
+                render_kwds=dict(axes=axes),
+            )
         else:
-        # Resort to an out-of-place shift to a temporary array and then copy.
+            # Resort to an out-of-place shift to a temporary array and then copy.
             temp = plan.temp_array_like(output)
             plan.kernel_call(
-                TEMPLATE.get_def('fftshift_outplace'), [temp, input_, inverse],
+                TEMPLATE.get_def("fftshift_outplace"),
+                [temp, input_, inverse],
                 kernel_name="kernel_fftshift_outplace",
                 global_size=shape,
-                render_kwds=dict(axes=axes))
+                render_kwds=dict(axes=axes),
+            )
 
             copy_trf = copy(input_, out_arr_t=output)
             copy_comp = PureParallel.from_trf(copy_trf, copy_trf.input)
