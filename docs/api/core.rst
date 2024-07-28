@@ -43,7 +43,6 @@ Result and attribute classes
 
 .. automodule:: reikna.core.computation
     :members: ComputationCallable, ComputationParameter, KernelArgument, ComputationPlan
-    :special-members: __call__
 
 .. automodule:: reikna.core.transformation
     :members: TransformationParameter, KernelParameter
