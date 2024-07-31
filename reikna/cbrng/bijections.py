@@ -1,9 +1,9 @@
 import numpy
-from grunnur import Module, dtypes
+from grunnur import Module, Template, dtypes
 
 import reikna.helpers as helpers
 
-TEMPLATE = helpers.template_for(__file__)
+TEMPLATE = Template.from_associated_file(__file__)
 
 
 def create_struct_types(word_dtype, key_words, counter_words):

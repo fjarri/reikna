@@ -1,12 +1,12 @@
-import grunnur.dtypes as dtypes
 import numpy
+from grunnur import Template, dtypes
 
 from .. import helpers
 from ..algorithms import PureParallel
 from ..core import Annotation, Computation, Parameter
 from ..transformations import copy
 
-TEMPLATE = helpers.template_for(__file__)
+TEMPLATE = Template.from_associated_file(__file__)
 
 
 class FFTShift(Computation):

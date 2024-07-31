@@ -1,11 +1,11 @@
 import numpy
-from grunnur import Snippet, dtypes
+from grunnur import Snippet, Template, dtypes
 
 from .. import helpers
 from ..core import Annotation, Computation, Parameter, Type
 from .transpose import Transpose
 
-TEMPLATE = helpers.template_for(__file__)
+TEMPLATE = Template.from_associated_file(__file__)
 
 
 class Scan(Computation):

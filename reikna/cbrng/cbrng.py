@@ -1,4 +1,5 @@
 import numpy
+from grunnur import Template
 
 import reikna.helpers as helpers
 from reikna.cbrng.bijections import philox
@@ -6,7 +7,7 @@ from reikna.cbrng.samplers import SAMPLERS
 from reikna.cbrng.tools import KeyGenerator
 from reikna.core import Annotation, Computation, Parameter, Type
 
-TEMPLATE = helpers.template_for(__file__)
+TEMPLATE = Template.from_associated_file(__file__)
 
 
 class CBRNG(Computation):

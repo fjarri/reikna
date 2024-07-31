@@ -1,11 +1,11 @@
 import numpy
-from grunnur import VirtualSizeError, dtypes
+from grunnur import Template, VirtualSizeError, dtypes
 
 from .. import helpers
 from ..core import Annotation, Computation, Parameter, Type
 from .transpose import Transpose
 
-TEMPLATE = helpers.template_for(__file__)
+TEMPLATE = Template.from_associated_file(__file__)
 
 
 class Reduce(Computation):

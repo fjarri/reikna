@@ -1,9 +1,8 @@
 import pytest
-from grunnur import Array, Queue
+from grunnur import Array, Queue, Template
 
 from helpers import *
 from reikna.core import Annotation, Computation, Parameter, Transformation, Type
-from reikna.helpers import template_from
 
 
 class Dummy(Computation):
@@ -27,7 +26,7 @@ class Dummy(Computation):
     def _build_plan(self, plan_factory, device_params, output):
         plan = plan_factory()
 
-        template = template_from("""
+        template = Template.from_string("""
         <%def name="dummy(kernel_declaration, output, arr1, arr2)">
         ${kernel_declaration}
         {

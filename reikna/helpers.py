@@ -81,26 +81,6 @@ def product(seq):
     return functools.reduce(lambda x1, x2: x1 * x2, seq, 1)
 
 
-def make_template(template, filename=False):
-    # Creating a template from a filename results in more comprehensible stack traces,
-    # so we are taking advantage of this if possible.
-    if filename:
-        return Template.from_associated_file(template)
-    else:
-        return Template.from_string(template)
-
-
-def template_from(template):
-    """
-    Creates a Mako template object from a given string.
-    If ``template`` already has ``render()`` method, does nothing.
-    """
-    if hasattr(template, "render"):
-        return template
-    else:
-        return make_template(template)
-
-
 def extract_signature_and_value(func_or_str, default_parameters=None):
     if not inspect.isfunction(func_or_str):
         if default_parameters is None:
@@ -133,17 +113,7 @@ def template_def(signature, code):
         signature = inspect.Signature([inspect.Parameter(name, kind=kind) for name in signature])
 
     template_src = "<%def name='_func" + str(signature) + "'>\n" + code + "\n</%def>"
-    return template_from(template_src).get_def("_func")
-
-
-def template_for(filename):
-    """
-    Returns the Mako template object created from the file
-    which has the same name as ``filename`` and the extension ``.mako``.
-    Typically used in computation modules as ``template_for(__filename__)``.
-    """
-    name, _ext = os.path.splitext(os.path.abspath(filename))
-    return make_template(name + ".mako", filename=True)
+    return Template.from_string(template_src).get_def("_func")
 
 
 def min_blocks(length, block):

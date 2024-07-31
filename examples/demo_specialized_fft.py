@@ -18,14 +18,14 @@ doi: 10.1109/TASSP.1979.1163235
 """
 
 import numpy
-from grunnur import Array, Context, Queue, any_api, dtypes, functions
+from grunnur import Array, Context, Queue, Template, any_api, dtypes, functions
 
 import reikna.helpers as helpers
 from reikna.algorithms import Reduce, Scan, predicate_sum
 from reikna.core import Annotation, Computation, Parameter, Transformation, Type
 from reikna.fft import FFT
 
-TEMPLATE = helpers.template_for(__file__)
+TEMPLATE = Template.from_associated_file(__file__)
 
 
 # Refernce functions

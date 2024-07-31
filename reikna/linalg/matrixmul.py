@@ -1,9 +1,9 @@
-from grunnur import VirtualSizeError, dtypes, functions
+from grunnur import Template, VirtualSizeError, dtypes, functions
 
 from .. import helpers
 from ..core import Annotation, Computation, Parameter, Type
 
-TEMPLATE = helpers.template_for(__file__)
+TEMPLATE = Template.from_associated_file(__file__)
 
 
 class MatrixMul(Computation):

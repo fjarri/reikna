@@ -1,12 +1,12 @@
 import numpy
-from grunnur import VirtualSizeError, dtypes, functions
+from grunnur import Template, VirtualSizeError, dtypes, functions
 
 from .. import helpers
 from ..algorithms import PureParallel
 from ..core import Annotation, Computation, Parameter
 from ..transformations import copy
 
-TEMPLATE = helpers.template_for(__file__)
+TEMPLATE = Template.from_associated_file(__file__)
 
 
 MAX_RADIX = 16

@@ -1,9 +1,9 @@
 import numpy
-from grunnur import Module, dtypes, functions
+from grunnur import Module, Template, dtypes, functions
 
 import reikna.helpers as helpers
 
-TEMPLATE = helpers.template_for(__file__)
+TEMPLATE = Template.from_associated_file(__file__)
 
 
 class Sampler:

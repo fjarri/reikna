@@ -81,6 +81,7 @@ Defining a class:
 
     import numpy
 
+    from grunnur import Template
     from reikna.helpers import *
     from reikna.core import *
 
@@ -119,7 +120,7 @@ For our example we only need one action, which is the execution of an elementwis
     def _build_plan(self, plan_factory, device_params, output, input1, input2, param):
         plan = plan_factory()
 
-        template = template_from(
+        template = Template.from_string(
             """
             <%def name='testcomp(kernel_declaration, k_output, k_input1, k_input2, k_param)'>
             ${kernel_declaration}

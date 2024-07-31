@@ -1,8 +1,8 @@
-import grunnur.functions as functions
 import numpy
+from grunnur import Template, functions
 
 from reikna.core import Annotation, Computation, Parameter, Transformation
-from reikna.helpers import min_blocks, product, template_from
+from reikna.helpers import min_blocks, product
 
 
 # Output = Input * Parameter
@@ -70,7 +70,7 @@ class Dummy(Computation):
         mul = functions.mul(arr_dtype, coeff_dtype)
         div = functions.div(arr_dtype, coeff_dtype)
 
-        template = template_from("""
+        template = Template.from_string("""
         <%def name="dummy(kernel_declaration, C, D, A, B, coeff)">
         ${kernel_declaration}
         {
@@ -266,7 +266,7 @@ class DummyAdvanced(Computation):
         mul = functions.mul(arr_dtype, coeff_dtype)
         div = functions.div(arr_dtype, coeff_dtype)
 
-        template = template_from("""
+        template = Template.from_string("""
         <%def name="dummy(kernel_declaration, CC, C, D, coeff)">
         ${kernel_declaration}
         {

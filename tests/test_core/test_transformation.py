@@ -1,6 +1,6 @@
 import numpy
 import pytest
-from grunnur import Array, functions
+from grunnur import Array, Template, functions
 
 from helpers import *
 from reikna import transformations
@@ -497,7 +497,7 @@ class ExpressionIndexing(Computation):
     def _build_plan(self, plan_factory, device_params, output, input_):
         plan = plan_factory()
 
-        template = template_from("""
+        template = Template.from_string("""
         <%def name="kernel(kernel_declaration, output, input)">
         ${kernel_declaration}
         {
