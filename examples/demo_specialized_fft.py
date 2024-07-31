@@ -133,7 +133,7 @@ def iaprfft_reference(X):
 
 
 def prepare_rfft_input(arr):
-    res = Type(dtypes.complex_for(arr.dtype), arr.shape[:-1] + (arr.shape[-1] // 2,))
+    res = Type.array(dtypes.complex_for(arr.dtype), arr.shape[:-1] + (arr.shape[-1] // 2,))
     return Transformation(
         [
             Parameter("output", Annotation(res, "o")),
@@ -157,7 +157,7 @@ class RFFT(Computation):
 
         output_size = arr_t.shape[-1] // 2 + (0 if dont_store_last else 1)
 
-        out_arr = Type(dtypes.complex_for(arr_t.dtype), arr_t.shape[:-1] + (output_size,))
+        out_arr = Type.array(dtypes.complex_for(arr_t.dtype), arr_t.shape[:-1] + (output_size,))
 
         Computation.__init__(
             self,
@@ -178,7 +178,7 @@ class RFFT(Computation):
         A_arr = plan.persistent_array(A.astype(output.dtype))
         B_arr = plan.persistent_array(B.astype(output.dtype))
 
-        cfft_arr = Type(output.dtype, input_.shape[:-1] + (input_.shape[-1] // 2,))
+        cfft_arr = Type.array(output.dtype, input_.shape[:-1] + (input_.shape[-1] // 2,))
         cfft = FFT(cfft_arr, axes=(len(input_.shape) - 1,))
 
         prepare_input = prepare_rfft_input(input_)
@@ -209,7 +209,7 @@ class RFFT(Computation):
 
 
 def prepare_irfft_output(arr):
-    res = Type(dtypes.real_for(arr.dtype), arr.shape[:-1] + (arr.shape[-1] * 2,))
+    res = Type.array(dtypes.real_for(arr.dtype), arr.shape[:-1] + (arr.shape[-1] * 2,))
     return Transformation(
         [
             Parameter("output", Annotation(res, "o")),
@@ -231,7 +231,7 @@ class IRFFT(Computation):
     def __init__(self, arr_t):
         output_size = (arr_t.shape[-1] - 1) * 2
 
-        out_arr = Type(dtypes.real_for(arr_t.dtype), arr_t.shape[:-1] + (output_size,))
+        out_arr = Type.array(dtypes.real_for(arr_t.dtype), arr_t.shape[:-1] + (output_size,))
 
         Computation.__init__(
             self,
@@ -253,7 +253,7 @@ class IRFFT(Computation):
         A_arr = plan.persistent_array(A.conj().astype(dtypes.complex_for(output.dtype)))
         B_arr = plan.persistent_array(B.conj().astype(dtypes.complex_for(output.dtype)))
 
-        cfft_arr = Type(input_.dtype, input_.shape[:-1] + (N // 2,))
+        cfft_arr = Type.array(input_.dtype, input_.shape[:-1] + (N // 2,))
         cfft = FFT(cfft_arr, axes=(len(input_.shape) - 1,))
 
         prepare_output = prepare_irfft_output(cfft.parameter.output)
@@ -288,7 +288,7 @@ def get_multiply(output):
         [
             Parameter("output", Annotation(output, "o")),
             Parameter("a", Annotation(output, "i")),
-            Parameter("b", Annotation(Type(output.dtype, (output.shape[-1],)), "i")),
+            Parameter("b", Annotation(Type.array(output.dtype, (output.shape[-1],)), "i")),
         ],
         """
         ${output.store_same}(${mul}(${a.load_same}, ${b.load_idx}(${idxs[-1]})));
@@ -305,7 +305,9 @@ def get_prepare_prfft_scan(output):
             Parameter("Y", Annotation(output, "i")),
             Parameter(
                 "re_X_0",
-                Annotation(Type(dtypes.real_for(output.dtype), output.shape[:-1] + (1,)), "i"),
+                Annotation(
+                    Type.array(dtypes.real_for(output.dtype), output.shape[:-1] + (1,)), "i"
+                ),
             ),
         ],
         """
@@ -330,7 +332,9 @@ class APRFFT(Computation):
     """
 
     def __init__(self, arr_t):
-        out_arr = Type(dtypes.complex_for(arr_t.dtype), arr_t.shape[:-1] + (arr_t.shape[-1] // 2,))
+        out_arr = Type.array(
+            dtypes.complex_for(arr_t.dtype), arr_t.shape[:-1] + (arr_t.shape[-1] // 2,)
+        )
 
         Computation.__init__(
             self,
@@ -398,7 +402,7 @@ def get_prepare_iprfft_input(X):
     # Output: size N//4+1
 
     N = X.shape[-1] * 4
-    Y = Type(X.dtype, X.shape[:-1] + (N // 4 + 1,))
+    Y = Type.array(X.dtype, X.shape[:-1] + (N // 4 + 1,))
 
     return Transformation(
         [
@@ -446,8 +450,8 @@ def get_prepare_iprfft_output(y):
         [
             Parameter("x", Annotation(y, "o")),
             Parameter("y", Annotation(y, "i")),
-            Parameter("x0", Annotation(Type(y.dtype, y.shape[:-1] + (1,)), "i")),
-            Parameter("coeffs", Annotation(Type(y.dtype, (N // 2,)), "i")),
+            Parameter("x0", Annotation(Type.array(y.dtype, y.shape[:-1] + (1,)), "i")),
+            Parameter("coeffs", Annotation(Type.array(y.dtype, (N // 2,)), "i")),
         ],
         """
         ${y.ctype} y = ${y.load_same};
@@ -478,7 +482,9 @@ class IAPRFFT(Computation):
     """
 
     def __init__(self, arr_t):
-        out_arr = Type(dtypes.real_for(arr_t.dtype), arr_t.shape[:-1] + (arr_t.shape[-1] * 2,))
+        out_arr = Type.array(
+            dtypes.real_for(arr_t.dtype), arr_t.shape[:-1] + (arr_t.shape[-1] * 2,)
+        )
 
         Computation.__init__(
             self,
@@ -519,7 +525,8 @@ class IAPRFFT(Computation):
         real = Transformation(
             [
                 Parameter(
-                    "output", Annotation(Type(dtypes.real_for(input_.dtype), input_.shape), "o")
+                    "output",
+                    Annotation(Type.array(dtypes.real_for(input_.dtype), input_.shape), "o"),
                 ),
                 Parameter("input", Annotation(input_, "i")),
             ],
@@ -529,7 +536,7 @@ class IAPRFFT(Computation):
             connectors=["output"],
         )
 
-        rd_t = Type(output.dtype, input_.shape)
+        rd_t = Type.array(output.dtype, input_.shape)
         rd = Reduce(rd_t, predicate_sum(rd_t.dtype), axes=(len(input_.shape) - 1,))
         rd.parameter.input.connect(real, real.output, X=real.input)
 

@@ -20,7 +20,7 @@ class Dummy(Computation):
         Computation.__init__(
             self,
             [
-                Parameter("output", Annotation(Type(numpy.float32, length), "o")),
+                Parameter("output", Annotation(Type.array(numpy.float32, length), "o")),
             ],
         )
 
@@ -58,7 +58,7 @@ class DummyOuter(Computation):
         Computation.__init__(
             self,
             [
-                Parameter("output", Annotation(Type(numpy.float32, length), "o")),
+                Parameter("output", Annotation(Type.array(numpy.float32, length), "o")),
             ],
         )
 

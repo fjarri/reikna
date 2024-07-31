@@ -45,8 +45,8 @@ As an example, let us consider a pure parallel computation object with one outpu
     from reikna.algorithms import PureParallel
     import reikna.transformations as transformations
 
-    arr_t = Type(numpy.float32, shape=128)
-    carr_t = Type(numpy.complex64, shape=128)
+    arr_t = Type.array(numpy.float32, shape=128)
+    carr_t = Type.array(numpy.complex64, shape=128)
 
     comp = PureParallel(
         [Parameter('out', Annotation(carr_t, 'o')),
@@ -76,9 +76,9 @@ The computation signature is:
 
     >>> for param in comp.signature.parameters.values():
     ...     print(param.name + ":" + repr(param.annotation))
-    out:Annotation(Type(complex64, shape=(128,)), role='o')
-    in1:Annotation(Type(complex64, shape=(128,)), role='i')
-    in2:Annotation(Type(complex64, shape=(128,)), role='i')
+    out:Annotation(Type.array(complex64, shape=(128,)), role='o')
+    in1:Annotation(Type.array(complex64, shape=(128,)), role='i')
+    in2:Annotation(Type.array(complex64, shape=(128,)), role='i')
     param:Annotation(float32)
 
 Now let us attach the transformation to the output which will split it into two halves: ``out1 = out / 2``, ``out2 = out / 2``:
@@ -116,10 +116,10 @@ But user-supplied parameters (``>>``) have changed, which can be also seen in th
 
     >>> for param in comp.signature.parameters.values():
     ...     print(param.name + ":" + repr(param.annotation))
-    out1:Annotation(Type(float32, shape=(128,)), role='o')
-    out2:Annotation(Type(float32, shape=(128,)), role='o')
-    in1:Annotation(Type(complex64, shape=(128,)), role='i')
-    in2_prime:Annotation(Type(complex64, shape=(128,)), role='i')
+    out1:Annotation(Type.array(float32, shape=(128,)), role='o')
+    out2:Annotation(Type.array(float32, shape=(128,)), role='o')
+    in1:Annotation(Type.array(complex64, shape=(128,)), role='i')
+    in2_prime:Annotation(Type.array(complex64, shape=(128,)), role='i')
     param2:Annotation(float32)
     param:Annotation(float32)
 

@@ -30,7 +30,7 @@ class EntrywiseNorm(Computation):
         tr_elems = norm_const(arr_t, order)
         out_dtype = tr_elems.output.dtype
 
-        rd = Reduce(Type(out_dtype, arr_t.shape), predicate_sum(out_dtype), axes=axes)
+        rd = Reduce(Type.array(out_dtype, arr_t.shape), predicate_sum(out_dtype), axes=axes)
 
         res_t = rd.parameter.output
         tr_sum = norm_const(res_t, 1.0 / order)

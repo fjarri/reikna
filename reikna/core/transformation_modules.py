@@ -1,4 +1,4 @@
-from grunnur import Module, Snippet
+from grunnur import Module, Snippet, dtypes
 
 from .. import helpers
 
@@ -273,7 +273,7 @@ def module_combined(output, param, subtree_parameters, module_idx):
             shape=param.annotation.type.shape,
             module_idx=module_idx,
             disassemble=_snippet_disassemble_combined,
-            connector_ctype=param.annotation.type.ctype,
+            connector_ctype=dtypes.ctype(param.annotation.type.dtype),
             nq_indices=index_cnames_seq(param),
             q_indices=index_cnames_seq(param, qualified=True),
             param_cnames_str=param_cnames_seq,

@@ -13,16 +13,16 @@ class NestedPureParallel(Computation):
         Computation.__init__(
             self,
             [
-                Parameter("output", Annotation(Type(dtype, shape=size), "o")),
-                Parameter("input", Annotation(Type(dtype, shape=size), "i")),
+                Parameter("output", Annotation(Type.array(dtype, shape=size), "o")),
+                Parameter("input", Annotation(Type.array(dtype, shape=size), "i")),
             ],
         )
 
         self._p = PureParallel(
             [
-                Parameter("output", Annotation(Type(dtype, shape=size), "o")),
-                Parameter("i1", Annotation(Type(dtype, shape=size), "i")),
-                Parameter("i2", Annotation(Type(dtype, shape=size), "i")),
+                Parameter("output", Annotation(Type.array(dtype, shape=size), "o")),
+                Parameter("i1", Annotation(Type.array(dtype, shape=size), "i")),
+                Parameter("i2", Annotation(Type.array(dtype, shape=size), "i")),
             ],
             """
             ${i1.ctype} t1 = ${i1.load_idx}(${idxs[0]});
@@ -61,8 +61,8 @@ def test_guiding_input(queue):
 
     p = PureParallel(
         [
-            Parameter("output", Annotation(Type(dtype, shape=(2, N)), "o")),
-            Parameter("input", Annotation(Type(dtype, shape=N), "i")),
+            Parameter("output", Annotation(Type.array(dtype, shape=(2, N)), "o")),
+            Parameter("input", Annotation(Type.array(dtype, shape=N), "i")),
         ],
         """
         float t = ${input.load_idx}(${idxs[0]});
@@ -90,8 +90,8 @@ def test_guiding_output(queue):
 
     p = PureParallel(
         [
-            Parameter("output", Annotation(Type(dtype, shape=N), "o")),
-            Parameter("input", Annotation(Type(dtype, shape=(2, N)), "i")),
+            Parameter("output", Annotation(Type.array(dtype, shape=N), "o")),
+            Parameter("input", Annotation(Type.array(dtype, shape=(2, N)), "i")),
         ],
         """
         float t1 = ${input.load_idx}(0, ${idxs[0]});
@@ -119,8 +119,8 @@ def test_guiding_shape(queue):
 
     p = PureParallel(
         [
-            Parameter("output", Annotation(Type(dtype, shape=(2, N)), "o")),
-            Parameter("input", Annotation(Type(dtype, shape=(2, N)), "i")),
+            Parameter("output", Annotation(Type.array(dtype, shape=(2, N)), "o")),
+            Parameter("input", Annotation(Type.array(dtype, shape=(2, N)), "i")),
         ],
         """
         float t1 = ${input.load_idx}(0, ${idxs[0]});
@@ -154,7 +154,7 @@ def test_from_trf(queue, guiding_array):
     coeff = 3
     dtype = numpy.float32
 
-    arr_t = Type(dtype, shape=N)
+    arr_t = Type.array(dtype, shape=N)
     trf = mul_param(arr_t, dtype)
 
     if guiding_array == "input":

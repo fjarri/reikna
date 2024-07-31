@@ -129,7 +129,7 @@ def roll_computation(array, axis):
         [
             Parameter("output", Annotation(array, "o")),
             Parameter("input", Annotation(array, "i")),
-            Parameter("shift", Annotation(Type(numpy.int32))),
+            Parameter("shift", Annotation(Type.scalar(numpy.int32))),
         ],
         """
         <%
@@ -164,7 +164,7 @@ class RollInplace(Computation):
             self,
             [
                 Parameter("array", Annotation(array, "io")),
-                Parameter("shift", Annotation(Type(numpy.int32))),
+                Parameter("shift", Annotation(Type.scalar(numpy.int32))),
             ],
         )
 

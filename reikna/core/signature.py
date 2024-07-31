@@ -1,11 +1,34 @@
 import inspect
 
-import grunnur.dtypes as dtypes
 import numpy
-from grunnur import Array
+from grunnur import Array, ArrayMetadata, dtypes
 
 from .. import helpers
 from ..helpers import product, wrap_in_tuple
+
+
+def is_compatible_with(lhs: ArrayMetadata, rhs: ArrayMetadata) -> bool:
+    """
+    Returns ``True`` if this and the other metadata represent essentially the same array,
+    with the only difference being some outermost dimensions of size 1.
+    """
+
+    if lhs.dtype != rhs.dtype:
+        return False
+
+    common_shape_len = min(len(lhs.shape), len(rhs.shape))
+    if lhs.shape[-common_shape_len:] != rhs.shape[-common_shape_len:]:
+        return False
+    if lhs.strides[-common_shape_len:] != rhs.strides[-common_shape_len:]:
+        return False
+    if helpers.product(lhs.shape[:-common_shape_len]) != 1:
+        return False
+    if helpers.product(rhs.shape[:-common_shape_len]) != 1:
+        return False
+    if lhs.first_element_offset != rhs.first_element_offset:
+        return False
+
+    return True
 
 
 class Type:
@@ -39,82 +62,111 @@ class Type:
         The total size of the memory buffer (in bytes)
     """
 
-    def __init__(self, dtype, shape=None, strides=None, offset=0, nbytes=None):
-        self.shape = tuple() if shape is None else wrap_in_tuple(shape)
-        self.size = product(self.shape)
-        self.dtype = numpy.dtype(dtype)
-        self.ctype = dtypes.ctype(self.dtype)
+    # TODO: this is temporary to use in `cast()` transformation.
+    # Currently it can take both grunnur arrays and numpy arrays,
+    # and they have different names for the offset and the buffer size.
+    # Think of something more type-safe.
+    @classmethod
+    def like(cls, array_like):
+        metadata = ArrayMetadata(
+            dtype=array_like.dtype, shape=array_like.shape, strides=array_like.strides
+        )
+        return cls._from_metadata(metadata)
 
-        default_strides = helpers.default_strides(self.shape, self.dtype.itemsize)
-        if strides is None:
-            strides = default_strides
+    @classmethod
+    def array(cls, dtype, shape=None, strides=None, offset=0, nbytes=None):
+        metadata = ArrayMetadata(
+            dtype=dtype,
+            shape=shape,
+            strides=strides,
+            first_element_offset=offset,
+            buffer_size=nbytes,
+        )
+        return cls._from_metadata(metadata)
+
+    @classmethod
+    def _from_metadata(cls, metadata):
+        assert isinstance(metadata, (ArrayMetadata, numpy.dtype)) or (
+            isinstance(metadata, type) and issubclass(metadata, numpy.generic)
+        )
+        ctype = dtypes.ctype(metadata.dtype if isinstance(metadata, ArrayMetadata) else metadata)
+        return cls(metadata, ctype)
+
+    @classmethod
+    def scalar(cls, dtype):
+        return cls._from_metadata(dtype)
+
+    def __init__(self, metadata, ctype):
+        if not isinstance(metadata, ArrayMetadata):
+            metadata = numpy.dtype(metadata)
+        self._metadata = metadata
+        self.ctype = ctype
+
+    @property
+    def dtype(self):
+        if self.is_scalar():
+            return self._metadata
         else:
-            strides = tuple(strides)
-        self._default_strides = strides == default_strides
-        self.strides = strides
+            return self._metadata.dtype
 
-        default_nbytes = helpers.min_buffer_size(self.shape, self.dtype.itemsize, self.strides)
-        if nbytes is None:
-            nbytes = default_nbytes
-        self._default_nbytes = nbytes == default_nbytes
-        self.nbytes = nbytes
+    @property
+    def shape(self):
+        if self.is_scalar():
+            return ()
+        else:
+            return self._metadata.shape
 
-        self.offset = offset
+    @property
+    def strides(self):
+        if self.is_scalar():
+            return ()
+        else:
+            return self._metadata.strides
+
+    @property
+    def offset(self):
+        if self.is_scalar():
+            return 0
+        else:
+            return self._metadata.first_element_offset
 
     def __eq__(self, other):
-        return (
-            self.__class__ == other.__class__
-            and self.shape == other.shape
-            and self.dtype == other.dtype
-            and self.strides == other.strides
-            and self.offset == other.offset
-            and self.nbytes == self.nbytes
-        )
+        return self._metadata == other._metadata
 
     def __hash__(self):
-        return hash(
-            (
-                self.__class__,
-                self.shape,
-                self.dtype,
-                self.strides,
-                self.offset,
-                self.nbytes,
-            )
-        )
+        return hash((type(self), self._metadata))
 
-    def __ne__(self, other):
-        return not (self == other)
+    def is_scalar(self) -> bool:
+        return isinstance(self._metadata, numpy.dtype)
 
+    # TODO: move to `Annotation`
     def compatible_with(self, other):
-        if self.dtype != other.dtype:
+        if self.is_scalar() and other.is_scalar():
+            return self._metadata == other._metadata
+
+        if self.is_scalar() ^ other.is_scalar():
             return False
 
-        common_shape_len = min(len(self.shape), len(other.shape))
-        if self.shape[-common_shape_len:] != other.shape[-common_shape_len:]:
-            return False
-        if self.strides[-common_shape_len:] != other.strides[-common_shape_len:]:
-            return False
-        if helpers.product(self.shape[:-common_shape_len]) != 1:
-            return False
-        if helpers.product(other.shape[:-common_shape_len]) != 1:
-            return False
-        if self.offset != other.offset:
-            return False
+        return is_compatible_with(self._metadata, other._metadata)
 
-        return True
-
+    # TODO: move the logic to `transformations.copy_broadcasted()`
     def broadcastable_to(self, other):
         """
         Returns ``True`` if the shape of this ``Type`` is broadcastable to ``other``,
         that is its dimensions either coincide with the innermost dimensions of ``other.shape``,
         or are equal to 1.
         """
-        if len(self.shape) > len(other.shape):
+        if self.is_scalar() or other.is_scalar():
             return False
 
-        for i in range(1, len(self.shape) + 1):
-            if not (self.shape[-i] == 1 or self.shape[-i] == other.shape[-i]):
+        if len(self._metadata.shape) > len(other._metadata.shape):
+            return False
+
+        for i in range(1, len(self._metadata.shape) + 1):
+            if not (
+                self._metadata.shape[-i] == 1
+                or self._metadata.shape[-i] == other._metadata.shape[-i]
+            ):
                 return False
 
         return True
@@ -123,9 +175,16 @@ class Type:
         """
         Creates a :py:class:`Type` object with its ``dtype`` attribute replaced by the given dtype.
         """
-        return Type(
-            dtype, shape=self.shape, strides=self.strides, offset=self.offset, nbytes=self.nbytes
-        )
+        if self.is_scalar():
+            return Type._from_metadata(dtype)
+        else:
+            return Type.array(
+                dtype=dtype,
+                shape=self._metadata.shape,
+                strides=self._metadata.strides,
+                offset=self._metadata.first_element_offset,
+                nbytes=self._metadata.buffer_size,
+            )
 
     @classmethod
     def from_value(cls, val):
@@ -135,42 +194,22 @@ class Type:
         if isinstance(val, Type):
             # Creating a new object, because ``val`` may be some derivative of Type,
             # used as a syntactic sugar, and we do not want it to confuse us later.
-            return cls(
-                val.dtype,
-                shape=val.shape,
-                strides=val.strides,
-                offset=val.offset,
-                nbytes=val.nbytes,
-            )
+            return cls._from_metadata(val._metadata)
         elif isinstance(val, Array):
-            return cls(
-                val.dtype,
-                shape=val.shape,
-                strides=val.strides,
-                offset=val.first_element_offset,
-                nbytes=val.buffer_size,
-            )
+            return cls._from_metadata(val.metadata)
         elif isinstance(val, numpy.dtype) or (
             isinstance(val, type) and issubclass(val, numpy.generic)
         ):
-            return cls(val)
+            return cls._from_metadata(val)
         elif hasattr(val, "dtype") and hasattr(val, "shape"):
             strides = val.strides if hasattr(val, "strides") else None
             offset = val.offset if hasattr(val, "offset") else 0
             nbytes = val.nbytes if hasattr(val, "nbytes") else None
-            return cls(val.dtype, shape=val.shape, strides=strides, offset=offset, nbytes=nbytes)
+            return cls.array(
+                dtype=val.dtype, shape=val.shape, strides=strides, offset=offset, nbytes=nbytes
+            )
         else:
-            return cls(dtypes.detect_type(val))
-
-    @classmethod
-    def padded(cls, dtype, shape, pad=0):
-        """
-        Creates a :py:class:`Type` object corresponding to an array padded from all dimensions
-        by `pad` elements.
-        """
-        dtype = numpy.dtype(dtype)
-        strides, offset, nbytes = helpers.padded_buffer_parameters(shape, dtype.itemsize, pad=pad)
-        return cls(dtype, shape, strides=strides, offset=offset, nbytes=nbytes)
+            return cls._from_metadata(dtypes.result_type(val))
 
     def __call__(self, val):
         """
@@ -179,29 +218,11 @@ class Type:
         return numpy.asarray(val, dtype=self.dtype)
 
     def __repr__(self):
-        if len(self.shape) > 0 or self.offset != 0:
-            res = "Type({dtype}, shape={shape}".format(dtype=self.dtype, shape=self.shape)
-            if not self._default_strides:
-                res += ", strides=" + str(self.strides)
-            if self.offset != 0:
-                res += ", offset=" + str(self.offset)
-            if not self._default_nbytes:
-                res += ", nbytes=" + str(self.nbytes)
-            res += ")"
-            return res
-        else:
-            return "Type({dtype})".format(dtype=self.dtype)
+        return f"Type({self._metadata})"
 
     def __process_modules__(self, process):
-        tp = Type(
-            self.dtype,
-            shape=self.shape,
-            strides=self.strides,
-            offset=self.offset,
-            nbytes=self.nbytes,
-        )
-        tp.ctype = process(tp.ctype)
-        return tp
+        # TODO: make a separate type for such processed objects?
+        return Type(self._metadata, process(self.ctype))
 
 
 class Annotation:
@@ -232,10 +253,12 @@ class Annotation:
         self.role = role
         self.constant = constant
         if role == "s":
+            assert self.type.is_scalar()
             self.array = False
             self.input = False
             self.output = False
         else:
+            assert not self.type.is_scalar()
             self.array = True
             self.input = "i" in role
             self.output = "o" in role

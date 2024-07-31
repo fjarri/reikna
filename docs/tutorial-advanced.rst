@@ -33,11 +33,11 @@ Let us consider a (not very useful, but quite involved) example:
 
     tr = Transformation(
         [
-            Parameter('out1', Annotation(Type(numpy.float32, shape=100), 'o')),
-            Parameter('out2', Annotation(Type(numpy.float32, shape=80), 'o')),
-            Parameter('in1', Annotation(Type(numpy.float32, shape=100), 'i')),
-            Parameter('in2', Annotation(Type(numpy.float32, shape=100), 'i')),
-            Parameter('param', Annotation(Type(numpy.float32))),
+            Parameter('out1', Annotation(Type.array(numpy.float32, shape=100), 'o')),
+            Parameter('out2', Annotation(Type.array(numpy.float32, shape=80), 'o')),
+            Parameter('in1', Annotation(Type.array(numpy.float32, shape=100), 'i')),
+            Parameter('in2', Annotation(Type.array(numpy.float32, shape=100), 'i')),
+            Parameter('param', Annotation(Type.scalar(numpy.float32))),
         ],
         """
         VSIZE_T idx = ${idxs[0]};

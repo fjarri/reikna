@@ -109,7 +109,7 @@ class Transpose(Computation):
         output_shape = transpose_shape(arr_t.shape, self._axes)
 
         if output_arr_t is None:
-            output_arr = Type(arr_t.dtype, output_shape)
+            output_arr = Type.array(arr_t.dtype, output_shape)
         else:
             if output_arr_t.shape != output_shape:
                 raise ValueError(

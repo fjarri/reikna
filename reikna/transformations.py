@@ -81,7 +81,7 @@ def cast(arr_t, dtype):
     Returns a typecast transformation of ``arr_t`` to ``dtype``
     (1 output, 1 input): ``output = cast[dtype](input)``.
     """
-    dest = Type.from_value(arr_t).with_dtype(dtype)
+    dest = Type.like(arr_t).with_dtype(dtype)
     return Transformation(
         [Parameter("output", Annotation(dest, "o")), Parameter("input", Annotation(arr_t, "i"))],
         "${output.store_same}(${cast}(${input.load_same}));",
@@ -190,7 +190,7 @@ def split_complex(input_arr_t):
     Returns a transformation that splits complex input into two real outputs
     (2 outputs, 1 input): ``real = Re(input), imag = Im(input)``.
     """
-    output_t = Type(dtypes.real_for(input_arr_t.dtype), shape=input_arr_t.shape)
+    output_t = Type.array(dtypes.real_for(input_arr_t.dtype), shape=input_arr_t.shape)
     return Transformation(
         [
             Parameter("real", Annotation(output_t, "o")),
@@ -209,7 +209,7 @@ def combine_complex(output_arr_t):
     Returns a transformation that joins two real inputs into complex output
     (1 output, 2 inputs): ``output = real + 1j * imag``.
     """
-    input_t = Type(dtypes.real_for(output_arr_t.dtype), shape=output_arr_t.shape)
+    input_t = Type.array(dtypes.real_for(output_arr_t.dtype), shape=output_arr_t.shape)
     return Transformation(
         [
             Parameter("output", Annotation(output_arr_t, "o")),
@@ -237,7 +237,7 @@ def norm_const(arr_t, order):
 
     return Transformation(
         [
-            Parameter("output", Annotation(Type(out_dtype, arr_t.shape), "o")),
+            Parameter("output", Annotation(Type.array(out_dtype, arr_t.shape), "o")),
             Parameter("input", Annotation(arr_t, "i")),
         ],
         """
@@ -264,9 +264,9 @@ def norm_param(arr_t):
 
     return Transformation(
         [
-            Parameter("output", Annotation(Type(out_dtype, arr_t.shape), "o")),
+            Parameter("output", Annotation(Type.array(out_dtype, arr_t.shape), "o")),
             Parameter("input", Annotation(arr_t, "i")),
-            Parameter("order", Annotation(Type(out_dtype))),
+            Parameter("order", Annotation(Type.scalar(out_dtype))),
         ],
         """
         ${input.ctype} val = ${input.load_same};
@@ -316,7 +316,7 @@ def broadcast_param(arr_t):
     return Transformation(
         [
             Parameter("output", Annotation(arr_t, "o")),
-            Parameter("param", Annotation(Type(arr_t.dtype))),
+            Parameter("param", Annotation(Type.scalar(arr_t.dtype))),
         ],
         """
         ${output.store_same}(${param});

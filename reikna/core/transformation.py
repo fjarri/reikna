@@ -26,9 +26,7 @@ class TransformationParameter(Type):
     """
 
     def __init__(self, trf, name, type_):
-        Type.__init__(
-            self, type_.dtype, shape=type_.shape, strides=type_.strides, offset=type_.offset
-        )
+        super().__init__(type_._metadata, type_.ctype)
         self._trf = weakref.ref(trf)
         self._name = name
 

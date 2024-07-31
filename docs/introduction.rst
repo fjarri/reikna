@@ -95,8 +95,8 @@ Let us change the previous example and connect transformations to it.
     arrays = [Array.from_host(queue, x) for x in [a_re, a_im, b_re, b_im]]
     a_re_dev, a_im_dev, b_re_dev, b_im_dev = arrays
 
-    a_type = Type(numpy.complex64, shape=shape1)
-    b_type = Type(numpy.complex64, shape=shape2)
+    a_type = Type.array(numpy.complex64, shape=shape1)
+    b_type = Type.array(numpy.complex64, shape=shape2)
     res_dev = Array.empty(queue.device, (shape1[0], shape2[1]), dtype=numpy.complex64)
 
     dot = MatrixMul(a_type, b_type, out_arr=res_dev)

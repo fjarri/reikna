@@ -20,9 +20,7 @@ class ComputationParameter(Type):
     def __init__(self, computation, name, type_):
         """__init__()"""  # hide the signature from Sphinx
 
-        Type.__init__(
-            self, type_.dtype, shape=type_.shape, strides=type_.strides, offset=type_.offset
-        )
+        super().__init__(type_._metadata, type_.ctype)
         self._computation = weakref.ref(computation)
         self._name = name
 
@@ -264,9 +262,7 @@ class KernelArgument(Type):
 
     def __init__(self, name, type_):
         """__init__()"""  # hide the signature from Sphinx
-        Type.__init__(
-            self, type_.dtype, shape=type_.shape, strides=type_.strides, offset=type_.offset
-        )
+        super().__init__(type_._metadata, type_.ctype)
         self.name = name
 
     def __repr__(self):
@@ -310,7 +306,7 @@ class ComputationPlan:
         :py:class:`KernelArgument`.
         """
         name = self._translator(self._persistent_value_idgen())
-        ann = Annotation(val)
+        ann = Annotation(Type.scalar(val.dtype))
         self._internal_annotations[name] = ann
         self._persistent_values[name] = ann.type(val)
         return KernelArgument(name, ann.type)
@@ -338,7 +334,7 @@ class ComputationPlan:
         """
         name = self._translator(self._temp_array_idgen())
         ann = Annotation(
-            Type(dtype, shape=shape, strides=strides, offset=offset, nbytes=nbytes), "io"
+            Type.array(dtype, shape=shape, strides=strides, offset=offset, nbytes=nbytes), "io"
         )
         self._internal_annotations[name] = ann
         self._temp_arrays.add(name)
@@ -408,7 +404,7 @@ class ComputationPlan:
                     # so there's no need in registering them in the plan.
                     name = self._translator(adhoc_idgen())
                     adhoc_values[name] = arg
-                    annotation = Annotation(Type(arg.dtype))
+                    annotation = Annotation(Type.scalar(arg.dtype))
                     arg = KernelArgument(name, annotation.type)
                 else:
                     raise TypeError("Unknown argument type: " + str(type(arg)))

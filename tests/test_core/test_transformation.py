@@ -59,7 +59,7 @@ def tr_1_to_2(arr):
 def test_io_parameter_in_transformation():
     with pytest.raises(ValueError):
         tr = Transformation(
-            [Parameter("o1", Annotation(Type(numpy.float32, shape=100), "io"))],
+            [Parameter("o1", Annotation(Type.array(numpy.float32, shape=100), "io"))],
             "${o1.store_same}(${o1.load_same});",
         )
 
@@ -67,7 +67,7 @@ def test_io_parameter_in_transformation():
 def test_signature_correctness():
     N = 200
     coeff_dtype = numpy.float32
-    arr_type = Type(numpy.complex64, (N, N))
+    arr_type = Type.array(numpy.complex64, (N, N))
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
 
@@ -112,7 +112,7 @@ def test_same_shape(queue):
     D_param = 4
 
     coeff_dtype = numpy.float32
-    arr_type = Type(numpy.complex64, (N, N))
+    arr_type = Type.array(numpy.complex64, (N, N))
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
 
@@ -167,7 +167,7 @@ def test_connection_to_base(queue):
     coeff = 2
 
     coeff_dtype = numpy.float32
-    arr_type = Type(numpy.complex64, (N, N))
+    arr_type = Type.array(numpy.complex64, (N, N))
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
 
@@ -210,7 +210,7 @@ def test_nested_same_shape(queue):
     D_param = 4
 
     coeff_dtype = numpy.float32
-    arr_type = Type(numpy.complex64, (N, N))
+    arr_type = Type.array(numpy.complex64, (N, N))
 
     d = DummyNested(arr_type, arr_type, coeff_dtype, second_coeff, same_A_B=True)
 
@@ -268,7 +268,7 @@ def test_strings_as_parameters():
 
     N = 200
     coeff_dtype = numpy.float32
-    arr_type = Type(numpy.complex64, (N, N))
+    arr_type = Type.array(numpy.complex64, (N, N))
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
     identity = tr_identity(d.parameter.A)
@@ -292,7 +292,7 @@ def test_alien_parameters():
 
     N = 200
     coeff_dtype = numpy.float32
-    arr_type = Type(numpy.complex64, (N, N))
+    arr_type = Type.array(numpy.complex64, (N, N))
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
     d2 = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
@@ -314,7 +314,7 @@ def test_connector_repetition():
 
     N = 200
     coeff_dtype = numpy.float32
-    arr_type = Type(numpy.complex64, (N, N))
+    arr_type = Type.array(numpy.complex64, (N, N))
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
     identity = tr_identity(d.parameter.A)
@@ -328,7 +328,7 @@ def test_wrong_connector():
 
     N = 200
     coeff_dtype = numpy.float32
-    arr_type = Type(numpy.complex64, (N, N))
+    arr_type = Type.array(numpy.complex64, (N, N))
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
     identity = tr_identity(d.parameter.A)
@@ -350,10 +350,10 @@ def test_type_mismatch():
 
     N = 200
     coeff_dtype = numpy.float32
-    arr_type = Type(numpy.complex64, (N, N))
+    arr_type = Type.array(numpy.complex64, (N, N))
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
-    identity = tr_identity(Type(numpy.complex64, (N, N + 1)))
+    identity = tr_identity(Type.array(numpy.complex64, (N, N + 1)))
 
     with pytest.raises(ValueError):
         d.connect("A", identity, identity.o1, A_prime=identity.i1)
@@ -368,7 +368,7 @@ def test_wrong_data_path():
 
     N = 200
     coeff_dtype = numpy.float32
-    arr_type = Type(numpy.complex64, (N, N))
+    arr_type = Type.array(numpy.complex64, (N, N))
 
     d = DummyAdvanced(arr_type, coeff_dtype)
     identity = tr_identity(d.parameter.C)
@@ -416,7 +416,7 @@ def test_wrong_transformation_parameters():
 
     N = 200
     coeff_dtype = numpy.float32
-    arr_type = Type(numpy.complex64, (N, N))
+    arr_type = Type.array(numpy.complex64, (N, N))
 
     d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
     identity = tr_identity(d.parameter.A)
@@ -441,7 +441,7 @@ def test_io_merge(some_queue):
     coeff2 = 4
     scale_in = 0.5
     scale_out = 0.3
-    arr_type = Type(numpy.complex64, (N, N))
+    arr_type = Type.array(numpy.complex64, (N, N))
     coeff_dtype = numpy.float32
 
     C = get_test_array_like(arr_type)
@@ -485,7 +485,7 @@ class ExpressionIndexing(Computation):
         assert len(arr_t.shape) == 2
 
         # reset strides/offset of the input and return a contiguous array
-        res_t = Type(arr_t.dtype, arr_t.shape)
+        res_t = Type.array(arr_t.dtype, arr_t.shape)
         Computation.__init__(
             self,
             [

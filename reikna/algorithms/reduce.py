@@ -67,7 +67,7 @@ class Reduce(Computation):
         self._empty = empty
 
         if output_arr_t is None:
-            output_arr_t = Type(arr_t.dtype, shape=output_shape)
+            output_arr_t = Type.array(arr_t.dtype, shape=output_shape)
         else:
             if output_arr_t.dtype != arr_t.dtype:
                 raise ValueError(

@@ -117,7 +117,7 @@ def rolling_frame(arr, NFFT, noverlap, pad_to):
     frame_num = (arr.size - noverlap) // frame_step
     frame_size = NFFT if pad_to is None else pad_to
 
-    result_arr = Type(arr.dtype, (frame_num, frame_size))
+    result_arr = Type.array(arr.dtype, (frame_num, frame_size))
 
     return Transformation(
         [
@@ -147,7 +147,7 @@ def crop_frequencies(arr):
     Crop a 2D array whose columns represent frequencies to only leave the frequencies with
     different absolute values.
     """
-    result_arr = Type(arr.dtype, (arr.shape[0], arr.shape[1] // 2 + 1))
+    result_arr = Type.array(arr.dtype, (arr.shape[0], arr.shape[1] // 2 + 1))
     return Transformation(
         [
             Parameter("output", Annotation(result_arr, "o")),

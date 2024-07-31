@@ -49,7 +49,7 @@ class CBRNG(Computation):
         counters_size = randoms_arr.shape[-generators_dim:]
 
         self._generators_dim = generators_dim
-        self._counters_t = Type(sampler.bijection.counter_dtype, shape=counters_size)
+        self._counters_t = Type.array(sampler.bijection.counter_dtype, shape=counters_size)
 
         Computation.__init__(
             self,

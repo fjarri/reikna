@@ -230,7 +230,7 @@ class DHT(Computation):
                 coord_shape[axis] = get_spatial_points(
                     mode_arr.shape[axis], order, add_points=add_points[axis]
                 )
-        coord_arr = Type(mode_arr.dtype, shape=coord_shape)
+        coord_arr = Type.array(mode_arr.dtype, shape=coord_shape)
 
         self._inverse = inverse
         self._order = order

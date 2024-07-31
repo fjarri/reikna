@@ -21,7 +21,7 @@ def get_complex_trf(arr):
     complex_dtype = dtypes.complex_for(arr.dtype)
     return Transformation(
         [
-            Parameter("output", Annotation(Type(complex_dtype, arr.shape), "o")),
+            Parameter("output", Annotation(Type.array(complex_dtype, arr.shape), "o")),
             Parameter("input", Annotation(arr, "i")),
         ],
         """

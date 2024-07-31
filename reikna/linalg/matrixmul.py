@@ -43,10 +43,10 @@ class MatrixMul(Computation):
         transposed_b=False,
     ):
         if len(a_arr.shape) == 1:
-            a_arr = Type(a_arr.dtype, shape=(1,) + a_arr.shape)
+            a_arr = Type.array(a_arr.dtype, shape=(1,) + a_arr.shape)
 
         if len(b_arr.shape) == 1:
-            b_arr = Type(b_arr.dtype, shape=b_arr.shape + (1,))
+            b_arr = Type.array(b_arr.dtype, shape=b_arr.shape + (1,))
 
         a_batch_shape = a_arr.shape[:-2]
         b_batch_shape = b_arr.shape[:-2]
@@ -63,7 +63,7 @@ class MatrixMul(Computation):
 
             out_shape = batch_shape + (a_outer_size, b_outer_size)
 
-            out_arr = Type(out_dtype, shape=out_shape)
+            out_arr = Type.array(out_dtype, shape=out_shape)
 
         Computation.__init__(
             self,

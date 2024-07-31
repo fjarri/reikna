@@ -117,7 +117,7 @@ def test_cast(some_queue):
     data = get_test_array((1000,), numpy.float32, high=10)
     data_dev = Array.from_host(some_queue, data)
 
-    test = get_test_computation(Type(numpy.int32, (1000,)))
+    test = get_test_computation(Type.array(numpy.int32, (1000,)))
     cast = tr.cast(data, numpy.int32)
 
     test.parameter.input.connect(cast, cast.output, input_prime=cast.input)
@@ -253,7 +253,7 @@ def test_split_combine_complex(some_queue):
     o1_dev = Array.empty_like(some_queue.device, i1)
     o2_dev = Array.empty_like(some_queue.device, i2)
 
-    base_t = Type(numpy.complex64, shape=1000)
+    base_t = Type.array(numpy.complex64, shape=1000)
     test = get_test_computation(base_t)
     combine = tr.combine_complex(base_t)
     split = tr.split_complex(base_t)

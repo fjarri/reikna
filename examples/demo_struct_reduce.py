@@ -62,7 +62,7 @@ arr = numpy.random.randint(0, 10**6, 20000)
 # A transformation that creates initial minmax structures for the given array of integers
 to_mmc = Transformation(
     [
-        Parameter("output", Annotation(Type(mmc_dtype, arr.shape), "o")),
+        Parameter("output", Annotation(Type.array(mmc_dtype, arr.shape), "o")),
         Parameter("input", Annotation(arr, "i")),
     ],
     """
