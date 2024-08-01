@@ -1,5 +1,16 @@
 # Reikna, the pure Python GPGPU library
 
+[![pypi package][pypi-image]][pypi-link] ![License][pypi-license-image] [![Docs][rtd-image]][rtd-link] [![Coverage][cov-image]][cov-link]
+
+[pypi-image]: https://img.shields.io/pypi/v/reikna
+[pypi-link]: https://pypi.org/project/reikna/
+[pypi-license-image]: https://img.shields.io/pypi/l/reikna
+[rtd-image]: https://readthedocs.org/projects/reikna/badge/?version=latest
+[rtd-link]: https://reikna.readthedocs.io/en/latest/
+[cov-image]: https://codecov.io/gh/fjarri/reikna/branch/master/graph/badge.svg
+[cov-link]: https://codecov.io/gh/fjarri/reikna
+
+
 `Reikna` is a library containing various GPU algorithms built on top of [PyCUDA](http://documen.tician.de/pycuda) and [PyOpenCL](http://documen.tician.de/pyopencl).
 The main design goals are:
 
