@@ -28,6 +28,7 @@ tests = [
     "pytest>=6",
     "pytest-cov",
     "pytest-grunnur>=0.3",
+    "scipy",
 ]
 docs = [
     "sphinx>=4",

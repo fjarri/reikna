@@ -1,0 +1,64 @@
+# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: Tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+
+  test-pocl:
+
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10"]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install system dependencies
+      run: |
+        sudo apt-get install libpocl2
+    - name: Install PDM
+      run: curl -sSL https://raw.githubusercontent.com/pdm-project/pdm/main/install-pdm.py | python3
+    - name: Install dependencies
+      run: |
+        pdm sync -G tests,pyopencl
+    # Skip performance tests, the test suite is slow enough as it is
+    - name: Test with pytest
+      run: |
+        env POCL_DEVICES="cpu-minimal" pdm run py.test --cov=reikna --cov-report=xml tests -m "not perf"
+    - name: Run demo_fftn_with_transpose
+      run: |
+        env POCL_DEVICES="cpu-minimal" pdm run examples/demo_fftn_with_transpose.py
+    - name: Run demo_fftshift_transformation
+      run: |
+        env POCL_DEVICES="cpu-minimal" pdm run examples/demo_fftshift_transformation.py
+    - name: Run demo_real_to_complex_fft
+      run: |
+        env POCL_DEVICES="cpu-minimal" pdm run examples/demo_real_to_complex_fft.py
+    - name: Run demo_specgram
+      run: |
+        pdm add matplotlib
+        env POCL_DEVICES="cpu-minimal" pdm run examples/demo_specgram.py
+    - name: Run demo_specialized_fft
+      run: |
+        env POCL_DEVICES="cpu-minimal" pdm run examples/demo_specialized_fft.py
+    - name: Run demo_struct_reduce
+      run: |
+        env POCL_DEVICES="cpu-minimal" pdm run examples/demo_struct_reduce.py
+    - name: Upload coverage
+      if: matrix.python-version == '3.10'
+      run: |
+        curl -Os https://uploader.codecov.io/latest/linux/codecov
+        chmod +x codecov
+        ./codecov

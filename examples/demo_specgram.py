@@ -170,8 +170,8 @@ class Spectrogram(Computation):
         rolling_frame_trf = rolling_frame(x, NFFT, noverlap, pad_to)
 
         complex_dtype = dtypes.complex_for(x.dtype)
-        fft_arr = Type(complex_dtype, rolling_frame_trf.output.shape)
-        real_fft_arr = Type(x.dtype, rolling_frame_trf.output.shape)
+        fft_arr = Type.array(complex_dtype, rolling_frame_trf.output.shape)
+        real_fft_arr = Type.array(x.dtype, rolling_frame_trf.output.shape)
 
         window_trf = window(real_fft_arr, NFFT)
         broadcast_zero_trf = transformations.broadcast_const(real_fft_arr, 0)
