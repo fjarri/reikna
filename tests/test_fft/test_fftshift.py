@@ -5,7 +5,7 @@ import numpy
 import pytest
 from grunnur import Array, dtypes
 
-from helpers import *
+from helpers import diff_is_negligible, get_test_array
 from reikna.fft import FFTShift
 from reikna.helpers import product
 from reikna.transformations import mul_param
@@ -41,11 +41,11 @@ def pytest_generate_tests(metafunc):
         for shape in perf_shapes:
             batch = mem_limit // product(shape)
             if contigous:
-                full_shape = (batch,) + shape
+                full_shape = (batch, *shape)
                 axes = tuple(range(1, len(shape) + 1))
             else:
-                full_shape = shape + (batch,)
-                axes = tuple(range(0, len(shape)))
+                full_shape = (*shape, batch)
+                axes = tuple(range(len(shape)))
 
             perf_even_shapes_and_axes.append((full_shape, axes))
 
@@ -78,19 +78,19 @@ def pytest_generate_tests(metafunc):
         )
 
 
-def check_errors(queue, shape_and_axes, inverse=False):
+def check_errors(queue, shape_and_axes, *, inverse=False):
     dtype = numpy.int32
 
     shape, axes = shape_and_axes
 
     data = numpy.arange(product(shape)).reshape(shape).astype(dtype)
+    data_dev = Array.from_host(queue, data)
 
-    shift = FFTShift(data, axes=axes)
+    shift = FFTShift(data_dev, axes=axes)
     shiftc = shift.compile(queue.device)
 
     ref_func = numpy.fft.ifftshift if inverse else numpy.fft.fftshift
 
-    data_dev = Array.from_host(queue, data)
     shiftc(queue, data_dev, data_dev, inverse)
     res_ref = ref_func(data, axes=axes)
 
@@ -99,7 +99,7 @@ def check_errors(queue, shape_and_axes, inverse=False):
 
 @pytest.mark.parametrize("inverse", [False, True], ids=["forward", "inverse"])
 def test_errors(queue, errors_shape_and_axes, inverse):
-    check_errors(queue, errors_shape_and_axes, inverse)
+    check_errors(queue, errors_shape_and_axes, inverse=inverse)
 
 
 def test_trivial(some_queue):
@@ -116,7 +116,7 @@ def test_trivial(some_queue):
     data_dev = Array.from_host(some_queue, data)
     res_dev = Array.empty_like(some_queue.device, data_dev)
 
-    shift = FFTShift(data, axes=axes)
+    shift = FFTShift(data_dev, axes=axes)
     scale = mul_param(data_dev, numpy.int32)
     shift.parameter.input.connect(scale, scale.output, input_prime=scale.input, param=scale.param)
 
@@ -141,16 +141,16 @@ def check_performance(queue, shape_and_axes):
     shape, axes = shape_and_axes
 
     data = numpy.arange(product(shape)).reshape(shape).astype(dtype)
+    data_dev = Array.from_host(queue.device, data)
 
-    shift = FFTShift(data, axes=axes)
+    shift = FFTShift(data_dev, axes=axes)
     shiftc = shift.compile(queue.device)
 
-    data_dev = Array.from_host(queue.device, data)
     res_dev = Array.empty_like(queue.device, data)
 
     attempts = 10
     times = []
-    for i in range(attempts):
+    for _ in range(attempts):
         t1 = time.time()
         shiftc(queue, res_dev, data_dev)
         queue.synchronize()

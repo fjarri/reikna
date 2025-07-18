@@ -1,3 +1,6 @@
+from collections.abc import Callable
+from typing import Any
+
 import numpy
 from grunnur import Snippet
 from numpy.typing import DTypeLike
@@ -14,18 +17,14 @@ class Predicate:
         (the one which, being joined by another argument, does not change it).
     """
 
-    def __init__(self, operation: Snippet, empty):
+    def __init__(self, operation: Snippet, empty: Any):
         self.operation = operation
         self.empty = empty
 
-    def __process_modules__(self, process):
-        return Predicate(process(self.operation), self.empty)
-
 
 def predicate_sum(dtype: DTypeLike) -> Predicate:
-    """
-    Returns a :py:class:`~reikna.algorithms.Predicate` object which sums its arguments.
-    """
+    """Returns a :py:class:`~reikna.algorithms.Predicate` object which sums its arguments."""
     return Predicate(
-        Snippet.from_callable(lambda v1, v2: "return ${v1} + ${v2};"), numpy.zeros(1, dtype)[0]
+        Snippet.from_callable(lambda v1, v2: "return ${v1} + ${v2};"),  # noqa: ARG005
+        numpy.zeros(1, dtype)[0],
     )

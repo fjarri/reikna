@@ -1,15 +1,23 @@
-from grunnur import Template, VirtualSizeError, dtypes, functions
+from collections.abc import Callable
+
+from grunnur import (
+    ArrayMetadata,
+    AsArrayMetadata,
+    DeviceParameters,
+    Template,
+    VirtualSizeError,
+    dtypes,
+    functions,
+)
 
 from .. import helpers
-from ..core import Annotation, Computation, Parameter, Type
+from ..core import Annotation, Computation, ComputationPlan, KernelArguments, Parameter
 
 TEMPLATE = Template.from_associated_file(__file__)
 
 
 class MatrixMul(Computation):
     """
-    Bases: :py:class:`~reikna.core.Computation`
-
     Multiplies two matrices using last two dimensions and batching over remaining dimensions.
     For batching to work, the products of remaining dimensions should be equal
     (then the multiplication will be performed piecewise), or one of them should equal 1
@@ -35,18 +43,22 @@ class MatrixMul(Computation):
 
     def __init__(
         self,
-        a_arr,
-        b_arr,
-        out_arr=None,
-        block_width_override=None,
-        transposed_a=False,
-        transposed_b=False,
+        a_arr_t: AsArrayMetadata,
+        b_arr_t: AsArrayMetadata,
+        out_arr_t: AsArrayMetadata | None = None,
+        *,
+        block_width_override: int | None = None,
+        transposed_a: bool = False,
+        transposed_b: bool = False,
     ):
+        a_arr = a_arr_t.as_array_metadata()
+        b_arr = b_arr_t.as_array_metadata()
+
         if len(a_arr.shape) == 1:
-            a_arr = Type.array(a_arr.dtype, shape=(1,) + a_arr.shape)
+            a_arr = ArrayMetadata(dtype=a_arr.dtype, shape=(1, *a_arr.shape))
 
         if len(b_arr.shape) == 1:
-            b_arr = Type.array(b_arr.dtype, shape=b_arr.shape + (1,))
+            b_arr = ArrayMetadata(dtype=b_arr.dtype, shape=(*b_arr.shape, 1))
 
         a_batch_shape = a_arr.shape[:-2]
         b_batch_shape = b_arr.shape[:-2]
@@ -54,16 +66,18 @@ class MatrixMul(Computation):
         convolution_size = a_arr.shape[-2 if transposed_a else -1]
         b_outer_size = b_arr.shape[-2 if transposed_b else -1]
 
-        if out_arr is None:
+        if out_arr_t is None:
             out_dtype = dtypes.result_type(a_arr.dtype, b_arr.dtype)
 
             batch_len = max(len(a_batch_shape), len(b_batch_shape))
             batch_shape = b_batch_shape if helpers.product(a_batch_shape) == 1 else a_batch_shape
             batch_shape = (1,) * (batch_len - len(batch_shape)) + batch_shape
 
-            out_shape = batch_shape + (a_outer_size, b_outer_size)
+            out_shape = (*batch_shape, a_outer_size, b_outer_size)
 
-            out_arr = Type.array(out_dtype, shape=out_shape)
+            out_arr = ArrayMetadata(dtype=out_dtype, shape=out_shape)
+        else:
+            out_arr = out_arr_t.as_array_metadata()
 
         Computation.__init__(
             self,
@@ -81,8 +95,17 @@ class MatrixMul(Computation):
         self._transposed_a = transposed_a
         self._transposed_b = transposed_b
 
-    def _build_plan(self, plan_factory, device_params, output, matrix_a, matrix_b):
+    def _build_plan(
+        self,
+        plan_factory: Callable[[], ComputationPlan],
+        device_params: DeviceParameters,
+        args: KernelArguments,
+    ) -> ComputationPlan:
         bwo = self._block_width_override
+
+        output = args.output
+        matrix_a = args.matrix_a
+        matrix_b = args.matrix_b
 
         if bwo is not None:
             block_widths = [bwo]

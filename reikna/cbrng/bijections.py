@@ -1,12 +1,20 @@
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Any
+
 import numpy
 from grunnur import Module, Template, dtypes
+from numpy.typing import NDArray
 
-import reikna.helpers as helpers
+from reikna import helpers
 
 TEMPLATE = Template.from_associated_file(__file__)
 
 
-def create_struct_types(word_dtype, key_words, counter_words):
+def create_struct_types(
+    word_dtype: numpy.dtype[Any], key_words: int, counter_words: int
+) -> tuple[numpy.dtype[Any], str | Module, numpy.dtype[Any], str | Module]:
     key_dtype = dtypes.align(numpy.dtype([("v", (word_dtype, (key_words,)))]))
     key_ctype = dtypes.ctype(key_dtype)
 
@@ -19,7 +27,6 @@ def create_struct_types(word_dtype, key_words, counter_words):
 class Bijection:
     """
     Contains a CBRNG bijection module and accompanying metadata.
-    Supports ``__process_modules__`` protocol.
 
     .. py:attribute:: word_dtype
 
@@ -118,14 +125,20 @@ class Bijection:
         Returns uniformly distributed unsigned 64-bit word and updates the state.
     """
 
-    def __init__(self, module, word_dtype, key_dtype, counter_dtype):
+    def __init__(
+        self,
+        module: Module,
+        word_dtype: numpy.dtype[Any],
+        key_dtype: numpy.dtype[Any],
+        counter_dtype: numpy.dtype[Any],
+    ):
         """__init__()"""  # hide the signature from Sphinx
-
         self.module = module
         self.word_dtype = word_dtype
 
-        self.key_words = key_dtype.fields["v"][0].shape[0]
-        self.counter_words = counter_dtype.fields["v"][0].shape[0]
+        # TODO: can we make this typeable?
+        self.key_words = key_dtype.fields["v"][0].shape[0]  # type: ignore[index]
+        self.counter_words = counter_dtype.fields["v"][0].shape[0]  # type: ignore[index]
 
         self.counter_dtype = counter_dtype
         self.key_dtype = key_dtype
@@ -139,11 +152,8 @@ class Bijection:
             numpy.dtype("uint64"): "get_raw_uint64",
         }
 
-    def __process_modules__(self, process):
-        return Bijection(process(self.module), self.word_dtype, self.key_dtype, self.counter_dtype)
 
-
-def threefry(bitness, counter_words, rounds=20):
+def threefry(bitness: int, counter_words: int, rounds: int = 20) -> Bijection:
     """
     A CBRNG based on a big number of fast rounds (bit rotations).
 
@@ -153,8 +163,7 @@ def threefry(bitness, counter_words, rounds=20):
         Default values are big enough to qualify as PRNG.
     :returns: a :py:class:`Bijection` object.
     """
-
-    ROTATION_CONSTANTS = {
+    rotation_constants = {
         # These are the R_256 constants from the Threefish reference sources
         # with names changed to R_64x4...
         (64, 4): numpy.array([[14, 52, 23, 5, 25, 46, 58, 32], [16, 57, 40, 37, 33, 12, 22, 32]]).T,
@@ -201,11 +210,16 @@ def threefry(bitness, counter_words, rounds=20):
     }
 
     # Taken from Skein
-    PARITY_CONSTANTS = {64: numpy.uint64(0x1BD11BDAA9FC1A22), 32: numpy.uint32(0x1BD11BDA)}
+    parity_constants = {64: numpy.uint64(0x1BD11BDAA9FC1A22), 32: numpy.uint32(0x1BD11BDA)}
 
-    assert 1 <= rounds <= 72
+    if not (1 <= rounds <= 72):  # noqa: PLR2004
+        raise ValueError("The number of rounds must be between 1 and 72")
+    if bitness not in (32, 64):
+        raise ValueError("`bitness` must be 32 or 64")
+    if counter_words not in (2, 4):
+        raise ValueError("`counter_words` must be 2 or 4")
 
-    word_dtype = numpy.dtype("uint32") if bitness == 32 else numpy.dtype("uint64")
+    word_dtype = numpy.dtype("uint32") if bitness == 32 else numpy.dtype("uint64")  # noqa: PLR2004
     key_words = counter_words
     key_dtype, key_ctype, counter_dtype, counter_ctype = create_struct_types(
         word_dtype, key_words, counter_words
@@ -222,15 +236,15 @@ def threefry(bitness, counter_words, rounds=20):
             key_ctype=key_ctype,
             counter_ctype=counter_ctype,
             rounds=rounds,
-            rotation_constants=ROTATION_CONSTANTS[(bitness, counter_words)],
-            parity_constant=PARITY_CONSTANTS[bitness],
+            rotation_constants=rotation_constants[(bitness, counter_words)],
+            parity_constant=parity_constants[bitness],
         ),
     )
 
     return Bijection(module, word_dtype, key_dtype, counter_dtype)
 
 
-def philox(bitness, counter_words, rounds=10):
+def philox(bitness: int, counter_words: int, rounds: int = 10) -> Bijection:
     """
     A CBRNG based on a low number of slow rounds (multiplications).
 
@@ -240,8 +254,7 @@ def philox(bitness, counter_words, rounds=10):
         Default values are big enough to qualify as PRNG.
     :returns: a :py:class:`Bijection` object.
     """
-
-    W_CONSTANTS = {
+    w_constants = {
         64: [
             numpy.uint64(0x9E3779B97F4A7C15),  # golden ratio
             numpy.uint64(0xBB67AE8584CAA73B),  # sqrt(3)-1
@@ -252,15 +265,21 @@ def philox(bitness, counter_words, rounds=10):
         ],
     }
 
-    M_CONSTANTS = {
+    m_constants = {
         (64, 2): [numpy.uint64(0xD2B74407B1CE6E93)],
         (64, 4): [numpy.uint64(0xD2E7470EE14C6C93), numpy.uint64(0xCA5A826395121157)],
         (32, 2): [numpy.uint32(0xD256D193)],
         (32, 4): [numpy.uint32(0xD2511F53), numpy.uint32(0xCD9E8D57)],
     }
 
-    assert 1 <= rounds <= 12
-    word_dtype = numpy.dtype("uint32") if bitness == 32 else numpy.dtype("uint64")
+    if not (1 <= rounds <= 12):  # noqa: PLR2004
+        raise ValueError("The number of rounds must be between 1 and 12")
+    if bitness not in (32, 64):
+        raise ValueError("`bitness` must be 32 or 64")
+    if counter_words not in (2, 4):
+        raise ValueError("`counter_words` must be 2 or 4")
+
+    word_dtype = numpy.dtype("uint32") if bitness == 32 else numpy.dtype("uint64")  # noqa: PLR2004
     key_words = counter_words // 2
     key_dtype, key_ctype, counter_dtype, counter_ctype = create_struct_types(
         word_dtype, key_words, counter_words
@@ -277,8 +296,8 @@ def philox(bitness, counter_words, rounds=10):
             key_ctype=key_ctype,
             counter_ctype=counter_ctype,
             rounds=rounds,
-            w_constants=W_CONSTANTS[bitness],
-            m_constants=M_CONSTANTS[(bitness, counter_words)],
+            w_constants=w_constants[bitness],
+            m_constants=m_constants[(bitness, counter_words)],
         ),
     )
 

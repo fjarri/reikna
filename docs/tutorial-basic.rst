@@ -41,12 +41,14 @@ As an example, let us consider a pure parallel computation object with one outpu
 
     import numpy
 
+    from grunnur import ArrayMetadata
+
     from reikna.core import Transformation, Type, Annotation, Parameter
     from reikna.algorithms import PureParallel
     import reikna.transformations as transformations
 
-    arr_t = Type.array(numpy.float32, shape=128)
-    carr_t = Type.array(numpy.complex64, shape=128)
+    arr_t = ArrayMetadata(128, numpy.float32)
+    carr_t = ArrayMetadata(128, numpy.complex64)
 
     comp = PureParallel(
         [Parameter('out', Annotation(carr_t, 'o')),
@@ -76,10 +78,10 @@ The computation signature is:
 
     >>> for param in comp.signature.parameters.values():
     ...     print(param.name + ":" + repr(param.annotation))
-    out:Annotation(Type.array(complex64, shape=(128,)), role='o')
-    in1:Annotation(Type.array(complex64, shape=(128,)), role='i')
-    in2:Annotation(Type.array(complex64, shape=(128,)), role='i')
-    param:Annotation(float32)
+    out:Annotation(ArrayMetadata(dtype=complex64, shape=(128,)), role=o)
+    in1:Annotation(ArrayMetadata(dtype=complex64, shape=(128,)), role=i)
+    in2:Annotation(ArrayMetadata(dtype=complex64, shape=(128,)), role=i)
+    param:Annotation(float32, role=s)
 
 Now let us attach the transformation to the output which will split it into two halves: ``out1 = out / 2``, ``out2 = out / 2``:
 
@@ -116,12 +118,12 @@ But user-supplied parameters (``>>``) have changed, which can be also seen in th
 
     >>> for param in comp.signature.parameters.values():
     ...     print(param.name + ":" + repr(param.annotation))
-    out1:Annotation(Type.array(float32, shape=(128,)), role='o')
-    out2:Annotation(Type.array(float32, shape=(128,)), role='o')
-    in1:Annotation(Type.array(complex64, shape=(128,)), role='i')
-    in2_prime:Annotation(Type.array(complex64, shape=(128,)), role='i')
-    param2:Annotation(float32)
-    param:Annotation(float32)
+    out1:Annotation(ArrayMetadata(dtype=float32, shape=(128,)), role=o)
+    out2:Annotation(ArrayMetadata(dtype=float32, shape=(128,)), role=o)
+    in1:Annotation(ArrayMetadata(dtype=complex64, shape=(128,)), role=i)
+    in2_prime:Annotation(ArrayMetadata(dtype=complex64, shape=(128,)), role=i)
+    param2:Annotation(float32, role=s)
+    param:Annotation(float32, role=s)
 
 Notice that the order of the final signature is obtained by traversing the transformation tree depth-first, starting from the base parameters.
 For more details see the note in the documentation for :py:meth:`~reikna.core.Computation.connect`.
@@ -132,8 +134,8 @@ When ``prepare_for`` is called, the data types and shapes of the given arguments
 
 .. testcode:: transformation_example
 
-    from grunnur import any_api, Context, Queue, Array
-    context = Context.from_devices([any_api.platforms[0].devices[0]])
+    from grunnur import API, Context, Queue, Array
+    context = Context.from_devices([API.any().platforms[0].devices[0]])
     queue = Queue(context.device)
 
     in1_t = comp.parameter.in1

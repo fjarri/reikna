@@ -8,7 +8,7 @@ authors = [
 dependencies = [
     'numpy>=2',
     'mako>=1',
-    'grunnur>=0.5',
+    'grunnur>=0.6',
 ]
 requires-python = ">=3.10"
 license = "MIT"
@@ -38,6 +38,9 @@ docs = [
 lint = [
     "mypy>=1.4",
     "ruff>=0.2",
+]
+examples = [
+    "matplotlib>=3"
 ]
 
 [tool.pdm.build]
@@ -79,14 +82,10 @@ ignore = [
     # It's never a problem unless you mutate function arguments (which is rarely a good idea).
     "B008",
     "B006",
-    # The type of `self` is derived automatically.
-    "ANN101",
     # We use `Any` quite a bit because we need to accept a lot of third-party unnormalized input.
     "ANN401",
     # The return type of `__init__` is derived automatically.
     "ANN204",
-    # The type of `cls` in classmethods is derived automatically.
-    "ANN102",
     # Doesn't mesh well with the way `black` puts the final parenthesis on a separate line
     # in functions with one parameter and a long argument.
     "COM812",
@@ -147,6 +146,12 @@ ignore = [
     "ERA001",
     # Self was only introduced in 3.11
     "PYI019",
+    # Interferes with Sphix-formatted module-level docstrings
+    "D400",
+    "D415",
+    # Fires off at docstrings referencing another function.
+    # Protects me from errors I don't make.
+    "D402"
 ]
 
 # Allow autofix for all enabled rules (when `--fix`) is provided.

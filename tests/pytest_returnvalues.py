@@ -1,5 +1,5 @@
 """
-This Py.Test plugin allows return value collection from testcases
+Py.Test plugin that allows return value collection from testcases
 (for cases when pass/fail is not enough).
 """
 
@@ -7,8 +7,8 @@ import pytest
 
 # renderers
 renderers = {
-    "GFLOPS": lambda x: "{f:.2f} GFLOPS".format(f=float(x[1]) / x[0] / 1e9),
-    "GB/s": lambda x: "{f:.2f} GB/s".format(f=float(x[1]) / x[0] / 2**30),
+    "GFLOPS": lambda x: "{f:.2f} GFLOPS".format(f=float(x[1]) / x[0] / 1e9),  # noqa: UP032
+    "GB/s": lambda x: "{f:.2f} GB/s".format(f=float(x[1]) / x[0] / 2**30),  # noqa: UP032
 }
 
 
@@ -17,7 +17,7 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "returns(value_type): collect this testcase's return value")
 
 
-class ReturnValuesPlugin(object):
+class ReturnValuesPlugin:
     def __init__(self, config):
         pass
 

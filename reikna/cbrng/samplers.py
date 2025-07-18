@@ -1,7 +1,15 @@
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
 import numpy
 from grunnur import Module, Template, dtypes, functions
 
-import reikna.helpers as helpers
+from reikna import helpers
+
+if TYPE_CHECKING:
+    from .bijections import Bijection
 
 TEMPLATE = Template.from_associated_file(__file__)
 
@@ -9,7 +17,6 @@ TEMPLATE = Template.from_associated_file(__file__)
 class Sampler:
     """
     Contains a random distribution sampler module and accompanying metadata.
-    Supports ``__process_modules__`` protocol.
 
     .. py:attribute:: deterministic
 
@@ -47,7 +54,15 @@ class Sampler:
         Performs the sampling, updating the state.
     """
 
-    def __init__(self, bijection, module, dtype, randoms_per_call=1, deterministic=False):
+    def __init__(
+        self,
+        bijection: Bijection,
+        module: Module,
+        dtype: numpy.dtype[Any],
+        randoms_per_call: int = 1,
+        *,
+        deterministic: bool = False,
+    ):
         """__init__()"""  # hide the signature from Sphinx
         self.randoms_per_call = randoms_per_call
         self.dtype = numpy.dtype(dtype)
@@ -55,17 +70,10 @@ class Sampler:
         self.bijection = bijection
         self.module = module
 
-    def __process_modules__(self, process):
-        return Sampler(
-            process(self.bijection),
-            process(self.module),
-            self.dtype,
-            randoms_per_call=self.randoms_per_call,
-            deterministic=self.deterministic,
-        )
 
-
-def uniform_integer(bijection, dtype, low, high=None):
+def uniform_integer(
+    bijection: Bijection, dtype: numpy.dtype[Any], low: int, high: int | None = None
+) -> Sampler:
     """
     Generates uniformly distributed integer numbers in the interval ``[low, high)``.
     If ``high`` is ``None``, the interval is ``[0, low)``.
@@ -74,27 +82,28 @@ def uniform_integer(bijection, dtype, low, high=None):
     is used in each thread.
     Returns a :py:class:`~reikna.cbrng.samplers.Sampler` object.
     """
-
     if high is None:
         low, high = 0, low + 1
-    else:
-        assert low < high - 1
+    elif low >= high - 1:
+        raise ValueError("`low` must be lesser than `high - 1`")
 
     dtype = numpy.dtype(dtype)
     ctype = dtypes.ctype(dtype)
 
     if dtype.kind == "i":
-        assert low >= -(2 ** (dtype.itemsize * 8 - 1))
-        assert high < 2 ** (dtype.itemsize * 8 - 1)
+        if low < -(2 ** (dtype.itemsize * 8 - 1)):
+            raise ValueError(f"`low` must be greater than or equal to -2^{dtype.itemsize * 8 - 1}")
+        if high >= 2 ** (dtype.itemsize * 8 - 1):
+            raise ValueError(f"`low` must be lesser than 2^{dtype.itemsize * 8 - 1}")
     else:
-        assert low >= 0
-        assert high < 2 ** (dtype.itemsize * 8)
+        if low < 0:
+            raise ValueError("`low` must be non-negative when sampling unsigned integers")
+        if high >= 2 ** (dtype.itemsize * 8):
+            raise ValueError(f"`low` must be lesser than 2^{dtype.itemsize * 8}")
 
     num = high - low
-    if num <= 2**32:
-        raw_dtype = numpy.dtype("uint32")
-    else:
-        raw_dtype = numpy.dtype("uint64")
+    raw_dtype: numpy.dtype[numpy.unsignedinteger[Any]]
+    raw_dtype = numpy.dtype("uint32") if num <= 2**32 else numpy.dtype("uint64")
 
     raw_func = bijection.raw_functions[raw_dtype]
     max_num = 2 ** (raw_dtype.itemsize * 8)
@@ -118,14 +127,17 @@ def uniform_integer(bijection, dtype, low, high=None):
     return Sampler(bijection, module, dtype, deterministic=(max_num % num == 0))
 
 
-def uniform_float(bijection, dtype, low=0, high=1):
+def uniform_float(
+    bijection: Bijection, dtype: numpy.dtype[Any], low: float = 0, high: float = 1
+) -> Sampler:
     """
     Generates uniformly distributed floating-points numbers in the interval ``[low, high)``.
     Supported dtypes: ``float(32/64)``.
     A fixed number of counters is used in each thread.
     Returns a :py:class:`~reikna.cbrng.samplers.Sampler` object.
     """
-    assert low < high
+    if low >= high:
+        raise ValueError("`low` must be lesser than `high`")
 
     ctype = dtypes.ctype(dtype)
 
@@ -133,20 +145,27 @@ def uniform_float(bijection, dtype, low=0, high=1):
     raw_func = "get_raw_uint" + str(bitness)
     raw_max = dtypes.c_constant(2**bitness, dtype)
 
-    size = dtypes.c_constant(high - low, dtype)
-    low = dtypes.c_constant(low, dtype)
+    size_const = dtypes.c_constant(high - low, dtype)
+    low_const = dtypes.c_constant(low, dtype)
 
     module = Module(
         TEMPLATE.get_def("uniform_float"),
         render_globals=dict(
-            bijection=bijection, ctype=ctype, raw_func=raw_func, raw_max=raw_max, size=size, low=low
+            bijection=bijection,
+            ctype=ctype,
+            raw_func=raw_func,
+            raw_max=raw_max,
+            size=size_const,
+            low=low_const,
         ),
     )
 
     return Sampler(bijection, module, dtype, deterministic=True)
 
 
-def normal_bm(bijection, dtype, mean=0, std=1):
+def normal_bm(
+    bijection: Bijection, dtype: numpy.dtype[Any], mean: float = 0, std: float = 1
+) -> Sampler:
     """
     Generates normally distributed random numbers with the mean ``mean`` and
     the standard deviation ``std`` using Box-Muller transform.
@@ -161,7 +180,6 @@ def normal_bm(bijection, dtype, mean=0, std=1):
         (which will be normally distributed with the standard deviation ``std / sqrt(2)``).
         Consequently, while ``mean`` is of type ``dtype``, ``std`` must be real.
     """
-
     if dtypes.is_complex(dtype):
         r_dtype = dtypes.real_for(dtype)
         c_dtype = dtype
@@ -197,18 +215,19 @@ def normal_bm(bijection, dtype, mean=0, std=1):
     )
 
 
-def gamma(bijection, dtype, shape=1, scale=1):
-    """
+def gamma(
+    bijection: Bijection, dtype: numpy.dtype[Any], shape: float = 1, scale: float = 1
+) -> Sampler:
+    r"""
     Generates random numbers from the gamma distribution
 
     .. math::
-      P(x) = x^{k-1} \\frac{e^{-x/\\theta}}{\\theta^k \\Gamma(k)},
+      P(x) = x^{k-1} \frac{e^{-x/\theta}}{\theta^k \Gamma(k)},
 
-    where :math:`k` is ``shape``, and :math:`\\theta` is ``scale``.
+    where :math:`k` is ``shape``, and :math:`\theta` is ``scale``.
     Supported dtypes: ``float(32/64)``.
     Returns a :py:class:`~reikna.cbrng.samplers.Sampler` object.
     """
-
     ctype = dtypes.ctype(dtype)
     uf = uniform_float(bijection, dtype, low=0, high=1)
     nbm = normal_bm(bijection, dtype, mean=0, std=1)
@@ -230,19 +249,20 @@ def gamma(bijection, dtype, shape=1, scale=1):
     return Sampler(bijection, module, dtype)
 
 
-def vonmises(bijection, dtype, mu=0, kappa=1):
-    """
+def vonmises(
+    bijection: Bijection, dtype: numpy.dtype[Any], mu: float = 0, kappa: float = 1
+) -> Sampler:
+    r"""
     Generates random numbers from the von Mises distribution
 
     .. math::
-      P(x) = \\frac{\\exp(\\kappa \\cos(x - \\mu))}{2 \\pi I_0(\\kappa)},
+      P(x) = \frac{\exp(\kappa \cos(x - \mu))}{2 \pi I_0(\kappa)},
 
-    where :math:`\\mu` is the mode, :math:`\\kappa` is the dispersion,
+    where :math:`\mu` is the mode, :math:`\kappa` is the dispersion,
     and :math:`I_0` is the modified Bessel function of the first kind.
     Supported dtypes: ``float(32/64)``.
     Returns a :py:class:`~reikna.cbrng.samplers.Sampler` object.
     """
-
     ctype = dtypes.ctype(dtype)
     uf = uniform_float(bijection, dtype, low=0, high=1)
 

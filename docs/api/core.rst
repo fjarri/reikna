@@ -14,12 +14,15 @@ Computation signatures
     :special-members: __call__
 
 .. autoclass:: reikna.core.Annotation
+    :show-inheritance:
     :members:
 
 .. autoclass:: reikna.core.Parameter
+    :show-inheritance:
     :members:
 
 .. autoclass:: reikna.core.Signature
+    :show-inheritance:
     :members:
 
 
@@ -46,9 +49,3 @@ Result and attribute classes
 
 .. automodule:: reikna.core.transformation
     :members: TransformationParameter, KernelParameter
-
-
-Array tools
------------
-
-.. autofunction:: reikna.concatenate

@@ -29,20 +29,21 @@ class Dummy(Computation):
         arr1,
         arr2,
         coeff,
-        same_A_B=False,
+        *,
+        same_a_b=False,
         test_incorrect_parameter_name=False,
         test_untyped_scalar=False,
         test_kernel_adhoc_array=False,
     ):
         assert len(arr1.shape) == 2
-        assert len(arr2.shape) == (2 if same_A_B else 1)
+        assert len(arr2.shape) == (2 if same_a_b else 1)
         assert arr1.dtype == arr2.dtype
-        if same_A_B:
+        if same_a_b:
             assert arr1.shape == arr2.shape
         else:
             assert arr1.shape[0] == arr1.shape[1]
 
-        self._same_A_B = same_A_B
+        self._same_a_b = same_a_b
         self._persistent_array = (
             numpy.arange(product(arr2.shape)).reshape(arr2.shape).astype(arr2.dtype)
         )
@@ -61,10 +62,16 @@ class Dummy(Computation):
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, C, D, A, B, coeff):
+    def _build_plan(self, plan_factory, _device_params, args):
         plan = plan_factory()
 
-        arr_dtype = C.dtype
+        c = args.C
+        d = args.D
+        a = args.A
+        b = args.B
+        coeff = args.coeff
+
+        arr_dtype = c.dtype
         coeff_dtype = coeff.dtype
 
         mul = functions.mul(arr_dtype, coeff_dtype)
@@ -82,7 +89,7 @@ class Dummy(Computation):
             ${C.ctype} c = ${mul}(a, ${coeff});
             ${C.store_idx}(idx1, idx0, c);
 
-            %if same_A_B:
+            %if same_a_b:
                 ${B.ctype} b = ${B.load_idx}(idx0, idx1);
                 ${D.ctype} d = ${div}(b, ${coeff});
                 ${D.store_idx}(idx0, idx1, d);
@@ -106,7 +113,7 @@ class Dummy(Computation):
 
             ${CC.store_idx}(idx0, idx1, ${C.load_idx}(idx0, idx1));
 
-            %if same_A_B:
+            %if same_a_b:
                 ${DD.store_idx}(
                     idx0, idx1,
                     ${mul}(${D.load_idx}(idx0, idx1), ${const_coeff}) +
@@ -126,31 +133,31 @@ class Dummy(Computation):
 
         block_size = 8
 
-        C_temp = plan.temp_array_like(C)
-        D_temp = plan.temp_array_like(D)
+        c_temp = plan.temp_array_like(c)
+        d_temp = plan.temp_array_like(d)
         arr = plan.persistent_array(self._persistent_array)
 
         plan.kernel_call(
             template.get_def("dummy"),
-            [C_temp, D_temp, A, B, coeff],
-            global_size=A.shape,
+            [c_temp, d_temp, a, b, coeff],
+            global_size=a.shape,
             local_size=(block_size, block_size),
-            render_kwds=dict(mul=mul, div=div, same_A_B=self._same_A_B),
+            render_kwds=dict(mul=mul, div=div, same_a_b=self._same_a_b),
         )
 
         plan.kernel_call(
             template.get_def("dummy2"),
             [
-                C,
-                D,
-                C_temp,
-                D_temp,
+                c,
+                d,
+                c_temp,
+                d_temp,
                 (self._persistent_array if self._test_kernel_adhoc_array else arr),
                 (10 if self._test_untyped_scalar else numpy.float32(10)),
             ],
-            global_size=A.shape,
+            global_size=a.shape,
             local_size=(block_size, block_size),
-            render_kwds=dict(mul=mul, same_A_B=self._same_A_B),
+            render_kwds=dict(mul=mul, same_a_b=self._same_a_b),
         )
 
         return plan
@@ -162,9 +169,7 @@ def mock_dummy(a, b, coeff):
 
 
 class DummyNested(Computation):
-    """
-    Dummy computation class with a nested computation inside.
-    """
+    """Dummy computation class with a nested computation inside."""
 
     def __init__(
         self,
@@ -172,14 +177,15 @@ class DummyNested(Computation):
         arr2,
         coeff,
         second_coeff,
-        same_A_B=False,
+        *,
+        same_a_b=False,
         test_computation_adhoc_array=False,
         test_computation_incorrect_role=False,
         test_computation_incorrect_type=False,
         test_same_arg_as_i_and_o=False,
     ):
         self._second_coeff = second_coeff
-        self._same_A_B = same_A_B
+        self._same_a_b = same_a_b
         self._test_same_arg_as_i_and_o = test_same_arg_as_i_and_o
 
         self._test_computation_adhoc_array = test_computation_adhoc_array
@@ -197,37 +203,44 @@ class DummyNested(Computation):
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, C, D, A, B, coeff):
+    def _build_plan(self, plan_factory, _device_params, args):
         plan = plan_factory()
-        nested = Dummy(A, B, coeff, same_A_B=self._same_A_B)
 
-        scale = tr_scale(A, numpy.float32)
+        c = args.C
+        d = args.D
+        a = args.A
+        b = args.B
+        coeff = args.coeff
+
+        nested = Dummy(a, b, coeff, same_a_b=self._same_a_b)
+
+        scale = tr_scale(a, numpy.float32)
         nested.parameter.A.connect(scale, scale.o1, A_prime=scale.i1, scale_coeff=scale.s1)
 
-        C_temp = plan.temp_array_like(C)
-        D_temp = plan.temp_array_like(D)
+        c_temp = plan.temp_array_like(c)
+        d_temp = plan.temp_array_like(d)
 
         plan.computation_call(
             nested,
-            (numpy.empty_like(C_temp) if self._test_computation_adhoc_array else C_temp),
-            (B if self._test_computation_incorrect_role else D_temp),
-            (B if self._test_computation_incorrect_type else A),
+            (numpy.empty_like(c_temp) if self._test_computation_adhoc_array else c_temp),
+            (b if self._test_computation_incorrect_role else d_temp),
+            (b if self._test_computation_incorrect_type else a),
             0.4,
-            B,
+            b,
             coeff,
         )
 
         if self._test_same_arg_as_i_and_o:
-            _trash = plan.temp_array_like(C)  # ignoring this result
-            nested2 = Dummy(A, B, coeff, same_A_B=self._same_A_B)
-            plan.computation_call(nested2, _trash, D_temp, C_temp, D_temp, coeff)
+            _trash = plan.temp_array_like(c)  # ignoring this result
+            nested2 = Dummy(a, b, coeff, same_a_b=self._same_a_b)
+            plan.computation_call(nested2, _trash, d_temp, c_temp, d_temp, coeff)
 
-        plan.computation_call(nested, C, D, C_temp, 0.4, D_temp, self._second_coeff)
+        plan.computation_call(nested, c, d, c_temp, 0.4, d_temp, self._second_coeff)
 
         return plan
 
 
-def mock_dummy_nested(a, b, coeff, second_coeff, test_same_arg_as_i_and_o=False):
+def mock_dummy_nested(a, b, coeff, second_coeff, *, test_same_arg_as_i_and_o=False):
     c, d = mock_dummy(0.4 * a, b, coeff)
     if test_same_arg_as_i_and_o:
         _, d = mock_dummy(c, d, coeff)
@@ -235,9 +248,7 @@ def mock_dummy_nested(a, b, coeff, second_coeff, test_same_arg_as_i_and_o=False)
 
 
 class DummyAdvanced(Computation):
-    """
-    Dummy computation class which uses some advanced features.
-    """
+    """Dummy computation class which uses some advanced features."""
 
     def __init__(self, arr, coeff):
         Computation.__init__(
@@ -250,21 +261,25 @@ class DummyAdvanced(Computation):
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, C, D, coeff1, coeff2):
+    def _build_plan(self, plan_factory, _device_params, args):
         plan = plan_factory()
-        nested = Dummy(C, D, coeff1, same_A_B=True)
 
-        C_temp = plan.temp_array_like(C)
-        D_temp = plan.temp_array_like(D)
+        c = args.C
+        d = args.D
+        coeff1 = args.coeff1
+        coeff2 = args.coeff2
+
+        nested = Dummy(c, d, coeff1, same_a_b=True)
+
+        c_temp = plan.temp_array_like(c)
 
         # Testing a computation call which uses the same argument for two parameters.
-        plan.computation_call(nested, C_temp, D, C, C, coeff1)
+        plan.computation_call(nested, c_temp, d, c, c, coeff1)
 
-        arr_dtype = C.dtype
+        arr_dtype = c.dtype
         coeff_dtype = coeff2.dtype
 
         mul = functions.mul(arr_dtype, coeff_dtype)
-        div = functions.div(arr_dtype, coeff_dtype)
 
         template = Template.from_string("""
         <%def name="dummy(kernel_declaration, CC, C, D, coeff)">
@@ -284,8 +299,8 @@ class DummyAdvanced(Computation):
         # Testing a kernel call which uses the same argument for two parameters.
         plan.kernel_call(
             template.get_def("dummy"),
-            [C, C_temp, C_temp, coeff2],
-            global_size=C.shape,
+            [c, c_temp, c_temp, coeff2],
+            global_size=c.shape,
             render_kwds=dict(mul=mul),
         )
 

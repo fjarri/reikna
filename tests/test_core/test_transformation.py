@@ -1,13 +1,22 @@
+import re
+
 import numpy
 import pytest
-from grunnur import Array, Template, functions
+from grunnur import Array, ArrayMetadata, Template, functions
 
-from helpers import *
-from reikna import transformations
+from helpers import diff_is_negligible, get_test_array, get_test_array_like
 from reikna.algorithms import PureParallel
-from reikna.core import Annotation, Parameter, Transformation
+from reikna.core import Annotation, Computation, Parameter, Transformation
 from reikna.core.signature import Type
-from test_core.dummy import *
+from test_core.dummy import (
+    Dummy,
+    DummyAdvanced,
+    DummyNested,
+    mock_dummy,
+    mock_dummy_advanced,
+    mock_dummy_nested,
+    tr_scale,
+)
 
 # Some transformations to use by tests
 
@@ -57,22 +66,24 @@ def tr_1_to_2(arr):
 
 
 def test_io_parameter_in_transformation():
-    with pytest.raises(ValueError):
-        tr = Transformation(
-            [Parameter("o1", Annotation(Type.array(numpy.float32, shape=100), "io"))],
+    with pytest.raises(
+        ValueError, match=re.escape("Transformation cannot have 'io' parameters ('o1')")
+    ):
+        Transformation(
+            [Parameter("o1", Annotation(ArrayMetadata(100, numpy.float32), "io"))],
             "${o1.store_same}(${o1.load_same});",
         )
 
 
 def test_signature_correctness():
-    N = 200
+    size = 200
     coeff_dtype = numpy.float32
-    arr_type = Type.array(numpy.complex64, (N, N))
+    arr_type = ArrayMetadata((size, size), numpy.complex64)
 
-    d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
+    dummy = Dummy(arr_type, arr_type, coeff_dtype, same_a_b=True)
 
     # Root signature
-    assert list(d.signature.parameters.values()) == [
+    assert list(dummy.signature.parameters.values()) == [
         Parameter("C", Annotation(arr_type, "o")),
         Parameter("D", Annotation(arr_type, "o")),
         Parameter("A", Annotation(arr_type, "i")),
@@ -80,20 +91,20 @@ def test_signature_correctness():
         Parameter("coeff", Annotation(coeff_dtype)),
     ]
 
-    identity = tr_identity(d.parameter.A)
-    join = tr_2_to_1(d.parameter.A, d.parameter.coeff)
-    split = tr_1_to_2(d.parameter.A)
-    scale = tr_scale(d.parameter.A, d.parameter.coeff.dtype)
+    identity = tr_identity(dummy.parameter.A)
+    join = tr_2_to_1(dummy.parameter.A, dummy.parameter.coeff)
+    split = tr_1_to_2(dummy.parameter.A)
+    scale = tr_scale(dummy.parameter.A, dummy.parameter.coeff.dtype)
 
     # Connect some transformations
-    d.parameter.A.connect(identity, identity.o1, A_prime=identity.i1)
-    d.parameter.B.connect(join, join.o1, A_prime=join.i1, B_prime=join.i2, B_param=join.s1)
-    d.parameter.B_prime.connect(identity, identity.o1, B_new_prime=identity.i1)
-    d.parameter.C.connect(split, split.i1, C_half1=split.o1, C_half2=split.o2)
-    d.parameter.C_half1.connect(identity, identity.i1, C_new_half1=identity.o1)
-    d.parameter.D.connect(scale, scale.i1, D_prime=scale.o1, D_param=scale.s1)
+    dummy.parameter.A.connect(identity, identity.o1, A_prime=identity.i1)
+    dummy.parameter.B.connect(join, join.o1, A_prime=join.i1, B_prime=join.i2, B_param=join.s1)
+    dummy.parameter.B_prime.connect(identity, identity.o1, B_new_prime=identity.i1)
+    dummy.parameter.C.connect(split, split.i1, C_half1=split.o1, C_half2=split.o2)
+    dummy.parameter.C_half1.connect(identity, identity.i1, C_new_half1=identity.o1)
+    dummy.parameter.D.connect(scale, scale.i1, D_prime=scale.o1, D_param=scale.s1)
 
-    assert list(d.signature.parameters.values()) == [
+    assert list(dummy.signature.parameters.values()) == [
         Parameter("C_new_half1", Annotation(arr_type, "o")),
         Parameter("C_half2", Annotation(arr_type, "o")),
         Parameter("D_prime", Annotation(arr_type, "o")),
@@ -106,158 +117,158 @@ def test_signature_correctness():
 
 
 def test_same_shape(queue):
-    N = 200
+    size = 200
     coeff = 2
-    B_param = 3
-    D_param = 4
+    b_param = 3
+    d_param = 4
 
     coeff_dtype = numpy.float32
-    arr_type = Type.array(numpy.complex64, (N, N))
+    arr_type = ArrayMetadata((size, size), numpy.complex64)
 
-    d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
+    dummy = Dummy(arr_type, arr_type, coeff_dtype, same_a_b=True)
 
-    identity = tr_identity(d.parameter.A)
-    join = tr_2_to_1(d.parameter.A, d.parameter.coeff)
-    split = tr_1_to_2(d.parameter.A)
-    scale = tr_scale(d.parameter.A, d.parameter.coeff.dtype)
+    identity = tr_identity(dummy.parameter.A)
+    join = tr_2_to_1(dummy.parameter.A, dummy.parameter.coeff)
+    split = tr_1_to_2(dummy.parameter.A)
+    scale = tr_scale(dummy.parameter.A, dummy.parameter.coeff.dtype)
 
-    d.parameter.A.connect(identity, identity.o1, A_prime=identity.i1)
-    d.parameter.B.connect(join, join.o1, A_prime=join.i1, B_prime=join.i2, B_param=join.s1)
-    d.parameter.B_prime.connect(identity, identity.o1, B_new_prime=identity.i1)
-    d.parameter.C.connect(split, split.i1, C_half1=split.o1, C_half2=split.o2)
-    d.parameter.C_half1.connect(identity, identity.i1, C_new_half1=identity.o1)
-    d.parameter.D.connect(scale, scale.i1, D_prime=scale.o1, D_param=scale.s1)
-    dc = d.compile(queue.device)
+    dummy.parameter.A.connect(identity, identity.o1, A_prime=identity.i1)
+    dummy.parameter.B.connect(join, join.o1, A_prime=join.i1, B_prime=join.i2, B_param=join.s1)
+    dummy.parameter.B_prime.connect(identity, identity.o1, B_new_prime=identity.i1)
+    dummy.parameter.C.connect(split, split.i1, C_half1=split.o1, C_half2=split.o2)
+    dummy.parameter.C_half1.connect(identity, identity.i1, C_new_half1=identity.o1)
+    dummy.parameter.D.connect(scale, scale.i1, D_prime=scale.o1, D_param=scale.s1)
+    dc = dummy.compile(queue.device)
 
-    A_prime = get_test_array_like(d.parameter.A_prime)
-    B_new_prime = get_test_array_like(d.parameter.B_new_prime)
+    a_prime = get_test_array_like(dummy.parameter.A_prime)
+    b_new_prime = get_test_array_like(dummy.parameter.B_new_prime)
 
-    A_prime_dev = Array.from_host(queue, A_prime)
-    B_new_prime_dev = Array.from_host(queue, B_new_prime)
-    C_new_half1_dev = Array.empty_like(queue.device, d.parameter.A_prime)
-    C_half2_dev = Array.empty_like(queue.device, d.parameter.A_prime)
-    D_prime_dev = Array.empty_like(queue.device, d.parameter.A_prime)
+    a_prime_dev = Array.from_host(queue, a_prime)
+    b_new_prime_dev = Array.from_host(queue, b_new_prime)
+    c_new_half1_dev = Array.empty_like(queue.device, dummy.parameter.A_prime)
+    c_half2_dev = Array.empty_like(queue.device, dummy.parameter.A_prime)
+    d_prime_dev = Array.empty_like(queue.device, dummy.parameter.A_prime)
 
     dc(
         queue,
-        C_new_half1_dev,
-        C_half2_dev,
-        D_prime_dev,
-        D_param,
-        A_prime_dev,
-        B_new_prime_dev,
-        B_param,
+        c_new_half1_dev,
+        c_half2_dev,
+        d_prime_dev,
+        d_param,
+        a_prime_dev,
+        b_new_prime_dev,
+        b_param,
         coeff,
     )
 
-    A = A_prime
-    B = A_prime * B_param + B_new_prime
-    C, D = mock_dummy(A, B, coeff)
-    C_new_half1 = C / 2
-    C_half2 = C / 2
-    D_prime = D * D_param
+    a = a_prime
+    b = a_prime * b_param + b_new_prime
+    c, d = mock_dummy(a, b, coeff)
+    c_new_half1 = c / 2
+    c_half2 = c / 2
+    d_prime = d * d_param
 
-    assert diff_is_negligible(C_new_half1_dev.get(queue), C_new_half1)
-    assert diff_is_negligible(C_half2_dev.get(queue), C_half2)
-    assert diff_is_negligible(D_prime_dev.get(queue), D_prime)
+    assert diff_is_negligible(c_new_half1_dev.get(queue), c_new_half1)
+    assert diff_is_negligible(c_half2_dev.get(queue), c_half2)
+    assert diff_is_negligible(d_prime_dev.get(queue), d_prime)
 
 
 def test_connection_to_base(queue):
-    N = 200
+    size = 200
     coeff = 2
 
     coeff_dtype = numpy.float32
-    arr_type = Type.array(numpy.complex64, (N, N))
+    arr_type = ArrayMetadata((size, size), numpy.complex64)
 
-    d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
+    dummy = Dummy(arr_type, arr_type, coeff_dtype, same_a_b=True)
 
-    identity = tr_identity(d.parameter.A)
-    scale = tr_scale(d.parameter.A, d.parameter.coeff.dtype)
+    identity = tr_identity(dummy.parameter.A)
+    scale = tr_scale(dummy.parameter.A, dummy.parameter.coeff.dtype)
 
     # connect to the base array argument (effectively making B the same as A)
-    d.parameter.A.connect(identity, identity.o1, B=identity.i1)
+    dummy.parameter.A.connect(identity, identity.o1, B=identity.i1)
     # connect to the base scalar argument
-    d.parameter.C.connect(scale, scale.i1, C_prime=scale.o1, coeff=scale.s1)
+    dummy.parameter.C.connect(scale, scale.i1, C_prime=scale.o1, coeff=scale.s1)
 
-    assert list(d.signature.parameters.values()) == [
+    assert list(dummy.signature.parameters.values()) == [
         Parameter("C_prime", Annotation(arr_type, "o")),
         Parameter("D", Annotation(arr_type, "o")),
         Parameter("B", Annotation(arr_type, "i")),
         Parameter("coeff", Annotation(coeff_dtype)),
     ]
 
-    dc = d.compile(queue.device)
+    dc = dummy.compile(queue.device)
 
-    B = get_test_array_like(d.parameter.B)
-    B_dev = Array.from_host(queue, B)
-    C_prime_dev = Array.empty_like(queue.device, d.parameter.B)
-    D_dev = Array.empty_like(queue.device, d.parameter.B)
+    b = get_test_array_like(dummy.parameter.B)
+    b_dev = Array.from_host(queue, b)
+    c_prime_dev = Array.empty_like(queue.device, dummy.parameter.B)
+    d_dev = Array.empty_like(queue.device, dummy.parameter.B)
 
-    dc(queue, C_prime_dev, D_dev, B_dev, coeff)
+    dc(queue, c_prime_dev, d_dev, b_dev, coeff)
 
-    C, D = mock_dummy(B, B, coeff)
-    C_prime = C * coeff
+    c, d = mock_dummy(b, b, coeff)
+    c_prime = c * coeff
 
-    assert diff_is_negligible(C_prime_dev.get(queue), C_prime)
-    assert diff_is_negligible(D_dev.get(queue), D)
+    assert diff_is_negligible(c_prime_dev.get(queue), c_prime)
+    assert diff_is_negligible(d_dev.get(queue), d)
 
 
 def test_nested_same_shape(queue):
-    N = 2000
+    size = 2000
     coeff = 2
     second_coeff = 7
-    B_param = 3
-    D_param = 4
+    b_param = 3
+    d_param = 4
 
     coeff_dtype = numpy.float32
-    arr_type = Type.array(numpy.complex64, (N, N))
+    arr_type = ArrayMetadata((size, size), numpy.complex64)
 
-    d = DummyNested(arr_type, arr_type, coeff_dtype, second_coeff, same_A_B=True)
+    dummy = DummyNested(arr_type, arr_type, coeff_dtype, second_coeff, same_a_b=True)
 
-    identity = tr_identity(d.parameter.A)
-    join = tr_2_to_1(d.parameter.A, d.parameter.coeff)
-    split = tr_1_to_2(d.parameter.A)
-    scale = tr_scale(d.parameter.A, d.parameter.coeff.dtype)
+    identity = tr_identity(dummy.parameter.A)
+    join = tr_2_to_1(dummy.parameter.A, dummy.parameter.coeff)
+    split = tr_1_to_2(dummy.parameter.A)
+    scale = tr_scale(dummy.parameter.A, dummy.parameter.coeff.dtype)
 
-    d.parameter.A.connect(identity, identity.o1, A_prime=identity.i1)
-    d.parameter.B.connect(join, join.o1, A_prime=join.i1, B_prime=join.i2, B_param=join.s1)
-    d.parameter.B_prime.connect(identity, identity.o1, B_new_prime=identity.i1)
-    d.parameter.C.connect(split, split.i1, C_half1=split.o1, C_half2=split.o2)
-    d.parameter.C_half1.connect(identity, identity.i1, C_new_half1=identity.o1)
-    d.parameter.D.connect(scale, scale.i1, D_prime=scale.o1, D_param=scale.s1)
-    dc = d.compile(queue.device)
+    dummy.parameter.A.connect(identity, identity.o1, A_prime=identity.i1)
+    dummy.parameter.B.connect(join, join.o1, A_prime=join.i1, B_prime=join.i2, B_param=join.s1)
+    dummy.parameter.B_prime.connect(identity, identity.o1, B_new_prime=identity.i1)
+    dummy.parameter.C.connect(split, split.i1, C_half1=split.o1, C_half2=split.o2)
+    dummy.parameter.C_half1.connect(identity, identity.i1, C_new_half1=identity.o1)
+    dummy.parameter.D.connect(scale, scale.i1, D_prime=scale.o1, d_param=scale.s1)
+    dc = dummy.compile(queue.device)
 
-    A_prime = get_test_array_like(d.parameter.A_prime)
-    B_new_prime = get_test_array_like(d.parameter.B_new_prime)
+    a_prime = get_test_array_like(dummy.parameter.A_prime)
+    b_new_prime = get_test_array_like(dummy.parameter.B_new_prime)
 
-    A_prime_dev = Array.from_host(queue, A_prime)
-    B_new_prime_dev = Array.from_host(queue, B_new_prime)
-    C_new_half1_dev = Array.empty_like(queue.device, d.parameter.A_prime)
-    C_half2_dev = Array.empty_like(queue.device, d.parameter.A_prime)
-    D_prime_dev = Array.empty_like(queue.device, d.parameter.A_prime)
+    a_prime_dev = Array.from_host(queue, a_prime)
+    b_new_prime_dev = Array.from_host(queue, b_new_prime)
+    c_new_half1_dev = Array.empty_like(queue.device, dummy.parameter.A_prime)
+    c_half2_dev = Array.empty_like(queue.device, dummy.parameter.A_prime)
+    d_prime_dev = Array.empty_like(queue.device, dummy.parameter.A_prime)
 
     dc(
         queue,
-        C_new_half1_dev,
-        C_half2_dev,
-        D_prime_dev,
-        D_param,
-        A_prime_dev,
-        B_new_prime_dev,
-        B_param,
+        c_new_half1_dev,
+        c_half2_dev,
+        d_prime_dev,
+        d_param,
+        a_prime_dev,
+        b_new_prime_dev,
+        b_param,
         coeff,
     )
 
-    A = A_prime
-    B = A_prime * B_param + B_new_prime
-    C, D = mock_dummy_nested(A, B, coeff, second_coeff)
-    C_new_half1 = C / 2
-    C_half2 = C / 2
-    D_prime = D * D_param
+    a = a_prime
+    b = a_prime * b_param + b_new_prime
+    c, d = mock_dummy_nested(a, b, coeff, second_coeff)
+    c_new_half1 = c / 2
+    c_half2 = c / 2
+    d_prime = d * d_param
 
-    assert diff_is_negligible(C_new_half1_dev.get(queue), C_new_half1)
-    assert diff_is_negligible(C_half2_dev.get(queue), C_half2)
-    assert diff_is_negligible(D_prime_dev.get(queue), D_prime)
+    assert diff_is_negligible(c_new_half1_dev.get(queue), c_new_half1)
+    assert diff_is_negligible(c_half2_dev.get(queue), c_half2)
+    assert diff_is_negligible(d_prime_dev.get(queue), d_prime)
 
 
 def test_strings_as_parameters():
@@ -265,17 +276,16 @@ def test_strings_as_parameters():
     Check that one can connect transformations using strings as identifiers
     for computation and transformation parameters.
     """
-
-    N = 200
+    size = 200
     coeff_dtype = numpy.float32
-    arr_type = Type.array(numpy.complex64, (N, N))
+    arr_type = ArrayMetadata((size, size), numpy.complex64)
 
-    d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
-    identity = tr_identity(d.parameter.A)
+    dummy = Dummy(arr_type, arr_type, coeff_dtype, same_a_b=True)
+    identity = tr_identity(dummy.parameter.A)
 
-    d.connect("A", identity, "o1", A_prime="i1")
+    dummy.connect("A", identity, "o1", A_prime="i1")
 
-    assert list(d.signature.parameters.values()) == [
+    assert list(dummy.signature.parameters.values()) == [
         Parameter("C", Annotation(arr_type, "o")),
         Parameter("D", Annotation(arr_type, "o")),
         Parameter("A_prime", Annotation(arr_type, "i")),
@@ -289,74 +299,85 @@ def test_alien_parameters():
     Check that one cannot connect transformations using parameter objects from
     other transformation/computation.
     """
-
-    N = 200
+    size = 200
     coeff_dtype = numpy.float32
-    arr_type = Type.array(numpy.complex64, (N, N))
+    arr_type = ArrayMetadata((size, size), numpy.complex64)
 
-    d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
-    d2 = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
-    identity = tr_identity(d.parameter.A)
-    identity2 = tr_identity(d.parameter.A)
+    dummy = Dummy(arr_type, arr_type, coeff_dtype, same_a_b=True)
+    dummy2 = Dummy(arr_type, arr_type, coeff_dtype, same_a_b=True)
+    identity = tr_identity(dummy.parameter.A)
+    identity2 = tr_identity(dummy.parameter.A)
 
-    with pytest.raises(ValueError):
-        d.connect(d2.parameter.A, identity, "o1", A_prime="i1")
+    with pytest.raises(
+        ValueError, match=re.escape("The connection target must belong to this computation.")
+    ):
+        dummy.connect(dummy2.parameter.A, identity, "o1", A_prime="i1")
 
-    with pytest.raises(ValueError):
-        d.connect(d.parameter.A, identity, identity2.o1, A_prime="i1")
+    with pytest.raises(
+        ValueError, match="The transformation parameter must belong to the provided transformation"
+    ):
+        dummy.connect(dummy.parameter.A, identity, identity2.o1, A_prime="i1")
 
-    with pytest.raises(ValueError):
-        d.parameter.A.connect(identity, identity.o1, A_prime=identity2.i1)
+    with pytest.raises(
+        ValueError, match="The transformation parameter must belong to the provided transformation"
+    ):
+        dummy.parameter.A.connect(identity, identity.o1, A_prime=identity2.i1)
 
 
 def test_connector_repetition():
     """Check that the connector id cannot be repeated in the connections list."""
-
-    N = 200
+    size = 200
     coeff_dtype = numpy.float32
-    arr_type = Type.array(numpy.complex64, (N, N))
+    arr_type = ArrayMetadata((size, size), numpy.complex64)
 
-    d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
-    identity = tr_identity(d.parameter.A)
+    dummy = Dummy(arr_type, arr_type, coeff_dtype, same_a_b=True)
+    identity = tr_identity(dummy.parameter.A)
 
-    with pytest.raises(ValueError):
-        d.parameter.A.connect(identity, identity.o1, A=identity.o1, A_prime=identity.i1)
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Parameter 'A' cannot be supplied both as the main connector "
+            "and one of the child connections"
+        ),
+    ):
+        dummy.parameter.A.connect(identity, identity.o1, A=identity.o1, A_prime=identity.i1)
 
 
 def test_wrong_connector():
     """Check that the error is thrown if the connector is unknown or is not in the signature."""
-
-    N = 200
+    size = 200
     coeff_dtype = numpy.float32
-    arr_type = Type.array(numpy.complex64, (N, N))
+    arr_type = ArrayMetadata((size, size), numpy.complex64)
 
-    d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
-    identity = tr_identity(d.parameter.A)
+    dummy = Dummy(arr_type, arr_type, coeff_dtype, same_a_b=True)
+    identity = tr_identity(dummy.parameter.A)
 
-    d.parameter.A.connect(identity, identity.o1, A_prime=identity.i1)
+    dummy.parameter.A.connect(identity, identity.o1, A_prime=identity.i1)
 
     # Connector is missing
-    with pytest.raises(ValueError):
-        d.connect("AA", identity, identity.o1, A_pp=identity.i1)
+    with pytest.raises(ValueError, match="Parameter 'AA' is not a part of the signature"):
+        dummy.connect("AA", identity, identity.o1, A_pp=identity.i1)
 
     # Node 'A' exists, but it is not a part of the signature
     # (hidden by previously connected transformation).
-    with pytest.raises(ValueError):
-        d.connect("B", identity, identity.o1, A=identity.i1)
+    with pytest.raises(ValueError, match="Parameter 'A' is hidden by transformations"):
+        dummy.connect("B", identity, identity.o1, A=identity.i1)
 
 
 def test_type_mismatch():
     """Check that the error is thrown if the connection is made to an wrong type."""
-
-    N = 200
+    size = 200
     coeff_dtype = numpy.float32
-    arr_type = Type.array(numpy.complex64, (N, N))
+    arr_type = ArrayMetadata((size, size), numpy.complex64)
 
-    d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
-    identity = tr_identity(Type.array(numpy.complex64, (N, N + 1)))
+    dummy = Dummy(arr_type, arr_type, coeff_dtype, same_a_b=True)
+    identity = tr_identity(ArrayMetadata((size, size + 1), numpy.complex64))
 
-    with pytest.raises(ValueError):
-        d.connect("A", identity, identity.o1, A_prime=identity.i1)
+    with pytest.raises(
+        ValueError,
+        match=r"Incompatible types of the transformation parameter 'o1' .+ and the node 'A'",
+    ):
+        dummy.connect("A", identity, identity.o1, A_prime=identity.i1)
 
 
 def test_wrong_data_path():
@@ -365,17 +386,16 @@ def test_wrong_data_path():
     but this particular data path (input or output) is already hidden
     by a previously connected transformation.
     """
-
-    N = 200
+    size = 200
     coeff_dtype = numpy.float32
-    arr_type = Type.array(numpy.complex64, (N, N))
+    arr_type = ArrayMetadata((size, size), numpy.complex64)
 
-    d = DummyAdvanced(arr_type, coeff_dtype)
-    identity = tr_identity(d.parameter.C)
+    dummy = DummyAdvanced(arr_type, coeff_dtype)
+    identity = tr_identity(dummy.parameter.C)
 
-    d.parameter.C.connect(identity, identity.o1, C_in=identity.i1)
-    d.parameter.D.connect(identity, identity.i1, D_out=identity.o1)
-    assert list(d.signature.parameters.values()) == [
+    dummy.parameter.C.connect(identity, identity.o1, C_in=identity.i1)
+    dummy.parameter.D.connect(identity, identity.i1, D_out=identity.o1)
+    assert list(dummy.signature.parameters.values()) == [
         Parameter("C", Annotation(arr_type, "o")),
         Parameter("C_in", Annotation(arr_type, "i")),
         Parameter("D_out", Annotation(arr_type, "o")),
@@ -385,20 +405,23 @@ def test_wrong_data_path():
     ]
 
     # Now input to C is hidden by the previously connected transformation
-    with pytest.raises(ValueError):
-        d.parameter.C.connect(identity, identity.o1, C_in_prime=identity.i1)
+    with pytest.raises(ValueError, match="'C' is not an input node"):
+        dummy.parameter.C.connect(identity, identity.o1, C_in_prime=identity.i1)
 
     # Same goes for D
-    with pytest.raises(ValueError):
-        d.parameter.D.connect(identity, identity.i1, D_out_prime=identity.o1)
+    with pytest.raises(ValueError, match="'D' is not an output node"):
+        dummy.parameter.D.connect(identity, identity.i1, D_out_prime=identity.o1)
 
     # Also we cannot make one of the transformation outputs an existing output parameter
-    with pytest.raises(ValueError):
-        d.parameter.C.connect(identity, identity.i1, D_out=identity.o1)
+    with pytest.raises(
+        ValueError,
+        match="Cannot connect transformation parameter 'o1' to an existing output node 'D_out'",
+    ):
+        dummy.parameter.C.connect(identity, identity.i1, D_out=identity.o1)
 
     # Output of C is still available though
-    d.parameter.C.connect(identity, identity.i1, C_out=identity.o1)
-    assert list(d.signature.parameters.values()) == [
+    dummy.parameter.C.connect(identity, identity.i1, C_out=identity.o1)
+    assert list(dummy.signature.parameters.values()) == [
         Parameter("C_out", Annotation(arr_type, "o")),
         Parameter("C_in", Annotation(arr_type, "i")),
         Parameter("D_out", Annotation(arr_type, "o")),
@@ -413,21 +436,32 @@ def test_wrong_transformation_parameters():
     Check that the error is thrown if the list of transformation parameter names
     does not coincide with actual names.
     """
-
-    N = 200
+    size = 200
     coeff_dtype = numpy.float32
-    arr_type = Type.array(numpy.complex64, (N, N))
+    arr_type = ArrayMetadata((size, size), numpy.complex64)
 
-    d = Dummy(arr_type, arr_type, coeff_dtype, same_A_B=True)
-    identity = tr_identity(d.parameter.A)
+    dummy = Dummy(arr_type, arr_type, coeff_dtype, same_a_b=True)
+    identity = tr_identity(dummy.parameter.A)
 
     # ``identity`` does not have ``input`` parameter
-    with pytest.raises(ValueError):
-        d.parameter.A.connect(identity, identity.o1, A_prime="input")
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Supplied transformation names ['input', 'o1'] "
+            "do not fully coincide with the existing ones: ['i1', 'o1']"
+        ),
+    ):
+        dummy.parameter.A.connect(identity, identity.o1, A_prime="input")
 
     # ``identity`` does not have ``i2`` parameter
-    with pytest.raises(ValueError):
-        d.parameter.A.connect(identity, identity.o1, A_prime=identity.i1, A2="i2")
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Supplied transformation names ['i1', 'i2', 'o1'] "
+            "do not fully coincide with the existing ones: ['i1', 'o1']"
+        ),
+    ):
+        dummy.parameter.A.connect(identity, identity.o1, A_prime=identity.i1, A2="i2")
 
 
 def test_io_merge(some_queue):
@@ -435,25 +469,24 @@ def test_io_merge(some_queue):
     Check that one can end input and output transformation in the same node
     thus making its role 'io'.
     """
-
-    N = 200
+    size = 200
     coeff1 = 3
     coeff2 = 4
     scale_in = 0.5
     scale_out = 0.3
-    arr_type = Type.array(numpy.complex64, (N, N))
+    arr_type = ArrayMetadata((size, size), numpy.complex64)
     coeff_dtype = numpy.float32
 
-    C = get_test_array_like(arr_type)
-    D = get_test_array_like(arr_type)
-    C_dev = Array.from_host(some_queue, C)
-    D_dev = Array.from_host(some_queue, D)
+    c = get_test_array_like(arr_type)
+    d = get_test_array_like(arr_type)
+    c_dev = Array.from_host(some_queue, c)
+    d_dev = Array.from_host(some_queue, d)
 
-    d = DummyAdvanced(C, coeff_dtype)
-    scale = tr_scale(d.parameter.C, d.parameter.coeff1.dtype)
-    d.parameter.C.connect(scale, scale.o1, C_prime=scale.i1, scale_in=scale.s1)
-    d.parameter.C.connect(scale, scale.i1, C_prime=scale.o1, scale_out=scale.s1)
-    assert list(d.signature.parameters.values()) == [
+    dummy = DummyAdvanced(c_dev, coeff_dtype)
+    scale = tr_scale(dummy.parameter.C, dummy.parameter.coeff1.dtype)
+    dummy.parameter.C.connect(scale, scale.o1, C_prime=scale.i1, scale_in=scale.s1)
+    dummy.parameter.C.connect(scale, scale.i1, C_prime=scale.o1, scale_out=scale.s1)
+    assert list(dummy.signature.parameters.values()) == [
         Parameter("C_prime", Annotation(arr_type, "io")),
         Parameter("scale_out", Annotation(coeff_dtype)),
         Parameter("scale_in", Annotation(coeff_dtype)),
@@ -462,17 +495,17 @@ def test_io_merge(some_queue):
         Parameter("coeff2", Annotation(coeff_dtype)),
     ]
 
-    dc = d.compile(some_queue.device)
-    dc(some_queue, C_dev, scale_out, scale_in, D_dev, coeff1, coeff2)
+    dc = dummy.compile(some_queue.device)
+    dc(some_queue, c_dev, scale_out, scale_in, d_dev, coeff1, coeff2)
 
-    C_ref, D_ref = mock_dummy_advanced(C * scale_in, D, coeff1, coeff2)
-    C_ref *= scale_out
+    c_ref, d_ref = mock_dummy_advanced(c * scale_in, d, coeff1, coeff2)
+    c_ref *= scale_out
 
-    C = C_dev.get(some_queue)
-    D = D_dev.get(some_queue)
+    c = c_dev.get(some_queue)
+    d = d_dev.get(some_queue)
 
-    assert diff_is_negligible(C, C_ref)
-    assert diff_is_negligible(D, D_ref)
+    assert diff_is_negligible(c, c_ref)
+    assert diff_is_negligible(d, d_ref)
 
 
 class ExpressionIndexing(Computation):
@@ -485,7 +518,7 @@ class ExpressionIndexing(Computation):
         assert len(arr_t.shape) == 2
 
         # reset strides/offset of the input and return a contiguous array
-        res_t = Type.array(arr_t.dtype, arr_t.shape)
+        res_t = ArrayMetadata(arr_t.shape, arr_t.dtype)
         Computation.__init__(
             self,
             [
@@ -494,8 +527,11 @@ class ExpressionIndexing(Computation):
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, output, input_):
+    def _build_plan(self, plan_factory, _device_params, args):
         plan = plan_factory()
+
+        output = args.output
+        input_ = args.input
 
         template = Template.from_string("""
         <%def name="kernel(kernel_declaration, output, input)">
@@ -524,15 +560,14 @@ def test_transformation_macros(queue):
     without parenthesis in their bodies.
     Namely, the error happens when the flat index is generated out of per-dimension indices.
     """
-
-    N = 1000
+    size = 1000
     dtype = numpy.float32
 
     # The array should be 2D in order for the flat index generation expression to be non-trivial.
-    a = get_test_array((N, 2), dtype)
-
-    comp = ExpressionIndexing(a)
+    a = get_test_array((size, 2), dtype)
     a_dev = Array.from_host(queue, a)
+
+    comp = ExpressionIndexing(a_dev)
     res_dev = Array.empty_like(queue.device, comp.parameter.output)
 
     compc = comp.compile(queue.device)

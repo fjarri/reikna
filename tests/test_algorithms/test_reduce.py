@@ -5,9 +5,8 @@ import numpy
 import pytest
 from grunnur import Array, Snippet, dtypes
 
-from helpers import *
+from helpers import diff_is_negligible, get_test_array
 from reikna.algorithms import Predicate, Reduce, predicate_sum
-from reikna.helpers import template_def
 
 shapes = [
     (2,),
@@ -34,7 +33,7 @@ def test_normal(queue, shape, axis):
     a = get_test_array(shape, numpy.int64)
     a_dev = Array.from_host(queue, a)
 
-    rd = Reduce(a, predicate_sum(numpy.int64), axes=(axis,) if axis is not None else None)
+    rd = Reduce(a_dev, predicate_sum(numpy.int64), axes=(axis,) if axis is not None else None)
 
     b_dev = Array.empty_like(queue.device, rd.parameter.output)
     b_ref = a.sum(axis, keepdims=True)
@@ -51,7 +50,7 @@ def test_nondefault_function(queue):
     a_dev = Array.from_host(queue, a)
     b_ref = a.sum(0)
 
-    predicate = Predicate(Snippet.from_callable(lambda v1, v2: "return ${v1} + ${v2};"), 0)
+    predicate = Predicate(Snippet.from_string(["v1", "v2"], "return ${v1} + ${v2};"), 0)
 
     rd = Reduce(a_dev, predicate, axes=(0,))
 
@@ -111,8 +110,9 @@ def test_structure_type(queue):
     b_ref["i2"] = a["i2"].sum(0)
 
     predicate = Predicate(
-        Snippet.from_callable(
-            lambda v1, v2: """
+        Snippet.from_string(
+            ["v1", "v2"],
+            """
             ${ctype} result = ${v1};
             result.i1 += ${v2}.i1;
             result.nested.v += ${v2}.nested.v;
@@ -144,7 +144,7 @@ def test_summation(queue):
     a = get_test_array(perf_size, dtype)
     a_dev = Array.from_host(queue.device, a)
 
-    rd = Reduce(a, predicate_sum(dtype))
+    rd = Reduce(a_dev, predicate_sum(dtype))
 
     b_dev = Array.empty_like(queue.device, rd.parameter.output)
     b_ref = numpy.array([a.sum()], dtype)
@@ -153,7 +153,7 @@ def test_summation(queue):
 
     attempts = 10
     times = []
-    for i in range(attempts):
+    for _ in range(attempts):
         t1 = time.time()
         rdc(queue, b_dev, a_dev)
         queue.synchronize()

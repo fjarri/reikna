@@ -1,8 +1,9 @@
+import numpy
 import pytest
-from grunnur import Array, Queue, Template
+from grunnur import Array, ArrayMetadata, Queue, Template
 
-from helpers import *
-from reikna.core import Annotation, Computation, Parameter, Transformation, Type
+from helpers import diff_is_negligible, get_test_array
+from reikna.core import Annotation, Computation, Parameter, Transformation
 
 
 class Dummy(Computation):
@@ -19,12 +20,14 @@ class Dummy(Computation):
         Computation.__init__(
             self,
             [
-                Parameter("output", Annotation(Type.array(numpy.float32, length), "o")),
+                Parameter("output", Annotation(ArrayMetadata(length, numpy.float32), "o")),
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, output):
+    def _build_plan(self, plan_factory, _device_params, args):
         plan = plan_factory()
+
+        output = args.output
 
         template = Template.from_string("""
         <%def name="dummy(kernel_declaration, output, arr1, arr2)">
@@ -57,24 +60,25 @@ class DummyOuter(Computation):
         Computation.__init__(
             self,
             [
-                Parameter("output", Annotation(Type.array(numpy.float32, length), "o")),
+                Parameter("output", Annotation(ArrayMetadata(length, numpy.float32), "o")),
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, output):
+    def _build_plan(self, plan_factory, _device_params, args):
         plan = plan_factory()
+        output = args.output
         dummy = Dummy(self._arr1.shape[0], self._arr1, self._arr2)
         plan.computation_call(dummy, output)
         return plan
 
 
 def test_constant_arrays_computation(queue):
-    N = 200
-    arr1 = get_test_array(N, numpy.int32)
-    arr2 = get_test_array((2, N), numpy.float32)
+    size = 200
+    arr1 = get_test_array(size, numpy.int32)
+    arr2 = get_test_array((2, size), numpy.float32)
     ref = (arr1 * (arr2[0] + arr2[1])).astype(numpy.float32)
 
-    d = Dummy(N, arr1, arr2).compile(queue.device)
+    d = Dummy(size, arr1, arr2).compile(queue.device)
     out_dev = Array.empty_like(queue.device, d.parameter.output)
     d(queue, out_dev)
     test = out_dev.get(queue)
@@ -87,13 +91,12 @@ def test_constant_arrays_computation_nested(queue):
     Check that constant arrays from a nested computation are
     transfered to the outer computation.
     """
-
-    N = 200
-    arr1 = get_test_array(N, numpy.int32)
-    arr2 = get_test_array((2, N), numpy.float32)
+    size = 200
+    arr1 = get_test_array(size, numpy.int32)
+    arr2 = get_test_array((2, size), numpy.float32)
     ref = (arr1 * (arr2[0] + arr2[1])).astype(numpy.float32)
 
-    d = DummyOuter(N, arr1, arr2).compile(queue.device)
+    d = DummyOuter(size, arr1, arr2).compile(queue.device)
     out_dev = Array.empty_like(queue.device, d.parameter.output)
     d(queue, out_dev)
     test = out_dev.get(queue)

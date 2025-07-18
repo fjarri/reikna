@@ -1,8 +1,11 @@
+from collections.abc import Callable
+
 import numpy
-from grunnur import Snippet, Template, dtypes
+from grunnur import AsArrayMetadata, DeviceParameters, Snippet, Template, dtypes
 
 from .. import helpers
-from ..core import Annotation, Computation, Parameter, Type
+from ..core import Annotation, Computation, ComputationPlan, KernelArguments, Parameter
+from .predicates import Predicate
 from .transpose import Transpose
 
 TEMPLATE = Template.from_associated_file(__file__)
@@ -10,8 +13,6 @@ TEMPLATE = Template.from_associated_file(__file__)
 
 class Scan(Computation):
     """
-    Bases: :py:class:`~reikna.core.Computation`
-
     Scans the array over given axis using given binary operation.
     Namely, from an array ``[a, b, c, d, ...]`` and an operation ``.``,
     produces ``[a, a.b, a.b.c, a.b.c.d, ...]`` if ``exclusive`` is ``False``
@@ -38,13 +39,25 @@ class Scan(Computation):
     """
 
     def __init__(
-        self, arr_t, predicate, axes=None, exclusive=False, max_work_group_size=None, seq_size=None
+        self,
+        arr_t: AsArrayMetadata,
+        predicate: Predicate,
+        axes: tuple[int, ...] | None = None,
+        *,
+        exclusive: bool = False,
+        max_work_group_size: int | None = None,
+        seq_size: int | None = None,
     ):
+        input_ = arr_t.as_array_metadata()
+
         self._max_work_group_size = max_work_group_size
         self._seq_size = seq_size
         self._exclusive = exclusive
-        ndim = len(arr_t.shape)
+        ndim = len(input_.shape)
         self._axes = helpers.normalize_axes(ndim, axes)
+
+        self._transpose_to: tuple[int, ...] | None
+        self._transpose_from: tuple[int, ...] | None
         if not helpers.are_axes_innermost(ndim, self._axes):
             self._transpose_to, self._transpose_from = helpers.make_axes_innermost(ndim, self._axes)
             self._axes = tuple(range(ndim - len(self._axes), ndim))
@@ -56,24 +69,33 @@ class Scan(Computation):
             raise ValueError("Cannot scan twice over the same axis")
 
         if hasattr(predicate.empty, "dtype"):
-            if arr_t.dtype != predicate.empty.dtype:
+            if input_.dtype != predicate.empty.dtype:
                 raise ValueError("The predicate and the array must use the same data type")
             empty = predicate.empty
         else:
-            empty = numpy.asarray(predicate.empty, arr_t.dtype)
+            empty = numpy.asarray(predicate.empty, input_.dtype)
 
         self._predicate = predicate
+        self._empty = empty
 
         Computation.__init__(
             self,
             [
-                Parameter("output", Annotation(arr_t, "o")),
-                Parameter("input", Annotation(arr_t, "i")),
+                Parameter("output", Annotation(input_, "o")),
+                Parameter("input", Annotation(input_, "i")),
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, output, input_):
+    def _build_plan(
+        self,
+        plan_factory: Callable[[], ComputationPlan],
+        device_params: DeviceParameters,
+        args: KernelArguments,
+    ) -> ComputationPlan:
         plan = plan_factory()
+
+        output = args.output
+        input_ = args.input
 
         if self._transpose_to is not None:
             transpose_to = Transpose(input_, axes=self._transpose_to)
@@ -109,7 +131,9 @@ class Scan(Computation):
                 max_wg_size = self._max_work_group_size
 
             # The current algorithm requires workgroup size to be a power of 2.
-            assert max_wg_size == 2 ** helpers.log2(max_wg_size)
+            # TODO: just pick the closest power of 2 if it is not?
+            if max_wg_size != 2 ** helpers.log2(max_wg_size):
+                raise RuntimeError("Workgroup size must be a power of 2")
 
             # Using algorithm cascading: sequential reduction, and then the parallel one.
             # According to Brent's theorem, the optimal sequential size is O(log(n)).
@@ -142,10 +166,7 @@ class Scan(Computation):
                 output.dtype,
             )
 
-            if wg_totals_size > 1:
-                temp_output = plan.temp_array_like(output)
-            else:
-                temp_output = output
+            temp_output = plan.temp_array_like(output) if wg_totals_size > 1 else output
 
             last_part_size = scan_size % (wg_size * seq_size)
             if last_part_size == 0:
@@ -169,6 +190,7 @@ class Scan(Computation):
                     wg_totals_size=wg_totals_size,
                     log_wg_size=helpers.log2(wg_size),
                     predicate=self._predicate,
+                    empty=self._empty,
                 ),
             )
 

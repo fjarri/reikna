@@ -29,10 +29,10 @@ As an example, we will consider the matrix multiplication.
 
     import numpy
     from numpy.linalg import norm
-    from grunnur import any_api, Context, Queue, Array
+    from grunnur import API, Context, Queue, Array
     from reikna.linalg import MatrixMul
 
-    context = Context.from_devices([any_api.platforms[0].devices[0]])
+    context = Context.from_devices([API.any().platforms[0].devices[0]])
     queue = Queue(context.device)
 
     shape1 = (100, 200)
@@ -44,7 +44,7 @@ As an example, we will consider the matrix multiplication.
     b_dev = Array.from_host(queue, b)
     res_dev = Array.empty(queue.device, (shape1[0], shape2[1]), dtype=numpy.float32)
 
-    dot = MatrixMul(a_dev, b_dev, out_arr=res_dev)
+    dot = MatrixMul(a_dev, b_dev, out_arr_t=res_dev)
     dotc = dot.compile(queue.device)
     dotc(queue, res_dev, a_dev, b_dev)
 
@@ -76,12 +76,12 @@ Let us change the previous example and connect transformations to it.
 
     import numpy
     from numpy.linalg import norm
-    from grunnur import any_api, Context, Queue, Array
+    from grunnur import API, Context, Queue, Array, ArrayMetadata
     from reikna.core import Type
     from reikna.linalg import MatrixMul
     from reikna.transformations import combine_complex
 
-    context = Context.from_devices([any_api.platforms[0].devices[0]])
+    context = Context.from_devices([API.any().platforms[0].devices[0]])
     queue = Queue(context.device)
 
     shape1 = (100, 200)
@@ -95,11 +95,11 @@ Let us change the previous example and connect transformations to it.
     arrays = [Array.from_host(queue, x) for x in [a_re, a_im, b_re, b_im]]
     a_re_dev, a_im_dev, b_re_dev, b_im_dev = arrays
 
-    a_type = Type.array(numpy.complex64, shape=shape1)
-    b_type = Type.array(numpy.complex64, shape=shape2)
+    a_type = ArrayMetadata(shape1, numpy.complex64)
+    b_type = ArrayMetadata(shape2, numpy.complex64)
     res_dev = Array.empty(queue.device, (shape1[0], shape2[1]), dtype=numpy.complex64)
 
-    dot = MatrixMul(a_type, b_type, out_arr=res_dev)
+    dot = MatrixMul(a_type, b_type, out_arr_t=res_dev)
     combine_a = combine_complex(a_type)
     combine_b = combine_complex(b_type)
 

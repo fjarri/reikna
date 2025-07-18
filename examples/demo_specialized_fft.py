@@ -1,5 +1,5 @@
 """
-This example demonstrates how to build several specialized FFT computations:
+An example demonstrating how to build several specialized FFT computations:
 - a real-to-complex and complex-to-real FFT using a half-sized complex-to-complex FFT;
 - a real-to-complex and complex-to-real FFT with the real signal being anti-periodic
   (x[k] = -x[N/2+k], k=0..N/2-1) using a quarter-sized complex-to-complex FFT.
@@ -17,12 +17,35 @@ IEEE Transactions on Acoustics, Speech, and Signal Processing 27(3), 233-239 (19
 doi: 10.1109/TASSP.1979.1163235
 """
 
-import numpy
-from grunnur import Array, Context, Queue, Template, any_api, dtypes, functions
+from collections.abc import Callable
 
-import reikna.helpers as helpers
+import numpy
+from grunnur import (
+    API,
+    Array,
+    ArrayMetadata,
+    AsArrayMetadata,
+    Context,
+    DeviceParameters,
+    Queue,
+    Template,
+    dtypes,
+    functions,
+)
+from numpy.typing import NDArray
+
+from reikna import helpers
 from reikna.algorithms import Reduce, Scan, predicate_sum
-from reikna.core import Annotation, Computation, Parameter, Transformation, Type
+from reikna.core import (
+    Annotation,
+    Computation,
+    ComputationPlan,
+    KernelArgument,
+    KernelArguments,
+    Parameter,
+    Transformation,
+    Type,
+)
 from reikna.fft import FFT
 
 TEMPLATE = Template.from_associated_file(__file__)
@@ -31,100 +54,98 @@ TEMPLATE = Template.from_associated_file(__file__)
 # Refernce functions
 
 
-def rfft_reference(a):
+def rfft_reference(a: NDArray[numpy.floating]) -> NDArray[numpy.complex128]:
     # Numpy already has a dedicated rfft() function, but this one illustrates the algorithm
     # used by the computation.
 
-    assert a.size % 2 == 0
-    assert a.ndim == 1
+    assert a.size % 2 == 0  # noqa: S101
+    assert a.ndim == 1  # noqa: S101
 
-    N = a.size
+    size = a.size
 
-    WNmk = numpy.exp(-2j * numpy.pi * numpy.arange(N // 2) / N)
-    A = 0.5 * (1 - 1j * WNmk)
-    B = 0.5 * (1 + 1j * WNmk)
+    wn_mk = numpy.exp(-2j * numpy.pi * numpy.arange(size // 2) / size)
+    a_fft = 0.5 * (1 - 1j * wn_mk)
+    b_fft = 0.5 * (1 + 1j * wn_mk)
 
     x = a[::2] + 1j * a[1::2]
-    X = numpy.fft.fft(x)  # N/2-sized FFT
+    x_fft = numpy.fft.fft(x)  # size/2-sized FFT
 
-    res = numpy.empty(N // 2 + 1, numpy.complex128)
-    res[: N // 2] = X * A + (numpy.roll(X[N // 2 - 1 :: -1], 1)).conj() * B
-    res[N // 2] = X[0].real - X[0].imag
+    res = numpy.empty(size // 2 + 1, numpy.complex128)
+    res[: size // 2] = x_fft * a_fft + (numpy.roll(x_fft[size // 2 - 1 :: -1], 1)).conj() * b_fft
+    res[size // 2] = x_fft[0].real - x_fft[0].imag
 
     return res
 
 
-def irfft_reference(a):
+def irfft_reference(a: NDArray[numpy.complexfloating]) -> NDArray[numpy.float64]:
     # Numpy already has a dedicated irfft() function, but this one illustrates the algorithm
     # used by the computation.
 
-    assert a.size % 2 == 1
-    assert a.ndim == 1
+    assert a.size % 2 == 1  # noqa: S101
+    assert a.ndim == 1  # noqa: S101
 
-    N = (a.size - 1) * 2
+    size = (a.size - 1) * 2
 
     # Following numpy.fft.irftt() which ignores these values
     a[0] = a[0].real
     a[-1] = a[-1].real
 
-    WNmk = numpy.exp(-2j * numpy.pi * numpy.arange(N // 2) / N)
-    A = 0.5 * (1 - 1j * WNmk)
-    B = 0.5 * (1 + 1j * WNmk)
+    wn_mk = numpy.exp(-2j * numpy.pi * numpy.arange(size // 2) / size)
+    a_fft = 0.5 * (1 - 1j * wn_mk)
+    b_fft = 0.5 * (1 + 1j * wn_mk)
 
-    A = A.conj()
-    B = B.conj()
+    a_fft = a_fft.conj()
+    b_fft = b_fft.conj()
 
-    X = a[:-1] * A + a[N // 2 : 0 : -1].conj() * B
+    x_fft = a[:-1] * a_fft + a[size // 2 : 0 : -1].conj() * b_fft
 
-    x = numpy.fft.ifft(X)  # N/2-sized IFFT
+    x = numpy.fft.ifft(x_fft)  # size/2-sized IFFT
 
-    res = numpy.empty(N, numpy.float64)
+    res = numpy.empty(size, numpy.float64)
     res[::2] = x.real
     res[1::2] = x.imag
 
     return res
 
 
-def aprfft_reference(x):
+def aprfft_reference(x: NDArray[numpy.floating]) -> NDArray[numpy.complex128]:
     # x : real N/2-array (first half of the full signal)
     # output: complex N/4-array (odd harmonics)
 
-    assert x.size % 2 == 0
-    assert x.ndim == 1
+    assert x.size % 2 == 0  # noqa: S101
+    assert x.ndim == 1  # noqa: S101
 
-    N = x.size * 2
+    size = x.size * 2
 
-    y = x * (4 * numpy.sin(2 * numpy.pi * numpy.arange(N // 2) / N))
-    Y = numpy.fft.rfft(y)
+    y = x * (4 * numpy.sin(2 * numpy.pi * numpy.arange(size // 2) / size))
+    y_fft = numpy.fft.rfft(y)
 
-    t = x * numpy.cos(2 * numpy.pi * numpy.arange(N // 2) / N)
-    re_X_1 = 2 * sum(t)
+    t = x * numpy.cos(2 * numpy.pi * numpy.arange(size // 2) / size)
+    re_x_fft_1 = 2 * sum(t)
 
-    Y *= -1j
-    Y[0] /= 2
-    Y[0] += re_X_1
-    res = numpy.cumsum(Y[:-1])
-
-    return res
+    y_fft *= -1j
+    y_fft[0] /= 2
+    y_fft[0] += re_x_fft_1
+    return numpy.cumsum(y_fft[:-1])
 
 
-def iaprfft_reference(X):
-    # X : complex N/4-array of odd harmonics
+def iaprfft_reference(x_fft: NDArray[numpy.complexfloating]) -> NDArray[numpy.float64]:
+    # x_fft : complex N/4-array of odd harmonics
     # output: real N/2-array (first half of the signal)
 
-    assert X.ndim == 1
+    assert x_fft.ndim == 1  # noqa: S101
 
-    N = X.size * 4
-    Y = numpy.empty(N // 4 + 1, numpy.complex128)
-    Y[1:-1] = X[1:] - X[:-1]
-    Y *= 1j
-    Y[0] = -2 * X[0].imag
-    Y[-1] = 2 * X[-1].imag
-    y = numpy.fft.irfft(Y)
+    size = x_fft.size * 4
+    y_fft = numpy.empty(size // 4 + 1, numpy.complex128)
+    y_fft[1:-1] = x_fft[1:] - x_fft[:-1]
+    y_fft *= 1j
+    y_fft[0] = -2 * x_fft[0].imag
+    y_fft[-1] = 2 * x_fft[-1].imag
+    y = numpy.fft.irfft(y_fft)
 
-    res = numpy.empty(N // 2, numpy.float64)
-    res[1:] = y[1:] / 4 / numpy.sin(2 * numpy.pi * numpy.arange(1, N // 2) / N)
-    res[0] = X.real.sum() / (N / 2)
+    res = numpy.empty(size // 2, numpy.float64)
+    res[1:] = y[1:] / 4 / numpy.sin(2 * numpy.pi * numpy.arange(1, size // 2) / size)
+    res[0] = x_fft.real.sum() / (size / 2)
 
     return res
 
@@ -132,8 +153,8 @@ def iaprfft_reference(X):
 # GPU computations
 
 
-def prepare_rfft_input(arr):
-    res = Type.array(dtypes.complex_for(arr.dtype), arr.shape[:-1] + (arr.shape[-1] // 2,))
+def prepare_rfft_input(arr: KernelArgument) -> Transformation:
+    res = ArrayMetadata((*arr.shape[:-1], arr.shape[-1] // 2), dtypes.complex_for(arr.dtype))
     return Transformation(
         [
             Parameter("output", Annotation(res, "o")),
@@ -152,39 +173,51 @@ def prepare_rfft_input(arr):
 
 
 class RFFT(Computation):
-    def __init__(self, arr_t, dont_store_last=False):
+    def __init__(self, arr: AsArrayMetadata, *, dont_store_last: bool = False):
+        metadata = arr.as_array_metadata()
+
         self._dont_store_last = dont_store_last
 
-        output_size = arr_t.shape[-1] // 2 + (0 if dont_store_last else 1)
+        output_size = metadata.shape[-1] // 2 + (0 if dont_store_last else 1)
 
-        out_arr = Type.array(dtypes.complex_for(arr_t.dtype), arr_t.shape[:-1] + (output_size,))
+        out_arr = ArrayMetadata(
+            (*metadata.shape[:-1], output_size), dtypes.complex_for(metadata.dtype)
+        )
 
         Computation.__init__(
             self,
             [
                 Parameter("output", Annotation(out_arr, "o")),
-                Parameter("input", Annotation(arr_t, "i")),
+                Parameter("input", Annotation(metadata, "i")),
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, output, input_):
+    def _build_plan(
+        self,
+        plan_factory: Callable[[], ComputationPlan],
+        _device_params: DeviceParameters,
+        args: KernelArguments,
+    ) -> ComputationPlan:
         plan = plan_factory()
 
-        N = input_.shape[-1]
-        WNmk = numpy.exp(-2j * numpy.pi * numpy.arange(N // 2) / N)
-        A = 0.5 * (1 - 1j * WNmk)
-        B = 0.5 * (1 + 1j * WNmk)
+        input_ = args.input
+        output = args.output
 
-        A_arr = plan.persistent_array(A.astype(output.dtype))
-        B_arr = plan.persistent_array(B.astype(output.dtype))
+        size = input_.shape[-1]
+        wn_mk = numpy.exp(-2j * numpy.pi * numpy.arange(size // 2) / size)
+        a_fft = 0.5 * (1 - 1j * wn_mk)
+        b_fft = 0.5 * (1 + 1j * wn_mk)
 
-        cfft_arr = Type.array(output.dtype, input_.shape[:-1] + (input_.shape[-1] // 2,))
+        a_fft_arr = plan.persistent_array(a_fft.astype(output.dtype))
+        b_fft_arr = plan.persistent_array(b_fft.astype(output.dtype))
+
+        cfft_arr = ArrayMetadata((*input_.shape[:-1], input_.shape[-1] // 2), output.dtype)
         cfft = FFT(cfft_arr, axes=(len(input_.shape) - 1,))
 
         prepare_input = prepare_rfft_input(input_)
 
         cfft.parameter.input.connect(
-            prepare_input, prepare_input.output, real_input=prepare_input.input
+            prepare_input, prepare_input.parameter.output, real_input=prepare_input.parameter.input
         )
 
         temp = plan.temp_array_like(cfft.parameter.output)
@@ -194,11 +227,11 @@ class RFFT(Computation):
         plan.computation_call(cfft, temp, input_)
         plan.kernel_call(
             TEMPLATE.get_def("prepare_rfft_output"),
-            [output, temp, A_arr, B_arr],
-            global_size=(batch_size, N // 2),
+            [output, temp, a_fft_arr, b_fft_arr],
+            global_size=(batch_size, size // 2),
             render_kwds=dict(
                 slices=(len(input_.shape) - 1, 1),
-                N=N,
+                N=size,
                 mul=functions.mul(output.dtype, output.dtype),
                 conj=functions.conj(output.dtype),
                 dont_store_last=self._dont_store_last,
@@ -208,12 +241,15 @@ class RFFT(Computation):
         return plan
 
 
-def prepare_irfft_output(arr):
-    res = Type.array(dtypes.real_for(arr.dtype), arr.shape[:-1] + (arr.shape[-1] * 2,))
+def prepare_irfft_output(arr: AsArrayMetadata) -> Transformation:
+    metadata = arr.as_array_metadata()
+    res = ArrayMetadata(
+        (*metadata.shape[:-1], metadata.shape[-1] * 2), dtypes.real_for(metadata.dtype)
+    )
     return Transformation(
         [
             Parameter("output", Annotation(res, "o")),
-            Parameter("input", Annotation(arr, "i")),
+            Parameter("input", Annotation(metadata, "i")),
         ],
         """
         <%
@@ -228,38 +264,50 @@ def prepare_irfft_output(arr):
 
 
 class IRFFT(Computation):
-    def __init__(self, arr_t):
-        output_size = (arr_t.shape[-1] - 1) * 2
-
-        out_arr = Type.array(dtypes.real_for(arr_t.dtype), arr_t.shape[:-1] + (output_size,))
+    def __init__(self, arr: AsArrayMetadata):
+        metadata = arr.as_array_metadata()
+        output_size = (metadata.shape[-1] - 1) * 2
+        out_arr = ArrayMetadata(
+            (*metadata.shape[:-1], output_size), dtypes.real_for(metadata.dtype)
+        )
 
         Computation.__init__(
             self,
             [
                 Parameter("output", Annotation(out_arr, "o")),
-                Parameter("input", Annotation(arr_t, "i")),
+                Parameter("input", Annotation(metadata, "i")),
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, output, input_):
+    def _build_plan(
+        self,
+        plan_factory: Callable[[], ComputationPlan],
+        _device_params: DeviceParameters,
+        args: KernelArguments,
+    ) -> ComputationPlan:
         plan = plan_factory()
 
-        N = (input_.shape[-1] - 1) * 2
+        input_ = args.input
+        output = args.output
 
-        WNmk = numpy.exp(-2j * numpy.pi * numpy.arange(N // 2) / N)
-        A = 0.5 * (1 - 1j * WNmk)
-        B = 0.5 * (1 + 1j * WNmk)
+        size = (input_.shape[-1] - 1) * 2
 
-        A_arr = plan.persistent_array(A.conj().astype(dtypes.complex_for(output.dtype)))
-        B_arr = plan.persistent_array(B.conj().astype(dtypes.complex_for(output.dtype)))
+        wn_mk = numpy.exp(-2j * numpy.pi * numpy.arange(size // 2) / size)
+        a_fft = 0.5 * (1 - 1j * wn_mk)
+        b_fft = 0.5 * (1 + 1j * wn_mk)
 
-        cfft_arr = Type.array(input_.dtype, input_.shape[:-1] + (N // 2,))
+        a_fft_arr = plan.persistent_array(a_fft.conj().astype(dtypes.complex_for(output.dtype)))
+        b_fft_arr = plan.persistent_array(b_fft.conj().astype(dtypes.complex_for(output.dtype)))
+
+        cfft_arr = ArrayMetadata((*input_.shape[:-1], size // 2), input_.dtype)
         cfft = FFT(cfft_arr, axes=(len(input_.shape) - 1,))
 
         prepare_output = prepare_irfft_output(cfft.parameter.output)
 
         cfft.parameter.output.connect(
-            prepare_output, prepare_output.input, real_output=prepare_output.output
+            prepare_output,
+            prepare_output.parameter.input,
+            real_output=prepare_output.parameter.output,
         )
 
         temp = plan.temp_array_like(cfft.parameter.input)
@@ -268,11 +316,11 @@ class IRFFT(Computation):
 
         plan.kernel_call(
             TEMPLATE.get_def("prepare_irfft_input"),
-            [temp, input_, A_arr, B_arr],
-            global_size=(batch_size, N // 2),
+            [temp, input_, a_fft_arr, b_fft_arr],
+            global_size=(batch_size, size // 2),
             render_kwds=dict(
                 slices=(len(input_.shape) - 1, 1),
-                N=N,
+                N=size,
                 mul=functions.mul(input_.dtype, input_.dtype),
                 conj=functions.conj(input_.dtype),
             ),
@@ -283,175 +331,193 @@ class IRFFT(Computation):
         return plan
 
 
-def get_multiply(output):
+def get_multiply(output: AsArrayMetadata) -> Transformation:
+    metadata = output.as_array_metadata()
     return Transformation(
         [
-            Parameter("output", Annotation(output, "o")),
-            Parameter("a", Annotation(output, "i")),
-            Parameter("b", Annotation(Type.array(output.dtype, (output.shape[-1],)), "i")),
+            Parameter("output", Annotation(metadata, "o")),
+            Parameter("a", Annotation(metadata, "i")),
+            Parameter("b", Annotation(ArrayMetadata(metadata.shape[-1], metadata.dtype), "i")),
         ],
         """
         ${output.store_same}(${mul}(${a.load_same}, ${b.load_idx}(${idxs[-1]})));
         """,
         connectors=["output", "a"],
-        render_kwds=dict(mul=functions.mul(output.dtype, output.dtype)),
+        render_kwds=dict(mul=functions.mul(metadata.dtype, metadata.dtype)),
     )
 
 
-def get_prepare_prfft_scan(output):
+def get_prepare_prfft_scan(output: AsArrayMetadata) -> Transformation:
+    metadata = output.as_array_metadata()
     return Transformation(
         [
-            Parameter("output", Annotation(output, "o")),
-            Parameter("Y", Annotation(output, "i")),
+            Parameter("output", Annotation(metadata, "o")),
+            Parameter("y_fft", Annotation(metadata, "i")),
             Parameter(
-                "re_X_0",
+                "re_x_fft_0",
                 Annotation(
-                    Type.array(dtypes.real_for(output.dtype), output.shape[:-1] + (1,)), "i"
+                    ArrayMetadata((*metadata.shape[:-1], 1), dtypes.real_for(metadata.dtype)), "i"
                 ),
             ),
         ],
         """
-        ${Y.ctype} Y = ${Y.load_same};
-        Y = COMPLEX_CTR(${Y.ctype})(Y.y, -Y.x);
+        ${y_fft.ctype} y_fft = ${y_fft.load_same};
+        y_fft = COMPLEX_CTR(${y_fft.ctype})(y_fft.y, -y_fft.x);
 
         if (${idxs[-1]} == 0)
         {
-            Y.x = Y.x / 2 + ${re_X_0.load_idx}(${", ".join(idxs[:-1] + ["0"])});
-            Y.y /= 2;
+            y_fft.x = y_fft.x / 2 + ${re_x_fft_0.load_idx}(${", ".join(idxs[:-1] + ["0"])});
+            y_fft.y /= 2;
         }
 
-        ${output.store_same}(Y);
+        ${output.store_same}(y_fft);
         """,
-        connectors=["output", "Y"],
+        connectors=["output", "y_fft"],
     )
 
 
 class APRFFT(Computation):
-    """
-    FFT of a real antiperiodic signal (x[k] = -x[N/2+k]).
-    """
+    """FFT of a real antiperiodic signal (x[k] = -x[N/2+k])."""
 
-    def __init__(self, arr_t):
-        out_arr = Type.array(
-            dtypes.complex_for(arr_t.dtype), arr_t.shape[:-1] + (arr_t.shape[-1] // 2,)
+    def __init__(self, arr: AsArrayMetadata):
+        metadata = arr.as_array_metadata()
+        out_arr = ArrayMetadata(
+            (*metadata.shape[:-1], metadata.shape[-1] // 2),
+            dtypes.complex_for(metadata.dtype),
         )
 
         Computation.__init__(
             self,
             [
                 Parameter("output", Annotation(out_arr, "o")),
-                Parameter("input", Annotation(arr_t, "i")),
+                Parameter("input", Annotation(metadata, "i")),
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, output, input_):
+    def _build_plan(
+        self,
+        plan_factory: Callable[[], ComputationPlan],
+        _device_params: DeviceParameters,
+        args: KernelArguments,
+    ) -> ComputationPlan:
         plan = plan_factory()
 
-        N = input_.shape[-1] * 2
-        batch_shape = input_.shape[:-1]
-        batch_size = helpers.product(batch_shape)
+        input_ = args.input
+        output = args.output
 
-        coeffs1 = 4 * numpy.sin(2 * numpy.pi * numpy.arange(N // 2) / N)
-        coeffs2 = 2 * numpy.cos(2 * numpy.pi * numpy.arange(N // 2) / N)
+        size = input_.shape[-1] * 2
+
+        coeffs1 = 4 * numpy.sin(2 * numpy.pi * numpy.arange(size // 2) / size)
+        coeffs2 = 2 * numpy.cos(2 * numpy.pi * numpy.arange(size // 2) / size)
 
         c1_arr = plan.persistent_array(coeffs1.astype(input_.dtype))
         c2_arr = plan.persistent_array(coeffs2.astype(input_.dtype))
 
         multiply = get_multiply(input_)
 
-        # re_X_1 = sum(x * coeffs2)
+        # re_x_fft_1 = sum(x * coeffs2)
 
         t = plan.temp_array_like(input_)
         rd = Reduce(t, predicate_sum(input_.dtype), axes=(len(input_.shape) - 1,))
 
-        rd.parameter.input.connect(multiply, multiply.output, x=multiply.a, c2=multiply.b)
-
-        re_X_0 = plan.temp_array_like(rd.parameter.output)
-        plan.computation_call(rd, re_X_0, input_, c2_arr)
-
-        # Y = numpy.fft.rfft(x * coeffs1)
-
-        rfft = RFFT(input_, dont_store_last=True)
-        rfft.parameter.input.connect(multiply, multiply.output, x=multiply.a, c1=multiply.b)
-
-        Y = plan.temp_array_like(rfft.parameter.output)
-        plan.computation_call(rfft, Y, input_, c1_arr)
-
-        # Y *= -1j
-        # Y[0] /= 2
-        # Y[0] += re_X_1
-        # res = numpy.cumsum(Y[:-1])
-
-        prepare_prfft_scan = get_prepare_prfft_scan(Y)
-
-        sc = Scan(Y, predicate_sum(Y.dtype), axes=(-1,), exclusive=False)
-        sc.parameter.input.connect(
-            prepare_prfft_scan,
-            prepare_prfft_scan.output,
-            Y=prepare_prfft_scan.Y,
-            re_X_0=prepare_prfft_scan.re_X_0,
+        rd.parameter.input.connect(
+            multiply, multiply.parameter.output, x=multiply.parameter.a, c2=multiply.parameter.b
         )
 
-        plan.computation_call(sc, output, Y, re_X_0)
+        re_x_fft_0 = plan.temp_array_like(rd.parameter.output)
+        plan.computation_call(rd, re_x_fft_0, input_, c2_arr)
+
+        # y_fft = numpy.fft.rfft(x * coeffs1)
+
+        rfft = RFFT(input_, dont_store_last=True)
+        rfft.parameter.input.connect(
+            multiply, multiply.parameter.output, x=multiply.parameter.a, c1=multiply.parameter.b
+        )
+
+        y_fft = plan.temp_array_like(rfft.parameter.output)
+        plan.computation_call(rfft, y_fft, input_, c1_arr)
+
+        # y_fft *= -1j
+        # y_fft[0] /= 2
+        # y_fft[0] += re_x_fft_1
+        # res = numpy.cumsum(y_fft[:-1])
+
+        prepare_prfft_scan = get_prepare_prfft_scan(y_fft)
+
+        sc = Scan(y_fft, predicate_sum(y_fft.dtype), axes=(-1,), exclusive=False)
+        sc.parameter.input.connect(
+            prepare_prfft_scan,
+            prepare_prfft_scan.parameter.output,
+            y_fft=prepare_prfft_scan.parameter.y_fft,
+            re_x_fft_0=prepare_prfft_scan.parameter.re_x_fft_0,
+        )
+
+        plan.computation_call(sc, output, y_fft, re_x_fft_0)
 
         return plan
 
 
-def get_prepare_iprfft_input(X):
+def get_prepare_iprfft_input(input_: AsArrayMetadata) -> Transformation:
     # Input: size N//4
     # Output: size N//4+1
 
-    N = X.shape[-1] * 4
-    Y = Type.array(X.dtype, X.shape[:-1] + (N // 4 + 1,))
+    metadata = input_.as_array_metadata()
+
+    size = metadata.shape[-1] * 4
+    output = ArrayMetadata((*metadata.shape[:-1], size // 4 + 1), metadata.dtype)
 
     return Transformation(
         [
-            Parameter("Y", Annotation(Y, "o")),
-            Parameter("X", Annotation(X, "i")),
+            Parameter("y_fft", Annotation(output, "o")),
+            Parameter("x_fft", Annotation(metadata, "i")),
         ],
         """
         <%
             batch_idxs = " ".join((idx + ", ") for idx in idxs[:-1])
         %>
 
-        ${Y.ctype} Y;
+        ${y_fft.ctype} y_fft;
         if (${idxs[-1]} == 0)
         {
-            ${X.ctype} X = ${X.load_idx}(${batch_idxs} 0);
-            Y = COMPLEX_CTR(${Y.ctype})(-2 * X.y, 0);
+            ${x_fft.ctype} x_fft = ${x_fft.load_idx}(${batch_idxs} 0);
+            y_fft = COMPLEX_CTR(${y_fft.ctype})(-2 * x_fft.y, 0);
         }
         else if (${idxs[-1]} == ${N//4})
         {
-            ${X.ctype} X = ${X.load_idx}(${batch_idxs} ${N//4-1});
-            Y = COMPLEX_CTR(${Y.ctype})(2 * X.y, 0);
+            ${x_fft.ctype} x_fft = ${x_fft.load_idx}(${batch_idxs} ${N//4-1});
+            y_fft = COMPLEX_CTR(${y_fft.ctype})(2 * x_fft.y, 0);
         }
         else
         {
-            ${X.ctype} X = ${X.load_idx}(${batch_idxs} ${idxs[-1]});
-            ${X.ctype} X_prev = ${X.load_idx}(${batch_idxs} ${idxs[-1]} - 1);
-            ${X.ctype} diff = X - X_prev;
-            Y = COMPLEX_CTR(${Y.ctype})(-diff.y, diff.x);
+            ${x_fft.ctype} x_fft = ${x_fft.load_idx}(${batch_idxs} ${idxs[-1]});
+            ${x_fft.ctype} x_fft_prev = ${x_fft.load_idx}(${batch_idxs} ${idxs[-1]} - 1);
+            ${x_fft.ctype} diff = x_fft - x_fft_prev;
+            y_fft = COMPLEX_CTR(${y_fft.ctype})(-diff.y, diff.x);
         }
 
-        ${Y.store_same}(Y);
+        ${y_fft.store_same}(y_fft);
         """,
-        connectors=["Y"],
-        render_kwds=dict(N=N),
+        connectors=["y_fft"],
+        render_kwds=dict(N=size),
     )
 
 
-def get_prepare_iprfft_output(y):
+def get_prepare_iprfft_output(y: AsArrayMetadata) -> Transformation:
     # Input: size N//4
     # Output: size N//4
 
-    N = y.shape[-1] * 2
+    metadata = y.as_array_metadata()
+
+    size = metadata.shape[-1] * 2
 
     return Transformation(
         [
-            Parameter("x", Annotation(y, "o")),
-            Parameter("y", Annotation(y, "i")),
-            Parameter("x0", Annotation(Type.array(y.dtype, y.shape[:-1] + (1,)), "i")),
-            Parameter("coeffs", Annotation(Type.array(y.dtype, (N // 2,)), "i")),
+            Parameter("x", Annotation(metadata, "o")),
+            Parameter("y", Annotation(metadata, "i")),
+            Parameter(
+                "x0", Annotation(ArrayMetadata((*metadata.shape[:-1], 1), metadata.dtype), "i")
+            ),
+            Parameter("coeffs", Annotation(ArrayMetadata(size // 2, metadata.dtype), "i")),
         ],
         """
         ${y.ctype} y = ${y.load_same};
@@ -472,61 +538,68 @@ def get_prepare_iprfft_output(y):
         ${x.store_same}(x);
         """,
         connectors=["y"],
-        render_kwds=dict(N=N),
+        render_kwds=dict(N=size),
     )
 
 
 class IAPRFFT(Computation):
-    """
-    IFFT of a real antiperiodic signal (x[k] = -x[N/2+k]).
-    """
+    """IFFT of a real antiperiodic signal (x[k] = -x[N/2+k])."""
 
-    def __init__(self, arr_t):
-        out_arr = Type.array(
-            dtypes.real_for(arr_t.dtype), arr_t.shape[:-1] + (arr_t.shape[-1] * 2,)
+    def __init__(self, arr: AsArrayMetadata):
+        metadata = arr.as_array_metadata()
+        out_arr = ArrayMetadata(
+            (*metadata.shape[:-1], metadata.shape[-1] * 2), dtypes.real_for(metadata.dtype)
         )
 
         Computation.__init__(
             self,
             [
                 Parameter("output", Annotation(out_arr, "o")),
-                Parameter("input", Annotation(arr_t, "i")),
+                Parameter("input", Annotation(metadata, "i")),
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, output, input_):
+    def _build_plan(
+        self,
+        plan_factory: Callable[[], ComputationPlan],
+        _device_params: DeviceParameters,
+        args: KernelArguments,
+    ) -> ComputationPlan:
         plan = plan_factory()
 
-        N = input_.shape[-1] * 4
-        batch_shape = input_.shape[:-1]
-        batch_size = helpers.product(batch_shape)
+        input_ = args.input
+        output = args.output
+
+        size = input_.shape[-1] * 4
 
         # The first element is unused
         coeffs = numpy.concatenate(
-            [[0], 1 / (4 * numpy.sin(2 * numpy.pi * numpy.arange(1, N // 2) / N))]
+            [[0], 1 / (4 * numpy.sin(2 * numpy.pi * numpy.arange(1, size // 2) / size))]
         ).astype(numpy.float32)
         coeffs_arr = plan.persistent_array(coeffs)
 
         prepare_iprfft_input = get_prepare_iprfft_input(input_)
         prepare_iprfft_output = get_prepare_iprfft_output(output)
 
-        irfft = IRFFT(prepare_iprfft_input.Y)
+        irfft = IRFFT(prepare_iprfft_input.parameter.y_fft)
         irfft.parameter.input.connect(
-            prepare_iprfft_input, prepare_iprfft_input.Y, X=prepare_iprfft_input.X
+            prepare_iprfft_input,
+            prepare_iprfft_input.parameter.y_fft,
+            x_fft=prepare_iprfft_input.parameter.x_fft,
         )
         irfft.parameter.output.connect(
             prepare_iprfft_output,
-            prepare_iprfft_output.y,
-            x=prepare_iprfft_output.x,
-            x0=prepare_iprfft_output.x0,
-            coeffs=prepare_iprfft_output.coeffs,
+            prepare_iprfft_output.parameter.y,
+            x=prepare_iprfft_output.parameter.x,
+            x0=prepare_iprfft_output.parameter.x0,
+            coeffs=prepare_iprfft_output.parameter.coeffs,
         )
 
         real = Transformation(
             [
                 Parameter(
                     "output",
-                    Annotation(Type.array(dtypes.real_for(input_.dtype), input_.shape), "o"),
+                    Annotation(ArrayMetadata(input_.shape, dtypes.real_for(input_.dtype)), "o"),
                 ),
                 Parameter("input", Annotation(input_, "i")),
             ],
@@ -536,9 +609,9 @@ class IAPRFFT(Computation):
             connectors=["output"],
         )
 
-        rd_t = Type.array(output.dtype, input_.shape)
+        rd_t = ArrayMetadata(input_.shape, output.dtype)
         rd = Reduce(rd_t, predicate_sum(rd_t.dtype), axes=(len(input_.shape) - 1,))
-        rd.parameter.input.connect(real, real.output, X=real.input)
+        rd.parameter.input.connect(real, real.parameter.output, x_fft=real.parameter.input)
 
         x0 = plan.temp_array_like(rd.parameter.output)
 
@@ -551,84 +624,90 @@ class IAPRFFT(Computation):
 # Tests
 
 
-def test_rfft(queue):
-    N = 1024
-    a = numpy.random.normal(size=N).astype(numpy.float32)
+def test_rfft(queue: Queue) -> None:
+    size = 1024
+    rng = numpy.random.default_rng()
+    a = rng.normal(size=size).astype(numpy.float32)
+    a_dev = Array.from_host(queue, a)
 
-    rfft = RFFT(a).compile(queue.device)
+    rfft = RFFT(a_dev).compile(queue.device)
 
     fa_numpy = numpy.fft.rfft(a)
     fa_ref = rfft_reference(a)
 
-    a_dev = Array.from_host(queue, a)
     fa_gpu = Array.empty_like(queue.device, rfft.parameter.output)
     rfft(queue, fa_gpu, a_dev)
 
-    assert numpy.allclose(fa_numpy, fa_ref)
-    assert numpy.allclose(fa_numpy, fa_gpu.get(queue), atol=1e-4, rtol=1e-4)
+    assert numpy.allclose(fa_numpy, fa_ref)  # noqa: S101
+    assert numpy.allclose(fa_numpy, fa_gpu.get(queue), atol=1e-4, rtol=1e-4)  # noqa: S101
 
 
-def test_irfft(queue):
-    N = 1024
-    fa = (numpy.random.normal(size=N // 2 + 1) + 1j * numpy.random.normal(size=N // 2 + 1)).astype(
+def test_irfft(queue: Queue) -> None:
+    size = 1024
+    rng = numpy.random.default_rng()
+    fa = (rng.normal(size=size // 2 + 1) + 1j * rng.normal(size=size // 2 + 1)).astype(
         numpy.complex64
     )
+    fa_dev = Array.from_host(queue, fa)
 
-    irfft = IRFFT(fa).compile(queue.device)
+    irfft = IRFFT(fa_dev).compile(queue.device)
 
     a_numpy = numpy.fft.irfft(fa)
     a_ref = irfft_reference(fa)
 
-    fa_dev = Array.from_host(queue, fa)
     a_gpu = Array.empty_like(queue.device, irfft.parameter.output)
     irfft(queue, a_gpu, fa_dev)
 
-    assert numpy.allclose(a_numpy, a_ref)
-    assert numpy.allclose(a_numpy, a_gpu.get(queue), atol=1e-4, rtol=1e-4)
+    assert numpy.allclose(a_numpy, a_ref)  # noqa: S101
+    assert numpy.allclose(a_numpy, a_gpu.get(queue), atol=1e-4, rtol=1e-4)  # noqa: S101
 
 
-def test_aprfft(queue):
-    N = 1024
-    half_a = numpy.random.normal(size=N // 2).astype(numpy.float32)
+def test_aprfft(queue: Queue) -> None:
+    size = 1024
+    rng = numpy.random.default_rng()
+    half_a = rng.normal(size=size // 2).astype(numpy.float32)
     a = numpy.concatenate([half_a, -half_a])
 
-    aprfft = APRFFT(half_a).compile(queue.device)
+    half_a_dev = Array.from_host(queue, half_a)
+
+    aprfft = APRFFT(half_a_dev).compile(queue.device)
 
     fa_numpy = numpy.fft.rfft(a)[1::2]
     fa_ref = aprfft_reference(half_a)
 
-    half_a_dev = Array.from_host(queue, half_a)
     fa_dev = Array.empty_like(queue.device, aprfft.parameter.output)
     aprfft(queue, fa_dev, half_a_dev)
 
-    assert numpy.allclose(fa_numpy, fa_ref)
-    assert numpy.allclose(fa_numpy, fa_dev.get(queue), atol=1e-4, rtol=1e-4)
+    assert numpy.allclose(fa_numpy, fa_ref)  # noqa: S101
+    assert numpy.allclose(fa_numpy, fa_dev.get(queue), atol=1e-4, rtol=1e-4)  # noqa: S101
 
 
-def test_iaprfft(queue):
-    N = 1024
-    fa_odd_harmonics = (
-        numpy.random.normal(size=N // 4) + 1j * numpy.random.normal(size=N // 4)
-    ).astype(numpy.complex64)
+def test_iaprfft(queue: Queue) -> None:
+    size = 1024
+    rng = numpy.random.default_rng()
+    fa_odd_harmonics = (rng.normal(size=size // 4) + 1j * rng.normal(size=size // 4)).astype(
+        numpy.complex64
+    )
 
-    fa = numpy.zeros(N // 2 + 1, fa_odd_harmonics.dtype)
+    fa = numpy.zeros(size // 2 + 1, fa_odd_harmonics.dtype)
     fa[1::2] = fa_odd_harmonics
 
-    iaprfft = IAPRFFT(fa_odd_harmonics).compile(queue.device)
+    fa_oh_dev = Array.from_host(queue, fa_odd_harmonics)
 
-    half_a_numpy = numpy.fft.irfft(fa)[: N // 2]
+    iaprfft = IAPRFFT(fa_oh_dev).compile(queue.device)
+
+    half_a_numpy = numpy.fft.irfft(fa)[: size // 2]
     half_a_ref = iaprfft_reference(fa_odd_harmonics)
 
-    fa_oh_dev = Array.from_host(queue, fa_odd_harmonics)
     half_a_dev = Array.empty_like(queue.device, iaprfft.parameter.output)
     iaprfft(queue, half_a_dev, fa_oh_dev)
 
-    assert numpy.allclose(half_a_numpy, half_a_ref, atol=1e-4, rtol=1e-4)
-    assert numpy.allclose(half_a_numpy, half_a_dev.get(queue), atol=1e-4, rtol=1e-4)
+    assert numpy.allclose(half_a_numpy, half_a_ref, atol=1e-4, rtol=1e-4)  # noqa: S101
+    assert numpy.allclose(half_a_numpy, half_a_dev.get(queue), atol=1e-4, rtol=1e-4)  # noqa: S101
 
 
 if __name__ == "__main__":
-    context = Context.from_devices([any_api.platforms[0].devices[0]])
+    context = Context.from_devices([API.any().platforms[0].devices[0]])
     queue = Queue(context.device)
 
     test_rfft(queue)

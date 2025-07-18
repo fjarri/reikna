@@ -1,14 +1,23 @@
-from grunnur import Snippet
+from collections.abc import Callable, Iterable, Mapping
+from typing import Any
+
+from grunnur import DefTemplate, DeviceParameters, Snippet
 
 from .. import helpers
-from ..core import Annotation, Computation, Indices, Parameter
+from ..core import (
+    Annotation,
+    Computation,
+    ComputationPlan,
+    Indices,
+    KernelArguments,
+    Parameter,
+    Transformation,
+)
 from ..core.transformation import TransformationParameter
 
 
 class PureParallel(Computation):
     """
-    Bases: :py:class:`~reikna.core.Computation`
-
     A general class for pure parallel computations
     (i.e. with no interaction between threads).
 
@@ -31,7 +40,13 @@ class PureParallel(Computation):
         :param args: corresponds to the given ``parameters``.
     """
 
-    def __init__(self, parameters, code, guiding_array=None, render_kwds={}):
+    def __init__(
+        self,
+        parameters: Iterable[Parameter],
+        code: Snippet | str,
+        guiding_array: str | tuple[int, ...] | None = None,
+        render_kwds: Mapping[str, Any] = {},
+    ):
         Computation.__init__(self, parameters)
 
         self._root_parameters = list(self.signature.parameters.keys())
@@ -40,28 +55,30 @@ class PureParallel(Computation):
             self._snippet = code
         else:
             self._snippet = Snippet(
-                helpers.template_def(["idxs"] + self._root_parameters, code),
+                DefTemplate.from_string(
+                    "pure_parallel_inner", ["idxs", *self._root_parameters], code
+                ),
                 render_globals=render_kwds,
             )
 
         if guiding_array is None:
             guiding_array = self._root_parameters[0]
-
         if isinstance(guiding_array, str):
-            self._guiding_shape = self.signature.parameters[guiding_array].annotation.type.shape
+            self._guiding_shape = self.signature.parameters[guiding_array].annotation.shape
         else:
             self._guiding_shape = guiding_array
 
     @classmethod
-    def from_trf(cls, trf, guiding_array=None):
+    def from_trf(
+        cls, trf: Transformation, guiding_array: str | TransformationParameter | None = None
+    ) -> "PureParallel":
         """
         Creates a ``PureParallel`` instance from a :py:class:`~reikna.core.Transformation` object.
         ``guiding_array`` can be a string with a name of an array parameter from ``trf``,
         or the corresponding :py:class:`~reikna.core.transformation.TransformationParameter` object.
         """
-
         if guiding_array is None:
-            guiding_array = list(trf.signature.parameters.keys())[0]
+            guiding_array = next(iter(trf.signature.parameters.keys()))
 
         if isinstance(guiding_array, TransformationParameter):
             if not guiding_array.belongs_to(trf):
@@ -71,7 +88,7 @@ class PureParallel(Computation):
             guiding_array = str(guiding_array)
 
         guiding_param = trf.signature.parameters[guiding_array]
-        if not guiding_param.annotation.array:
+        if not guiding_param.annotation.is_array():
             raise ValueError("The parameter serving as a guiding array cannot be a scalar")
 
         # Transformation snippet is the same as required for PureParallel
@@ -82,15 +99,20 @@ class PureParallel(Computation):
         # (e.g. creating a trivial computation and attaching this transformation to it
         # will either produce incorrect parameter order, or will require the usage of an
         # 'io' parameter, which has its own complications).
-        # FIXME: find a solution which does not create an implicit dependence on
+        # TODO: find a solution which does not create an implicit dependence on
         # the way transformations are handled.
-        res = cls(
-            list(trf.signature.parameters.values()), trf.snippet, guiding_array=guiding_param.name
+        return cls(
+            trf.signature._reikna_parameters.values(),  # noqa: SLF001
+            trf.snippet,
+            guiding_array=guiding_param.name,
         )
 
-        return res
-
-    def _build_plan(self, plan_factory, _device_params, *args):
+    def _build_plan(
+        self,
+        plan_factory: Callable[[], ComputationPlan],
+        _device_params: DeviceParameters,
+        args: KernelArguments,
+    ) -> ComputationPlan:
         plan = plan_factory()
 
         # Using root_parameters to avoid duplicated names
@@ -99,8 +121,9 @@ class PureParallel(Computation):
         arglist = ", ".join(self._root_parameters)
         idxs = Indices(self._guiding_shape)
 
-        template = helpers.template_def(
-            ["kernel_declaration"] + self._root_parameters,
+        template = DefTemplate.from_string(
+            "pure_parallel",
+            ["kernel_declaration", *self._root_parameters],
             """
             ${kernel_declaration}
             {
@@ -119,7 +142,7 @@ class PureParallel(Computation):
 
         plan.kernel_call(
             template,
-            args,
+            args.all(),
             kernel_name="kernel_pure_parallel",
             global_size=(1,) if len(self._guiding_shape) == 0 else self._guiding_shape,
             render_kwds=dict(idxs=idxs, product=helpers.product, snippet=self._snippet),

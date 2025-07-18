@@ -3,27 +3,26 @@ import time
 
 import numpy
 import pytest
-from grunnur import Array, StaticKernel, dtypes
+from grunnur import Array, ArrayMetadata, StaticKernel, dtypes
 from scipy.special import iv
 
-from helpers import *
+from helpers import diff_is_negligible, get_test_array
 from reikna.cbrng import CBRNG
 from reikna.cbrng.bijections import philox, threefry
 from reikna.cbrng.samplers import gamma, normal_bm, uniform_float, uniform_integer, vonmises
 from reikna.cbrng.tools import KeyGenerator
-from reikna.core import Type
 from reikna.helpers import product
 
 from .cbrng_ref import philox as philox_ref
 from .cbrng_ref import threefry as threefry_ref
 
 
-def uniform_discrete_mean_and_std(min, max):
-    return (min + max) / 2.0, numpy.sqrt(((max - min + 1) ** 2 - 1.0) / 12)
+def uniform_discrete_mean_and_std(a, b):
+    return (a + b) / 2.0, numpy.sqrt(((b - a + 1) ** 2 - 1.0) / 12)
 
 
-def uniform_mean_and_std(min, max):
-    return (min + max) / 2.0, (max - min) / numpy.sqrt(12)
+def uniform_mean_and_std(a, b):
+    return (a + b) / 2.0, (b - a) / numpy.sqrt(12)
 
 
 class UniformIntegerHelper:
@@ -102,10 +101,7 @@ class VonMisesHelper:
 class BijectionHelper:
     def __init__(self, name, words, bitness):
         rounds = 20 if name == "threefry" else 10
-        if name == "philox":
-            bijection_func = philox
-        else:
-            bijection_func = threefry
+        bijection_func = philox if name == "philox" else threefry
         self._name = name
         self._words = words
         self._bitness = bitness
@@ -113,7 +109,7 @@ class BijectionHelper:
         self.bijection = bijection_func(bitness, words, rounds=rounds)
 
         func = philox_ref if name == "philox" else threefry_ref
-        self._reference_func = lambda ctr, key: func(bitness, words, ctr, key, Nrounds=rounds)
+        self._reference_func = lambda ctr, key: func(bitness, words, ctr, key, rounds=rounds)
 
     def reference(self, counters, keygen):
         result = numpy.empty_like(counters)
@@ -122,9 +118,7 @@ class BijectionHelper:
         return result
 
     def __str__(self):
-        return "{name}-{words}x{bitness}-{rounds}".format(
-            name=self._name, words=self._words, bitness=self._bitness, rounds=self._rounds
-        )
+        return f"{self._name}-{self._words}x{self._bitness}-{self._rounds}"
 
 
 def pytest_generate_tests(metafunc):
@@ -263,10 +257,8 @@ def check_distribution(arr, ref):
     if circular_mean is not None and circular_var is not None:
         z = numpy.exp(1j * arr)
         arr_cmean = numpy.angle(z.mean())
-        arr_R = numpy.abs(z.mean())
-        arr_cvar = 1 - arr_R
 
-        # FIXME: need a valid mathematical formula for the standard error of the mean
+        # TODO: need a valid mathematical formula for the standard error of the mean
         # for circular distributions.
         # Currently it is just a rough estimate.
         m_std = circular_var**0.5 / numpy.sqrt(arr.size)
@@ -275,7 +267,6 @@ def check_distribution(arr, ref):
 
     if mean is not None and std is not None:
         # expected mean and std of the mean of the sample array
-        m_mean = mean
         m_std = std / numpy.sqrt(arr.size)
 
         diff = abs(arr.mean() - mean)
@@ -314,7 +305,7 @@ def test_kernel_sampler_int(queue, test_sampler_int):
 def test_kernel_sampler_float(queue, test_sampler_float):
     bijection = philox(64, 4)
     check_kernel_sampler(
-        queue, test_sampler_float.get_sampler(bijection, False), test_sampler_float
+        queue, test_sampler_float.get_sampler(bijection, double=False), test_sampler_float
     )
 
 
@@ -335,9 +326,9 @@ def test_computation_general(queue):
 
     bijection = philox(64, 4)
     ref = NormalBMHelper(mean=-2, std=10)
-    sampler = ref.get_sampler(bijection, False)
+    sampler = ref.get_sampler(bijection, double=False)
 
-    rng = CBRNG(Type.array(sampler.dtype, shape=(batch, size)), 1, sampler)
+    rng = CBRNG(ArrayMetadata((batch, size), sampler.dtype), 1, sampler)
     check_computation(queue, rng, ref)
 
 
@@ -347,7 +338,7 @@ def test_computation_convenience(queue):
 
     ref = UniformIntegerHelper(0, 511)
     rng = CBRNG.uniform_integer(
-        Type.array(numpy.int32, shape=(batch, size)),
+        ArrayMetadata((batch, size), numpy.int32),
         1,
         sampler_kwds=dict(low=ref.extent[0], high=ref.extent[1]),
     )
@@ -355,14 +346,11 @@ def test_computation_convenience(queue):
 
 
 def test_computation_uniqueness(queue):
-    """
-    A regression test for the bug with a non-updating counter.
-    """
-
+    """A regression test for the bug with a non-updating counter."""
     size = 10000
     batch = 1
 
-    rng = CBRNG.normal_bm(Type.array(numpy.complex64, shape=(batch, size)), 1)
+    rng = CBRNG.normal_bm(ArrayMetadata((batch, size), numpy.complex64), 1)
 
     dest1_dev = Array.empty_like(queue.device, rng.parameter.randoms)
     dest2_dev = Array.empty_like(queue.device, rng.parameter.randoms)
@@ -383,9 +371,9 @@ def test_computation_performance(queue, fast_math, test_sampler_float):
     batch = 2**6
 
     bijection = philox(64, 4)
-    sampler = test_sampler_float.get_sampler(bijection, False)
+    sampler = test_sampler_float.get_sampler(bijection, double=False)
 
-    rng = CBRNG(Type.array(sampler.dtype, shape=(batch, size)), 1, sampler)
+    rng = CBRNG(ArrayMetadata((batch, size), sampler.dtype), 1, sampler)
 
     dest_dev = Array.empty_like(queue.device, rng.parameter.randoms)
     counters = rng.create_counters()
@@ -394,7 +382,7 @@ def test_computation_performance(queue, fast_math, test_sampler_float):
 
     attempts = 10
     times = []
-    for i in range(attempts):
+    for _ in range(attempts):
         t1 = time.time()
         rngc(queue, counters_dev, dest_dev)
         queue.synchronize()

@@ -57,7 +57,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 intersphinx_mapping = {
     "numpy": ("https://numpy.org/doc/2.0", None),
     "python": ("https://docs.python.org/3", None),
-    "grunnur": ("https://grunnur.readthedocs.io/en/v0.4.0/", None),
+    "grunnur": ("https://grunnur.readthedocs.io/en/v0.6.0/", None),
 }
 
 # -- Options for HTML output -------------------------------------------------

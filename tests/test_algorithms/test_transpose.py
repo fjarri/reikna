@@ -4,7 +4,7 @@ import numpy
 import pytest
 from grunnur import Array
 
-from helpers import *
+from helpers import diff_is_negligible, get_test_array
 from reikna.algorithms import Transpose
 
 
@@ -16,7 +16,6 @@ def pytest_generate_tests(metafunc):
             3: [(13, 33, 1029), (77, 55, 33)],
             4: [(11, 13, 19, 31), (35, 4, 57, 8)],
         }
-        size_limit = 2**20
 
         axes = [None, (1, 0), (1, 0, 2), (2, 0, 1), (2, 3, 0, 1), (0, 3, 1, 2)]
 
@@ -37,7 +36,7 @@ def test_errors(queue, shape_and_axes):
     a_dev = Array.from_host(queue, a)
     res_ref = numpy.transpose(a, axes)
 
-    tr = Transpose(a, axes=axes)
+    tr = Transpose(a_dev, axes=axes)
     res_dev = Array.empty_like(queue.device, tr.parameter.output)
 
     tr = tr.compile(queue.device)
