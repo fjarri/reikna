@@ -1,10 +1,11 @@
-import grunnur.dtypes as dtypes
-import grunnur.functions as functions
+from typing import Callable
+
 import numpy
+from grunnur import AsArrayMetadata, DeviceParameters, dtypes, functions
 
 from . import transformations
 from .algorithms import PureParallel
-from .core import Annotation, Computation, Parameter, Type
+from .core import Annotation, Computation, ComputationPlan, KernelArguments, Parameter, Type
 
 
 def normalize_value(thr, gpu_array_type, val):
@@ -19,7 +20,7 @@ def normalize_value(thr, gpu_array_type, val):
     elif isinstance(val, numpy.ndarray):
         return thr.to_device(val), True
     else:
-        dtype = dtypes.detect_type(val)
+        dtype = dtypes.min_scalar_type(val)
         return numpy.asarray(val, dtype), False
 
 
@@ -31,13 +32,15 @@ def setitem_computation(dest, source, is_array):
     if is_array:
         source_dt = Type.from_value(source).with_dtype(dest.dtype)
         trf = transformations.copy(source_dt, dest)
-        comp = PureParallel.from_trf(trf, guiding_array=trf.output)
+        comp = PureParallel.from_trf(trf, guiding_array=trf.parameter.output)
         cast_trf = transformations.cast(source, dest.dtype)
-        comp.parameter.input.connect(cast_trf, cast_trf.output, src_input=cast_trf.input)
+        comp.parameter.input.connect(
+            cast_trf, cast_trf.parameter.output, src_input=cast_trf.parameter.input
+        )
         return comp
     else:
         trf = transformations.broadcast_param(dest)
-        return PureParallel.from_trf(trf, guiding_array=trf.output)
+        return PureParallel.from_trf(trf, guiding_array=trf.parameter.output)
 
 
 def setitem_method(array, index, value):
@@ -95,7 +98,7 @@ def concatenate(arrays, axis=0, out=None):
     for array in arrays[1:]:
         if not is_shape_compatible(template_shape, array.shape, axis):
             raise ValueError(
-                "Shapes are not compatible: " + str(template_shape) + " and " + str(shape)
+                "Shapes are not compatible: " + str(template_shape) + " and " + str(array.shape)
             )
 
     out_shape = list(template_shape)
@@ -124,7 +127,8 @@ def concatenate(arrays, axis=0, out=None):
     return out
 
 
-def roll_computation(array, axis):
+def roll_computation(array: AsArrayMetadata, axis: int) -> PureParallel:
+    array = array.as_array_metadata()
     return PureParallel(
         [
             Parameter("output", Annotation(array, "o")),
@@ -158,24 +162,32 @@ def roll_computation(array, axis):
 
 
 class RollInplace(Computation):
-    def __init__(self, array, axis):
+    def __init__(self, array: AsArrayMetadata, axis: int):
         self._axis = axis
         Computation.__init__(
             self,
             [
-                Parameter("array", Annotation(array, "io")),
+                Parameter("array", Annotation(array.as_array_metadata(), "io")),
                 Parameter("shift", Annotation(Type.scalar(numpy.int32))),
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, array, shift):
+    def _build_plan(
+        self,
+        plan_factory: Callable[[], ComputationPlan],
+        device_params: DeviceParameters,
+        args: KernelArguments,
+    ) -> ComputationPlan:
         plan = plan_factory()
+
+        array = args.array
+        shift = args.shift
 
         temp = plan.temp_array_like(array)
         plan.computation_call(roll_computation(array, self._axis), temp, array, shift)
 
         tr = transformations.copy(temp, out_arr_t=array)
-        copy_comp = PureParallel.from_trf(tr, guiding_array=tr.output)
+        copy_comp = PureParallel.from_trf(tr, guiding_array=tr.parameter.output)
         plan.computation_call(copy_comp, array, temp)
 
         return plan

@@ -71,9 +71,10 @@ def check_scan(
         predicate = predicate_sum(dtype)
 
     arr = get_test_array(shape, dtype)
+    arr_dev = Array.from_host(queue, arr)
 
     scan = Scan(
-        arr,
+        arr_dev,
         predicate,
         axes=axes,
         exclusive=exclusive,
@@ -81,7 +82,6 @@ def check_scan(
         seq_size=seq_size,
     ).compile(queue.device)
 
-    arr_dev = Array.from_host(queue, arr)
     res_dev = Array.from_host(queue, numpy.ones_like(arr) * (-1))
     queue.synchronize()
 

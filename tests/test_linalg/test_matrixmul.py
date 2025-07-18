@@ -2,7 +2,7 @@ import time
 
 import numpy
 import pytest
-from grunnur import Array, dtypes
+from grunnur import Array, ArrayMetadata, dtypes
 
 from helpers import *
 from reikna.helpers import product
@@ -98,7 +98,7 @@ def check_errors(queue, a_shape, a_dtype, b_shape, b_dtype, transposed_a=False, 
     res_dev = Array.empty_like(queue.device, res_ref)
 
     dot = MatrixMul(
-        a_dev, b_dev, out_arr=res_dev, transposed_a=transposed_a, transposed_b=transposed_b
+        a_dev, b_dev, out_arr_t=res_dev, transposed_a=transposed_a, transposed_b=transposed_b
     )
     dotc = dot.compile(queue.device)
     dotc(queue, res_dev, a_dev, b_dev)
@@ -153,8 +153,8 @@ def test_dtypes(queue, arg_dtypes):
 
 
 def test_out_arr_shape():
-    a = numpy.empty((1, 22, 33), numpy.float32)
-    b = numpy.empty((2, 3, 33, 44), numpy.float32)
+    a = ArrayMetadata((1, 22, 33), numpy.float32)
+    b = ArrayMetadata((2, 3, 33, 44), numpy.float32)
     dot = MatrixMul(a, b)
     assert dot.parameter.output.shape == (2, 3, 22, 44)
 
@@ -181,7 +181,7 @@ def check_performance(queue, perf_shape, bwo=None, transposed_a=False, transpose
     dot = MatrixMul(
         a_dev,
         b_dev,
-        out_arr=res_dev,
+        out_arr_t=res_dev,
         block_width_override=bwo,
         transposed_a=transposed_a,
         transposed_b=transposed_b,

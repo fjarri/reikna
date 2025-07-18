@@ -23,8 +23,10 @@ class Dummy(Computation):
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, output):
+    def _build_plan(self, plan_factory, device_params, args):
         plan = plan_factory()
+
+        output = args.output
 
         template = Template.from_string("""
         <%def name="dummy(kernel_declaration, output, arr1, arr2)">
@@ -61,8 +63,9 @@ class DummyOuter(Computation):
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, output):
+    def _build_plan(self, plan_factory, device_params, args):
         plan = plan_factory()
+        output = args.output
         dummy = Dummy(self._arr1.shape[0], self._arr1, self._arr2)
         plan.computation_call(dummy, output)
         return plan

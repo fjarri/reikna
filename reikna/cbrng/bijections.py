@@ -1,12 +1,19 @@
+from __future__ import annotations
+
+from typing import Any, Callable
+
 import numpy
 from grunnur import Module, Template, dtypes
+from numpy.typing import NDArray
 
 import reikna.helpers as helpers
 
 TEMPLATE = Template.from_associated_file(__file__)
 
 
-def create_struct_types(word_dtype, key_words, counter_words):
+def create_struct_types(
+    word_dtype: numpy.dtype[Any], key_words: int, counter_words: int
+) -> tuple[numpy.dtype[Any], str | Module, numpy.dtype[Any], str | Module]:
     key_dtype = dtypes.align(numpy.dtype([("v", (word_dtype, (key_words,)))]))
     key_ctype = dtypes.ctype(key_dtype)
 
@@ -118,14 +125,21 @@ class Bijection:
         Returns uniformly distributed unsigned 64-bit word and updates the state.
     """
 
-    def __init__(self, module, word_dtype, key_dtype, counter_dtype):
+    def __init__(
+        self,
+        module: Module,
+        word_dtype: numpy.dtype[Any],
+        key_dtype: numpy.dtype[Any],
+        counter_dtype: numpy.dtype[Any],
+    ):
         """__init__()"""  # hide the signature from Sphinx
 
         self.module = module
         self.word_dtype = word_dtype
 
-        self.key_words = key_dtype.fields["v"][0].shape[0]
-        self.counter_words = counter_dtype.fields["v"][0].shape[0]
+        # TODO: can we make this typeable?
+        self.key_words = key_dtype.fields["v"][0].shape[0]  # type: ignore[index]
+        self.counter_words = counter_dtype.fields["v"][0].shape[0]  # type: ignore[index]
 
         self.counter_dtype = counter_dtype
         self.key_dtype = key_dtype
@@ -139,11 +153,11 @@ class Bijection:
             numpy.dtype("uint64"): "get_raw_uint64",
         }
 
-    def __process_modules__(self, process):
+    def __process_modules__(self, process: Callable[[Module], Module]) -> "Bijection":
         return Bijection(process(self.module), self.word_dtype, self.key_dtype, self.counter_dtype)
 
 
-def threefry(bitness, counter_words, rounds=20):
+def threefry(bitness: int, counter_words: int, rounds: int = 20) -> Bijection:
     """
     A CBRNG based on a big number of fast rounds (bit rotations).
 
@@ -204,6 +218,8 @@ def threefry(bitness, counter_words, rounds=20):
     PARITY_CONSTANTS = {64: numpy.uint64(0x1BD11BDAA9FC1A22), 32: numpy.uint32(0x1BD11BDA)}
 
     assert 1 <= rounds <= 72
+    assert bitness in (32, 64)
+    assert counter_words in (2, 4)
 
     word_dtype = numpy.dtype("uint32") if bitness == 32 else numpy.dtype("uint64")
     key_words = counter_words
@@ -230,7 +246,7 @@ def threefry(bitness, counter_words, rounds=20):
     return Bijection(module, word_dtype, key_dtype, counter_dtype)
 
 
-def philox(bitness, counter_words, rounds=10):
+def philox(bitness: int, counter_words: int, rounds: int = 10) -> Bijection:
     """
     A CBRNG based on a low number of slow rounds (multiplications).
 
@@ -260,6 +276,9 @@ def philox(bitness, counter_words, rounds=10):
     }
 
     assert 1 <= rounds <= 12
+    assert bitness in (32, 64)
+    assert counter_words in (2, 4)
+
     word_dtype = numpy.dtype("uint32") if bitness == 32 else numpy.dtype("uint64")
     key_words = counter_words // 2
     key_dtype, key_ctype, counter_dtype, counter_ctype = create_struct_types(

@@ -1,9 +1,11 @@
+from typing import Callable, Iterable
+
 import numpy
-from grunnur import Template, dtypes
+from grunnur import AsArrayMetadata, DeviceParameters, Template, dtypes
 
 from .. import helpers
 from ..algorithms import PureParallel
-from ..core import Annotation, Computation, Parameter
+from ..core import Annotation, Computation, ComputationPlan, KernelArguments, Parameter
 from ..transformations import copy
 
 TEMPLATE = Template.from_associated_file(__file__)
@@ -32,39 +34,54 @@ class FFTShift(Computation):
             if ``1``, the inverse one (equivalent of ``numpy.fft.ifftshift``).
     """
 
-    def __init__(self, arr_t, axes=None):
+    def __init__(self, arr_t: AsArrayMetadata, axes: Iterable[int] | None = None):
+        arr = arr_t.as_array_metadata()
         Computation.__init__(
             self,
             [
-                Parameter("output", Annotation(arr_t, "o")),
-                Parameter("input", Annotation(arr_t, "i")),
+                Parameter("output", Annotation(arr, "o")),
+                Parameter("input", Annotation(arr, "i")),
                 Parameter("inverse", Annotation(numpy.int32), default=0),
             ],
         )
 
         if axes is None:
-            axes = tuple(range(len(arr_t.shape)))
+            axes = tuple(range(len(arr.shape)))
         else:
             axes = tuple(axes)
         self._axes = axes
 
-    def _build_trivial_plan(self, plan_factory, output, input_):
+    def _build_trivial_plan(
+        self, plan_factory: Callable[[], ComputationPlan], args: KernelArguments
+    ) -> ComputationPlan:
         # Trivial problem. Need to add a dummy kernel
         # because we still have to run transformations.
 
         plan = plan_factory()
 
+        output = args.output
+        input_ = args.input
+
         copy_trf = copy(input_, out_arr_t=output)
-        copy_comp = PureParallel.from_trf(copy_trf, copy_trf.input)
+        copy_comp = PureParallel.from_trf(copy_trf, copy_trf.parameter.input)
         plan.computation_call(copy_comp, output, input_)
 
         return plan
 
-    def _build_plan(self, plan_factory, device_params, output, input_, inverse):
-        if helpers.product([input_.shape[i] for i in self._axes]) == 1:
-            return self._build_trivial_plan(plan_factory, output, input_)
+    def _build_plan(
+        self,
+        plan_factory: Callable[[], ComputationPlan],
+        device_params: DeviceParameters,
+        args: KernelArguments,
+    ) -> ComputationPlan:
+        if helpers.product([args.input.shape[i] for i in self._axes]) == 1:
+            return self._build_trivial_plan(plan_factory, args)
 
         plan = plan_factory()
+
+        output = args.output
+        input_ = args.input
+        inverse = args.inverse
 
         axes = tuple(sorted(self._axes))
         shape = list(input_.shape)
@@ -93,7 +110,7 @@ class FFTShift(Computation):
             )
 
             copy_trf = copy(input_, out_arr_t=output)
-            copy_comp = PureParallel.from_trf(copy_trf, copy_trf.input)
+            copy_comp = PureParallel.from_trf(copy_trf, copy_trf.parameter.input)
             plan.computation_call(copy_comp, output, temp)
 
         return plan

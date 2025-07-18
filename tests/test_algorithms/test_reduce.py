@@ -7,7 +7,6 @@ from grunnur import Array, Snippet, dtypes
 
 from helpers import *
 from reikna.algorithms import Predicate, Reduce, predicate_sum
-from reikna.helpers import template_def
 
 shapes = [
     (2,),
@@ -34,7 +33,7 @@ def test_normal(queue, shape, axis):
     a = get_test_array(shape, numpy.int64)
     a_dev = Array.from_host(queue, a)
 
-    rd = Reduce(a, predicate_sum(numpy.int64), axes=(axis,) if axis is not None else None)
+    rd = Reduce(a_dev, predicate_sum(numpy.int64), axes=(axis,) if axis is not None else None)
 
     b_dev = Array.empty_like(queue.device, rd.parameter.output)
     b_ref = a.sum(axis, keepdims=True)
@@ -144,7 +143,7 @@ def test_summation(queue):
     a = get_test_array(perf_size, dtype)
     a_dev = Array.from_host(queue.device, a)
 
-    rd = Reduce(a, predicate_sum(dtype))
+    rd = Reduce(a_dev, predicate_sum(dtype))
 
     b_dev = Array.empty_like(queue.device, rd.parameter.output)
     b_ref = numpy.array([a.sum()], dtype)

@@ -1,7 +1,13 @@
+from __future__ import annotations
+
+from typing import Any, Callable
+
 import numpy
 from grunnur import Module, Template, dtypes, functions
 
 import reikna.helpers as helpers
+
+from .bijections import Bijection
 
 TEMPLATE = Template.from_associated_file(__file__)
 
@@ -47,7 +53,14 @@ class Sampler:
         Performs the sampling, updating the state.
     """
 
-    def __init__(self, bijection, module, dtype, randoms_per_call=1, deterministic=False):
+    def __init__(
+        self,
+        bijection: Bijection,
+        module: Module,
+        dtype: numpy.dtype[Any],
+        randoms_per_call: int = 1,
+        deterministic: bool = False,
+    ):
         """__init__()"""  # hide the signature from Sphinx
         self.randoms_per_call = randoms_per_call
         self.dtype = numpy.dtype(dtype)
@@ -55,7 +68,7 @@ class Sampler:
         self.bijection = bijection
         self.module = module
 
-    def __process_modules__(self, process):
+    def __process_modules__(self, process: Callable[[Any], Any]) -> Sampler:
         return Sampler(
             process(self.bijection),
             process(self.module),
@@ -65,7 +78,9 @@ class Sampler:
         )
 
 
-def uniform_integer(bijection, dtype, low, high=None):
+def uniform_integer(
+    bijection: Bijection, dtype: numpy.dtype[Any], low: int, high: int | None = None
+) -> Sampler:
     """
     Generates uniformly distributed integer numbers in the interval ``[low, high)``.
     If ``high`` is ``None``, the interval is ``[0, low)``.
@@ -91,6 +106,7 @@ def uniform_integer(bijection, dtype, low, high=None):
         assert high < 2 ** (dtype.itemsize * 8)
 
     num = high - low
+    raw_dtype: numpy.dtype[numpy.unsignedinteger[Any]]
     if num <= 2**32:
         raw_dtype = numpy.dtype("uint32")
     else:
@@ -118,7 +134,9 @@ def uniform_integer(bijection, dtype, low, high=None):
     return Sampler(bijection, module, dtype, deterministic=(max_num % num == 0))
 
 
-def uniform_float(bijection, dtype, low=0, high=1):
+def uniform_float(
+    bijection: Bijection, dtype: numpy.dtype[Any], low: float = 0, high: float = 1
+) -> Sampler:
     """
     Generates uniformly distributed floating-points numbers in the interval ``[low, high)``.
     Supported dtypes: ``float(32/64)``.
@@ -133,20 +151,27 @@ def uniform_float(bijection, dtype, low=0, high=1):
     raw_func = "get_raw_uint" + str(bitness)
     raw_max = dtypes.c_constant(2**bitness, dtype)
 
-    size = dtypes.c_constant(high - low, dtype)
-    low = dtypes.c_constant(low, dtype)
+    size_const = dtypes.c_constant(high - low, dtype)
+    low_const = dtypes.c_constant(low, dtype)
 
     module = Module(
         TEMPLATE.get_def("uniform_float"),
         render_globals=dict(
-            bijection=bijection, ctype=ctype, raw_func=raw_func, raw_max=raw_max, size=size, low=low
+            bijection=bijection,
+            ctype=ctype,
+            raw_func=raw_func,
+            raw_max=raw_max,
+            size=size_const,
+            low=low_const,
         ),
     )
 
     return Sampler(bijection, module, dtype, deterministic=True)
 
 
-def normal_bm(bijection, dtype, mean=0, std=1):
+def normal_bm(
+    bijection: Bijection, dtype: numpy.dtype[Any], mean: float = 0, std: float = 1
+) -> Sampler:
     """
     Generates normally distributed random numbers with the mean ``mean`` and
     the standard deviation ``std`` using Box-Muller transform.
@@ -197,7 +222,9 @@ def normal_bm(bijection, dtype, mean=0, std=1):
     )
 
 
-def gamma(bijection, dtype, shape=1, scale=1):
+def gamma(
+    bijection: Bijection, dtype: numpy.dtype[Any], shape: float = 1, scale: float = 1
+) -> Sampler:
     """
     Generates random numbers from the gamma distribution
 
@@ -230,7 +257,9 @@ def gamma(bijection, dtype, shape=1, scale=1):
     return Sampler(bijection, module, dtype)
 
 
-def vonmises(bijection, dtype, mu=0, kappa=1):
+def vonmises(
+    bijection: Bijection, dtype: numpy.dtype[Any], mu: float = 0, kappa: float = 1
+) -> Sampler:
     """
     Generates random numbers from the von Mises distribution
 

@@ -1,11 +1,27 @@
 import weakref
 from collections import namedtuple
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Sequence, cast
 
-from grunnur import Array, Buffer, StaticKernel, VirtualManager, cuda_api_id
+import numpy
+from grunnur import (
+    Array,
+    ArrayMetadata,
+    AsArrayMetadata,
+    Buffer,
+    Queue,
+    StaticKernel,
+    VirtualManager,
+    cuda_api_id,
+)
 
 from ..helpers import Graph
 from .signature import Annotation, Parameter, Signature, Type
 from .transformation import TransformationParameter, TransformationTree
+
+if TYPE_CHECKING:
+    from grunnur import BoundDevice, DefTemplate, DeviceParameters
+
+    from .transformation import Transformation
 
 
 class ComputationParameter(Type):
@@ -17,24 +33,31 @@ class ComputationParameter(Type):
     which are only interested in array metadata.
     """
 
-    def __init__(self, computation, name, type_):
+    def __init__(self, computation: "ComputationCallable | Computation", name: str, type_: Type):
         """__init__()"""  # hide the signature from Sphinx
 
         super().__init__(type_._metadata, type_.ctype)
         self._computation = weakref.ref(computation)
         self._name = name
 
-    def belongs_to(self, comp):
+    def belongs_to(self, comp: "ComputationCallable | Computation") -> bool:
         return self._computation() is comp
 
-    def connect(self, _trf, _tr_connector, **tr_from_comp):
+    def connect(
+        self,
+        _trf: "Transformation",
+        _tr_connector: TransformationParameter,
+        **tr_from_comp: TransformationParameter,
+    ) -> "Computation":
         """
         Shortcut for :py:meth:`~reikna.core.Computation.connect`
         with this parameter as a first argument.
         """
-        return self._computation().connect(self._name, _trf, _tr_connector, **tr_from_comp)
+        return cast(Computation, self._computation()).connect(
+            self._name, _trf, _tr_connector, **tr_from_comp
+        )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self._name
 
 
@@ -44,26 +67,28 @@ class Translator:
     Used to introduce parameter names from a nested computation to the parent namespace.
     """
 
-    def __init__(self, known_old, known_new, prefix):
+    def __init__(self, known_old: Sequence[str], known_new: Sequence[str], prefix: str):
         self._mapping = dict((old, new) for old, new in zip(known_old, known_new))
         self._prefix = prefix
 
-    def __call__(self, name):
+    def __call__(self, name: str) -> str:
         if name in self._mapping:
             return self._mapping[name]
         else:
             return (self._prefix + "_" if self._prefix != "" else "") + name
 
-    def get_nested(self, known_old, known_new, prefix):
+    def get_nested(
+        self, known_old: Sequence[str], known_new: Sequence[str], prefix: str
+    ) -> "Translator":
         """Returns a new ``Translator`` with an extended prefix."""
         return Translator(known_old, known_new, prefix + self._prefix)
 
     @classmethod
-    def identity(cls):
+    def identity(cls) -> "Translator":
         return cls([], [], "")
 
 
-def check_external_parameter_name(name):
+def check_external_parameter_name(name: str) -> None:
     """
     Checks that a user-supplied parameter name meets the special criteria.
     Basically, we do not want such names start with underscores
@@ -74,15 +99,21 @@ def check_external_parameter_name(name):
         raise ValueError("External parameter name cannot start with the underscore.")
 
 
-def make_parameter_container(parent, parameters):
+class ParameterContainer:
     """
-    Creates a convenience object with ``ComputationParameter`` attributes.
+    A convenience object with ``ComputationParameter`` attributes.
     """
-    params_container = namedtuple("ComputationParameters", [param.name for param in parameters])
-    param_objs = [
-        ComputationParameter(parent, param.name, param.annotation.type) for param in parameters
-    ]
-    return params_container(*param_objs)
+
+    def __init__(
+        self, parent: "ComputationCallable | Computation", parameters: Iterable[Parameter]
+    ):
+        self._param_objs = {
+            param.name: ComputationParameter(parent, param.name, param.annotation.type)
+            for param in parameters
+        }
+
+    def __getattr__(self, name: str) -> ComputationParameter:
+        return self._param_objs[name]
 
 
 class Computation:
@@ -102,24 +133,34 @@ class Computation:
         corresponding to parameters from the current :py:attr:`signature`.
     """
 
-    def __init__(self, root_parameters):
+    def __init__(self, root_parameters: Iterable[Parameter]):
         for param in root_parameters:
             check_external_parameter_name(param.name)
+
+        # TODO: should this be stored in TransformationTree?
+        self._original_parameters = list(root_parameters)
+
         self._tr_tree = TransformationTree(root_parameters)
         self._update_attributes()
 
-    def _update_attributes(self):
+    def _update_attributes(self) -> None:
         """
         Updates ``signature`` and ``parameter`` attributes.
         Called by the methods that change the signature.
         """
         leaf_params = self._tr_tree.get_leaf_parameters()
         self.signature = Signature(leaf_params)
-        self.parameter = make_parameter_container(self, leaf_params)
+        self.parameter = ParameterContainer(self, leaf_params)
 
     # The names are underscored to avoid name conflicts with ``tr_from_comp`` keys
     # (where the user can introduce new parameter names)
-    def connect(self, _comp_connector, _trf, _tr_connector, **tr_from_comp):
+    def connect(
+        self,
+        _comp_connector: str | ComputationParameter,
+        _trf: "Transformation",
+        _tr_connector: TransformationParameter,
+        **tr_from_comp: TransformationParameter,
+    ) -> "Computation":
         """
         Connect a transformation to the computation.
 
@@ -150,7 +191,6 @@ class Computation:
             will have the signature ``(a', b, c, d)`` (as opposed to ``(a', c, b, d)``
             it would have for the pure depth-first traversal).
         """
-
         # Extract connector name
         if isinstance(_comp_connector, ComputationParameter):
             if not _comp_connector.belongs_to(self):
@@ -183,24 +223,40 @@ class Computation:
         self._update_attributes()
         return self
 
-    def _translate_tree(self, translator):
+    def _translate_tree(self, translator: Translator) -> TransformationTree:
         return self._tr_tree.translate(translator)
 
     def _get_plan(
-        self, tr_tree, translator, bound_device, virtual_manager, fast_math, compiler_options, keep
-    ):
+        self,
+        tr_tree: TransformationTree,
+        translator: Translator,
+        bound_device: "BoundDevice",
+        virtual_manager: VirtualManager | None,
+        fast_math: bool,
+        compiler_options: Iterable[str],
+        keep: bool,
+    ) -> "ComputationPlan":
         plan_factory = lambda: ComputationPlan(
             tr_tree, translator, bound_device, virtual_manager, fast_math, compiler_options, keep
         )
-        args = [
-            KernelArgument(param.name, param.annotation.type)
-            for param in tr_tree.get_root_parameters()
-        ]
-        return self._build_plan(plan_factory, bound_device.params, *args)
+        args = KernelArguments(
+            {
+                local_param.name: KernelArgument(param.name, param.annotation.type)
+                for local_param, param in zip(
+                    self._original_parameters, tr_tree.get_root_parameters()
+                )
+            }
+        )
+        return self._build_plan(plan_factory, bound_device.params, args)
 
     def compile(
-        self, bound_device, virtual_manager=None, fast_math=False, compiler_options=None, keep=False
-    ):
+        self,
+        bound_device: "BoundDevice",
+        virtual_manager: VirtualManager | None = None,
+        fast_math: bool = False,
+        compiler_options: Iterable[str] = [],
+        keep: bool = False,
+    ) -> "ComputationCallable":
         """
         Compiles the computation with the given :py:class:`grunnur.BoundDevice` object
         and returns a :py:class:`~reikna.core.computation.ComputationCallable` object.
@@ -222,7 +278,12 @@ class Computation:
             keep,
         ).finalize()
 
-    def _build_plan(self, plan_factory, device_params, *args):
+    def _build_plan(
+        self,
+        plan_factory: Callable[[], "ComputationPlan"],
+        device_params: "DeviceParameters",
+        args: "KernelArguments",
+    ) -> "ComputationPlan":
         """
         Derived classes override this method.
         It is called by :py:meth:`compile` and
@@ -239,16 +300,31 @@ class Computation:
         raise NotImplementedError
 
 
+class KernelArguments:
+    def __init__(self, args: "Mapping[str, KernelArgument]"):
+        self._args = dict(args)
+
+    def all(self) -> "Iterable[KernelArgument]":
+        return self._args.values()
+
+    def __getattr__(self, name: str) -> "KernelArgument":
+        return self._args[name]
+
+    def __process_modules__(self, process: Callable[[Any], Any]) -> "KernelArguments":
+        # TODO: make a separate type for such processed objects?
+        return KernelArguments({name: process(arg) for name, arg in self._args.items()})
+
+
 class IdGen:
     """
     Encapsulates a simple ID generator.
     """
 
-    def __init__(self, prefix, counter=0):
+    def __init__(self, prefix: str, counter: int = 0):
         self._counter = counter
         self._prefix = prefix
 
-    def __call__(self):
+    def __call__(self) -> str:
         self._counter += 1
         return self._prefix + str(self._counter)
 
@@ -260,12 +336,12 @@ class KernelArgument(Type):
     Represents an argument suitable to pass to planned kernel or computation call.
     """
 
-    def __init__(self, name, type_):
+    def __init__(self, name: str, type_: Type):
         """__init__()"""  # hide the signature from Sphinx
         super().__init__(type_._metadata, type_.ctype)
         self.name = name
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "KernelArgument(" + self.name + ")"
 
 
@@ -275,7 +351,14 @@ class ComputationPlan:
     """
 
     def __init__(
-        self, tr_tree, translator, bound_device, virtual_manager, fast_math, compiler_options, keep
+        self,
+        tr_tree: TransformationTree,
+        translator: Translator,
+        bound_device: "BoundDevice",
+        virtual_manager: "VirtualManager | None",
+        fast_math: bool,
+        compiler_options: Iterable[str],
+        keep: bool,
     ):
         """__init__()"""  # hide the signature from Sphinx
 
@@ -294,13 +377,13 @@ class ComputationPlan:
         self._temp_array_idgen = IdGen("_temp")
 
         self._external_annotations = self._tr_tree.get_root_annotations()
-        self._persistent_values = {}
-        self._constant_arrays = {}
-        self._temp_arrays = set()
-        self._internal_annotations = {}
-        self._kernels = []
+        self._persistent_values: dict[str, Array | numpy.generic] = {}
+        self._constant_arrays: dict[str, Array] = {}
+        self._temp_arrays: set[str] = set()
+        self._internal_annotations: dict[str, Annotation] = {}
+        self._kernels: list[PlannedKernelCall] = []
 
-    def _scalar(self, val):
+    def _scalar(self, val: numpy.generic) -> KernelArgument:
         """
         Adds a persistent scalar to the plan, and returns the corresponding
         :py:class:`KernelArgument`.
@@ -308,10 +391,11 @@ class ComputationPlan:
         name = self._translator(self._persistent_value_idgen())
         ann = Annotation(Type.scalar(val.dtype))
         self._internal_annotations[name] = ann
-        self._persistent_values[name] = ann.type(val)
+        # TODO: does `ann.type(val)` even do anything given that `val` is already a `numpy` object?
+        self._persistent_values[name] = cast(numpy.generic, ann.type(val))
         return KernelArgument(name, ann.type)
 
-    def persistent_array(self, arr):
+    def persistent_array(self, arr: numpy.ndarray[Any, numpy.dtype[Any]]) -> KernelArgument:
         """
         Adds a persistent GPU array to the plan, and returns the corresponding
         :py:class:`KernelArgument`.
@@ -322,7 +406,14 @@ class ComputationPlan:
         self._persistent_values[name] = Array.from_host(self._bound_device, arr)
         return KernelArgument(name, ann.type)
 
-    def temp_array(self, shape, dtype, strides=None, offset=0, nbytes=None):
+    def temp_array(
+        self,
+        shape: Sequence[int] | int,
+        dtype: numpy.dtype[Any],
+        strides: Sequence[int] | None = None,
+        offset: int = 0,
+        nbytes: int | None = None,
+    ) -> KernelArgument:
         """
         Adds a temporary GPU array to the plan, and returns the corresponding
         :py:class:`KernelArgument`.
@@ -340,7 +431,7 @@ class ComputationPlan:
         self._temp_arrays.add(name)
         return KernelArgument(name, ann.type)
 
-    def constant_array(self, arr):
+    def constant_array(self, arr: numpy.ndarray[Any, numpy.dtype[Any]]) -> KernelArgument:
         """
         Adds a constant GPU array to the plan, and returns the corresponding
         :py:class:`KernelArgument`.
@@ -351,7 +442,9 @@ class ComputationPlan:
         self._constant_arrays[name] = Array.from_host(self._bound_device, arr)
         return KernelArgument(name, ann.type)
 
-    def temp_array_like(self, arr):
+    def temp_array_like(
+        self, arr: AsArrayMetadata | numpy.ndarray[Any, numpy.dtype[Any]]
+    ) -> KernelArgument:
         """
         Same as :py:meth:`temp_array`, taking the array properties
         from array or array-like object ``arr``.
@@ -360,27 +453,24 @@ class ComputationPlan:
 
             Note that ``pycuda.GPUArray`` objects do not have the ``offset`` attribute.
         """
-        if hasattr(arr, "strides"):
-            strides = arr.strides
-        else:
-            strides = None
-        if hasattr(arr, "offset"):
-            offset = arr.offset
-        else:
-            offset = 0
-        if hasattr(arr, "nbytes"):
-            nbytes = arr.nbytes
-        else:
-            nbytes = None
-        return self.temp_array(arr.shape, arr.dtype, strides=strides, offset=offset, nbytes=nbytes)
+        metadata = ArrayMetadata.from_arraylike(arr)
+        return self.temp_array(
+            metadata.shape,
+            metadata.dtype,
+            strides=metadata.strides,
+            offset=metadata.first_element_offset,
+            nbytes=metadata.buffer_size,
+        )
 
-    def _get_annotation(self, name):
+    def _get_annotation(self, name: str) -> Annotation:
         if name in self._external_annotations:
             return self._external_annotations[name]
         else:
             return self._internal_annotations[name]
 
-    def _process_kernel_arguments(self, args):
+    def _process_kernel_arguments(
+        self, args: Iterable[KernelArgument | numpy.generic]
+    ) -> tuple[list[Parameter], dict[str, Any]]:
         """
         Scan through kernel arguments passed by the user, check types,
         and wrap ad hoc values if necessary.
@@ -415,7 +505,9 @@ class ComputationPlan:
 
         return processed_args, adhoc_values
 
-    def _process_computation_arguments(self, signature, args, kwds):
+    def _process_computation_arguments(
+        self, signature: Signature, args: tuple[Any, ...], kwds: Mapping[str, Any]
+    ) -> list[str]:
         """
         Scan through nested computation arguments passed by the user, check types,
         and create new persistent values for ad hoc arguments.
@@ -424,14 +516,16 @@ class ComputationPlan:
         """
         bound_args = signature.bind_with_defaults(args, kwds, cast=False)
 
-        args = []
+        kargs = []
         for arg, param in zip(bound_args.args, signature.parameters.values()):
             if not isinstance(arg, KernelArgument):
                 if param.annotation.array:
                     raise ValueError("Ad hoc arguments are only allowed for scalar parameters")
-                arg = self._scalar(param.annotation.type(arg))
+                karg = self._scalar(param.annotation.type(arg))
+            else:
+                karg = arg
 
-            annotation = self._get_annotation(arg.name)
+            annotation = self._get_annotation(karg.name)
 
             if not annotation.can_be_argument_for(param.annotation):
                 raise TypeError(
@@ -440,19 +534,19 @@ class ComputationPlan:
                     )
                 )
 
-            args.append(arg)
+            kargs.append(karg)
 
-        return [arg.name for arg in args]
+        return [karg.name for karg in kargs]
 
     def kernel_call(
         self,
-        template_def,
-        args,
-        global_size,
-        local_size=None,
-        render_kwds=None,
-        kernel_name="_kernel_func",
-    ):
+        template_def: "DefTemplate",
+        args: Iterable[KernelArgument | numpy.generic],
+        global_size: Sequence[int],
+        local_size: Sequence[int] | None = None,
+        render_kwds: Mapping[str, Any] = {},
+        kernel_name: str = "_kernel_func",
+    ) -> None:
         """
         Adds a kernel call to the plan.
 
@@ -476,18 +570,13 @@ class ComputationPlan:
         )
         kernel_argobjects = subtree.get_kernel_argobjects()
 
-        if render_kwds is None:
-            render_kwds = {}
-        else:
-            render_kwds = dict(render_kwds)
+        render_kwds = dict(render_kwds)
 
+        constant_arrays = {}
         if self._is_cuda:
-            constant_arrays = {}
             for karg in kernel_argobjects:
                 if karg.name in self._constant_arrays:
                     constant_arrays[str(karg)] = self._constant_arrays[karg.name]
-        else:
-            constant_arrays = None
 
         kernel = StaticKernel(
             [self._bound_device],
@@ -503,13 +592,15 @@ class ComputationPlan:
             keep=self._keep,
         )
 
-        if self._is_cuda:
+        if constant_arrays:
+            queue = Queue(self._bound_device)
             for name, arr in constant_arrays.items():
-                kernel.set_constant_array(name, arr)
+                kernel.set_constant_array(queue, name, arr)
+            queue.synchronize()
 
         self._kernels.append(PlannedKernelCall(kernel, kernel_leaf_names, adhoc_values))
 
-    def computation_call(self, computation, *args, **kwds):
+    def computation_call(self, computation: Computation, *args: Any, **kwds: Any) -> None:
         """
         Adds a nested computation call.
         The ``computation`` value must be a :py:class:`~reikna.core.Computation` object.
@@ -524,7 +615,7 @@ class ComputationPlan:
         # but we need to translate its tree to integrate names of its nodes into
         # the parent namespace.
         translator = self._translator.get_nested(
-            signature.parameters, argnames, self._nested_comp_idgen()
+            list(signature.parameters), argnames, self._nested_comp_idgen()
         )
         new_tree = computation._translate_tree(translator)
         new_tree.reconnect(self._tr_tree)
@@ -541,7 +632,7 @@ class ComputationPlan:
             )
         )
 
-    def _append_plan(self, plan):
+    def _append_plan(self, plan: "ComputationPlan") -> None:
         self._kernels += plan._kernels
         if not self._is_cuda:
             # In case of CUDA each kernel manages its constant arrays itself,
@@ -551,14 +642,14 @@ class ComputationPlan:
         self._temp_arrays.update(plan._temp_arrays)
         self._internal_annotations.update(plan._internal_annotations)
 
-    def finalize(self):
+    def finalize(self) -> "ComputationCallable":
         # We need to add inferred dependencies between temporary buffers.
         # Basically, we assume that if some buffer X was used first in kernel M
         # and last in kernel N, all buffers in kernels from M+1 till N-1 depend on it
         # (in other words, data in X has to persist from call M till call N)
 
         # Record first and last kernel when a certain temporary array was used.
-        usage = {}
+        usage: dict[str, list[int]] = {}
         for i, kernel in enumerate(self._kernels):
             for argname in kernel.argnames:
                 if argname not in self._temp_arrays:
@@ -570,7 +661,7 @@ class ComputationPlan:
 
         # Convert usage to dependencies.
         # Basically, if usage ranges of two arrays overlap, they are dependent.
-        dependencies = Graph()
+        dependencies: Graph[str] = Graph()
         for name, pair in usage.items():
             start, end = pair
             for i in range(start, end + 1):
@@ -594,6 +685,7 @@ class ComputationPlan:
 
             type_ = self._internal_annotations[name].type
 
+            allocator: Callable[[BoundDevice, int], Buffer]
             if self._virtual_manager:
                 allocator = self._virtual_manager.allocator(dependent_buffers)
             else:
@@ -620,13 +712,18 @@ class ComputationPlan:
 
 
 class PlannedKernelCall:
-    def __init__(self, kernel, argnames, adhoc_values):
+    def __init__(
+        self,
+        kernel: StaticKernel,
+        argnames: Sequence[str],
+        adhoc_values: Mapping[str, numpy.generic],
+    ):
         self._kernel = kernel
         self.argnames = argnames
         self._adhoc_values = adhoc_values
 
-    def finalize(self, known_args):
-        args = [None] * len(self.argnames)
+    def finalize(self, known_args: Mapping[str, Array | numpy.generic]) -> "KernelCall":
+        args: list[Array | numpy.generic | None] = [None] * len(self.argnames)
         external_arg_positions = []
 
         for i, name in enumerate(self.argnames):
@@ -659,15 +756,24 @@ class ComputationCallable:
         to the callable's parameters.
     """
 
-    def __init__(self, bound_device, parameters, kernel_calls, internal_args, temp_buffers):
+    def __init__(
+        self,
+        bound_device: "BoundDevice",
+        parameters: Sequence[Parameter],
+        kernel_calls: Iterable[PlannedKernelCall],
+        internal_args: Mapping[str, Array | numpy.generic],
+        temp_buffers: Iterable[Array],
+    ):
         self.device = bound_device
         self.signature = Signature(parameters)
-        self.parameter = make_parameter_container(self, parameters)
+        self.parameter = ParameterContainer(self, parameters)
         self._kernel_calls = [kernel_call.finalize(internal_args) for kernel_call in kernel_calls]
         self._internal_args = internal_args
         self.__tempalloc__ = temp_buffers
 
-    def __call__(self, queue, *args, **kwds):
+    def __call__(
+        self, queue: Queue, *args: Array | numpy.generic, **kwds: Array | numpy.generic
+    ) -> Any:
         """
         Execute the computation.
         In case of the OpenCL backend, returns a list of ``pyopencl.Event`` objects
@@ -681,17 +787,23 @@ class ComputationCallable:
 
 
 class KernelCall:
-    def __init__(self, kernel, argnames, args, external_arg_positions):
+    def __init__(
+        self,
+        kernel: StaticKernel,
+        argnames: Sequence[str],
+        args: Iterable[Array | numpy.generic | None],
+        external_arg_positions: Iterable[tuple[str, int]],
+    ):
         self._argnames = argnames  # primarily for debugging purposes
         self._kernel = kernel
-        self._args = args
+        self._args = list(args)
         self._external_arg_positions = external_arg_positions
 
-    def __call__(self, queue, external_args):
+    def __call__(self, queue: Queue, external_args: Mapping[str, Array | numpy.generic]) -> Any:
         for name, pos in self._external_arg_positions:
             self._args[pos] = external_args[name]
 
-        result = self._kernel(queue, *self._args)
+        result = self._kernel(queue, *cast(list[Array | numpy.generic], self._args))
 
         # releasing references to arrays
         for name, pos in self._external_arg_positions:

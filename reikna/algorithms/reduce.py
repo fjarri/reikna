@@ -1,8 +1,26 @@
+from typing import Callable, Iterable
+
 import numpy
-from grunnur import Template, VirtualSizeError, dtypes
+from grunnur import (
+    ArrayMetadata,
+    AsArrayMetadata,
+    DeviceParameters,
+    Template,
+    VirtualSizeError,
+    dtypes,
+)
 
 from .. import helpers
-from ..core import Annotation, Computation, Parameter, Type
+from ..core import (
+    Annotation,
+    Computation,
+    ComputationPlan,
+    KernelArgument,
+    KernelArguments,
+    Parameter,
+    Type,
+)
+from .predicates import Predicate
 from .transpose import Transpose
 
 TEMPLATE = Template.from_associated_file(__file__)
@@ -31,8 +49,16 @@ class Reduce(Computation):
             with its shape missing axes from ``axes``.
     """
 
-    def __init__(self, arr_t, predicate, axes=None, output_arr_t=None):
-        dims = len(arr_t.shape)
+    def __init__(
+        self,
+        arr_t: AsArrayMetadata,
+        predicate: Predicate,
+        axes: Iterable[int] | None = None,
+        output_arr_t: AsArrayMetadata | None = None,
+    ):
+        input_ = arr_t.as_array_metadata()
+
+        dims = len(input_.shape)
 
         if axes is None:
             axes = tuple(range(dims))
@@ -46,14 +72,14 @@ class Reduce(Computation):
             raise ValueError("Axes numbers are out of bounds")
 
         if hasattr(predicate.empty, "dtype"):
-            if arr_t.dtype != predicate.empty.dtype:
+            if input_.dtype != predicate.empty.dtype:
                 raise ValueError("The predicate and the array must use the same data type")
             empty = predicate.empty
         else:
-            empty = numpy.asarray(predicate.empty, dtype=arr_t.dtype)
+            empty = numpy.asarray(predicate.empty, dtype=input_.dtype)
 
         remaining_axes = tuple(a for a in range(dims) if a not in axes)
-        output_shape = tuple(1 if a in axes else arr_t.shape[a] for a in range(dims))
+        output_shape = tuple(1 if a in axes else input_.shape[a] for a in range(dims))
 
         # If the reduction axes are not the inner ones,
         # we will need to transpose before reducing to make them inner.
@@ -66,30 +92,40 @@ class Reduce(Computation):
         self._operation = predicate.operation
         self._empty = empty
 
-        if output_arr_t is None:
-            output_arr_t = Type.array(arr_t.dtype, shape=output_shape)
-        else:
-            if output_arr_t.dtype != arr_t.dtype:
-                raise ValueError(
-                    "The dtype of the output array must be the same as that of the input array"
-                )
-            if output_arr_t.shape != output_shape:
-                raise ValueError(
-                    "Expected the output array shape "
-                    + str(output_shape)
-                    + ", got "
-                    + str(output_arr_t.shape)
-                )
+        output = (
+            output_arr_t.as_array_metadata()
+            if output_arr_t is not None
+            else ArrayMetadata(shape=output_shape, dtype=input_.dtype)
+        )
+
+        if output.dtype != input_.dtype:
+            raise ValueError(
+                "The dtype of the output array must be the same as that of the input array"
+            )
+        if output.shape != output_shape:
+            raise ValueError(
+                "Expected the output array shape "
+                + str(output_shape)
+                + ", got "
+                + str(output.shape)
+            )
 
         Computation.__init__(
             self,
             [
-                Parameter("output", Annotation(output_arr_t, "o")),
-                Parameter("input", Annotation(arr_t, "i")),
+                Parameter("output", Annotation(output, "o")),
+                Parameter("input", Annotation(input_, "i")),
             ],
         )
 
-    def _build_plan_for_wg_size(self, plan_factory, warp_size, max_wg_size, output, input_):
+    def _build_plan_for_wg_size(
+        self,
+        plan_factory: Callable[[], ComputationPlan],
+        warp_size: int,
+        max_wg_size: int,
+        output: KernelArgument,
+        input_: KernelArgument,
+    ) -> ComputationPlan:
         plan = plan_factory()
 
         # Using algorithm cascading: sequential reduction, and then the parallel one.
@@ -170,8 +206,16 @@ class Reduce(Computation):
 
         return plan
 
-    def _build_plan(self, plan_factory, device_params, output, input_):
+    def _build_plan(
+        self,
+        plan_factory: Callable[[], ComputationPlan],
+        device_params: DeviceParameters,
+        args: KernelArguments,
+    ) -> ComputationPlan:
         max_wg_size = device_params.max_total_local_size
+
+        output = args.output
+        input_ = args.input
 
         while max_wg_size >= 1:
             try:

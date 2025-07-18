@@ -12,14 +12,7 @@ import sys
 
 import numpy
 
-from reikna.helpers import ignore_integer_overflow
-
-major, _, _, _, _ = sys.version_info
-if major < 3:
-    long_int = long
-else:
-    long_int = int
-
+from reikna.helpers import IgnoreIntegerOverflow
 
 # Rotation constants:
 THREEFRY_ROTATION = {
@@ -123,7 +116,7 @@ def threefry(W, N, ctr, key, Nrounds=None):
 
     R = THREEFRY_ROTATION[(W, N)]
 
-    with ignore_integer_overflow():
+    with IgnoreIntegerOverflow():
         for rnd in range(Nrounds):
             # FIXME: In the current version of Random123 (1.06),
             # there is a bug in R_idx calculation for N == 2, where
@@ -179,7 +172,7 @@ PHILOX_M = {
 
 
 def philox_mulhilo(W, x, y):
-    res = long_int(x) * long_int(y)
+    res = int(x) * int(y)
     return numpy.asarray(res // (2**W), x.dtype), numpy.asarray(res % (2**W), x.dtype)
 
 
@@ -222,7 +215,7 @@ def philox(W, N, ctr, key, Nrounds=None):
 
     assert Nrounds <= 16
 
-    with ignore_integer_overflow():
+    with IgnoreIntegerOverflow():
         for rnd in range(Nrounds):
             ctr = philox_round(W, N, rnd, ctr, key)
 

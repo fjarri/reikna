@@ -1,7 +1,14 @@
+from __future__ import annotations
+
+from typing import Any, Callable
+
 import numpy
 from grunnur import Module, dtypes
+from numpy.typing import NDArray
 
 import reikna.helpers as helpers
+
+from .bijections import Bijection
 
 
 class KeyGenerator:
@@ -18,16 +25,21 @@ class KeyGenerator:
         Generates and returns a key, suitable for the bijection which was given to the constructor.
     """
 
-    def __init__(self, module, base_key):
+    def __init__(self, module: Module, base_key: NDArray[Any]):
         """__init__()"""  # hide the signature from Sphinx
         self.module = module
         self._base_key = base_key
 
-    def __process_modules__(self, process):
+    def __process_modules__(self, process: Callable[[Module], Module]) -> "KeyGenerator":
         return KeyGenerator(process(self.module), self._base_key)
 
     @classmethod
-    def create(cls, bijection, seed=None, reserve_id_space=True):
+    def create(
+        cls,
+        bijection: Bijection,
+        seed: int | NDArray[numpy.uint32] | None = None,
+        reserve_id_space: bool = True,
+    ) -> "KeyGenerator":
         """
         Creates a generator.
 
@@ -103,11 +115,12 @@ class KeyGenerator:
 
         return cls(module, full_key)
 
-    def reference(self, idx):
+    def reference(self, idx: int) -> NDArray[Any]:
         """
         Reference function that returns the key given the thread identifier.
         Uses the same algorithm as the module.
         """
         key = self._base_key.copy()
-        key["v"][-1] += numpy.asarray(idx, key.dtype.fields["v"][0].base)
+        # TODO: can we make this typeable?
+        key["v"][-1] += numpy.asarray(idx, key.dtype.fields["v"][0].base)  # type: ignore[index]
         return key

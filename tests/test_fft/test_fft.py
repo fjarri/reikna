@@ -3,7 +3,7 @@ import time
 
 import numpy
 import pytest
-from grunnur import Array, dtypes
+from grunnur import Array, ArrayMetadata, dtypes
 
 from helpers import *
 from reikna.fft import FFT
@@ -138,8 +138,8 @@ def pytest_generate_tests(metafunc):
 
 
 def test_typecheck():
-    with pytest.raises(ValueError):
-        fft = FFT(get_test_array(100, numpy.float32))
+    with pytest.raises(ValueError, match="FFT computation requires array of a complex dtype"):
+        fft = FFT(ArrayMetadata(shape=100, dtype=numpy.float32))
 
 
 # Since we're using single precision for tests (for compatibility reasons),
@@ -152,14 +152,14 @@ def check_errors(queue, shape_and_axes, atol=2e-5, rtol=1e-3):
     shape, axes = shape_and_axes
 
     data = get_test_array(shape, dtype)
+    data_dev = Array.from_host(queue, data)
 
-    fft = FFT(data, axes=axes)
+    fft = FFT(data_dev, axes=axes)
     fftc = fft.compile(queue.device)
 
     # forward transform
     # Testing inplace transformation, because if this works,
     # then the out of place one will surely work too.
-    data_dev = Array.from_host(queue, data)
     fftc(queue, data_dev, data_dev)
     fwd_ref = numpy.fft.fftn(data, axes=axes).astype(dtype)
     assert diff_is_negligible(data_dev.get(queue), fwd_ref, atol=atol, rtol=rtol)

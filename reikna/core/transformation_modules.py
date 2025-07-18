@@ -1,20 +1,27 @@
-from grunnur import Module, Snippet, dtypes
+from typing import TYPE_CHECKING, Any, Iterable, Sequence
+
+from grunnur import DefTemplate, Module, Snippet, dtypes
 
 from .. import helpers
+
+if TYPE_CHECKING:
+    from .signature import Parameter
+    from .transformation import Transformation
+
 
 VALUE_NAME = "_val"
 INDEX_NAME = "_idx"
 
 
-def leaf_name(name):
+def leaf_name(name: str) -> str:
     return "_leaf_" + name
 
 
-def index_cnames(shape):
+def index_cnames(shape: Sequence[int]) -> list[str]:
     return [INDEX_NAME + str(i) for i in range(len(shape))]
 
 
-def index_cnames_seq(param, qualified=False):
+def index_cnames_seq(param: "Parameter", qualified: bool = False) -> list[str]:
     names = index_cnames(param.annotation.type.shape)
     if qualified:
         return ["VSIZE_T " + name for name in names]
@@ -22,7 +29,7 @@ def index_cnames_seq(param, qualified=False):
         return names
 
 
-def flat_index_expr(param):
+def flat_index_expr(param: "Parameter") -> str:
     type_ = param.annotation.type
 
     # FIXME: assuming that offset is a multiple of dtype.itemsize
@@ -60,7 +67,7 @@ def flat_index_expr(param):
     )
 
 
-def param_cname(param, qualified=False):
+def param_cname(param: "Parameter", qualified: bool = False) -> str:
     # Note that if ``param`` has a struct type,
     # its .annotation.type.ctype attribute can be a module.
     # In that case ``str()`` has to be called explicitly for ``ctype``
@@ -77,16 +84,18 @@ def param_cname(param, qualified=False):
         return name
 
 
-def param_cnames_seq(parameters, qualified=False):
+def param_cnames_seq(parameters: "Iterable[Parameter]", qualified: bool = False) -> list[str]:
     return [param_cname(p, qualified=qualified) for p in parameters]
 
 
-_snippet_kernel_declaration = helpers.template_def(
-    [], "KERNEL void ${kernel_name}(${', '.join(param_cnames_seq(parameters, qualified=True))})"
+_snippet_kernel_declaration = DefTemplate.from_string(
+    "kernel_declaration",
+    [],
+    "KERNEL void ${kernel_name}(${', '.join(param_cnames_seq(parameters, qualified=True))})",
 )
 
 
-def kernel_declaration(kernel_name, parameters):
+def kernel_declaration(kernel_name: str, parameters: "Iterable[Parameter]") -> Snippet:
     return Snippet(
         _snippet_kernel_declaration,
         render_globals=dict(
@@ -95,14 +104,15 @@ def kernel_declaration(kernel_name, parameters):
     )
 
 
-def node_connector(output):
+def node_connector(output: bool) -> str:
     if output:
         return VALUE_NAME
     else:
         return VALUE_NAME + " ="
 
 
-_module_transformation = helpers.template_def(
+_module_transformation = DefTemplate.from_string(
+    "transformation_function",
     ["prefix"],
     """
     // ${'output' if output else 'input'} transformation node for "${name}"
@@ -136,7 +146,13 @@ _module_transformation = helpers.template_def(
 )
 
 
-def module_transformation(output, param, subtree_parameters, tr_snippet, tr_args):
+def module_transformation(
+    output: "Transformation",
+    param: "Parameter",
+    subtree_parameters: "list[Parameter]",
+    tr_snippet: Snippet,
+    tr_args: list[Any],
+) -> Module:
     return Module(
         _module_transformation,
         render_globals=dict(
@@ -155,7 +171,8 @@ def module_transformation(output, param, subtree_parameters, tr_snippet, tr_args
     )
 
 
-_module_leaf_macro = helpers.template_def(
+_module_leaf_macro = DefTemplate.from_string(
+    "leaf_macro",
     ["prefix"],
     """
     // leaf ${'output' if output else 'input'} macro for "${name}"
@@ -168,7 +185,7 @@ _module_leaf_macro = helpers.template_def(
 )
 
 
-def module_leaf_macro(output, param):
+def module_leaf_macro(output: bool, param: "Parameter") -> Module:
     return Module(
         _module_leaf_macro,
         render_globals=dict(
@@ -182,7 +199,8 @@ def module_leaf_macro(output, param):
     )
 
 
-_module_same_indices = helpers.template_def(
+_module_same_indices = DefTemplate.from_string(
+    "same_indices_macro",
     ["prefix"],
     """
     // ${'output' if output else 'input'} for a transformation for "${name}"
@@ -195,7 +213,12 @@ _module_same_indices = helpers.template_def(
 )
 
 
-def module_same_indices(output, param, subtree_parameters, module_idx):
+def module_same_indices(
+    output: bool,
+    param: "Parameter",
+    subtree_parameters: "Iterable[Parameter]",
+    module_idx: Module,
+) -> Module:
     return Module(
         _module_same_indices,
         render_globals=dict(
@@ -230,7 +253,8 @@ _snippet_disassemble_combined = Snippet.from_callable(
     render_globals=dict(product=helpers.product),
 )
 
-_module_combined = helpers.template_def(
+_module_combined = DefTemplate.from_string(
+    "combined_transformation",
     ["prefix", "slices"],
     """
     <%
@@ -264,7 +288,12 @@ _module_combined = helpers.template_def(
 )
 
 
-def module_combined(output, param, subtree_parameters, module_idx):
+def module_combined(
+    output: bool,
+    param: "Parameter",
+    subtree_parameters: "Iterable[Parameter]",
+    module_idx: Module,
+) -> Module:
     return Module(
         _module_combined,
         render_globals=dict(

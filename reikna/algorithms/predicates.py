@@ -1,3 +1,5 @@
+from typing import Any, Callable
+
 import numpy
 from grunnur import Snippet
 from numpy.typing import DTypeLike
@@ -14,11 +16,11 @@ class Predicate:
         (the one which, being joined by another argument, does not change it).
     """
 
-    def __init__(self, operation: Snippet, empty):
+    def __init__(self, operation: Snippet, empty: Any):
         self.operation = operation
         self.empty = empty
 
-    def __process_modules__(self, process):
+    def __process_modules__(self, process: Callable[[Snippet], Any]) -> "Predicate":
         return Predicate(process(self.operation), self.empty)
 
 

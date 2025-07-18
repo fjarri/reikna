@@ -4,54 +4,66 @@ This module contains various auxiliary functions which are used throughout the l
 
 import collections
 import functools
-import itertools
-import sys
-
-if sys.version_info[0] >= 3:
-    from collections.abc import Iterable
-else:
-    from collections import Iterable
 import inspect
+import itertools
 import os.path
+import sys
 import warnings
+from collections.abc import Iterable
+from typing import Any, Callable, Generic, Protocol, Sequence, TypeVar
 
 from grunnur import Template
 
 
-class Graph:
-    def __init__(self, pairs=None):
-        self._pairs = set()
-        self._nodes = collections.defaultdict(set)
+class Comparable(Protocol):
+    def __lt__(self, other: Any) -> bool: ...
+
+
+Node = TypeVar("Node", bound=Comparable)
+NewNode = TypeVar("NewNode", bound=Comparable)
+
+
+def sorted_pair(x: Node, y: Node) -> tuple[Node, Node]:
+    if x < y:
+        return x, y
+    else:
+        return y, x
+
+
+class Graph(Generic[Node]):
+    def __init__(self, pairs: Iterable[tuple[Node, Node]] | None = None):
+        self._pairs: set[tuple[Node, Node]] = set()
+        self._nodes: dict[Node, set[Node]] = collections.defaultdict(set)
         if pairs is not None:
             self.add_edges(pairs)
 
-    def add_edge(self, node1, node2):
+    def add_edge(self, node1: Node, node2: Node) -> None:
         assert node1 != node2
         self._nodes[node1].add(node2)
         self._nodes[node2].add(node1)
-        self._pairs.add(tuple(sorted((node1, node2))))
+        self._pairs.add(sorted_pair(node1, node2))
 
-    def add_edges(self, pairs):
+    def add_edges(self, pairs: Iterable[tuple[Node, Node]]) -> None:
         for node1, node2 in pairs:
             self.add_edge(node1, node2)
 
-    def add_graph(self, graph):
+    def add_graph(self, graph: "Graph[Node]") -> None:
         for node1, node2 in graph.pairs():
             self.add_edge(node1, node2)
 
-    def add_cluster(self, nodes):
+    def add_cluster(self, nodes: Iterable[Node]) -> None:
         self.add_edges(itertools.combinations(nodes, 2))
 
-    def remove_node(self, node):
+    def remove_node(self, node: Node) -> None:
         deps = self._nodes[node]
         for dep in deps:
             self._nodes[dep].remove(node)
-            self._pairs.remove(tuple(sorted((node, dep))))
+            self._pairs.remove(sorted_pair(node, dep))
         del self._nodes[node]
 
-    def remove_edge(self, node1, node2):
+    def remove_edge(self, node1: Node, node2: Node) -> None:
         assert node1 != node2
-        self._pairs.remove(tuple(sorted((node1, node2))))
+        self._pairs.remove(sorted_pair(node1, node2))
 
         self._nodes[node1].remove(node2)
         if len(self._nodes[node1]) == 0:
@@ -61,62 +73,27 @@ class Graph:
         if len(self._nodes[node2]) == 0:
             del self._nodes[node2]
 
-    def __getitem__(self, node):
+    def __getitem__(self, node: Node) -> set[Node]:
         return self._nodes[node]
 
-    def pairs(self):
+    def pairs(self) -> Iterable[tuple[Node, Node]]:
         return self._pairs
 
-    def translate(self, translator):
+    def translate(self, translator: Callable[[Node], NewNode]) -> "Graph[NewNode]":
         pairs = []
         for node1, node2 in self._pairs:
-            pairs.append(tuple(sorted((translator(node1), translator(node2)))))
+            pairs.append(sorted_pair(translator(node1), translator(node2)))
         return Graph(pairs)
 
 
-def product(seq):
+def product(seq: Iterable[int]) -> int:
     """
     Returns the product of elements in the iterable ``seq``.
     """
     return functools.reduce(lambda x1, x2: x1 * x2, seq, 1)
 
 
-def extract_signature_and_value(func_or_str, default_parameters=None):
-    if not inspect.isfunction(func_or_str):
-        if default_parameters is None:
-            parameters = []
-        else:
-            kind = inspect.Parameter.POSITIONAL_OR_KEYWORD
-            parameters = [inspect.Parameter(name, kind=kind) for name in default_parameters]
-
-        return inspect.Signature(parameters), func_or_str
-
-    signature = inspect.signature(func_or_str)
-
-    # pass mock values to extract the value
-    args = [None] * len(signature.parameters)
-    return signature, func_or_str(*args)
-
-
-def template_def(signature, code):
-    """
-    Returns a ``Mako`` template with the given ``signature``.
-
-    :param signature: a list of postitional argument names,
-        or a ``Signature`` object from ``inspect`` module.
-    :code: a body of the template.
-    """
-    if not isinstance(signature, inspect.Signature):
-        # treating ``signature`` as a list of positional arguments
-        # HACK: Signature or Parameter constructors are not documented.
-        kind = inspect.Parameter.POSITIONAL_OR_KEYWORD
-        signature = inspect.Signature([inspect.Parameter(name, kind=kind) for name in signature])
-
-    template_src = "<%def name='_func" + str(signature) + "'>\n" + code + "\n</%def>"
-    return Template.from_string(template_src).get_def("_func")
-
-
-def min_blocks(length, block):
+def min_blocks(length: int, block: int) -> int:
     """
     Returns minimum number of blocks with length ``block``
     necessary to cover the array with length ``length``.
@@ -124,7 +101,7 @@ def min_blocks(length, block):
     return (length - 1) // block + 1
 
 
-def log2(num):
+def log2(num: int) -> int:
     """
     Integer-valued logarigthm with base 2.
     If ``n`` is not a power of 2, the result is rounded to the smallest number.
@@ -137,17 +114,18 @@ def log2(num):
     return pos
 
 
-def bounding_power_of_2(num):
+def bounding_power_of_2(num: int) -> int:
     """
     Returns the minimal number of the form ``2**m`` such that it is greater or equal to ``n``.
     """
     if num == 1:
         return 1
     else:
-        return 2 ** (log2(num - 1) + 1)
+        result: int = 2 ** (log2(num - 1) + 1)
+        return result
 
 
-def factors(num, limit=None):
+def factors(num: int, limit: int | None = None) -> list[tuple[int, int]]:
     """
     Returns the list of pairs ``(factor, num/factor)`` for all factors of ``num``
     (including 1 and ``num``), sorted by ``factor``.
@@ -182,39 +160,37 @@ def factors(num, limit=None):
     return [r for r in result if r[0] <= limit]
 
 
-def wrap_in_tuple(seq_or_elem):
+def wrap_in_tuple(seq_or_elem: None | int | Iterable[int]) -> tuple[int, ...]:
     """
     If ``seq_or_elem`` is a sequence, converts it to a ``tuple``,
     otherwise returns a tuple with a single element ``seq_or_elem``.
     """
     if seq_or_elem is None:
         return tuple()
-    elif isinstance(seq_or_elem, str):
+    elif isinstance(seq_or_elem, int):
         return (seq_or_elem,)
-    elif isinstance(seq_or_elem, Iterable):
-        return tuple(seq_or_elem)
     else:
-        return (seq_or_elem,)
+        return tuple(seq_or_elem)
 
 
-class ignore_integer_overflow:
+class IgnoreIntegerOverflow:
     """
     Context manager for ignoring integer overflow in numpy operations on scalars
     (not ignored by default because of a bug in numpy).
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.catch = warnings.catch_warnings()
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         self.catch.__enter__()
         warnings.filterwarnings("ignore", "overflow encountered in scalar add")
 
-    def __exit__(self, *args, **kwds):
+    def __exit__(self, *args: Any, **kwds: Any) -> None:
         self.catch.__exit__(*args, **kwds)
 
 
-def normalize_axes(ndim, axes):
+def normalize_axes(ndim: int, axes: None | int | Iterable[int]) -> tuple[int, ...]:
     """
     Transform an iterable of array axes (which can be negative) or a single axis
     into a tuple of non-negative axes.
@@ -229,12 +205,12 @@ def normalize_axes(ndim, axes):
     return axes
 
 
-def are_axes_innermost(ndim, axes):
+def are_axes_innermost(ndim: int, axes: Sequence[int]) -> bool:
     inner_axes = list(range(ndim - len(axes), ndim))
     return all(axis == inner_axis for axis, inner_axis in zip(axes, inner_axes))
 
 
-def make_axes_innermost(ndim, axes):
+def make_axes_innermost(ndim: int, axes: Sequence[int]) -> tuple[tuple[int, ...], tuple[int, ...]]:
     """
     Given the total number of array axes and a list of axes in this range,
     produce a transposition plan (suitable e.g. for ``numpy.transpose()``)
@@ -246,7 +222,7 @@ def make_axes_innermost(ndim, axes):
     outer_axes = [i for i in orig_order if i not in axes]
     transpose_to = outer_axes + list(axes)
 
-    transpose_from = [None] * ndim
+    transpose_from: list[int] = [0] * ndim  # these values will be all rewritten by construction
     for i, axis in enumerate(transpose_to):
         transpose_from[axis] = i
 

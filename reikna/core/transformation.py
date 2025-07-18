@@ -1,6 +1,7 @@
 import weakref
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator, Mapping, Sequence
 
-from grunnur import Snippet
+from grunnur import ArrayMetadata, AsArrayMetadata, DefTemplate, Snippet
 
 from ..core.signature import Annotation, Parameter, Signature, Type
 from ..core.transformation_modules import (
@@ -13,7 +14,9 @@ from ..core.transformation_modules import (
     module_transformation,
     node_connector,
 )
-from ..helpers import template_def
+
+if TYPE_CHECKING:
+    from grunnur import Module
 
 
 class TransformationParameter(Type):
@@ -25,15 +28,15 @@ class TransformationParameter(Type):
     which are only interested in array metadata.
     """
 
-    def __init__(self, trf, name, type_):
+    def __init__(self, trf: "Transformation", name: str, type_: Type):
         super().__init__(type_._metadata, type_.ctype)
         self._trf = weakref.ref(trf)
         self._name = name
 
-    def belongs_to(self, trf):
+    def belongs_to(self, trf: "Transformation") -> bool:
         return self._trf() is trf
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self._name
 
 
@@ -58,7 +61,13 @@ class Transformation:
         Defaults to all non-scalar parameters.
     """
 
-    def __init__(self, parameters, code, render_kwds=None, connectors=None):
+    def __init__(
+        self,
+        parameters: Sequence[Parameter],
+        code: str,
+        render_kwds: Mapping[str, Any] | None = None,
+        connectors: Sequence[str] | None = None,
+    ):
         for param in parameters:
             if param.annotation.input and param.annotation.output:
                 raise ValueError(
@@ -67,10 +76,13 @@ class Transformation:
 
         self.signature = Signature(parameters)
 
-        for param in self.signature.parameters.values():
+        # TODO: remove when we switch to using `.parameter` everywhere
+        for param in self.signature._reikna_parameters.values():
             setattr(
                 self, param.name, TransformationParameter(self, param.name, param.annotation.type)
             )
+
+        self.parameter = TransformationParameterContainer(self, parameters)
 
         if connectors is not None:
             self.connectors = connectors
@@ -78,7 +90,25 @@ class Transformation:
             self.connectors = [param.name for param in parameters if param.annotation.array]
 
         tr_param_names = ["idxs"] + [param.name for param in self.signature.parameters.values()]
-        self.snippet = Snippet(template_def(tr_param_names, code), render_globals=render_kwds or {})
+        self.snippet = Snippet(
+            DefTemplate.from_string("transformation", tr_param_names, code),
+            render_globals=render_kwds or {},
+        )
+
+
+class TransformationParameterContainer:
+    """
+    A convenience object with ``TransformationParameter`` attributes.
+    """
+
+    def __init__(self, parent: "Transformation", parameters: Iterable[Parameter]):
+        self._param_objs = {
+            param.name: TransformationParameter(parent, param.name, param.annotation.type)
+            for param in parameters
+        }
+
+    def __getattr__(self, name: str) -> TransformationParameter:
+        return self._param_objs[name]
 
 
 class Node:
@@ -86,18 +116,24 @@ class Node:
     Represents a node in the transformation tree.
     """
 
-    def __init__(self, input_ntr=None, output_ntr=None):
+    def __init__(
+        self,
+        input_ntr: "NodeTransformation | None" = None,
+        output_ntr: "NodeTransformation | None" = None,
+    ):
         self.input_ntr = input_ntr
         self.output_ntr = output_ntr
 
-    def connect(self, ntr):
+    def connect(self, ntr: "NodeTransformation") -> "Node":
         if ntr.output:
             return Node(input_ntr=self.input_ntr, output_ntr=ntr)
         else:
             return Node(input_ntr=ntr, output_ntr=self.output_ntr)
 
-    def get_child_names(self):
-        get_names = lambda ntr: ([], []) if ntr is None else ntr.get_child_names()
+    def get_child_names(self) -> tuple[list[str], list[str]]:
+        def get_names(ntr: "NodeTransformation | None") -> tuple[list[str], list[str]]:
+            return ([], []) if ntr is None else ntr.get_child_names()
+
         output_before, output_after = get_names(self.output_ntr)
         input_before, input_after = get_names(self.input_ntr)
 
@@ -110,8 +146,10 @@ class Node:
         else:
             return output_before + output_after, input_before + input_after
 
-    def get_connections(self):
-        get_conn = lambda ntr: [] if ntr is None else [ntr]
+    def get_connections(self) -> "list[NodeTransformation]":
+        def get_conn(ntr: "NodeTransformation | None") -> "list[NodeTransformation]":
+            return [] if ntr is None else [ntr]
+
         return get_conn(self.output_ntr) + get_conn(self.input_ntr)
 
 
@@ -121,7 +159,9 @@ class NodeTransformation:
     (an edge of the transformation tree).
     """
 
-    def __init__(self, connector_node_name, trf, node_from_tr):
+    def __init__(
+        self, connector_node_name: str, trf: Transformation, node_from_tr: Mapping[str, str]
+    ):
         self.trf = trf
         self.connector_node_name = connector_node_name
         self.node_from_tr = dict(node_from_tr)
@@ -155,7 +195,7 @@ class NodeTransformation:
         # Taking into account that 'io' parameters are not allowed for transformations.
         self.output = trf.signature.parameters[tr_connector].annotation.input
 
-    def get_child_names(self):
+    def get_child_names(self) -> tuple[list[str], list[str]]:
         # Walking the tree conserving the order of parameters in the transformation.
         node_names = [
             self.node_from_tr[tr_param.name] for tr_param in self.trf.signature.parameters.values()
@@ -163,7 +203,7 @@ class NodeTransformation:
         connector_idx = node_names.index(self.connector_node_name)
         return node_names[:connector_idx], node_names[connector_idx + 1 :]
 
-    def translate_node_names(self, translator):
+    def translate_node_names(self, translator: Callable[[str], str]) -> "NodeTransformation":
         connector_node_name = translator(self.connector_node_name)
         node_from_tr = dict(
             (tr_name, translator(node_name)) for tr_name, node_name in self.node_from_tr.items()
@@ -176,13 +216,14 @@ class TransformationTree:
     A directed acyclic graph of transformations of the kernel arguments.
     """
 
-    def __init__(self, root_parameters):
+    def __init__(self, root_parameters: Iterable[Parameter]):
         # Preserve order of initial root parameters.
         # These can repeat.
+        # TODO: dictionaries preserve order in modern Python
         self.root_names = []
 
         # Keeping whole parameters, because we want to preserve the default values (if any).
-        self.root_parameters = {}
+        self.root_parameters: dict[str, Parameter] = {}
 
         self.nodes = {}  # all nodes of the tree
         self.leaf_parameters = {}  # nodes available for connection
@@ -215,7 +256,9 @@ class TransformationTree:
                 self.root_parameters[param.name] = param
                 self.leaf_parameters[param.name] = param
 
-    def _get_subtree_names(self, names, ignore, visited, leaves_only=False):
+    def _get_subtree_names(
+        self, names: Sequence[str], ignore: set[str], visited: set[str], leaves_only: bool = False
+    ) -> list[str]:
         """Helper method for traversing the tree."""
 
         result = []
@@ -225,7 +268,7 @@ class TransformationTree:
                 continue
 
             visited.add(name)
-            ignore_in_children = names[i + 1 :]
+            ignore_in_children = set(names[i + 1 :])
 
             node = self.nodes[name]
             children_before, children_after = node.get_child_names()
@@ -255,26 +298,28 @@ class TransformationTree:
 
         return result
 
-    def get_subtree_names(self, root_names=None, leaves_only=False):
+    def get_subtree_names(
+        self, root_names: Sequence[str] | None = None, leaves_only: bool = False
+    ) -> list[str]:
         if root_names is None:
             root_names = self.root_names
-        return self._get_subtree_names(root_names, [], set(), leaves_only=leaves_only)
+        return self._get_subtree_names(root_names, set(), set(), leaves_only=leaves_only)
 
-    def get_root_annotations(self):
+    def get_root_annotations(self) -> dict[str, Annotation]:
         return dict((name, param.annotation) for name, param in self.root_parameters.items())
 
-    def get_root_parameters(self):
+    def get_root_parameters(self) -> list[Parameter]:
         return [self.root_parameters[name] for name in self.root_names]
 
-    def get_leaf_parameters(self, root_names=None):
+    def get_leaf_parameters(self, root_names: Sequence[str] | None = None) -> list[Parameter]:
         leaf_names = self.get_subtree_names(root_names=root_names, leaves_only=True)
         return [self.leaf_parameters[name] for name in leaf_names]
 
-    def _connect(self, ntr):
+    def _connect(self, ntr: NodeTransformation) -> None:
         # At this point we assume that ``ntr`` describes a valid connection.
         # All sanity checks are performed in ``connect()``.
 
-        for tr_param in ntr.trf.signature.parameters.values():
+        for tr_param in ntr.trf.signature._reikna_parameters.values():
             node_name = ntr.node_from_tr[tr_param.name]
 
             if node_name == ntr.connector_node_name:
@@ -313,7 +358,9 @@ class TransformationTree:
 
         self.nodes[ntr.connector_node_name] = self.nodes[ntr.connector_node_name].connect(ntr)
 
-    def connect(self, comp_connector, trf, comp_from_tr):
+    def connect(
+        self, comp_connector: str, trf: Transformation, comp_from_tr: Mapping[str, str]
+    ) -> None:
         ntr = NodeTransformation(comp_connector, trf, comp_from_tr)
 
         # Check that the types of connections are correct
@@ -364,7 +411,9 @@ class TransformationTree:
 
         self._connect(ntr)
 
-    def reconnect(self, other_tree, translator=None):
+    def reconnect(
+        self, other_tree: "TransformationTree", translator: Callable[[str], str] | None = None
+    ) -> None:
         for ntr in other_tree.connections():
             if translator is not None:
                 ntr = ntr.translate_node_names(translator)
@@ -379,21 +428,21 @@ class TransformationTree:
             if (ntr.output and ann.output) or (not ntr.output and ann.input):
                 self._connect(ntr)
 
-    def connections(self):
+    def connections(self) -> Iterator[NodeTransformation]:
         node_names = self.get_subtree_names(leaves_only=False)
         for name in node_names:
             node = self.nodes[name]
             for ntr in node.get_connections():
                 yield ntr
 
-    def translate(self, translator):
+    def translate(self, translator: Callable[[str], str]) -> "TransformationTree":
         root_params = self.get_root_parameters()
         new_root_params = [param.rename(translator(param.name)) for param in root_params]
         new_tree = TransformationTree(new_root_params)
         new_tree.reconnect(self, translator=translator)
         return new_tree
 
-    def get_subtree(self, parameters):
+    def get_subtree(self, parameters: Iterable[Parameter]) -> "TransformationTree":
         # Unless the user was not messing with undocumented fields,
         # same names will correspond to the same parameters.
         # But if they do not, we better catch it here.
@@ -411,7 +460,9 @@ class TransformationTree:
         new_tree.reconnect(self)
         return new_tree
 
-    def get_kernel_declaration(self, kernel_name, skip_constants=False):
+    def get_kernel_declaration(
+        self, kernel_name: str, skip_constants: bool = False
+    ) -> tuple[Snippet, list[str]]:
         leaf_params = self.get_leaf_parameters()
 
         if skip_constants:
@@ -422,12 +473,14 @@ class TransformationTree:
 
         return decl, leaf_names
 
-    def _get_transformation_module(self, annotation, ntr):
+    def _get_transformation_module(
+        self, annotation: Annotation, ntr: NodeTransformation
+    ) -> "Module":
         param = Parameter(ntr.connector_node_name, annotation)
 
-        tr_args = [Indices(param.annotation.type.shape)]
+        tr_args: list[Any] = [Indices(param.annotation.type.shape)]
         connection_names = []
-        for tr_param in ntr.trf.signature.parameters.values():
+        for tr_param in ntr.trf.signature._reikna_parameters.values():
             connection_name = ntr.node_from_tr[tr_param.name]
             connection_names.append(connection_name)
 
@@ -449,7 +502,9 @@ class TransformationTree:
 
         return module_transformation(ntr.output, param, subtree_params, ntr.trf.snippet, tr_args)
 
-    def _get_connection_modules(self, output, name, annotation):
+    def _get_connection_modules(
+        self, output: bool, name: str, annotation: Annotation
+    ) -> "tuple[Module, Module, Module]":
         node = self.nodes[name]
         param = Parameter(name, annotation)
         ntr = node.output_ntr if output else node.input_ntr
@@ -465,7 +520,7 @@ class TransformationTree:
 
         subtree_params = self.get_leaf_parameters([name])
 
-        # FIXME: this module won't work at the base level (that is, not in a trnsformation)
+        # FIXME: this module won't work at the base level (that is, not in a transformation)
         # unless 'idx' variables were defined.
         # This behavior was enabled for PureParallel.from_trf(), which defines these variables.
         m_same = module_same_indices(output, param, subtree_params, m_idx)
@@ -474,7 +529,7 @@ class TransformationTree:
 
         return m_idx, m_same, m_combined
 
-    def _get_kernel_argobject(self, name, annotation):
+    def _get_kernel_argobject(self, name: str, annotation: Annotation) -> "KernelParameter":
         # Returns a parameter object, which can be passed to the main kernel.
 
         if not annotation.array:
@@ -498,7 +553,7 @@ class TransformationTree:
             store_combined_idx=store_combined_idx,
         )
 
-    def get_kernel_argobjects(self):
+    def get_kernel_argobjects(self) -> "list[KernelParameter]":
         return [
             self._get_kernel_argobject(name, self.root_parameters[name].annotation)
             for name in self.root_names
@@ -510,17 +565,17 @@ class Indices:
     Encapsulates the information about index variables available for the snippet.
     """
 
-    def __init__(self, shape):
+    def __init__(self, shape: Sequence[int]):
         """__init__()"""  # hide the signature from Sphinx
         self._names = index_cnames(shape)
 
-    def __getitem__(self, dim):
+    def __getitem__(self, dim: int) -> str:
         """
         Returns the name of the index varibale for the dimension ``dim``.
         """
         return self._names[dim]
 
-    def all(self):
+    def all(self) -> str:
         """
         Returns the comma-separated list of all index variable names
         (useful for passing the guiding indices verbatim in a load or store call).
@@ -588,14 +643,14 @@ class KernelParameter:
 
     def __init__(
         self,
-        name,
-        type_,
-        load_idx=None,
-        store_idx=None,
-        load_same=None,
-        store_same=None,
-        load_combined_idx=None,
-        store_combined_idx=None,
+        name: str,
+        type_: Type,
+        load_idx: "Module | None" = None,
+        store_idx: "Module | None" = None,
+        load_same: "Module | str | None" = None,
+        store_same: "Module | str | None" = None,
+        load_combined_idx: "Module | None" = None,
+        store_combined_idx: "Module | None" = None,
     ):
         """__init__()"""  # hide the signature from Sphinx
 
@@ -623,7 +678,7 @@ class KernelParameter:
         if store_combined_idx is not None:
             self.store_combined_idx = store_combined_idx
 
-    def __process_modules__(self, process):
+    def __process_modules__(self, process: Callable[[Any], Any]) -> "KernelParameter":
         kwds = {}
         attrs = (
             "load_idx",
@@ -639,7 +694,7 @@ class KernelParameter:
 
         return KernelParameter(self.name, process(self._type), **kwds)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         attrs = dict(
             load_idx="li",
             store_idx="si",
@@ -655,5 +710,5 @@ class KernelParameter:
 
         return "KernelParameter(" + self.name + attr_str + ")"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self._leaf_name

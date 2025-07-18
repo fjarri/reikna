@@ -118,7 +118,7 @@ def test_cast(some_queue):
     data_dev = Array.from_host(some_queue, data)
 
     test = get_test_computation(Type.array(numpy.int32, (1000,)))
-    cast = tr.cast(data, numpy.int32)
+    cast = tr.cast(data_dev, numpy.int32)
 
     test.parameter.input.connect(cast, cast.output, input_prime=cast.input)
     testc = test.compile(some_queue.device)

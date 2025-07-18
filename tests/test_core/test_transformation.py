@@ -494,8 +494,11 @@ class ExpressionIndexing(Computation):
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, output, input_):
+    def _build_plan(self, plan_factory, device_params, args):
         plan = plan_factory()
+
+        output = args.output
+        input_ = args.input
 
         template = Template.from_string("""
         <%def name="kernel(kernel_declaration, output, input)">

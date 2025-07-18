@@ -1,6 +1,6 @@
 import numpy
 import pytest
-from grunnur import Array, dtypes
+from grunnur import Array, ArrayMetadata, dtypes
 
 from helpers import *
 from reikna.algorithms import PureParallel
@@ -31,9 +31,9 @@ class NestedPureParallel(Computation):
             """,
         )
 
-    def _build_plan(self, plan_factory, device_params, output, input_):
+    def _build_plan(self, plan_factory, device_params, args):
         plan = plan_factory()
-        plan.computation_call(self._p, output, input_, input_)
+        plan.computation_call(self._p, args.output, args.input, args.input)
         return plan
 
 
@@ -181,7 +181,7 @@ def test_from_trf(queue, guiding_array):
 
 class SameArgumentHelper(Computation):
     def __init__(self, arr):
-        copy_trf = copy(arr, out_arr_t=arr)
+        copy_trf = copy(ArrayMetadata.from_arraylike(arr))
         self._copy_comp = PureParallel.from_trf(copy_trf, copy_trf.input)
 
         Computation.__init__(
@@ -192,12 +192,12 @@ class SameArgumentHelper(Computation):
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, output, input_):
+    def _build_plan(self, plan_factory, device_params, args):
         plan = plan_factory()
-        temp = plan.temp_array_like(output)
-        plan.computation_call(self._copy_comp, temp, input_)
+        temp = plan.temp_array_like(args.outer_input)
+        plan.computation_call(self._copy_comp, temp, args.outer_input)
         plan.computation_call(self._copy_comp, temp, temp)
-        plan.computation_call(self._copy_comp, output, temp)
+        plan.computation_call(self._copy_comp, args.outer_output, temp)
         return plan
 
 

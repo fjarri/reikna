@@ -84,13 +84,13 @@ def check_errors(queue, shape_and_axes, inverse=False):
     shape, axes = shape_and_axes
 
     data = numpy.arange(product(shape)).reshape(shape).astype(dtype)
+    data_dev = Array.from_host(queue, data)
 
-    shift = FFTShift(data, axes=axes)
+    shift = FFTShift(data_dev, axes=axes)
     shiftc = shift.compile(queue.device)
 
     ref_func = numpy.fft.ifftshift if inverse else numpy.fft.fftshift
 
-    data_dev = Array.from_host(queue, data)
     shiftc(queue, data_dev, data_dev, inverse)
     res_ref = ref_func(data, axes=axes)
 
@@ -116,7 +116,7 @@ def test_trivial(some_queue):
     data_dev = Array.from_host(some_queue, data)
     res_dev = Array.empty_like(some_queue.device, data_dev)
 
-    shift = FFTShift(data, axes=axes)
+    shift = FFTShift(data_dev, axes=axes)
     scale = mul_param(data_dev, numpy.int32)
     shift.parameter.input.connect(scale, scale.output, input_prime=scale.input, param=scale.param)
 
@@ -141,11 +141,11 @@ def check_performance(queue, shape_and_axes):
     shape, axes = shape_and_axes
 
     data = numpy.arange(product(shape)).reshape(shape).astype(dtype)
+    data_dev = Array.from_host(queue.device, data)
 
-    shift = FFTShift(data, axes=axes)
+    shift = FFTShift(data_dev, axes=axes)
     shiftc = shift.compile(queue.device)
 
-    data_dev = Array.from_host(queue.device, data)
     res_dev = Array.empty_like(queue.device, data)
 
     attempts = 10

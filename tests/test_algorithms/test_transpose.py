@@ -37,7 +37,7 @@ def test_errors(queue, shape_and_axes):
     a_dev = Array.from_host(queue, a)
     res_ref = numpy.transpose(a, axes)
 
-    tr = Transpose(a, axes=axes)
+    tr = Transpose(a_dev, axes=axes)
     res_dev = Array.empty_like(queue.device, tr.parameter.output)
 
     tr = tr.compile(queue.device)

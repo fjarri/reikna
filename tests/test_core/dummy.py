@@ -61,8 +61,14 @@ class Dummy(Computation):
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, C, D, A, B, coeff):
+    def _build_plan(self, plan_factory, device_params, args):
         plan = plan_factory()
+
+        C = args.C
+        D = args.D
+        A = args.A
+        B = args.B
+        coeff = args.coeff
 
         arr_dtype = C.dtype
         coeff_dtype = coeff.dtype
@@ -197,8 +203,15 @@ class DummyNested(Computation):
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, C, D, A, B, coeff):
+    def _build_plan(self, plan_factory, device_params, args):
         plan = plan_factory()
+
+        C = args.C
+        D = args.D
+        A = args.A
+        B = args.B
+        coeff = args.coeff
+
         nested = Dummy(A, B, coeff, same_A_B=self._same_A_B)
 
         scale = tr_scale(A, numpy.float32)
@@ -250,8 +263,14 @@ class DummyAdvanced(Computation):
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, C, D, coeff1, coeff2):
+    def _build_plan(self, plan_factory, device_params, args):
         plan = plan_factory()
+
+        C = args.C
+        D = args.D
+        coeff1 = args.coeff1
+        coeff2 = args.coeff2
+
         nested = Dummy(C, D, coeff1, same_A_B=True)
 
         C_temp = plan.temp_array_like(C)

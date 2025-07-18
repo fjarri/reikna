@@ -1,11 +1,15 @@
+from typing import Any, Callable, Mapping, Type
+
 import numpy
-from grunnur import Template
+from grunnur import ArrayMetadata, AsArrayMetadata, DeviceParameters, Template
+from numpy.typing import NDArray
 
 import reikna.helpers as helpers
-from reikna.cbrng.bijections import philox
-from reikna.cbrng.samplers import SAMPLERS
-from reikna.cbrng.tools import KeyGenerator
-from reikna.core import Annotation, Computation, Parameter, Type
+from reikna.core import Annotation, Computation, ComputationPlan, KernelArguments, Parameter
+
+from .bijections import Bijection, philox
+from .samplers import SAMPLERS, Sampler
+from .tools import KeyGenerator
 
 TEMPLATE = Template.from_associated_file(__file__)
 
@@ -41,7 +45,15 @@ class CBRNG(Computation):
             All attributes are equal to the ones of ``randoms_arr`` from the constructor.
     """
 
-    def __init__(self, randoms_arr, generators_dim, sampler, seed=None):
+    def __init__(
+        self,
+        randoms_arr_t: AsArrayMetadata,
+        generators_dim: int,
+        sampler: Sampler,
+        seed: int | NDArray[numpy.uint32] | None = None,
+    ):
+        randoms_arr = randoms_arr_t.as_array_metadata()
+
         self._sampler = sampler
         self._keygen = KeyGenerator.create(sampler.bijection, seed=seed, reserve_id_space=True)
 
@@ -50,7 +62,7 @@ class CBRNG(Computation):
         counters_size = randoms_arr.shape[-generators_dim:]
 
         self._generators_dim = generators_dim
-        self._counters_t = Type.array(sampler.bijection.counter_dtype, shape=counters_size)
+        self._counters_t = ArrayMetadata(dtype=sampler.bijection.counter_dtype, shape=counters_size)
 
         Computation.__init__(
             self,
@@ -60,14 +72,22 @@ class CBRNG(Computation):
             ],
         )
 
-    def create_counters(self):
+    def create_counters(self) -> numpy.ndarray[Any, numpy.dtype[Any]]:
         """
         Create a counter array for use in :py:class:`~reikna.cbrng.CBRNG`.
         """
         return numpy.zeros(self._counters_t.shape, self._counters_t.dtype)
 
-    def _build_plan(self, plan_factory, _device_params, counters, randoms):
+    def _build_plan(
+        self,
+        plan_factory: Callable[[], ComputationPlan],
+        _device_params: DeviceParameters,
+        args: KernelArguments,
+    ) -> ComputationPlan:
         plan = plan_factory()
+
+        counters = args.counters
+        randoms = args.randoms
 
         plan.kernel_call(
             TEMPLATE.get_def("cbrng"),
@@ -89,17 +109,25 @@ class CBRNG(Computation):
 # For some reason, closure did not work correctly.
 # This class encapsulates the context and provides a classmethod for a given sampler.
 class _ConvenienceCtr:
-    def __init__(self, sampler_name):
+    def __init__(self, sampler_name: str):
         self._sampler_func = SAMPLERS[sampler_name]
 
-    def __call__(self, cls, randoms_arr, generators_dim, sampler_kwds=None, seed=None):
+    def __call__(
+        self,
+        cls: Type[CBRNG],
+        randoms_arr_t: AsArrayMetadata,
+        generators_dim: int,
+        sampler_kwds: Mapping[str, Any] = {},
+        seed: int | NDArray[numpy.uint32] | None = None,
+    ) -> CBRNG:
         bijection = philox(64, 4)
-        if sampler_kwds is None:
-            sampler_kwds = {}
-        sampler = self._sampler_func(bijection, randoms_arr.dtype, **sampler_kwds)
+        randoms_arr = randoms_arr_t.as_array_metadata()
+        # TODO: hard to type kwargs; we really should be just using explicit methods.
+        sampler = self._sampler_func(bijection, randoms_arr.dtype, **sampler_kwds)  # type: ignore[operator]
         return cls(randoms_arr, generators_dim, sampler, seed=seed)
 
 
+# TODO: make it into explicit methods
 # Add convenience constructors to CBRNG
 for name in SAMPLERS:
     ctr = _ConvenienceCtr(name)
