@@ -678,22 +678,6 @@ class KernelParameter:
         if store_combined_idx is not None:
             self.store_combined_idx = store_combined_idx
 
-    def __process_modules__(self, process: Callable[[Any], Any]) -> "KernelParameter":
-        kwds = {}
-        attrs = (
-            "load_idx",
-            "store_idx",
-            "load_same",
-            "store_same",
-            "load_combined_idx",
-            "store_combined_idx",
-        )
-        for attr in attrs:
-            if hasattr(self, attr):
-                kwds[attr] = process(getattr(self, attr))
-
-        return KernelParameter(self.name, process(self._type), **kwds)
-
     def __repr__(self) -> str:
         attrs = dict(
             load_idx="li",

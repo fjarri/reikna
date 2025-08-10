@@ -14,7 +14,6 @@ from .bijections import Bijection
 class KeyGenerator:
     """
     Contains a key generator module and accompanying metadata.
-    Supports ``__process_modules__`` protocol.
 
     .. py:attribute:: module
 
@@ -29,9 +28,6 @@ class KeyGenerator:
         """__init__()"""  # hide the signature from Sphinx
         self.module = module
         self._base_key = base_key
-
-    def __process_modules__(self, process: Callable[[Module], Module]) -> "KeyGenerator":
-        return KeyGenerator(process(self.module), self._base_key)
 
     @classmethod
     def create(

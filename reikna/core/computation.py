@@ -310,10 +310,6 @@ class KernelArguments:
     def __getattr__(self, name: str) -> "KernelArgument":
         return self._args[name]
 
-    def __process_modules__(self, process: Callable[[Any], Any]) -> "KernelArguments":
-        # TODO: make a separate type for such processed objects?
-        return KernelArguments({name: process(arg) for name, arg in self._args.items()})
-
 
 class IdGen:
     """

@@ -15,7 +15,6 @@ TEMPLATE = Template.from_associated_file(__file__)
 class Sampler:
     """
     Contains a random distribution sampler module and accompanying metadata.
-    Supports ``__process_modules__`` protocol.
 
     .. py:attribute:: deterministic
 
@@ -67,15 +66,6 @@ class Sampler:
         self.deterministic = deterministic
         self.bijection = bijection
         self.module = module
-
-    def __process_modules__(self, process: Callable[[Any], Any]) -> Sampler:
-        return Sampler(
-            process(self.bijection),
-            process(self.module),
-            self.dtype,
-            randoms_per_call=self.randoms_per_call,
-            deterministic=self.deterministic,
-        )
 
 
 def uniform_integer(

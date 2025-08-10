@@ -249,10 +249,6 @@ class Type(AsArrayMetadata):
     def __repr__(self) -> str:
         return f"Type({self._metadata})"
 
-    def __process_modules__(self, process: Callable[[Any], Any]) -> "Type":
-        # TODO: make a separate type for such processed objects?
-        return Type(self._metadata, process(self.ctype))
-
 
 class Annotation:
     """
@@ -319,11 +315,6 @@ class Annotation:
         else:
             return "Annotation({dtype})".format(dtype=self.type.dtype)
 
-    def __process_modules__(self, process: Callable[[Any], Any]) -> "Annotation":
-        ann = Annotation(self.type, role=self.role, constant=self.constant)
-        ann.type = process(ann.type)
-        return ann
-
 
 class Parameter(inspect.Parameter):
     """
@@ -370,9 +361,6 @@ class Parameter(inspect.Parameter):
             and self.annotation == other.annotation
             and self.default == other.default
         )
-
-    def __process_modules__(self, process: Callable[[Any], Any]) -> "Parameter":
-        return Parameter(self.name, process(self.annotation), default=self.default)
 
 
 class Signature(inspect.Signature):

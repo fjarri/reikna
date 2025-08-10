@@ -20,9 +20,6 @@ class Predicate:
         self.operation = operation
         self.empty = empty
 
-    def __process_modules__(self, process: Callable[[Snippet], Any]) -> "Predicate":
-        return Predicate(process(self.operation), self.empty)
-
 
 def predicate_sum(dtype: DTypeLike) -> Predicate:
     """

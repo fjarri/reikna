@@ -26,7 +26,6 @@ def create_struct_types(
 class Bijection:
     """
     Contains a CBRNG bijection module and accompanying metadata.
-    Supports ``__process_modules__`` protocol.
 
     .. py:attribute:: word_dtype
 
@@ -152,9 +151,6 @@ class Bijection:
             numpy.uint64: "get_raw_uint64",
             numpy.dtype("uint64"): "get_raw_uint64",
         }
-
-    def __process_modules__(self, process: Callable[[Module], Module]) -> "Bijection":
-        return Bijection(process(self.module), self.word_dtype, self.key_dtype, self.counter_dtype)
 
 
 def threefry(bitness: int, counter_words: int, rounds: int = 20) -> Bijection:
