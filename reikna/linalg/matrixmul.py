@@ -11,7 +11,7 @@ from grunnur import (
 )
 
 from .. import helpers
-from ..core import Annotation, Computation, ComputationPlan, KernelArguments, Parameter, Type
+from ..core import Annotation, Computation, ComputationPlan, KernelArguments, Parameter
 
 TEMPLATE = Template.from_associated_file(__file__)
 

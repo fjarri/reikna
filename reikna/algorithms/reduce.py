@@ -18,7 +18,6 @@ from ..core import (
     KernelArgument,
     KernelArguments,
     Parameter,
-    Type,
 )
 from .predicates import Predicate
 from .transpose import Transpose

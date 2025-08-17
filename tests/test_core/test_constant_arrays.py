@@ -1,8 +1,8 @@
 import pytest
-from grunnur import Array, Queue, Template
+from grunnur import Array, ArrayMetadata, Queue, Template
 
 from helpers import *
-from reikna.core import Annotation, Computation, Parameter, Transformation, Type
+from reikna.core import Annotation, Computation, Parameter, Transformation
 
 
 class Dummy(Computation):
@@ -19,7 +19,9 @@ class Dummy(Computation):
         Computation.__init__(
             self,
             [
-                Parameter("output", Annotation(Type.array(numpy.float32, length), "o")),
+                Parameter(
+                    "output", Annotation(ArrayMetadata(dtype=numpy.float32, shape=length), "o")
+                ),
             ],
         )
 
@@ -59,7 +61,9 @@ class DummyOuter(Computation):
         Computation.__init__(
             self,
             [
-                Parameter("output", Annotation(Type.array(numpy.float32, length), "o")),
+                Parameter(
+                    "output", Annotation(ArrayMetadata(dtype=numpy.float32, shape=length), "o")
+                ),
             ],
         )
 

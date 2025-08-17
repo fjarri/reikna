@@ -17,7 +17,6 @@ from ..core import (
     KernelArgument,
     KernelArguments,
     Parameter,
-    Type,
 )
 from .pureparallel import PureParallel
 
@@ -31,7 +30,7 @@ class Roll(Computation):
             [
                 Parameter("output", Annotation(array, "o")),
                 Parameter("input", Annotation(array, "i")),
-                Parameter("shift", Annotation(Type.scalar(numpy.int32))),
+                Parameter("shift", Annotation(numpy.int32)),
             ],
             """
             <%

@@ -2,9 +2,10 @@ import weakref
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
+import numpy
 from grunnur import ArrayMetadata, AsArrayMetadata, DefTemplate, Snippet
 
-from ..core.signature import Annotation, Parameter, Signature, Type
+from ..core.signature import Annotation, Parameter, Signature
 from ..core.transformation_modules import (
     index_cnames,
     kernel_declaration,
@@ -20,17 +21,17 @@ if TYPE_CHECKING:
     from grunnur import Module
 
 
-class TransformationParameter(Type):
+class TransformationParameter:
     """
     Represents a typed transformation parameter.
     Can be used as a substitute of an array for functions
     which are only interested in array metadata.
     """
 
-    def __init__(self, trf: "Transformation", name: str, type_: Type):
-        super().__init__(type_._metadata, type_.ctype)  # noqa: SLF001
+    def __init__(self, trf: "Transformation", name: str, type: ArrayMetadata | numpy.dtype[Any]):
         self._trf = weakref.ref(trf)
         self._name = name
+        self._type = type
 
     def belongs_to(self, trf: "Transformation") -> bool:
         return self._trf() is trf
@@ -86,7 +87,7 @@ class Transformation:
         if connectors is not None:
             self.connectors = connectors
         else:
-            self.connectors = [param.name for param in parameters if param.annotation.array]
+            self.connectors = [param.name for param in parameters if param.annotation.is_array]
 
         tr_param_names = ["idxs"] + [param.name for param in self.signature.parameters.values()]
         self.snippet = Snippet(
@@ -340,7 +341,7 @@ class TransformationTree:
 
             elif (
                 node_name in self.leaf_parameters
-                and self.leaf_parameters[node_name].annotation.array
+                and self.leaf_parameters[node_name].annotation.is_array
             ):
                 ann = self.leaf_parameters[node_name].annotation
                 if (ann.input and ntr.output) or (ann.output and not ntr.output):
@@ -387,7 +388,7 @@ class TransformationTree:
                 )
 
             # No more to check in the case of scalars
-            if not tr_ann.array:
+            if not tr_ann.is_array:
                 continue
 
             if node_name == comp_connector:
@@ -527,8 +528,8 @@ class TransformationTree:
     def _get_kernel_argobject(self, name: str, annotation: Annotation) -> "KernelParameter":
         # Returns a parameter object, which can be passed to the main kernel.
 
-        if not annotation.array:
-            return KernelParameter(name, annotation.type)
+        if not annotation.is_array:
+            return KernelParameter(name, annotation)
 
         load_idx, load_same, load_combined_idx = self._get_connection_modules(
             name,
@@ -543,7 +544,7 @@ class TransformationTree:
 
         return KernelParameter(
             name,
-            annotation.type,
+            annotation,
             load_idx=load_idx,
             store_idx=store_idx,
             load_same=load_same,
@@ -639,7 +640,7 @@ class KernelParameter:
     def __init__(
         self,
         name: str,
-        type_: Type,
+        annotation: Annotation,
         load_idx: "Module | None" = None,
         store_idx: "Module | None" = None,
         load_same: "Module | str | None" = None,
@@ -648,13 +649,9 @@ class KernelParameter:
         store_combined_idx: "Module | None" = None,
     ):
         """__init__()"""  # hide the signature from Sphinx
-        self._type = type_
+        self._annotation = annotation
 
-        self.shape = type_.shape
-        self.strides = type_.strides
-        self.offset = type_.offset
-        self.dtype = type_.dtype
-        self.ctype = type_.ctype
+        self.ctype = annotation.ctype
 
         self._leaf_name = leaf_name(name)
         self.name = name
@@ -671,6 +668,31 @@ class KernelParameter:
             self.load_combined_idx = load_combined_idx
         if store_combined_idx is not None:
             self.store_combined_idx = store_combined_idx
+
+    @property
+    def _metadata(self) -> ArrayMetadata:
+        # TODO: should we have two separate kernel parameter types,
+        # one for arrays, and one for scalars?
+        if isinstance(self._annotation.type, ArrayMetadata):
+            return self._annotation.type
+        raise TypeError("Scalar kernel parameter has no array metadata")
+
+    @property
+    def shape(self) -> tuple[int, ...]:
+        return self._metadata.shape
+
+    @property
+    def strides(self) -> tuple[int, ...]:
+        return self._metadata.strides
+
+    @property
+    def offset(self) -> int:
+        return self._metadata.first_element_offset
+
+    @property
+    def dtype(self) -> numpy.dtype[Any]:
+        tp = self._annotation.type
+        return tp.dtype if isinstance(tp, ArrayMetadata) else tp
 
     def __repr__(self) -> str:
         attrs = dict(

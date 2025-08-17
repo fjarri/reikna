@@ -19,7 +19,6 @@ from ..core import (
     KernelArgument,
     KernelArguments,
     Parameter,
-    Type,
 )
 
 TEMPLATE = Template.from_associated_file(__file__)

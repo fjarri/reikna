@@ -3,7 +3,7 @@ from collections.abc import Callable, Iterable
 from grunnur import ArrayMetadata, AsArrayMetadata, DeviceParameters
 
 from ..algorithms import Reduce, predicate_sum
-from ..core import Annotation, Computation, ComputationPlan, KernelArguments, Parameter, Type
+from ..core import Annotation, Computation, ComputationPlan, KernelArguments, Parameter
 from ..transformations import norm_const
 
 
@@ -34,7 +34,9 @@ class EntrywiseNorm(Computation):
         tr_elems = norm_const(input_, order)
         out_dtype = tr_elems.parameter.output.dtype
 
-        rd = Reduce(Type.array(out_dtype, input_.shape), predicate_sum(out_dtype), axes=axes)
+        rd = Reduce(
+            ArrayMetadata(dtype=out_dtype, shape=input_.shape), predicate_sum(out_dtype), axes=axes
+        )
 
         res_t = rd.parameter.output
         tr_sum = norm_const(res_t, 1.0 / order)

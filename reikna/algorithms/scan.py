@@ -4,7 +4,7 @@ import numpy
 from grunnur import AsArrayMetadata, DeviceParameters, Snippet, Template, dtypes
 
 from .. import helpers
-from ..core import Annotation, Computation, ComputationPlan, KernelArguments, Parameter, Type
+from ..core import Annotation, Computation, ComputationPlan, KernelArguments, Parameter
 from .predicates import Predicate
 from .transpose import Transpose
 

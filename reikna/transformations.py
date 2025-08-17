@@ -5,7 +5,7 @@ from typing import Any
 import numpy
 from grunnur import ArrayMetadata, AsArrayMetadata, dtypes, functions
 
-from .core import Annotation, Parameter, Transformation, Type
+from .core import Annotation, Parameter, Transformation
 
 
 def copy(arr_t: AsArrayMetadata, out_arr_t: AsArrayMetadata | None = None) -> Transformation:
@@ -29,6 +29,22 @@ def copy(arr_t: AsArrayMetadata, out_arr_t: AsArrayMetadata | None = None) -> Tr
     )
 
 
+def _broadcastable_to(source: ArrayMetadata, dest: ArrayMetadata) -> bool:
+    """
+    Returns ``True`` if the shape of this metadata is broadcastable to ``other``,
+    that is its dimensions either coincide with the innermost dimensions of ``other.shape``,
+    or are equal to 1.
+    """
+    if len(source.shape) > len(dest.shape):
+        return False
+
+    for i in range(1, len(source.shape) + 1):
+        if not (source.shape[-i] == 1 or source.shape[-i] == dest.shape[-i]):
+            return False
+
+    return True
+
+
 def copy_broadcasted(
     arr_t: AsArrayMetadata, out_arr_t: AsArrayMetadata | None = None
 ) -> Transformation:
@@ -48,9 +64,7 @@ def copy_broadcasted(
     if output.dtype != input_.dtype:
         raise ValueError("Input and output arrays must have the same data type")
 
-    in_tp = Type.from_value(input_)
-    out_tp = Type.from_value(output)
-    if not in_tp.broadcastable_to(out_tp):
+    if not _broadcastable_to(input_, output):
         raise ValueError("Input is not broadcastable to output")
 
     return Transformation(
@@ -325,7 +339,7 @@ def broadcast_param(arr_t: AsArrayMetadata) -> Transformation:
     return Transformation(
         [
             Parameter("output", Annotation(input_, "o")),
-            Parameter("param", Annotation(Type.scalar(input_.dtype))),
+            Parameter("param", Annotation(input_.dtype)),
         ],
         """
         ${output.store_same}(${param});

@@ -3,7 +3,7 @@ import time
 
 import numpy
 import pytest
-from grunnur import Array, StaticKernel, dtypes
+from grunnur import Array, StaticKernel, dtypes, ArrayMetadata
 from scipy.special import iv
 
 from helpers import *
@@ -11,7 +11,6 @@ from reikna.cbrng import CBRNG
 from reikna.cbrng.bijections import philox, threefry
 from reikna.cbrng.samplers import gamma, normal_bm, uniform_float, uniform_integer, vonmises
 from reikna.cbrng.tools import KeyGenerator
-from reikna.core import Type
 from reikna.helpers import product
 
 from .cbrng_ref import philox as philox_ref
@@ -337,7 +336,7 @@ def test_computation_general(queue):
     ref = NormalBMHelper(mean=-2, std=10)
     sampler = ref.get_sampler(bijection, False)
 
-    rng = CBRNG(Type.array(sampler.dtype, shape=(batch, size)), 1, sampler)
+    rng = CBRNG(ArrayMetadata(dtype=sampler.dtype, shape=(batch, size)), 1, sampler)
     check_computation(queue, rng, ref)
 
 
@@ -347,7 +346,7 @@ def test_computation_convenience(queue):
 
     ref = UniformIntegerHelper(0, 511)
     rng = CBRNG.uniform_integer(
-        Type.array(numpy.int32, shape=(batch, size)),
+        ArrayMetadata(dtype=numpy.int32, shape=(batch, size)),
         1,
         sampler_kwds=dict(low=ref.extent[0], high=ref.extent[1]),
     )
@@ -362,7 +361,7 @@ def test_computation_uniqueness(queue):
     size = 10000
     batch = 1
 
-    rng = CBRNG.normal_bm(Type.array(numpy.complex64, shape=(batch, size)), 1)
+    rng = CBRNG.normal_bm(ArrayMetadata(dtype=numpy.complex64, shape=(batch, size)), 1)
 
     dest1_dev = Array.empty_like(queue.device, rng.parameter.randoms)
     dest2_dev = Array.empty_like(queue.device, rng.parameter.randoms)
@@ -385,7 +384,7 @@ def test_computation_performance(queue, fast_math, test_sampler_float):
     bijection = philox(64, 4)
     sampler = test_sampler_float.get_sampler(bijection, False)
 
-    rng = CBRNG(Type.array(sampler.dtype, shape=(batch, size)), 1, sampler)
+    rng = CBRNG(ArrayMetadata(dtype=sampler.dtype, shape=(batch, size)), 1, sampler)
 
     dest_dev = Array.empty_like(queue.device, rng.parameter.randoms)
     counters = rng.create_counters()

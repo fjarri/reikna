@@ -2,7 +2,7 @@ from collections.abc import Callable, Iterable, Sequence
 from typing import Any
 
 import numpy
-from grunnur import AsArrayMetadata, DeviceParameters, dtypes
+from grunnur import ArrayMetadata, AsArrayMetadata, DeviceParameters, dtypes
 from numpy.polynomial import Hermite
 from numpy.typing import NDArray
 
@@ -14,7 +14,6 @@ from .core import (
     KernelArgument,
     KernelArguments,
     Parameter,
-    Type,
 )
 from .linalg import MatrixMul
 
@@ -244,7 +243,7 @@ class DHT(Computation):
                 coord_shape[axis] = get_spatial_points(
                     mode_arr.shape[axis], order, add_points=add_points[axis]
                 )
-        coord_arr = Type.array(mode_arr.dtype, shape=coord_shape)
+        coord_arr = ArrayMetadata(dtype=mode_arr.dtype, shape=coord_shape)
 
         self._inverse = inverse
         self._order = order

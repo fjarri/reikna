@@ -15,17 +15,13 @@ DOUBLE_ATOL = 1e-11
 
 
 def get_test_array_like(arr, **kwds):
-    kwds["strides"] = arr.strides
-    kwds["offset"] = arr.offset
-    return get_test_array(arr.shape, arr.dtype, **kwds)
+    arr = arr.as_array_metadata()
+    return get_test_array(arr.shape, arr.dtype, strides=arr.strides)
 
 
-def get_test_array(shape, dtype, strides=None, offset=0, no_zeros=False, high=None):
+def get_test_array(shape, dtype, strides=None, no_zeros=False, high=None):
     shape = wrap_in_tuple(shape)
     dtype = numpy.dtype(dtype)
-
-    if offset != 0:
-        raise NotImplementedError()
 
     if dtype.names is not None:
         result = numpy.empty(shape, dtype)

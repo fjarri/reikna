@@ -88,7 +88,7 @@ class PureParallel(Computation):
             guiding_array = str(guiding_array)
 
         guiding_param = trf.signature.parameters[guiding_array]
-        if not guiding_param.annotation.array:
+        if not guiding_param.annotation.is_array:
             raise ValueError("The parameter serving as a guiding array cannot be a scalar")
 
         # Transformation snippet is the same as required for PureParallel

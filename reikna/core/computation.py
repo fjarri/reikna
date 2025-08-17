@@ -8,6 +8,7 @@ from grunnur import (
     Array,
     ArrayMetadata,
     AsArrayMetadata,
+    BoundDevice,
     Buffer,
     Queue,
     StaticKernel,
@@ -20,23 +21,25 @@ from .signature import Annotation, Parameter, Signature, Type
 from .transformation import TransformationParameter, TransformationTree
 
 if TYPE_CHECKING:
-    from grunnur import BoundDevice, DefTemplate, DeviceParameters
+    from grunnur import DefTemplate, DeviceParameters
 
     from .transformation import Transformation
 
 
-class ComputationParameter(Type):
+class ComputationParameter:
     """
     Represents a typed computation parameter.
     Can be used as a substitute of an array for functions
     which are only interested in array metadata.
     """
 
-    def __init__(self, computation: "ComputationCallable | Computation", name: str, type_: Type):
+    def __init__(
+        self, computation: "ComputationCallable | Computation", name: str, type: ArrayMetadata | numpy.dtype[Any]
+    ):
         """__init__()"""  # hide the signature from Sphinx
-        super().__init__(type_._metadata, type_.ctype)  # noqa: SLF001
         self._computation = weakref.ref(computation)
         self._name = name
+        self._type = type
 
     def belongs_to(self, comp: "ComputationCallable | Computation") -> bool:
         return self._computation() is comp
@@ -330,13 +333,27 @@ class IdGen:
         return self._prefix + str(self._counter)
 
 
-class KernelArgument(Type):
+class KernelArgument:
     """Represents an argument suitable to pass to planned kernel or computation call."""
 
-    def __init__(self, name: str, type_: Type):
+    def __init__(self, name: str, type: ArrayMetadata | numpy.dtype[Any]):
         """__init__()"""  # hide the signature from Sphinx
-        super().__init__(type_._metadata, type_.ctype)  # noqa: SLF001
         self.name = name
+        self._type = type
+
+    @property
+    def shape(self) -> tuple[int, ...]:
+        if isinstance(self._type, ArrayMetadata):
+            return self._type.shape
+        raise ValueError(f"The kernel argument `{self.name}` is a scalar")
+
+    @property
+    def dtype(self) -> numpy.dtype[Any]:
+        return (
+            self._type.dtype
+            if isinstance(self._type, ArrayMetadata)
+            else self._type
+        )
 
     def __repr__(self) -> str:
         return "KernelArgument(" + self.name + ")"
@@ -384,10 +401,9 @@ class ComputationPlan:
         :py:class:`KernelArgument`.
         """
         name = self._translator(self._persistent_value_idgen())
-        ann = Annotation(Type.scalar(val.dtype))
+        ann = Annotation(val.dtype)
         self._internal_annotations[name] = ann
-        # TODO: does `ann.type(val)` even do anything given that `val` is already a `numpy` object?
-        self._persistent_values[name] = cast(numpy.generic, ann.type(val))
+        self._persistent_values[name] = val
         return KernelArgument(name, ann.type)
 
     def persistent_array(self, arr: numpy.ndarray[Any, numpy.dtype[Any]]) -> KernelArgument:
@@ -396,7 +412,7 @@ class ComputationPlan:
         :py:class:`KernelArgument`.
         """
         name = self._translator(self._persistent_value_idgen())
-        ann = Annotation(arr, "i")
+        ann = Annotation(ArrayMetadata.from_arraylike(arr), "i")
         self._internal_annotations[name] = ann
         self._persistent_values[name] = Array.from_host(self._bound_device, arr)
         return KernelArgument(name, ann.type)
@@ -420,7 +436,14 @@ class ComputationPlan:
         """
         name = self._translator(self._temp_array_idgen())
         ann = Annotation(
-            Type.array(dtype, shape=shape, strides=strides, offset=offset, nbytes=nbytes), "io"
+            ArrayMetadata(
+                shape=shape,
+                dtype=dtype,
+                strides=strides,
+                first_element_offset=offset,
+                buffer_size=nbytes,
+            ),
+            "io",
         )
         self._internal_annotations[name] = ann
         self._temp_arrays.add(name)
@@ -432,7 +455,7 @@ class ComputationPlan:
         :py:class:`KernelArgument`.
         """
         name = self._translator(self._constant_value_idgen())
-        ann = Annotation(arr, constant=True)
+        ann = Annotation(ArrayMetadata.from_arraylike(arr), constant=True)
         self._internal_annotations[name] = ann
         self._constant_arrays[name] = Array.from_host(self._bound_device, arr)
         return KernelArgument(name, ann.type)
@@ -488,7 +511,7 @@ class ComputationPlan:
                     # so there's no need in registering them in the plan.
                     arg_name = self._translator(adhoc_idgen())
                     adhoc_values[arg_name] = arg
-                    annotation = Annotation(Type.scalar(arg.dtype))
+                    annotation = Annotation(arg.dtype)
                 else:
                     raise TypeError("Unknown argument type: " + str(type(arg)))
             else:
@@ -513,9 +536,9 @@ class ComputationPlan:
         kargs = []
         for arg, param in zip(bound_args.args, signature.parameters.values(), strict=False):
             if not isinstance(arg, KernelArgument):
-                if param.annotation.array:
+                if param.annotation.is_array:
                     raise ValueError("Ad hoc arguments are only allowed for scalar parameters")
-                karg = self._scalar(param.annotation.type(arg))
+                karg = self._scalar(param.annotation.cast_scalar(arg))
             else:
                 karg = arg
 
@@ -630,7 +653,7 @@ class ComputationPlan:
         self._temp_arrays.update(plan._temp_arrays)  # noqa: SLF001
         self._internal_annotations.update(plan._internal_annotations)  # noqa: SLF001
 
-    def finalize(self) -> "ComputationCallable":  # noqa: C901
+    def finalize(self) -> "ComputationCallable":  # noqa: C901, PLR0912
         # We need to add inferred dependencies between temporary buffers.
         # Basically, we assume that if some buffer X was used first in kernel M
         # and last in kernel N, all buffers in kernels from M+1 till N-1 depend on it
@@ -670,6 +693,9 @@ class ComputationPlan:
                 internal_args[dep] for dep in dependencies[name] if dep in internal_args
             ]
             type_ = self._internal_annotations[name].type
+            if not isinstance(type_, ArrayMetadata):
+                # by construction; can we ensure that better?
+                raise RuntimeError(f"Expected the parameter {name} to be an array")  # noqa: TRY004
 
             allocator: Callable[[BoundDevice, int], Buffer]
             if self._virtual_manager:
@@ -677,12 +703,9 @@ class ComputationPlan:
             else:
                 allocator = Buffer.allocate
 
-            new_buf = Array.empty(
+            new_buf = Array.empty_with_metadata(
                 self._bound_device,
-                type_.shape,
-                type_.dtype,
-                strides=type_.strides,
-                first_element_offset=type_.offset,
+                type_,
                 allocator=allocator,
             )
             internal_args[name] = new_buf
@@ -727,20 +750,16 @@ class ComputationCallable:
     """
     A result of calling :py:meth:`~reikna.core.Computation.compile` on a computation.
     Represents a callable opaque GPGPU computation.
-
-    .. py:attribute:: bound_device
-
-        A :py:class:`grunnur.BoundDevice` object used to compile the computation.
-
-    .. py:attribute:: signature
-
-        A :py:class:`~reikna.core.Signature` object.
-
-    .. py:attribute:: parameter
-
-        A named tuple of :py:class:`~reikna.core.Type` objects corresponding
-        to the callable's parameters.
     """
+
+    """The device object used to compile the computation."""
+    device: BoundDevice
+
+    """Computation signature."""
+    signature: Signature
+
+    """Computation parameters."""
+    parameter: ParameterContainer
 
     def __init__(
         self,

@@ -32,10 +32,10 @@ def index_cnames_seq(param: "Parameter", *, qualified: bool = False) -> list[str
 def flat_index_expr(param: "Parameter") -> str:
     type_ = param.annotation.type
 
-    # TODO: check this in `Type`
-    if type_.offset % type_.dtype.itemsize != 0:
+    # TODO: Can we support it?
+    if type_.first_element_offset % type_.dtype.itemsize != 0:
         raise ValueError("Offset must be a multiple of the itemsize")
-    item_offset = type_.offset // type_.dtype.itemsize
+    item_offset = type_.first_element_offset // type_.dtype.itemsize
 
     if len(type_.shape) == 0:
         return str(item_offset)
@@ -71,13 +71,13 @@ def flat_index_expr(param: "Parameter") -> str:
 
 def param_cname(param: "Parameter", *, qualified: bool = False) -> str:
     # Note that if ``param`` has a struct type,
-    # its .annotation.type.ctype attribute can be a module.
+    # its .annotation.ctype attribute can be a module.
     # In that case ``str()`` has to be called explicitly for ``ctype``
     # to get the module prefix.
     name = "_leaf_" + param.name
     if qualified:
-        ctype = param.annotation.type.ctype
-        if param.annotation.array:
+        ctype = param.annotation.ctype
+        if param.annotation.is_array:
             qualifier = "CONSTANT_MEM" if param.annotation.constant else "GLOBAL_MEM"
             return qualifier + " " + str(ctype) + " *" + name
 
@@ -165,7 +165,7 @@ def module_transformation(
             VALUE_NAME=VALUE_NAME,
             nq_params=param_cnames_seq(subtree_parameters),
             nq_indices=index_cnames_seq(param),
-            connector_ctype=param.annotation.type.ctype,
+            connector_ctype=param.annotation.ctype,
             tr_snippet=tr_snippet,
             tr_args=tr_args,
         ),

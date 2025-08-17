@@ -153,41 +153,6 @@ class Type(AsArrayMetadata):
     def is_scalar(self) -> bool:
         return isinstance(self._metadata, numpy.dtype)
 
-    # TODO: move to `Annotation`
-    def compatible_with(self, other: "Type") -> bool:
-        if self.is_scalar() and other.is_scalar():
-            return self._metadata == other._metadata  # noqa: SLF001
-
-        if self.is_scalar() ^ other.is_scalar():
-            return False
-
-        return is_compatible_with(
-            cast(ArrayMetadata, self._metadata),
-            cast(ArrayMetadata, other._metadata),  # noqa: SLF001
-        )
-
-    # TODO: move the logic to `transformations.copy_broadcasted()`
-    def broadcastable_to(self, other: "Type") -> bool:
-        """
-        Returns ``True`` if the shape of this ``Type`` is broadcastable to ``other``,
-        that is its dimensions either coincide with the innermost dimensions of ``other.shape``,
-        or are equal to 1.
-        """
-        if self.is_scalar() or other.is_scalar():
-            return False
-
-        if len(self._metadata.shape) > len(other._metadata.shape):  # noqa: SLF001
-            return False
-
-        for i in range(1, len(self._metadata.shape) + 1):
-            if not (
-                self._metadata.shape[-i] == 1
-                or self._metadata.shape[-i] == other._metadata.shape[-i]  # noqa: SLF001
-            ):
-                return False
-
-        return True
-
     def with_dtype(self, dtype: numpy.dtype[Any]) -> "Type":
         """
         Creates a :py:class:`Type` object with its ``dtype``
@@ -233,7 +198,7 @@ class Type(AsArrayMetadata):
         return f"Type({self._metadata})"
 
 
-class Annotation:
+class Annotation(AsArrayMetadata):
     """
     Computation parameter annotation,
     in the same sense as it is used for functions in the standard library.
@@ -246,8 +211,18 @@ class Annotation:
     :param constant: if ``True``, corresponds to a constant (cached) array.
     """
 
-    def __init__(self, type_: Any, role: str | None = None, *, constant: bool = False):
-        self.type = Type.from_value(type_)
+    def __init__(
+        self, type_: AsArrayMetadata | DTypeLike, role: str | None = None, *, constant: bool = False
+    ):
+        self.type: ArrayMetadata | numpy.dtype[Any]
+        if isinstance(type_, AsArrayMetadata):
+            self.type = type_.as_array_metadata()
+        else:
+            self.type = numpy.dtype(type_)
+
+        self.ctype = dtypes.ctype(
+            self.type.dtype if isinstance(self.type, ArrayMetadata) else self.type
+        )
 
         if role is None:
             if len(self.type.shape) == 0:
@@ -262,15 +237,15 @@ class Annotation:
         self.role = role
         self.constant = constant
         if role == "s":
-            if not self.type.is_scalar():
+            if isinstance(self.type, ArrayMetadata):
                 raise ValueError("Only scalars can have the scalar role")
-            self.array = False
+            self.is_array = False
             self.input = False
             self.output = False
         else:
-            if self.type.is_scalar():
+            if not isinstance(self.type, ArrayMetadata):
                 raise ValueError("Scalars cannot have input or output role")
-            self.array = True
+            self.is_array = True
             self.input = "i" in role
             self.output = "o" in role
 
@@ -281,23 +256,44 @@ class Annotation:
             and self.constant == other.constant
         )
 
+    def as_array_metadata(self) -> ArrayMetadata:
+        # TODO: can this branch be eliminated by typing?
+        if isinstance(self.type, ArrayMetadata):
+            return self.type
+        raise ValueError("This is a scalar type")
+
+    # TODO: move to `Annotation`
+    def _compatible_with(self, other: "Annotation") -> bool:
+        if isinstance(self.type, numpy.dtype) and isinstance(other.type, numpy.dtype):
+            return self.type == other.type
+
+        if isinstance(self.type, ArrayMetadata) and isinstance(other.type, ArrayMetadata):
+            return is_compatible_with(self.type, other.type)
+
+        return False
+
     def can_be_argument_for(self, annotation: "Annotation") -> bool:
-        if not self.type.compatible_with(annotation.type):
+        if not self._compatible_with(annotation):
             return False
 
         if self.role == annotation.role:
             return True
 
-        return self.role == "io" and annotation.array
+        return self.role == "io" and annotation.is_array
+
+    def cast_scalar(self, val: Any) -> numpy.generic:
+        if isinstance(self.type, numpy.dtype):
+            return cast(numpy.generic, numpy.asarray(val, self.type).flat[0])
+        raise ValueError("The annotation has the array type")
 
     def __repr__(self) -> str:
-        if self.array:
+        if self.is_array:
             return "Annotation({type_}, role={role}{constant})".format(
                 type_=self.type,
                 role=repr(self.role),
                 constant=", constant" if self.constant else "",
             )
-        return f"Annotation({self.type.dtype})"
+        return f"Annotation({self.type})"
 
 
 class Parameter(inspect.Parameter):
@@ -318,9 +314,9 @@ class Parameter(inspect.Parameter):
         default: Any = inspect.Parameter.empty,
     ):
         if default is not inspect.Parameter.empty:
-            if annotation.array:
+            if not isinstance(annotation.type, numpy.dtype):
                 raise ValueError("Array parameters cannot have default values")
-            default = annotation.type(default)
+            default = numpy.asarray(default, annotation.type).flat[0]
 
         # TODO: Parameter constructor is not documented.
         # But I need to create these objects somehow.
@@ -382,8 +378,8 @@ class Signature(inspect.Signature):
         for param in self.parameters.values():
             if param.name not in bound_args.arguments:
                 bound_args.arguments[param.name] = param.default
-            elif cast and not param.annotation.array:
-                bound_args.arguments[param.name] = param.annotation.type(
+            elif cast and not param.annotation.is_array:
+                bound_args.arguments[param.name] = param.annotation.cast_scalar(
                     bound_args.arguments[param.name]
                 )
         return bound_args
