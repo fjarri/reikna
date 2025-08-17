@@ -1,4 +1,5 @@
-from typing import Any, Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
+from typing import Any
 
 from grunnur import DefTemplate, DeviceParameters, Snippet
 
@@ -17,8 +18,6 @@ from ..core.transformation import TransformationParameter
 
 class PureParallel(Computation):
     """
-    Bases: :py:class:`~reikna.core.Computation`
-
     A general class for pure parallel computations
     (i.e. with no interaction between threads).
 
@@ -57,7 +56,7 @@ class PureParallel(Computation):
         else:
             self._snippet = Snippet(
                 DefTemplate.from_string(
-                    "pure_parallel_inner", ["idxs"] + self._root_parameters, code
+                    "pure_parallel_inner", ["idxs", *self._root_parameters], code
                 ),
                 render_globals=render_kwds,
             )
@@ -78,9 +77,8 @@ class PureParallel(Computation):
         ``guiding_array`` can be a string with a name of an array parameter from ``trf``,
         or the corresponding :py:class:`~reikna.core.transformation.TransformationParameter` object.
         """
-
         if guiding_array is None:
-            guiding_array = list(trf.signature.parameters.keys())[0]
+            guiding_array = next(iter(trf.signature.parameters.keys()))
 
         if isinstance(guiding_array, TransformationParameter):
             if not guiding_array.belongs_to(trf):
@@ -101,13 +99,13 @@ class PureParallel(Computation):
         # (e.g. creating a trivial computation and attaching this transformation to it
         # will either produce incorrect parameter order, or will require the usage of an
         # 'io' parameter, which has its own complications).
-        # FIXME: find a solution which does not create an implicit dependence on
+        # TODO: find a solution which does not create an implicit dependence on
         # the way transformations are handled.
-        res = cls(
-            trf.signature._reikna_parameters.values(), trf.snippet, guiding_array=guiding_param.name
+        return cls(
+            trf.signature._reikna_parameters.values(),  # noqa: SLF001
+            trf.snippet,
+            guiding_array=guiding_param.name,
         )
-
-        return res
 
     def _build_plan(
         self,
@@ -125,7 +123,7 @@ class PureParallel(Computation):
 
         template = DefTemplate.from_string(
             "pure_parallel",
-            ["kernel_declaration"] + self._root_parameters,
+            ["kernel_declaration", *self._root_parameters],
             """
             ${kernel_declaration}
             {

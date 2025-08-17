@@ -143,6 +143,12 @@ ignore = [
     "ERA001",
     # Self was only introduced in 3.11
     "PYI019",
+    # Interferes with Sphix-formatted module-level docstrings
+    "D400",
+    "D415",
+    # Fires off at docstrings referencing another function.
+    # Protects me from errors I don't make.
+    "D402"
 ]
 
 # Allow autofix for all enabled rules (when `--fix`) is provided.

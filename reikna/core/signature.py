@@ -1,6 +1,7 @@
 import inspect
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Sequence, cast
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy
 from grunnur import Array, ArrayMetadata, AsArrayMetadata, dtypes
@@ -18,7 +19,6 @@ def is_compatible_with(lhs: ArrayMetadata, rhs: ArrayMetadata) -> bool:
     Returns ``True`` if this and the other metadata represent essentially the same array,
     with the only difference being some outermost dimensions of size 1.
     """
-
     if lhs.dtype != rhs.dtype:
         return False
 
@@ -31,10 +31,7 @@ def is_compatible_with(lhs: ArrayMetadata, rhs: ArrayMetadata) -> bool:
         return False
     if helpers.product(rhs.shape[:-common_shape_len]) != 1:
         return False
-    if lhs.first_element_offset != rhs.first_element_offset:
-        return False
-
-    return True
+    return lhs.first_element_offset == rhs.first_element_offset
 
 
 class Type(AsArrayMetadata):
@@ -76,10 +73,7 @@ class Type(AsArrayMetadata):
     def like(cls, array_like: AsArrayMetadata | numpy.ndarray[Any, numpy.dtype[Any]]) -> "Type":
         if isinstance(array_like, AsArrayMetadata):
             return cls._from_metadata(array_like.as_array_metadata())
-        else:
-            return cls.array(
-                shape=array_like.shape, dtype=array_like.dtype, strides=array_like.strides
-            )
+        return cls.array(shape=array_like.shape, dtype=array_like.dtype, strides=array_like.strides)
 
     @classmethod
     def array(
@@ -130,32 +124,28 @@ class Type(AsArrayMetadata):
     def dtype(self) -> numpy.dtype[Any]:
         if isinstance(self._metadata, ArrayMetadata):
             return self._metadata.dtype
-        else:
-            return self._metadata
+        return self._metadata
 
     @property
     def shape(self) -> tuple[int, ...]:
         if isinstance(self._metadata, ArrayMetadata):
             return self._metadata.shape
-        else:
-            return ()
+        return ()
 
     @property
     def strides(self) -> tuple[int, ...]:
         if isinstance(self._metadata, ArrayMetadata):
             return self._metadata.strides
-        else:
-            return ()
+        return ()
 
     @property
     def offset(self) -> int:
         if isinstance(self._metadata, ArrayMetadata):
             return self._metadata.first_element_offset
-        else:
-            return 0
+        return 0
 
-    def __eq__(self, other: Any) -> Any:
-        return self._metadata == other._metadata
+    def __eq__(self, other: object) -> Any:
+        return isinstance(other, Type) and self._metadata == other._metadata
 
     def __hash__(self) -> int:
         return hash((type(self), self._metadata))
@@ -166,13 +156,14 @@ class Type(AsArrayMetadata):
     # TODO: move to `Annotation`
     def compatible_with(self, other: "Type") -> bool:
         if self.is_scalar() and other.is_scalar():
-            return self._metadata == other._metadata
+            return self._metadata == other._metadata  # noqa: SLF001
 
         if self.is_scalar() ^ other.is_scalar():
             return False
 
         return is_compatible_with(
-            cast(ArrayMetadata, self._metadata), cast(ArrayMetadata, other._metadata)
+            cast(ArrayMetadata, self._metadata),
+            cast(ArrayMetadata, other._metadata),  # noqa: SLF001
         )
 
     # TODO: move the logic to `transformations.copy_broadcasted()`
@@ -185,13 +176,13 @@ class Type(AsArrayMetadata):
         if self.is_scalar() or other.is_scalar():
             return False
 
-        if len(self._metadata.shape) > len(other._metadata.shape):
+        if len(self._metadata.shape) > len(other._metadata.shape):  # noqa: SLF001
             return False
 
         for i in range(1, len(self._metadata.shape) + 1):
             if not (
                 self._metadata.shape[-i] == 1
-                or self._metadata.shape[-i] == other._metadata.shape[-i]
+                or self._metadata.shape[-i] == other._metadata.shape[-i]  # noqa: SLF001
             ):
                 return False
 
@@ -199,7 +190,8 @@ class Type(AsArrayMetadata):
 
     def with_dtype(self, dtype: numpy.dtype[Any]) -> "Type":
         """
-        Creates a :py:class:`Type` object with its ``dtype`` attribute replaced by the given dtype.
+        Creates a :py:class:`Type` object with its ``dtype``
+        attribute replaced by the given dtype.
         """
         if isinstance(self._metadata, ArrayMetadata):
             return Type.array(
@@ -209,41 +201,32 @@ class Type(AsArrayMetadata):
                 offset=self._metadata.first_element_offset,
                 nbytes=self._metadata.buffer_size,
             )
-        else:
-            return Type._from_metadata(dtype)
+        return Type._from_metadata(dtype)
 
     @classmethod
     def from_value(cls, val: Any) -> "Type":
-        """
-        Creates a :py:class:`Type` object corresponding to the given value.
-        """
-
+        """Creates a :py:class:`Type` object corresponding to the given value."""
         if isinstance(val, Type):
             # Creating a new object, because ``val`` may be some derivative of Type,
             # used as a syntactic sugar, and we do not want it to confuse us later.
-            return cls._from_metadata(val._metadata)
-        elif isinstance(val, Array):
+            return cls._from_metadata(val._metadata)  # noqa: SLF001
+        if isinstance(val, Array):
             return cls._from_metadata(val.metadata)
-        elif isinstance(val, ArrayMetadata):
+        if isinstance(val, ArrayMetadata | numpy.dtype):
             return cls._from_metadata(val)
-        elif isinstance(val, numpy.dtype):
-            return cls._from_metadata(val)
-        elif isinstance(val, type) and issubclass(val, numpy.generic):
+        if isinstance(val, type) and issubclass(val, numpy.generic):
             return cls._from_metadata(numpy.dtype(val))
-        elif hasattr(val, "dtype") and hasattr(val, "shape"):
+        if hasattr(val, "dtype") and hasattr(val, "shape"):
             strides = val.strides if hasattr(val, "strides") else None
             offset = val.offset if hasattr(val, "offset") else 0
             nbytes = val.nbytes if hasattr(val, "nbytes") else None
             return cls.array(
                 dtype=val.dtype, shape=val.shape, strides=strides, offset=offset, nbytes=nbytes
             )
-        else:
-            return cls._from_metadata(dtypes.result_type(val))
+        return cls._from_metadata(dtypes.result_type(val))
 
     def __call__(self, val: Any) -> numpy.ndarray[Any, numpy.dtype[Any]]:
-        """
-        Casts the given value to this type.
-        """
+        """Casts the given value to this type."""
         return numpy.asarray(val, dtype=self.dtype)
 
     def __repr__(self) -> str:
@@ -263,7 +246,7 @@ class Annotation:
     :param constant: if ``True``, corresponds to a constant (cached) array.
     """
 
-    def __init__(self, type_: Any, role: str | None = None, constant: bool = False):
+    def __init__(self, type_: Any, role: str | None = None, *, constant: bool = False):
         self.type = Type.from_value(type_)
 
         if role is None:
@@ -274,23 +257,28 @@ class Annotation:
             else:
                 role = "io"
 
-        assert role in ("i", "o", "io", "s")
+        if role not in ("i", "o", "io", "s"):
+            raise ValueError(f"Invalid role: {role}")
         self.role = role
         self.constant = constant
         if role == "s":
-            assert self.type.is_scalar()
+            if not self.type.is_scalar():
+                raise ValueError("Only scalars can have the scalar role")
             self.array = False
             self.input = False
             self.output = False
         else:
-            assert not self.type.is_scalar()
+            if self.type.is_scalar():
+                raise ValueError("Scalars cannot have input or output role")
             self.array = True
             self.input = "i" in role
             self.output = "o" in role
 
-    def __eq__(self, other: Any) -> Any:
+    def __eq__(self, other: object) -> Any:
         return (
-            self.type == other.type and self.role == other.role and self.constant == other.constant
+            isinstance(other, Annotation)
+            and self.role == other.role
+            and self.constant == other.constant
         )
 
     def can_be_argument_for(self, annotation: "Annotation") -> bool:
@@ -300,10 +288,7 @@ class Annotation:
         if self.role == annotation.role:
             return True
 
-        if self.role == "io" and annotation.array:
-            return True
-
-        return False
+        return self.role == "io" and annotation.array
 
     def __repr__(self) -> str:
         if self.array:
@@ -312,8 +297,7 @@ class Annotation:
                 role=repr(self.role),
                 constant=", constant" if self.constant else "",
             )
-        else:
-            return "Annotation({dtype})".format(dtype=self.type.dtype)
+        return f"Annotation({self.type.dtype})"
 
 
 class Parameter(inspect.Parameter):
@@ -338,7 +322,7 @@ class Parameter(inspect.Parameter):
                 raise ValueError("Array parameters cannot have default values")
             default = annotation.type(default)
 
-        # HACK: Parameter constructor is not documented.
+        # TODO: Parameter constructor is not documented.
         # But I need to create these objects somehow.
         inspect.Parameter.__init__(
             self,
@@ -355,9 +339,10 @@ class Parameter(inspect.Parameter):
         """
         return Parameter(new_name, self.annotation, default=self.default)
 
-    def __eq__(self, other: Any) -> Any:
+    def __eq__(self, other: object) -> Any:
         return (
-            self.name == other.name
+            isinstance(other, Parameter)
+            and self.name == other.name
             and self.annotation == other.annotation
             and self.default == other.default
         )
@@ -376,7 +361,7 @@ class Signature(inspect.Signature):
     """
 
     def __init__(self, parameters: Sequence[Parameter]):
-        # HACK: Signature constructor is not documented.
+        # TODO: Signature constructor is not documented.
         # But I need to create these objects somehow.
         inspect.Signature.__init__(self, parameters)
 
@@ -387,7 +372,7 @@ class Signature(inspect.Signature):
         return cast(Mapping[str, Parameter], self.parameters)
 
     def bind_with_defaults(
-        self, args: tuple[Any, ...], kwds: Mapping[str, Any], cast: bool = False
+        self, args: tuple[Any, ...], kwds: Mapping[str, Any], *, cast: bool = False
     ) -> inspect.BoundArguments:
         """
         Binds passed positional and keyword arguments to parameters in the signature and
@@ -397,9 +382,8 @@ class Signature(inspect.Signature):
         for param in self.parameters.values():
             if param.name not in bound_args.arguments:
                 bound_args.arguments[param.name] = param.default
-            elif cast:
-                if not param.annotation.array:
-                    bound_args.arguments[param.name] = param.annotation.type(
-                        bound_args.arguments[param.name]
-                    )
+            elif cast and not param.annotation.array:
+                bound_args.arguments[param.name] = param.annotation.type(
+                    bound_args.arguments[param.name]
+                )
         return bound_args

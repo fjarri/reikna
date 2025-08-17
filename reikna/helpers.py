@@ -1,6 +1,4 @@
-"""
-This module contains various auxiliary functions which are used throughout the library.
-"""
+"""Various auxiliary functions which are used throughout the library."""
 
 import collections
 import functools
@@ -9,9 +7,10 @@ import itertools
 import os.path
 import sys
 import warnings
-from collections.abc import Iterable
-from typing import Any, Callable, Generic, Protocol, Sequence, TypeVar
+from collections.abc import Callable, Iterable, Sequence
+from typing import Any, Generic, Protocol, TypeVar
 
+import numpy
 from grunnur import Template
 
 
@@ -24,21 +23,19 @@ NewNode = TypeVar("NewNode", bound=Comparable)
 
 
 def sorted_pair(x: Node, y: Node) -> tuple[Node, Node]:
-    if x < y:
-        return x, y
-    else:
-        return y, x
+    return (x, y) if x < y else (y, x)
 
 
 class Graph(Generic[Node]):
     def __init__(self, pairs: Iterable[tuple[Node, Node]] | None = None):
-        self._pairs: set[tuple[Node, Node]] = set()
+        self._pairs: set[tuple[Node, Node]] = set()  # each pair is sorted (first < second)
         self._nodes: dict[Node, set[Node]] = collections.defaultdict(set)
         if pairs is not None:
             self.add_edges(pairs)
 
     def add_edge(self, node1: Node, node2: Node) -> None:
-        assert node1 != node2
+        if node1 == node2:
+            raise ValueError("nodes must be distinct")
         self._nodes[node1].add(node2)
         self._nodes[node2].add(node1)
         self._pairs.add(sorted_pair(node1, node2))
@@ -62,7 +59,8 @@ class Graph(Generic[Node]):
         del self._nodes[node]
 
     def remove_edge(self, node1: Node, node2: Node) -> None:
-        assert node1 != node2
+        if node1 == node2:
+            raise ValueError("nodes must be distinct")
         self._pairs.remove(sorted_pair(node1, node2))
 
         self._nodes[node1].remove(node2)
@@ -87,9 +85,7 @@ class Graph(Generic[Node]):
 
 
 def product(seq: Iterable[int]) -> int:
-    """
-    Returns the product of elements in the iterable ``seq``.
-    """
+    """Returns the product of elements in the iterable ``seq``."""
     return functools.reduce(lambda x1, x2: x1 * x2, seq, 1)
 
 
@@ -115,14 +111,11 @@ def log2(num: int) -> int:
 
 
 def bounding_power_of_2(num: int) -> int:
-    """
-    Returns the minimal number of the form ``2**m`` such that it is greater or equal to ``n``.
-    """
+    """Returns the minimal number of the form ``2**m`` such that it is greater or equal to ``n``."""
     if num == 1:
         return 1
-    else:
-        result: int = 2 ** (log2(num - 1) + 1)
-        return result
+    result: int = 2 ** (log2(num - 1) + 1)
+    return result
 
 
 def factors(num: int, limit: int | None = None) -> list[tuple[int, int]]:
@@ -139,10 +132,7 @@ def factors(num: int, limit: int | None = None) -> list[tuple[int, int]]:
 
     result = []
 
-    if int_sqrt**2 == num:
-        int_limit = int_sqrt + 1
-    else:
-        int_limit = int(float_sqrt) + 1
+    int_limit = 1 + (int_sqrt if int_sqrt**2 == num else int(float_sqrt))
 
     for i in range(1, int_limit):
         div, mod = divmod(num, i)
@@ -150,10 +140,7 @@ def factors(num: int, limit: int | None = None) -> list[tuple[int, int]]:
             result.append((i, div))
 
     if limit > result[-1][0]:
-        if int_sqrt**2 == num:
-            to_rev = result[:-1]
-        else:
-            to_rev = result
+        to_rev = result[:-1] if int_sqrt**2 == num else result
 
         result = result + [(div, f) for f, div in reversed(to_rev)]
 
@@ -167,27 +154,19 @@ def wrap_in_tuple(seq_or_elem: None | int | Iterable[int]) -> tuple[int, ...]:
     """
     if seq_or_elem is None:
         return tuple()
-    elif isinstance(seq_or_elem, int):
+    if isinstance(seq_or_elem, int):
         return (seq_or_elem,)
-    else:
-        return tuple(seq_or_elem)
+    return tuple(seq_or_elem)
 
 
 class IgnoreIntegerOverflow:
-    """
-    Context manager for ignoring integer overflow in numpy operations on scalars
-    (not ignored by default because of a bug in numpy).
-    """
-
-    def __init__(self) -> None:
-        self.catch = warnings.catch_warnings()
+    """Context manager for ignoring integer overflow in numpy operations on scalars."""
 
     def __enter__(self) -> None:
-        self.catch.__enter__()
-        warnings.filterwarnings("ignore", "overflow encountered in scalar add")
+        self._settings = numpy.seterr(over="ignore")
 
-    def __exit__(self, *args: Any, **kwds: Any) -> None:
-        self.catch.__exit__(*args, **kwds)
+    def __exit__(self, *args: object, **kwds: object) -> None:
+        numpy.seterr(**self._settings)
 
 
 def normalize_axes(ndim: int, axes: None | int | Iterable[int]) -> tuple[int, ...]:
@@ -207,7 +186,7 @@ def normalize_axes(ndim: int, axes: None | int | Iterable[int]) -> tuple[int, ..
 
 def are_axes_innermost(ndim: int, axes: Sequence[int]) -> bool:
     inner_axes = list(range(ndim - len(axes), ndim))
-    return all(axis == inner_axis for axis, inner_axis in zip(axes, inner_axes))
+    return all(axis == inner_axis for axis, inner_axis in zip(axes, inner_axes, strict=False))
 
 
 def make_axes_innermost(ndim: int, axes: Sequence[int]) -> tuple[tuple[int, ...], tuple[int, ...]]:

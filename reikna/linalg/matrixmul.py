@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 from grunnur import (
     ArrayMetadata,
@@ -18,8 +18,6 @@ TEMPLATE = Template.from_associated_file(__file__)
 
 class MatrixMul(Computation):
     """
-    Bases: :py:class:`~reikna.core.Computation`
-
     Multiplies two matrices using last two dimensions and batching over remaining dimensions.
     For batching to work, the products of remaining dimensions should be equal
     (then the multiplication will be performed piecewise), or one of them should equal 1
@@ -48,6 +46,7 @@ class MatrixMul(Computation):
         a_arr_t: AsArrayMetadata,
         b_arr_t: AsArrayMetadata,
         out_arr_t: AsArrayMetadata | None = None,
+        *,
         block_width_override: int | None = None,
         transposed_a: bool = False,
         transposed_b: bool = False,
@@ -56,10 +55,10 @@ class MatrixMul(Computation):
         b_arr = b_arr_t.as_array_metadata()
 
         if len(a_arr.shape) == 1:
-            a_arr = ArrayMetadata(dtype=a_arr.dtype, shape=(1,) + a_arr.shape)
+            a_arr = ArrayMetadata(dtype=a_arr.dtype, shape=(1, *a_arr.shape))
 
         if len(b_arr.shape) == 1:
-            b_arr = ArrayMetadata(dtype=b_arr.dtype, shape=b_arr.shape + (1,))
+            b_arr = ArrayMetadata(dtype=b_arr.dtype, shape=(*b_arr.shape, 1))
 
         a_batch_shape = a_arr.shape[:-2]
         b_batch_shape = b_arr.shape[:-2]
@@ -74,7 +73,7 @@ class MatrixMul(Computation):
             batch_shape = b_batch_shape if helpers.product(a_batch_shape) == 1 else a_batch_shape
             batch_shape = (1,) * (batch_len - len(batch_shape)) + batch_shape
 
-            out_shape = batch_shape + (a_outer_size, b_outer_size)
+            out_shape = (*batch_shape, a_outer_size, b_outer_size)
 
             out_arr = ArrayMetadata(dtype=out_dtype, shape=out_shape)
         else:

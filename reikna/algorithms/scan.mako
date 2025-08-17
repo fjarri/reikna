@@ -23,7 +23,7 @@ ${kernel_declaration}
     VSIZE_T wg_id = ${static.group_id}(1);
     VSIZE_T global_offset = scan_id * ${seq_size};
 
-    const ${ctype} empty = ${dtypes.c_constant(predicate.empty)};
+    const ${ctype} empty = ${dtypes.c_constant(empty)};
 
     // Sequential scan
     %for i in range(seq_size):

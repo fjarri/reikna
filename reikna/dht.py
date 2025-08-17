@@ -1,4 +1,5 @@
-from typing import Any, Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
+from typing import Any
 
 import numpy
 from grunnur import AsArrayMetadata, DeviceParameters, dtypes
@@ -32,7 +33,6 @@ def factorial(num: int) -> int:
 
 def hermite(mode: int) -> Callable[[NDArray[numpy.float64]], NDArray[numpy.float64]]:
     """Returns an orthonormal Hermite polynomial"""
-
     poly: Callable[[NDArray[numpy.float64]], NDArray[numpy.float64]] = Hermite([0] * mode + [1])
 
     def func(x_coord: NDArray[numpy.float64]) -> NDArray[numpy.float64]:
@@ -47,7 +47,6 @@ def h_roots(order: int) -> tuple[NDArray[numpy.float64], NDArray[numpy.float64]]
     Recursive root finding algorithm, taken from Numerical Recipes.
     More accurate than the standard h_roots() from scipy.
     """
-
     eps = 1.0e-14
     pim4 = numpy.pi ** (-0.25)
     max_iter = 20  # Maximum iterations.
@@ -62,11 +61,11 @@ def h_roots(order: int) -> tuple[NDArray[numpy.float64], NDArray[numpy.float64]]
         # Initial guesses for the following roots
         if i == 1:
             curr_root -= 1.14 * order**0.426 / curr_root
-        elif i == 2:
+        elif i == 2:  # noqa: PLR2004
             curr_root = 1.86 * curr_root + 0.86 * roots[0]
-        elif i == 3:
+        elif i == 3:  # noqa: PLR2004
             curr_root = 1.91 * curr_root + 0.91 * roots[1]
-        elif i > 3:
+        elif i > 3:  # noqa: PLR2004
             curr_root = 2.0 * curr_root + roots[i - 2]
 
         # Refinement by Newton's method
@@ -93,7 +92,7 @@ def h_roots(order: int) -> tuple[NDArray[numpy.float64], NDArray[numpy.float64]]
             if abs(curr_root - prev_root) <= eps:
                 break
         else:
-            raise Exception("Too many iterations")
+            raise RuntimeError("Too many iterations")
 
         roots[order - 1 - i] = curr_root
         roots[i] = -curr_root
@@ -129,9 +128,7 @@ def get_spatial_points(modes: int, order: int, add_points: int = 0) -> int:
 def get_spatial_grid_and_weights(
     modes: int, order: int, add_points: int = 0
 ) -> tuple[NDArray[numpy.float64], NDArray[numpy.float64]]:
-    """
-    Returns a pair of arrays ``(points, weights)`` for Gauss-Hermite quadrature.
-    """
+    """Returns a pair of arrays ``(points, weights)`` for Gauss-Hermite quadrature."""
     points = get_spatial_points(modes, order, add_points=add_points)
     roots, weights = h_roots(points)
 
@@ -186,8 +183,6 @@ def get_transformation_matrix(modes: int, order: int, add_points: int) -> NDArra
 
 class DHT(Computation):
     r"""
-    Bases: :py:class:`~reikna.core.Computation`
-
     Discrete transform to and from harmonic oscillator modes.
     With ``inverse=True`` transforms a function defined by its expansion
     :math:`C_m,\,m=0 \ldots M-1` in the mode space with mode functions
@@ -229,6 +224,7 @@ class DHT(Computation):
     def __init__(
         self,
         mode_arr_t: AsArrayMetadata,
+        *,
         add_points: Iterable[int] | None = None,
         inverse: bool = False,
         order: int = 1,
@@ -236,16 +232,10 @@ class DHT(Computation):
     ):
         mode_arr = mode_arr_t.as_array_metadata()
 
-        if axes is None:
-            axes = tuple(range(len(mode_arr.shape)))
-        else:
-            axes = tuple(axes)
-        self._axes = list(sorted(axes))
+        axes = tuple(range(len(mode_arr.shape)) if axes is None else axes)
+        self._axes = sorted(axes)
 
-        if add_points is None:
-            add_points = [0] * len(mode_arr.shape)
-        else:
-            add_points = list(add_points)
+        add_points = [0] * len(mode_arr.shape) if add_points is None else list(add_points)
         self._add_points = add_points
 
         coord_shape = list(mode_arr.shape)
@@ -292,10 +282,7 @@ class DHT(Computation):
         current_axes: tuple[int, ...],
         axis: int,
     ) -> tuple[KernelArgument, tuple[int, ...]]:
-        """
-        Transpose the current array so that the ``axis`` is in the end of axes list.
-        """
-
+        """Transpose the current array so that the ``axis`` is in the end of axes list."""
         seq_axes = tuple(range(len(current_axes)))
 
         cur_pos = current_axes.index(axis)

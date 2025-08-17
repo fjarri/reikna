@@ -1,5 +1,5 @@
 """
-This module is based on the paper by Salmon et al.,
+RNG based on the paper by Salmon et al.,
 `P. Int. C. High. Perform. 16 (2011) <http://dx.doi.org/doi:10.1145/2063384.2063405>`_.
 and the source code of `Random123 library <http://www.thesalmons.org/john/random123/>`_.
 

@@ -1,6 +1,4 @@
-"""
-This module contains a number of pre-created transformations.
-"""
+"""A collection of pre-created transformations."""
 
 from typing import Any
 
@@ -44,7 +42,6 @@ def copy_broadcasted(
 
         This is an input-only transformation.
     """
-
     input_ = arr_t.as_array_metadata()
     output = out_arr_t.as_array_metadata() if out_arr_t is not None else input_
 
@@ -243,10 +240,7 @@ def norm_const(arr_t: AsArrayMetadata, order: float) -> Transformation:
     (1 output, 1 input): ``output = abs(input) ** order``.
     """
     input_ = arr_t.as_array_metadata()
-    if dtypes.is_complex(input_.dtype):
-        out_dtype = dtypes.real_for(input_.dtype)
-    else:
-        out_dtype = input_.dtype
+    out_dtype = dtypes.real_for(input_.dtype) if dtypes.is_complex(input_.dtype) else input_.dtype
 
     return Transformation(
         [
@@ -273,10 +267,7 @@ def norm_param(arr_t: AsArrayMetadata) -> Transformation:
     (1 output, 1 input, 1 param): ``output = abs(input) ** order``.
     """
     input_ = arr_t.as_array_metadata()
-    if dtypes.is_complex(input_.dtype):
-        out_dtype = dtypes.real_for(input_.dtype)
-    else:
-        out_dtype = input_.dtype
+    out_dtype = dtypes.real_for(input_.dtype) if dtypes.is_complex(input_.dtype) else input_.dtype
 
     return Transformation(
         [
@@ -297,9 +288,7 @@ def norm_param(arr_t: AsArrayMetadata) -> Transformation:
 
 
 def ignore(arr_t: AsArrayMetadata) -> Transformation:
-    """
-    Returns a transformation that ignores the output it is attached to.
-    """
+    """Returns a transformation that ignores the output it is attached to."""
     return Transformation(
         [Parameter("input", Annotation(arr_t.as_array_metadata(), "i"))],
         """

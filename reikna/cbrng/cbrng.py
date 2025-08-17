@@ -1,10 +1,11 @@
-from typing import Any, Callable, Mapping, Type
+from collections.abc import Callable, Mapping
+from typing import Any
 
 import numpy
 from grunnur import ArrayMetadata, AsArrayMetadata, DeviceParameters, Template
 from numpy.typing import NDArray
 
-import reikna.helpers as helpers
+from reikna import helpers
 from reikna.core import Annotation, Computation, ComputationPlan, KernelArguments, Parameter
 
 from .bijections import Bijection, philox
@@ -16,8 +17,6 @@ TEMPLATE = Template.from_associated_file(__file__)
 
 class CBRNG(Computation):
     """
-    Bases: :py:class:`~reikna.core.Computation`
-
     Counter-based pseudo-random number generator class.
 
     :param randoms_arr: an array intended for storing generated random numbers.
@@ -57,7 +56,8 @@ class CBRNG(Computation):
         self._sampler = sampler
         self._keygen = KeyGenerator.create(sampler.bijection, seed=seed, reserve_id_space=True)
 
-        assert sampler.dtype == randoms_arr.dtype
+        if sampler.dtype != randoms_arr.dtype:
+            raise ValueError("`sampler` must have the same dtype as the output array")
 
         counters_size = randoms_arr.shape[-generators_dim:]
 
@@ -73,9 +73,7 @@ class CBRNG(Computation):
         )
 
     def create_counters(self) -> numpy.ndarray[Any, numpy.dtype[Any]]:
-        """
-        Create a counter array for use in :py:class:`~reikna.cbrng.CBRNG`.
-        """
+        """Create a counter array for use in :py:class:`~reikna.cbrng.CBRNG`."""
         return numpy.zeros(self._counters_t.shape, self._counters_t.dtype)
 
     def _build_plan(
@@ -114,7 +112,7 @@ class _ConvenienceCtr:
 
     def __call__(
         self,
-        cls: Type[CBRNG],
+        cls: type[CBRNG],
         randoms_arr_t: AsArrayMetadata,
         generators_dim: int,
         sampler_kwds: Mapping[str, Any] = {},

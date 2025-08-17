@@ -1,15 +1,19 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Iterable
+from typing import TYPE_CHECKING, Any
 
 import numpy
 from grunnur import AsArrayMetadata, DeviceParameters, Template, VirtualSizeError, dtypes, functions
-from numpy.typing import NDArray
 
 from .. import helpers
 from ..algorithms import PureParallel
 from ..core import Annotation, Computation, ComputationPlan, KernelArguments, Parameter
 from ..transformations import copy
+
+if TYPE_CHECKING:  # pragma: no cover
+    from collections.abc import Callable, Iterable
+
+    from numpy.typing import NDArray
 
 TEMPLATE = Template.from_associated_file(__file__)
 
@@ -17,7 +21,7 @@ TEMPLATE = Template.from_associated_file(__file__)
 MAX_RADIX = 16
 
 
-def get_radix_array(size: int, use_max_radix: bool = False) -> list[int]:
+def get_radix_array(size: int, *, use_max_radix: bool = False) -> list[int]:
     """
     For any ``size``, this function decomposes ``size`` into factors for loacal memory tranpose
     based fft. Factors (radices) are sorted such that the first one (radix_array[0])
@@ -46,9 +50,10 @@ def get_radix_array(size: int, use_max_radix: bool = False) -> list[int]:
     Users can play with these parameters to figure what gives best performance on
     their particular device i.e. some device have less register space thus using
     smaller base radix can avoid spilling ... some has small local memory thus
-    using smaller work group size may be required etc
+    using smaller work group size may be required etc.
     """
-    assert size == 2 ** helpers.log2(size)
+    if size != 2 ** helpers.log2(size):
+        raise ValueError("size must be a power of 2")
 
     if use_max_radix:
         radix = min(size, MAX_RADIX)
@@ -58,27 +63,27 @@ def get_radix_array(size: int, use_max_radix: bool = False) -> list[int]:
             size //= radix
         radix_array.append(size)
         return radix_array
-    else:
-        arrays = {
-            2: [2],
-            4: [4],
-            8: [8],
-            16: [8, 2],
-            32: [8, 4],
-            64: [8, 8],
-            128: [8, 4, 4],
-            256: [4, 4, 4, 4],
-            512: [8, 8, 8],
-            1024: [16, 16, 4],
-            2048: [8, 8, 8, 4],
-        }
-        if size in arrays:
-            return arrays[size]
-        else:
-            # Naive algorithm, can be imroved.
-            lsize = helpers.log2(size)
-            num_elems = helpers.min_blocks(lsize, 4)
-            return [16] * (num_elems - 1) + [16 if lsize % 4 == 0 else 2 ** (lsize % 4)]
+
+    arrays = {
+        2: [2],
+        4: [4],
+        8: [8],
+        16: [8, 2],
+        32: [8, 4],
+        64: [8, 8],
+        128: [8, 4, 4],
+        256: [4, 4, 4, 4],
+        512: [8, 8, 8],
+        1024: [16, 16, 4],
+        2048: [8, 8, 8, 4],
+    }
+    if size in arrays:
+        return arrays[size]
+
+    # Naive algorithm, can be imroved.
+    lsize = helpers.log2(size)
+    num_elems = helpers.min_blocks(lsize, 4)
+    return [16] * (num_elems - 1) + [16 if lsize % 4 == 0 else 2 ** (lsize % 4)]
 
 
 def get_global_radix_info(size: int) -> tuple[list[int], list[int], list[int]]:
@@ -102,9 +107,10 @@ def get_global_radix_info(size: int) -> tuple[list[int], list[int], list[int]]:
     128 fft is computed by 8 work items. Same logic can be applied to other two kernels
     in this example. Users can play with difference base radices and difference
     decompositions of base radices to generates different kernels and see which gives
-    best performance. Following function is just fixed to use 128 as base radix
+    best performance. Following function is just fixed to use 128 as base radix.
     """
-    assert size == 2 ** helpers.log2(size)
+    if size != 2 ** helpers.log2(size):
+        raise ValueError("size must be a power of 2")
 
     base_radix = min(size, 128)
 
@@ -118,7 +124,7 @@ def get_global_radix_info(size: int) -> tuple[list[int], list[int], list[int]]:
     radix2_list = []
 
     for radix in radix_list:
-        if radix <= 8:
+        if radix <= 8:  # noqa: PLR2004
             radix1_list.append(radix)
             radix2_list.append(1)
         else:
@@ -131,11 +137,11 @@ def get_global_radix_info(size: int) -> tuple[list[int], list[int], list[int]]:
             radix1_list.append(radix1)
             radix2_list.append(radix2)
 
-    # sanity checks:
-    for radix, radix1, radix2 in zip(radix_list, radix1_list, radix2_list):
-        assert radix2 <= radix1
-        assert radix1 * radix2 == radix
-        assert radix1 <= MAX_RADIX
+    # Sanity checks (these should never fire if the code above is correct)
+    for radix, radix1, radix2 in zip(radix_list, radix1_list, radix2_list, strict=False):
+        assert radix2 <= radix1  # noqa: S101
+        assert radix1 * radix2 == radix  # noqa: S101
+        assert radix1 <= MAX_RADIX  # noqa: S101
 
     return radix_list, radix1_list, radix2_list
 
@@ -151,9 +157,7 @@ def get_padding(
     if threads_per_xform <= radix_prev or radix_prev >= num_banks:
         offset = 0
     else:
-        num_rows_req = (
-            threads_per_xform if threads_per_xform < num_banks else num_banks
-        ) // radix_prev
+        num_rows_req = (min(num_banks, threads_per_xform)) // radix_prev
         num_cols_req = 1
         if num_rows_req > radix:
             num_cols_req = num_rows_req // radix
@@ -164,11 +168,8 @@ def get_padding(
         mid_pad = 0
     else:
         bank_num = ((threads_req + offset) * radix) & (num_banks - 1)
-        if bank_num >= threads_per_xform:
-            mid_pad = 0
-        else:
-            # TODO: find out which conditions are necessary to execute this code
-            mid_pad = threads_per_xform - bank_num
+        # TODO: is `bank_num` ever less than `threads_per_xform`?
+        mid_pad = max(0, threads_per_xform - bank_num)
 
     lmem_size = (threads_req + offset) * radix * xforms_per_workgroup + mid_pad * (
         xforms_per_workgroup - 1
@@ -250,7 +251,7 @@ def get_common_kwds(dtype: numpy.dtype[Any], device_params: DeviceParameters) ->
 
 
 class LocalFFTKernel:
-    """Generator for 'local' FFT in shared memory"""
+    """Generator for 'local' FFT in shared memory."""
 
     def __init__(
         self,
@@ -260,11 +261,12 @@ class LocalFFTKernel:
         fft_size: int,
         fft_size_real: int,
         inner_shape: tuple[int, ...],
+        *,
         reverse_direction: bool,
     ):
         self.name = "fft_local"
         self.inplace_possible = True
-        self.output_shape = outer_shape + (fft_size_real if reverse_direction else fft_size,)
+        self.output_shape = (*outer_shape, fft_size_real if reverse_direction else fft_size)
         self.kweights: numpy.ndarray[tuple[int], numpy.dtype[numpy.complex128]] | None
         if fft_size_real != fft_size and reverse_direction:
             self.kweights = get_kweights(fft_size_real, fft_size)
@@ -346,6 +348,7 @@ class GlobalFFTKernel:
         fft_size_real: int,
         inner_shape: tuple[int, ...],
         pass_num: int,
+        *,
         reverse_direction: bool,
     ):
         num_passes = len(get_global_radix_info(fft_size)[0])
@@ -354,7 +357,9 @@ class GlobalFFTKernel:
         self.name = "fft_global"
         self.inplace_possible = pass_num == num_passes - 1 and num_passes % 2 == 1
         self.output_shape = (
-            outer_shape + (fft_size_real if real_output_shape else fft_size,) + inner_shape
+            *outer_shape,
+            fft_size_real if real_output_shape else fft_size,
+            *inner_shape,
         )
         self.kweights: numpy.ndarray[tuple[int], numpy.dtype[numpy.complex128]] | None
         if fft_size != fft_size_real and pass_num == 0 and reverse_direction:
@@ -410,11 +415,10 @@ class GlobalFFTKernel:
 
         if radix2 == 1:
             lmem_size = 0
+        elif stride_out == 1:
+            lmem_size = (radix + 1) * local_batch
         else:
-            if stride_out == 1:
-                lmem_size = (radix + 1) * local_batch
-            else:
-                lmem_size = local_size * radix1
+            lmem_size = local_size * radix1
 
         if lmem_size * self._itemsize // 2 > self._local_mem_size:
             raise VirtualSizeError
@@ -454,6 +458,7 @@ class GlobalFFTKernel:
         fft_size: int,
         fft_size_real: int,
         inner_shape: tuple[int, ...],
+        *,
         reverse_direction: bool,
     ) -> list[GlobalFFTKernel]:
         radix_arr, _, _ = get_global_radix_info(fft_size)
@@ -471,7 +476,7 @@ class GlobalFFTKernel:
                     fft_size_real,
                     inner_shape,
                     pass_num,
-                    reverse_direction,
+                    reverse_direction=reverse_direction,
                 )
             )
             curr_size //= radix_arr[pass_num]
@@ -486,11 +491,11 @@ def get_fft_1d_kernels(
     fft_size: int,
     inner_shape: tuple[int, ...],
     local_kernel_limit: int,
+    *,
     reverse_direction: bool = False,
     fft_size_real: int | None = None,
 ) -> list[LocalFFTKernel | GlobalFFTKernel]:
-    """Create and compile kernels for one of the dimensions"""
-
+    """Create and compile kernels for one of the dimensions."""
     kernels: list[LocalFFTKernel | GlobalFFTKernel] = []
 
     if fft_size_real is None:
@@ -505,7 +510,7 @@ def get_fft_1d_kernels(
                 fft_size,
                 fft_size_real,
                 inner_shape,
-                reverse_direction,
+                reverse_direction=reverse_direction,
             )
         )
     else:
@@ -517,7 +522,7 @@ def get_fft_1d_kernels(
                 fft_size,
                 fft_size_real,
                 inner_shape,
-                reverse_direction,
+                reverse_direction=reverse_direction,
             )
         )
 
@@ -589,8 +594,6 @@ class GlobalKernelFail(Exception):
 
 class FFT(Computation):
     """
-    Bases: :py:class:`~reikna.core.Computation`
-
     Performs the Fast Fourier Transform.
     The interface is similar to ``numpy.fft.fftn``.
     The inverse transform is normalized so that ``IFFT(FFT(X)) = X``.
@@ -639,11 +642,7 @@ class FFT(Computation):
             ],
         )
 
-        if axes is None:
-            axes = tuple(range(len(arr.shape)))
-        else:
-            axes = tuple(axes)
-        self._axes = axes
+        self._axes = tuple(range(len(arr.shape)) if axes is None else axes)
 
     def _build_trivial_plan(
         self, plan_factory: Callable[[], ComputationPlan], args: KernelArguments
@@ -655,7 +654,6 @@ class FFT(Computation):
 
         output = args.output
         input_ = args.input
-        inverse = args.inverse
 
         copy_trf = copy(input_, out_arr_t=output)
         copy_comp = PureParallel.from_trf(copy_trf, copy_trf.parameter.input)
@@ -696,7 +694,7 @@ class FFT(Computation):
             else:
                 kweights_arg = []
 
-            argnames = [mem_out, mem_in] + kweights_arg + [inverse]
+            argnames = [mem_out, mem_in, *kweights_arg, inverse]
 
             # Try to find local size for each of the kernels
             local_size = device_params.max_total_local_size
@@ -711,12 +709,11 @@ class FFT(Computation):
                         local_size=(lsize,),
                         render_kwds=kwds,
                     )
-                except VirtualSizeError:
+                except VirtualSizeError as exc:
                     if isinstance(kernel, GlobalFFTKernel):
                         local_size //= 2
                         continue
-                    else:
-                        raise LocalKernelFail
+                    raise LocalKernelFail from exc
                 break
             else:
                 raise GlobalKernelFail
@@ -749,10 +746,10 @@ class FFT(Computation):
                 # Reduce the limit and try to create operations from scratch again.
                 local_kernel_limit //= 2
                 continue
-            except GlobalKernelFail:
+            except GlobalKernelFail as exc:
                 raise ValueError(
                     "Could not find suitable call parameters for one of the global kernels"
-                )
+                ) from exc
 
             return plan
 

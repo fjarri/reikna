@@ -1,4 +1,4 @@
-from typing import Callable, Iterable
+from collections.abc import Callable, Iterable
 
 import numpy
 from grunnur import AsArrayMetadata, DeviceParameters, Template, dtypes
@@ -13,8 +13,6 @@ TEMPLATE = Template.from_associated_file(__file__)
 
 class FFTShift(Computation):
     """
-    Bases: :py:class:`~reikna.core.Computation`
-
     Shift the zero-frequency component to the center of the spectrum.
     The interface is similar to ``numpy.fft.fftshift`` (or ``ifftshift`` when ``inverse == True``),
     and the output is the same for the same array shape and axes.
@@ -45,11 +43,7 @@ class FFTShift(Computation):
             ],
         )
 
-        if axes is None:
-            axes = tuple(range(len(arr.shape)))
-        else:
-            axes = tuple(axes)
-        self._axes = axes
+        self._axes = tuple(range(len(arr.shape)) if axes is None else axes)
 
     def _build_trivial_plan(
         self, plan_factory: Callable[[], ComputationPlan], args: KernelArguments
@@ -71,7 +65,7 @@ class FFTShift(Computation):
     def _build_plan(
         self,
         plan_factory: Callable[[], ComputationPlan],
-        device_params: DeviceParameters,
+        device_params: DeviceParameters,  # noqa: ARG002
         args: KernelArguments,
     ) -> ComputationPlan:
         if helpers.product([args.input.shape[i] for i in self._axes]) == 1:

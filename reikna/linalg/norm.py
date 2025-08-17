@@ -1,4 +1,4 @@
-from typing import Callable, Iterable
+from collections.abc import Callable, Iterable
 
 from grunnur import ArrayMetadata, AsArrayMetadata, DeviceParameters
 
@@ -9,10 +9,8 @@ from ..transformations import norm_const
 
 class EntrywiseNorm(Computation):
     r"""
-    Bases: :py:class:`~reikna.core.Computation`
-
     Calculates the entrywise matrix norm (same as ``numpy.linalg.norm``)
-    of an arbitrary order :math:`r`:
+    of an arbitrary order :math:`r`.
 
     .. math::
 
@@ -61,7 +59,7 @@ class EntrywiseNorm(Computation):
     def _build_plan(
         self,
         plan_factory: Callable[[], ComputationPlan],
-        device_params: DeviceParameters,
+        device_params: DeviceParameters,  # noqa: ARG002
         args: KernelArguments,
     ) -> ComputationPlan:
         plan = plan_factory()

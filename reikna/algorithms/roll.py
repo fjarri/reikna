@@ -1,4 +1,4 @@
-from typing import Callable, Iterable
+from collections.abc import Callable, Iterable
 
 import numpy
 from grunnur import (
@@ -70,7 +70,7 @@ class Roll(Computation):
     def _build_plan(
         self,
         plan_factory: Callable[[], ComputationPlan],
-        device_params: DeviceParameters,
+        _device_params: DeviceParameters,
         args: KernelArguments,
     ) -> ComputationPlan:
         plan = plan_factory()
@@ -93,7 +93,7 @@ class RollInplace(Computation):
     def _build_plan(
         self,
         plan_factory: Callable[[], ComputationPlan],
-        device_params: DeviceParameters,
+        _device_params: DeviceParameters,
         args: KernelArguments,
     ) -> ComputationPlan:
         plan = plan_factory()

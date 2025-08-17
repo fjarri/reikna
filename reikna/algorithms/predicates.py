@@ -1,4 +1,5 @@
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import numpy
 from grunnur import Snippet
@@ -22,9 +23,8 @@ class Predicate:
 
 
 def predicate_sum(dtype: DTypeLike) -> Predicate:
-    """
-    Returns a :py:class:`~reikna.algorithms.Predicate` object which sums its arguments.
-    """
+    """Returns a :py:class:`~reikna.algorithms.Predicate` object which sums its arguments."""
     return Predicate(
-        Snippet.from_callable(lambda v1, v2: "return ${v1} + ${v2};"), numpy.zeros(1, dtype)[0]
+        Snippet.from_callable(lambda v1, v2: "return ${v1} + ${v2};"),  # noqa: ARG005
+        numpy.zeros(1, dtype)[0],
     )

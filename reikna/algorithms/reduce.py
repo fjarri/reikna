@@ -1,4 +1,4 @@
-from typing import Callable, Iterable
+from collections.abc import Callable, Iterable
 
 import numpy
 from grunnur import (
@@ -28,8 +28,6 @@ TEMPLATE = Template.from_associated_file(__file__)
 
 class Reduce(Computation):
     """
-    Bases: :py:class:`~reikna.core.Computation`
-
     Reduces the array over given axes using given binary operation.
     The resulting array shape will be set to ``1`` in the reduced axes
     (analogous to ``keepdims=True`` in ``numpy``).
@@ -60,10 +58,7 @@ class Reduce(Computation):
 
         dims = len(input_.shape)
 
-        if axes is None:
-            axes = tuple(range(dims))
-        else:
-            axes = tuple(sorted(helpers.wrap_in_tuple(axes)))
+        axes = tuple(range(dims) if axes is None else sorted(helpers.wrap_in_tuple(axes)))
 
         if len(set(axes)) != len(axes):
             raise ValueError("Cannot reduce twice over the same axis")

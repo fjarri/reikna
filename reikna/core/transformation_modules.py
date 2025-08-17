@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Any, Iterable, Sequence
+from collections.abc import Iterable, Sequence
+from typing import TYPE_CHECKING, Any
 
 from grunnur import DefTemplate, Module, Snippet, dtypes
 
@@ -21,24 +22,25 @@ def index_cnames(shape: Sequence[int]) -> list[str]:
     return [INDEX_NAME + str(i) for i in range(len(shape))]
 
 
-def index_cnames_seq(param: "Parameter", qualified: bool = False) -> list[str]:
+def index_cnames_seq(param: "Parameter", *, qualified: bool = False) -> list[str]:
     names = index_cnames(param.annotation.type.shape)
     if qualified:
         return ["VSIZE_T " + name for name in names]
-    else:
-        return names
+    return names
 
 
 def flat_index_expr(param: "Parameter") -> str:
     type_ = param.annotation.type
 
-    # FIXME: assuming that offset is a multiple of dtype.itemsize
+    # TODO: check this in `Type`
+    if type_.offset % type_.dtype.itemsize != 0:
+        raise ValueError("Offset must be a multiple of the itemsize")
     item_offset = type_.offset // type_.dtype.itemsize
 
     if len(type_.shape) == 0:
         return str(item_offset)
 
-    # FIXME: Assuming that all strides are multiples of dtype.itemsize.
+    # TODO: Assuming that all strides are multiples of dtype.itemsize.
     # This can change with custom strides, and we will have
     # to cast device pointer to bytes and back.
     # Need to investigate what happens in this case on some concrete example.
@@ -58,7 +60,7 @@ def flat_index_expr(param: "Parameter") -> str:
         " + ".join(
             [
                 "(" + name + ")" + " * " + "(" + str(stride) + ")"
-                for name, stride in zip(names, item_strides)
+                for name, stride in zip(names, item_strides, strict=False)
             ]
         )
         + " + ("
@@ -67,7 +69,7 @@ def flat_index_expr(param: "Parameter") -> str:
     )
 
 
-def param_cname(param: "Parameter", qualified: bool = False) -> str:
+def param_cname(param: "Parameter", *, qualified: bool = False) -> str:
     # Note that if ``param`` has a struct type,
     # its .annotation.type.ctype attribute can be a module.
     # In that case ``str()`` has to be called explicitly for ``ctype``
@@ -78,13 +80,13 @@ def param_cname(param: "Parameter", qualified: bool = False) -> str:
         if param.annotation.array:
             qualifier = "CONSTANT_MEM" if param.annotation.constant else "GLOBAL_MEM"
             return qualifier + " " + str(ctype) + " *" + name
-        else:
-            return str(ctype) + " " + name
-    else:
-        return name
+
+        return str(ctype) + " " + name
+
+    return name
 
 
-def param_cnames_seq(parameters: "Iterable[Parameter]", qualified: bool = False) -> list[str]:
+def param_cnames_seq(parameters: "Iterable[Parameter]", *, qualified: bool = False) -> list[str]:
     return [param_cname(p, qualified=qualified) for p in parameters]
 
 
@@ -104,11 +106,10 @@ def kernel_declaration(kernel_name: str, parameters: "Iterable[Parameter]") -> S
     )
 
 
-def node_connector(output: bool) -> str:
+def node_connector(*, output: bool) -> str:
     if output:
         return VALUE_NAME
-    else:
-        return VALUE_NAME + " ="
+    return VALUE_NAME + " ="
 
 
 _module_transformation = DefTemplate.from_string(
@@ -177,7 +178,8 @@ _module_leaf_macro = DefTemplate.from_string(
     """
     // leaf ${'output' if output else 'input'} macro for "${name}"
     %if output:
-    #define ${prefix}(${', '.join(index_seq + [VALUE_NAME])}) ${lname}[${index_expr}] = (${VALUE_NAME})
+    #define ${prefix}(${', '.join(index_seq + [VALUE_NAME])}) \
+        ${lname}[${index_expr}] = (${VALUE_NAME})
     %else:
     #define ${prefix}(${', '.join(index_seq)}) (${lname}[${index_expr}])
     %endif
@@ -185,7 +187,7 @@ _module_leaf_macro = DefTemplate.from_string(
 )
 
 
-def module_leaf_macro(output: bool, param: "Parameter") -> Module:
+def module_leaf_macro(param: "Parameter", *, output: bool) -> Module:
     return Module(
         _module_leaf_macro,
         render_globals=dict(
@@ -214,10 +216,11 @@ _module_same_indices = DefTemplate.from_string(
 
 
 def module_same_indices(
-    output: bool,
     param: "Parameter",
     subtree_parameters: "Iterable[Parameter]",
     module_idx: Module,
+    *,
+    output: bool,
 ) -> Module:
     return Module(
         _module_same_indices,
@@ -232,8 +235,9 @@ def module_same_indices(
     )
 
 
-_snippet_disassemble_combined = Snippet.from_callable(
-    lambda shape, slices, indices, combined_indices: """
+_snippet_disassemble_combined = Snippet.from_string(
+    ["shape", "slices", "indices", "combined_indices"],
+    """
     %for combined_index, slice_len in enumerate(slices):
     <%
         index_start = sum(slices[:combined_index])
@@ -289,10 +293,11 @@ _module_combined = DefTemplate.from_string(
 
 
 def module_combined(
-    output: bool,
     param: "Parameter",
     subtree_parameters: "Iterable[Parameter]",
     module_idx: Module,
+    *,
+    output: bool,
 ) -> Module:
     return Module(
         _module_combined,

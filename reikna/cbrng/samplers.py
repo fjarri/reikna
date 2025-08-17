@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 import numpy
 from grunnur import Module, Template, dtypes, functions
 
-import reikna.helpers as helpers
+from reikna import helpers
 
-from .bijections import Bijection
+if TYPE_CHECKING:
+    from .bijections import Bijection
 
 TEMPLATE = Template.from_associated_file(__file__)
 
@@ -58,6 +60,7 @@ class Sampler:
         module: Module,
         dtype: numpy.dtype[Any],
         randoms_per_call: int = 1,
+        *,
         deterministic: bool = False,
     ):
         """__init__()"""  # hide the signature from Sphinx
@@ -79,28 +82,28 @@ def uniform_integer(
     is used in each thread.
     Returns a :py:class:`~reikna.cbrng.samplers.Sampler` object.
     """
-
     if high is None:
         low, high = 0, low + 1
-    else:
-        assert low < high - 1
+    elif low >= high - 1:
+        raise ValueError("`low` must be lesser than `high - 1`")
 
     dtype = numpy.dtype(dtype)
     ctype = dtypes.ctype(dtype)
 
     if dtype.kind == "i":
-        assert low >= -(2 ** (dtype.itemsize * 8 - 1))
-        assert high < 2 ** (dtype.itemsize * 8 - 1)
+        if low < -(2 ** (dtype.itemsize * 8 - 1)):
+            raise ValueError(f"`low` must be greater than or equal to -2^{dtype.itemsize * 8 - 1}")
+        if high >= 2 ** (dtype.itemsize * 8 - 1):
+            raise ValueError(f"`low` must be lesser than 2^{dtype.itemsize * 8 - 1}")
     else:
-        assert low >= 0
-        assert high < 2 ** (dtype.itemsize * 8)
+        if low < 0:
+            raise ValueError("`low` must be non-negative when sampling unsigned integers")
+        if high >= 2 ** (dtype.itemsize * 8):
+            raise ValueError(f"`low` must be lesser than 2^{dtype.itemsize * 8}")
 
     num = high - low
     raw_dtype: numpy.dtype[numpy.unsignedinteger[Any]]
-    if num <= 2**32:
-        raw_dtype = numpy.dtype("uint32")
-    else:
-        raw_dtype = numpy.dtype("uint64")
+    raw_dtype = numpy.dtype("uint32") if num <= 2**32 else numpy.dtype("uint64")
 
     raw_func = bijection.raw_functions[raw_dtype]
     max_num = 2 ** (raw_dtype.itemsize * 8)
@@ -133,7 +136,8 @@ def uniform_float(
     A fixed number of counters is used in each thread.
     Returns a :py:class:`~reikna.cbrng.samplers.Sampler` object.
     """
-    assert low < high
+    if low >= high:
+        raise ValueError("`low` must be lesser than `high`")
 
     ctype = dtypes.ctype(dtype)
 
@@ -176,7 +180,6 @@ def normal_bm(
         (which will be normally distributed with the standard deviation ``std / sqrt(2)``).
         Consequently, while ``mean`` is of type ``dtype``, ``std`` must be real.
     """
-
     if dtypes.is_complex(dtype):
         r_dtype = dtypes.real_for(dtype)
         c_dtype = dtype
@@ -215,17 +218,16 @@ def normal_bm(
 def gamma(
     bijection: Bijection, dtype: numpy.dtype[Any], shape: float = 1, scale: float = 1
 ) -> Sampler:
-    """
+    r"""
     Generates random numbers from the gamma distribution
 
     .. math::
-      P(x) = x^{k-1} \\frac{e^{-x/\\theta}}{\\theta^k \\Gamma(k)},
+      P(x) = x^{k-1} \frac{e^{-x/\theta}}{\theta^k \Gamma(k)},
 
-    where :math:`k` is ``shape``, and :math:`\\theta` is ``scale``.
+    where :math:`k` is ``shape``, and :math:`\theta` is ``scale``.
     Supported dtypes: ``float(32/64)``.
     Returns a :py:class:`~reikna.cbrng.samplers.Sampler` object.
     """
-
     ctype = dtypes.ctype(dtype)
     uf = uniform_float(bijection, dtype, low=0, high=1)
     nbm = normal_bm(bijection, dtype, mean=0, std=1)
@@ -250,18 +252,17 @@ def gamma(
 def vonmises(
     bijection: Bijection, dtype: numpy.dtype[Any], mu: float = 0, kappa: float = 1
 ) -> Sampler:
-    """
+    r"""
     Generates random numbers from the von Mises distribution
 
     .. math::
-      P(x) = \\frac{\\exp(\\kappa \\cos(x - \\mu))}{2 \\pi I_0(\\kappa)},
+      P(x) = \frac{\exp(\kappa \cos(x - \mu))}{2 \pi I_0(\kappa)},
 
-    where :math:`\\mu` is the mode, :math:`\\kappa` is the dispersion,
+    where :math:`\mu` is the mode, :math:`\kappa` is the dispersion,
     and :math:`I_0` is the modified Bessel function of the first kind.
     Supported dtypes: ``float(32/64)``.
     Returns a :py:class:`~reikna.cbrng.samplers.Sampler` object.
     """
-
     ctype = dtypes.ctype(dtype)
     uf = uniform_float(bijection, dtype, low=0, high=1)
 

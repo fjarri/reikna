@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 import numpy
 from grunnur import Module, dtypes
-from numpy.typing import NDArray
 
-import reikna.helpers as helpers
+from reikna import helpers
 
-from .bijections import Bijection
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
+
+    from .bijections import Bijection
 
 
 class KeyGenerator:
@@ -30,12 +33,13 @@ class KeyGenerator:
         self._base_key = base_key
 
     @classmethod
-    def create(
+    def create(  # noqa: PLR0912
         cls,
         bijection: Bijection,
         seed: int | NDArray[numpy.uint32] | None = None,
+        *,
         reserve_id_space: bool = True,
-    ) -> "KeyGenerator":
+    ) -> KeyGenerator:
         """
         Creates a generator.
 
@@ -48,29 +52,28 @@ class KeyGenerator:
             which will still result in different keys for different threads,
             with the danger that different seeds produce the same sequences.
         """
-
         if reserve_id_space:
-            if bijection.key_words == 1 and bijection.word_dtype.itemsize == 4:
+            if bijection.key_words == 1 and bijection.word_dtype.itemsize == 4:  # noqa: PLR2004
                 # It's too hard to compress both global and thread-dependent part
                 # in a single 32-bit word.
                 # Let the user handle this himself.
                 raise ValueError("Cannor reserve ID space in a 32-bit key")
 
-            if bijection.word_dtype.itemsize == 4:
+            if bijection.word_dtype.itemsize == 4:  # noqa: PLR2004
                 key_words32 = bijection.key_words - 1
+            elif bijection.key_words > 1:
+                key_words32 = (bijection.key_words - 1) * 2
             else:
-                if bijection.key_words > 1:
-                    key_words32 = (bijection.key_words - 1) * 2
-                else:
-                    # Philox-2x64 case, the key is a single 64-bit integer.
-                    # We use first 32 bit for the key, and the remaining 32 bit for a thread identifier.
-                    key_words32 = 1
+                # Philox-2x64 case, the key is a single 64-bit integer.
+                # We use first 32 bit for the key, and the remaining 32 bit for a thread identifier.
+                key_words32 = 1
         else:
             key_words32 = bijection.key_words * (bijection.word_dtype.itemsize // 4)
 
         if isinstance(seed, numpy.ndarray):
             # explicit key was provided
-            assert seed.size == key_words32 and seed.dtype == numpy.uint32
+            if seed.size != key_words32 or seed.dtype != numpy.uint32:
+                raise ValueError(f"Invalid seed: {seed}")
             key = seed.copy().flatten()
         else:
             # use numpy to generate the key from seed
@@ -83,7 +86,7 @@ class KeyGenerator:
                 key[i // 2] += key16[i] << (16 if i % 2 == 0 else 0)
 
         full_key = numpy.zeros(1, bijection.key_dtype)[0]
-        if bijection.word_dtype.itemsize == 4:
+        if bijection.word_dtype.itemsize == 4:  # noqa: PLR2004
             full_key["v"][:key_words32] = key
         else:
             for i in range(key_words32):

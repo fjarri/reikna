@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 
 import numpy
 from grunnur import (
@@ -40,7 +40,7 @@ def possible_transposes(shape_len: int) -> Iterator[tuple[int, int]]:
 
 
 def get_operations(source: tuple[int, ...], target: tuple[int, ...]) -> list[tuple[int, int]]:
-    visited = set([source])
+    visited = {source}
     actions = list(possible_transposes(len(source)))
 
     def traverse(
@@ -57,16 +57,19 @@ def get_operations(source: tuple[int, ...], target: tuple[int, ...]) -> list[tup
                 continue
             visited.add(result)
 
-            new_breadcrumbs = breadcrumbs + [(b_start, c_start)]
+            new_breadcrumbs = [*breadcrumbs, (b_start, c_start)]
 
-            if result == target:
-                if current_best is None or len(current_best) > len(new_breadcrumbs):
-                    return new_breadcrumbs
+            if result == target and (
+                current_best is None or len(current_best) > len(new_breadcrumbs)
+            ):
+                return new_breadcrumbs
 
             current_best = traverse(result, new_breadcrumbs, current_best)
 
         # `current_best` will not be `None` as long as `actions` is not empty
-        assert current_best is not None
+        # The assertion is to appease `mypy`.
+        assert current_best is not None  # noqa: S101
+
         return current_best
 
     return traverse(source, [], None)
@@ -76,7 +79,6 @@ def _get_transposes(
     shape: tuple[int, ...], axes: tuple[int, ...]
 ) -> list[tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...]]]:
     source = tuple(range(len(axes)))
-    assert set(source) == set(axes)
 
     for i in range(len(source) - 1, 0, -1):
         if source[:i] == axes[:i]:
@@ -98,8 +100,6 @@ def _get_transposes(
 
 class Transpose(Computation):
     """
-    Bases: :py:class:`~reikna.core.Computation`
-
     Changes the order of axes in a multidimensional array.
     Works analogous to ``numpy.transpose``.
 
@@ -134,7 +134,8 @@ class Transpose(Computation):
             axes = tuple(reversed(all_axes))
         else:
             axes = tuple(axes)
-            assert set(axes) == set(all_axes)
+            if set(axes) != set(all_axes):
+                raise ValueError("All transpose axes must be distinct")
 
         self._axes = axes
         self._transposes = _get_transposes(input_.shape, self._axes)
@@ -162,7 +163,6 @@ class Transpose(Computation):
     def _add_transpose(
         self,
         plan: ComputationPlan,
-        device_params: DeviceParameters,
         mem_out: KernelArgument,
         mem_in: KernelArgument,
         batch_shape: tuple[int, ...],
@@ -230,7 +230,6 @@ class Transpose(Computation):
                 try:
                     self._add_transpose(
                         plan,
-                        device_params,
                         mem_out,
                         mem_in,
                         batch_shape,
