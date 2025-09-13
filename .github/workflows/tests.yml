@@ -37,6 +37,69 @@ jobs:
     - name: Test with pytest
       run: |
         env POCL_DEVICES="cpu-minimal" pdm run py.test --cov=reikna --cov-report=xml tests -m "not perf"
+    - name: Upload coverage
+      if: matrix.python-version == '3.10'
+      run: |
+        curl -Os https://uploader.codecov.io/latest/linux/codecov
+        chmod +x codecov
+        ./codecov
+
+  doctest-pocl:
+
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10"]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install system dependencies
+      run: |
+        sudo apt-get install libpocl2
+    - name: Install PDM
+      run: curl -sSL https://raw.githubusercontent.com/pdm-project/pdm/main/install-pdm.py | python3
+    - name: Install dependencies
+      run: |
+        pdm sync -G pyopencl,docs
+    # Skip performance tests, the test suite is slow enough as it is
+    - name: Run doctests
+      run: |
+        env POCL_DEVICES="cpu-minimal" pdm run sphinx-build docs build/sphinx -b doctest
+    - name: Upload coverage
+      if: matrix.python-version == '3.10'
+      run: |
+        curl -Os https://uploader.codecov.io/latest/linux/codecov
+        chmod +x codecov
+        ./codecov
+
+  examples-pocl:
+
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10"]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install system dependencies
+      run: |
+        sudo apt-get install libpocl2
+    - name: Install PDM
+      run: curl -sSL https://raw.githubusercontent.com/pdm-project/pdm/main/install-pdm.py | python3
+    - name: Install dependencies
+      run: |
+        pdm sync -G pyopencl,examples
+    # Skip performance tests, the test suite is slow enough as it is
     - name: Run demo_fftn_with_transpose
       run: |
         env POCL_DEVICES="cpu-minimal" pdm run examples/demo_fftn_with_transpose.py
@@ -48,7 +111,6 @@ jobs:
         env POCL_DEVICES="cpu-minimal" pdm run examples/demo_real_to_complex_fft.py
     - name: Run demo_specgram
       run: |
-        pdm add matplotlib
         env POCL_DEVICES="cpu-minimal" pdm run examples/demo_specgram.py
     - name: Run demo_specialized_fft
       run: |
@@ -56,9 +118,3 @@ jobs:
     - name: Run demo_struct_reduce
       run: |
         env POCL_DEVICES="cpu-minimal" pdm run examples/demo_struct_reduce.py
-    - name: Upload coverage
-      if: matrix.python-version == '3.10'
-      run: |
-        curl -Os https://uploader.codecov.io/latest/linux/codecov
-        chmod +x codecov
-        ./codecov
