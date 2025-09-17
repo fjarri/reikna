@@ -100,35 +100,35 @@ def _get_transposes(
 class Transpose(Computation):
     """
     Changes the order of axes in a multidimensional array.
-    Works analogous to ``numpy.transpose``.
+    Works analogous to :py:func:`numpy.transpose`.
 
-    :param arr_t: an array-like defining the initial array.
-    :param output_arr_t: an array-like defining the output array.
-        If ``None``, its shape will be derived based on the shape of ``arr_t``,
-        its dtype will be equal to that of ``arr_t``,
-        and any non-default offset or strides of ``arr_t`` will be ignored.
-    :param axes: tuple with the new axes order.
+    :param input_: an array-like defining the initial array.
+    :param output: an array-like defining the output array.
+        If ``None``, its shape will be derived based on the shape of ``input_``,
+        its dtype will be equal to that of ``input_``,
+        and any non-default offset or strides of ``input_`` will not be copied to the ``output``.
+    :param axes: a tuple with the new axes order.
         If ``None``, then axes will be reversed.
 
-    .. py:function:: compiled_signature(output:o, input:i)
+    ``compiled_signature(output:o, input:i)``
 
-        :param output: an array with all the attributes of ``arr_t``,
-            with the shape permuted according to ``axes``.
-        :param input: an array with all the attributes of ``arr_t``.
+    :param output: an array with all the attributes of ``output``,
+        with the shape permuted according to ``axes``.
+    :param input: an array with all the attributes of ``input_``.
     """
 
     def __init__(
         self,
-        arr_t: AsArrayMetadata,
-        output_arr_t: AsArrayMetadata | None = None,
+        input_: AsArrayMetadata,
+        output: AsArrayMetadata | None = None,
         axes: Iterable[int] | None = None,
         block_width_override: int | None = None,
     ):
         self._block_width_override = block_width_override
 
-        input_ = arr_t.as_array_metadata()
+        input_meta = input_.as_array_metadata()
 
-        all_axes = range(len(input_.shape))
+        all_axes = range(len(input_meta.shape))
         if axes is None:
             axes = tuple(reversed(all_axes))
         else:
@@ -137,25 +137,25 @@ class Transpose(Computation):
                 raise ValueError("All transpose axes must be distinct")
 
         self._axes = axes
-        self._transposes = _get_transposes(input_.shape, self._axes)
+        self._transposes = _get_transposes(input_meta.shape, self._axes)
 
-        output_shape = transpose_shape(input_.shape, self._axes)
-        output = (
-            output_arr_t.as_array_metadata()
-            if output_arr_t is not None
-            else ArrayMetadata(shape=output_shape, dtype=input_.dtype)
+        output_shape = transpose_shape(input_meta.shape, self._axes)
+        output_meta = (
+            output.as_array_metadata()
+            if output is not None
+            else ArrayMetadata(shape=output_shape, dtype=input_meta.dtype)
         )
 
-        if output.shape != output_shape:
-            raise ValueError(f"Expected output array shape: {output_shape}, got {output.shape}")
-        if output.dtype != input_.dtype:
+        if output_meta.shape != output_shape:
+            raise ValueError(f"Expected output array shape: {output_shape}, got {output_meta.shape}")
+        if output_meta.dtype != input_meta.dtype:
             raise ValueError("Input and output array must have the same dtype")
 
         Computation.__init__(
             self,
             [
-                Parameter("output", Annotation(output, "o")),
-                Parameter("input", Annotation(input_, "i")),
+                Parameter("output", Annotation(output_meta, "o")),
+                Parameter("input", Annotation(input_meta, "i")),
             ],
         )
 
