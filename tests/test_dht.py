@@ -4,15 +4,13 @@ import numpy
 import pytest
 from grunnur import Array, dtypes
 
-from helpers import *
+from helpers import diff_is_negligible, get_test_array
 from reikna.dht import DHT, get_spatial_grid, harmonic
 from reikna.helpers import product
 
 
 class FunctionHelper:
-    """
-    Encapsulates creation of functions in mode and coordinate space used for DHT tests.
-    """
+    """Encapsulates creation of functions in mode and coordinate space used for DHT tests."""
 
     def __init__(self, mshape, dtype, order=1, batch=None, modes=None):
         self.order = order
@@ -33,12 +31,10 @@ class FunctionHelper:
         self.harmonics = [harmonic(n) for n in range(max(self.mshape))]
 
     @staticmethod
-    def generate_modes(mshape, dtype, batch=None, random=True):
-        """
-        Generates list of sparse modes for the problem of given shape.
-        """
-
+    def generate_modes(mshape, dtype, batch=None, *, random=True):  # noqa: PLR0912, C901, ANN205
+        """Generates list of sparse modes for the problem of given shape."""
         max_modes_per_batch = 20
+        rng = numpy.random.default_rng()
 
         modelist = []
         if product(mshape) <= max_modes_per_batch:
@@ -46,21 +42,19 @@ class FunctionHelper:
             modenums = itertools.product(*[range(modes) for modes in mshape])
             if batch is not None:
                 for b in range(batch):
-                    modelist += [((b,) + modenum) for modenum in modenums]
+                    modelist += [((b, *modenum)) for modenum in modenums]
             else:
                 modelist += list(modenums)
         else:
             # If there are many modes, fill some random ones
-            rand_coord = lambda: tuple(
-                numpy.random.randint(0, mshape[i]) for i in range(len(mshape))
-            )
+            rand_coord = lambda: tuple(rng.integers(0, mshape[i]) for i in range(len(mshape)))
 
             if batch is not None:
                 for b in range(batch):
-                    for i in range(max_modes_per_batch):
-                        modelist.append((b,) + rand_coord())
+                    for _ in range(max_modes_per_batch):
+                        modelist.append((b, *rand_coord()))
             else:
-                for i in range(max_modes_per_batch):
+                for _ in range(max_modes_per_batch):
                     modelist.append(rand_coord())
 
         # add corner modes, to make sure extreme cases are still processed correctly
@@ -68,7 +62,7 @@ class FunctionHelper:
         for modenum in corner_modes:
             if batch is not None:
                 for b in range(batch):
-                    modelist.append((b,) + modenum)
+                    modelist.append((b, *modenum))
             else:
                 modelist.append(modenum)
 
@@ -77,11 +71,8 @@ class FunctionHelper:
         # Assign coefficients
         modes = []
         for coord in modelist:
-            get_coeff = lambda: numpy.random.normal() if random else 1
-            if dtypes.is_complex(dtype):
-                coeff = get_coeff() + 1j * get_coeff()
-            else:
-                coeff = get_coeff()
+            get_coeff = lambda: rng.normal() if random else 1
+            coeff = (get_coeff() + 1j * get_coeff()) if dtypes.is_complex(dtype) else get_coeff()
             coeff = dtype(coeff)
 
             # scaling coefficients for higher modes because of the lower precision in this case
@@ -92,14 +83,8 @@ class FunctionHelper:
         return modes
 
     def __call__(self, *xs):
-        """
-        Evaluate function in coordinate space for given grid.
-        """
-
-        if len(xs) > 1:
-            xxs = numpy.meshgrid(*xs, indexing="ij")
-        else:
-            xxs = xs
+        """Evaluate function in coordinate space for given grid."""
+        xxs = numpy.meshgrid(*xs, indexing="ij") if len(xs) > 1 else xs
 
         res_shape = ((self.batch,) if self.batch is not None else tuple()) + xxs[0].shape
         res = numpy.zeros(res_shape, self.dtype)
@@ -107,12 +92,15 @@ class FunctionHelper:
         for coeff, coord in self.modes:
             if self.batch is not None:
                 b = coord[0]
-                coord = coord[1:]
+                coord_in_batch = coord[1:]
                 target = res[b]
             else:
+                coord_in_batch = coord
                 target = res
 
-            target += coeff * product([self.harmonics[m](xx) for m, xx in zip(coord, xxs)])
+            target += coeff * product(
+                [self.harmonics[m](xx) for m, xx in zip(coord_in_batch, xxs, strict=True)]
+            )
 
         return res**self.order
 
@@ -122,13 +110,13 @@ def check_errors_first_order(queue, mshape, batch, add_points=None, dtype=numpy.
 
     if add_points is None:
         add_points = [0] * len(mshape)
-    xs = [get_spatial_grid(n, 1, add_points=ap) for n, ap in zip(mshape, add_points)]
+    xs = [get_spatial_grid(n, 1, add_points=ap) for n, ap in zip(mshape, add_points, strict=True)]
 
-    mdata_dev = Array.empty(queue.device, (batch,) + mshape, dtype)
+    mdata_dev = Array.empty(queue.device, (batch, *mshape), dtype)
     axes = list(range(1, len(mshape) + 1))
 
-    dht_fw = DHT(mdata_dev, inverse=False, axes=axes, add_points=[0] + add_points)
-    dht_inv = DHT(mdata_dev, inverse=True, axes=axes, add_points=[0] + add_points)
+    dht_fw = DHT(mdata_dev, inverse=False, axes=axes, add_points=[0, *add_points])
+    dht_inv = DHT(mdata_dev, inverse=True, axes=axes, add_points=[0, *add_points])
     dht_fw_c = dht_fw.compile(queue.device)
     dht_inv_c = dht_inv.compile(queue.device)
 
@@ -156,7 +144,6 @@ def test_first_order_errors(queue, fo_shape, fo_batch, fo_add_points):
     we get exactly mode numbers used for its construction.
     Also checks that inverse transform returns the initial array.
     """
-
     if fo_add_points == "0":
         add_points = None
     elif fo_add_points == "1":
@@ -176,7 +163,6 @@ def test_high_order_forward(queue, ho_order, ho_shape):
     Checks that if we change the mode space while keeping mode population the same,
     the result of forward transformation for orders higher than 1 do not change.
     """
-
     dtype = numpy.float32
 
     modes = FunctionHelper.generate_modes((ho_shape,), dtype)

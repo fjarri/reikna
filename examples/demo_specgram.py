@@ -1,5 +1,5 @@
 """
-This example demonstrates how to write an analogue of the ``matplotlib.mlab.specgram``
+An Texample demonstrating how to write an analogue of the ``matplotlib.mlab.specgram``
 function using Reikna. The main difficulty here is to split the task into transformations
 and computation cores and assemble them into a single computation.
 
@@ -36,97 +36,127 @@ will change the shape of the array. Currently such transformations can only be l
 transformation tree, so we will have to swap the cropping step and the spectrum calculating step.
 """
 
+from collections.abc import Callable
+from typing import Any, cast
+
 import matplotlib
 import numpy
+from numpy.typing import NDArray
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from grunnur import Array, Context, Queue, any_api, dtypes, functions
+from grunnur import (
+    API,
+    Array,
+    ArrayMetadata,
+    AsArrayMetadata,
+    Context,
+    DeviceParameters,
+    Queue,
+    dtypes,
+    functions,
+)
 from matplotlib.mlab import specgram, window_hanning
 
-import reikna.transformations as transformations
+from reikna import transformations
 from reikna.algorithms import Transpose
-from reikna.core import Annotation, Computation, Parameter, Transformation, Type
+from reikna.core import (
+    Annotation,
+    Computation,
+    ComputationPlan,
+    KernelArguments,
+    Parameter,
+    Transformation,
+    Type,
+)
 from reikna.fft import FFT
 
 
-def get_data():
+def get_data() -> tuple[NDArray[numpy.float64], dict[str, Any]]:
+    rng = numpy.random.default_rng()
+
     dt = 0.0005
     t = numpy.arange(0.0, 20.0, dt)
     s1 = numpy.sin(2 * numpy.pi * 100 * t)
     s2 = 2 * numpy.sin(2 * numpy.pi * 400 * t)
 
     # create a transient "chirp"
-    mask = numpy.where(numpy.logical_and(t > 10, t < 12), 1.0, 0.0)
+    mask = numpy.where(numpy.logical_and(t > 10, t < 12), 1.0, 0.0)  # noqa: PLR2004
     s2 = s2 * mask
 
     # add some noise into the mix
-    nse = 0.01 * numpy.random.randn(len(t))
+    nse = 0.01 * rng.standard_normal(len(t))
 
     x = s1 + s2 + nse  # the signal
-    NFFT = 1024  # the length of the windowing segments
-    Fs = int(1.0 / dt)  # the sampling frequency
+    fft_size = 1024  # the length of the windowing segments
+    freqs = int(1.0 / dt)  # the sampling frequency
 
-    return x.astype(numpy.float32), dict(NFFT=NFFT, Fs=Fs, noverlap=900, pad_to=2048)
+    return x.astype(numpy.float32), dict(NFFT=fft_size, Fs=freqs, noverlap=900, pad_to=2048)
 
 
-def hanning_window(arr, NFFT):
+def hanning_window(arr: AsArrayMetadata, fft_size: int) -> Transformation:
     """
     Applies the von Hann window to the rows of a 2D array.
-    To account for zero padding (which we do not want to window), NFFT is provided separately.
+    To account for zero padding (which we do not want to window), fft_size is provided separately.
     """
-    if dtypes.is_complex(arr.dtype):
-        coeff_dtype = dtypes.real_for(arr.dtype)
+    metadata = arr.as_array_metadata()
+    if dtypes.is_complex(metadata.dtype):
+        coeff_dtype = dtypes.real_for(metadata.dtype)
     else:
-        coeff_dtype = arr.dtype
+        coeff_dtype = metadata.dtype
     return Transformation(
         [
-            Parameter("output", Annotation(arr, "o")),
-            Parameter("input", Annotation(arr, "i")),
+            Parameter("output", Annotation(metadata, "o")),
+            Parameter("input", Annotation(metadata, "i")),
         ],
         """
         ${dtypes.ctype(coeff_dtype)} coeff;
-        %if NFFT != output.shape[0]:
-        if (${idxs[1]} >= ${NFFT})
+        %if fft_size != output.shape[0]:
+        if (${idxs[1]} >= ${fft_size})
         {
             coeff = 1;
         }
         else
         %endif
         {
-            coeff = 0.5 * (1 - cos(2 * ${numpy.pi} * ${idxs[-1]} / (${NFFT} - 1)));
+            coeff = 0.5 * (1 - cos(2 * ${numpy.pi} * ${idxs[-1]} / (${fft_size} - 1)));
         }
         ${output.store_same}(${mul}(${input.load_same}, coeff));
         """,
         render_kwds=dict(
             dtypes=dtypes,
             coeff_dtype=coeff_dtype,
-            NFFT=NFFT,
-            mul=functions.mul(arr.dtype, coeff_dtype),
+            fft_size=fft_size,
+            mul=functions.mul(metadata.dtype, coeff_dtype),
         ),
     )
 
 
-def rolling_frame(arr, NFFT, noverlap, pad_to):
+def rolling_frame(
+    arr: AsArrayMetadata, fft_size: int, noverlap: int, pad_to: int | None
+) -> Transformation:
     """
     Transforms a 1D array to a 2D array whose rows are
     partially overlapped parts of the initial array.
     """
+    metadata = arr.as_array_metadata()
 
-    frame_step = NFFT - noverlap
-    frame_num = (arr.size - noverlap) // frame_step
-    frame_size = NFFT if pad_to is None else pad_to
+    assert len(metadata.shape) == 1  # noqa: S101
 
-    result_arr = Type.array(arr.dtype, (frame_num, frame_size))
+    frame_step = fft_size - noverlap
+    frame_num = (metadata.shape[0] - noverlap) // frame_step
+    frame_size = fft_size if pad_to is None else pad_to
+
+    result_arr = ArrayMetadata((frame_num, frame_size), metadata.dtype)
 
     return Transformation(
         [
             Parameter("output", Annotation(result_arr, "o")),
-            Parameter("input", Annotation(arr, "i")),
+            Parameter("input", Annotation(metadata, "i")),
         ],
         """
-        %if NFFT != output.shape[1]:
-        if (${idxs[1]} >= ${NFFT})
+        %if fft_size != output.shape[1]:
+        if (${idxs[1]} >= ${fft_size})
         {
             ${output.store_same}(0);
         }
@@ -136,22 +166,23 @@ def rolling_frame(arr, NFFT, noverlap, pad_to):
             ${output.store_same}(${input.load_idx}(${idxs[0]} * ${frame_step} + ${idxs[1]}));
         }
         """,
-        render_kwds=dict(frame_step=frame_step, NFFT=NFFT),
+        render_kwds=dict(frame_step=frame_step, fft_size=fft_size),
         # note that only the "store_same"-using argument can serve as a connector!
         connectors=["output"],
     )
 
 
-def crop_frequencies(arr):
+def crop_frequencies(arr: AsArrayMetadata) -> Transformation:
     """
     Crop a 2D array whose columns represent frequencies to only leave the frequencies with
     different absolute values.
     """
-    result_arr = Type.array(arr.dtype, (arr.shape[0], arr.shape[1] // 2 + 1))
+    metadata = arr.as_array_metadata()
+    result_arr = ArrayMetadata((metadata.shape[0], metadata.shape[1] // 2 + 1), metadata.dtype)
     return Transformation(
         [
             Parameter("output", Annotation(result_arr, "o")),
-            Parameter("input", Annotation(arr, "i")),
+            Parameter("input", Annotation(metadata, "i")),
         ],
         """
         if (${idxs[1]} < ${input.shape[1] // 2 + 1})
@@ -163,40 +194,52 @@ def crop_frequencies(arr):
 
 
 class Spectrogram(Computation):
-    def __init__(self, x, NFFT=256, noverlap=128, pad_to=None, window=hanning_window):
-        assert dtypes.is_real(x.dtype)
-        assert x.ndim == 1
+    def __init__(
+        self,
+        x: AsArrayMetadata,
+        fft_size: int = 256,
+        noverlap: int = 128,
+        pad_to: int | None = None,
+        window: Callable[[AsArrayMetadata, int], Transformation] = hanning_window,
+    ):
+        metadata = x.as_array_metadata()
+        assert dtypes.is_real(metadata.dtype)  # noqa: S101
+        assert len(metadata.shape) == 1  # noqa: S101
 
-        rolling_frame_trf = rolling_frame(x, NFFT, noverlap, pad_to)
+        rolling_frame_trf = rolling_frame(metadata, fft_size, noverlap, pad_to)
 
-        complex_dtype = dtypes.complex_for(x.dtype)
-        fft_arr = Type.array(complex_dtype, rolling_frame_trf.output.shape)
-        real_fft_arr = Type.array(x.dtype, rolling_frame_trf.output.shape)
+        complex_dtype = dtypes.complex_for(metadata.dtype)
+        fft_arr = ArrayMetadata(rolling_frame_trf.parameter.output.shape, complex_dtype)
+        real_fft_arr = ArrayMetadata(rolling_frame_trf.parameter.output.shape, metadata.dtype)
 
-        window_trf = window(real_fft_arr, NFFT)
+        window_trf = window(real_fft_arr, fft_size)
         broadcast_zero_trf = transformations.broadcast_const(real_fft_arr, 0)
         to_complex_trf = transformations.combine_complex(fft_arr)
         amplitude_trf = transformations.norm_const(fft_arr, 1)
-        crop_trf = crop_frequencies(amplitude_trf.output)
+        crop_trf = crop_frequencies(amplitude_trf.parameter.output)
 
         fft = FFT(fft_arr, axes=(1,))
         fft.parameter.input.connect(
             to_complex_trf,
-            to_complex_trf.output,
-            input_real=to_complex_trf.real,
-            input_imag=to_complex_trf.imag,
+            to_complex_trf.parameter.output,
+            input_real=to_complex_trf.parameter.real,
+            input_imag=to_complex_trf.parameter.imag,
         )
-        fft.parameter.input_imag.connect(broadcast_zero_trf, broadcast_zero_trf.output)
+        fft.parameter.input_imag.connect(broadcast_zero_trf, broadcast_zero_trf.parameter.output)
         fft.parameter.input_real.connect(
-            window_trf, window_trf.output, unwindowed_input=window_trf.input
+            window_trf, window_trf.parameter.output, unwindowed_input=window_trf.parameter.input
         )
         fft.parameter.unwindowed_input.connect(
-            rolling_frame_trf, rolling_frame_trf.output, flat_input=rolling_frame_trf.input
+            rolling_frame_trf,
+            rolling_frame_trf.parameter.output,
+            flat_input=rolling_frame_trf.parameter.input,
         )
         fft.parameter.output.connect(
-            amplitude_trf, amplitude_trf.input, amplitude=amplitude_trf.output
+            amplitude_trf, amplitude_trf.parameter.input, amplitude=amplitude_trf.parameter.output
         )
-        fft.parameter.amplitude.connect(crop_trf, crop_trf.input, cropped_amplitude=crop_trf.output)
+        fft.parameter.amplitude.connect(
+            crop_trf, crop_trf.parameter.input, cropped_amplitude=crop_trf.parameter.output
+        )
 
         self._fft = fft
 
@@ -210,8 +253,15 @@ class Spectrogram(Computation):
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, output, input_):
+    def _build_plan(
+        self,
+        plan_factory: Callable[[], ComputationPlan],
+        _device_params: DeviceParameters,
+        args: KernelArguments,
+    ) -> ComputationPlan:
         plan = plan_factory()
+        input_ = args.input
+        output = args.output
         temp = plan.temp_array_like(self._fft.parameter.cropped_amplitude)
         plan.computation_call(self._fft, temp, input_)
         plan.computation_call(self._transpose, output, temp)
@@ -219,15 +269,19 @@ class Spectrogram(Computation):
 
 
 if __name__ == "__main__":
-    numpy.random.seed(125)
     x, params = get_data()
 
     fig = plt.figure()
     s = fig.add_subplot(2, 1, 1)
     spectre, freqs, ts = specgram(x, mode="magnitude", **params)
+    window = window_hanning(numpy.ones(params["NFFT"]))
+
+    assert isinstance(ts, numpy.ndarray)  # noqa: S101
+    assert isinstance(freqs, numpy.ndarray)  # noqa: S101
+    assert isinstance(window, numpy.ndarray)  # noqa: S101
 
     # Renormalize to match the computation
-    spectre *= window_hanning(numpy.ones(params["NFFT"])).sum()
+    spectre *= window.sum()
 
     s.imshow(
         numpy.log10(spectre),
@@ -236,19 +290,20 @@ if __name__ == "__main__":
         origin="lower",
     )
 
-    context = Context.from_devices([any_api.platforms[0].devices[0]])
+    context = Context.from_devices([API.any().platforms[0].devices[0]])
     queue = Queue(context.device)
 
+    x_dev = Array.from_host(queue, x)
+
     specgram_reikna = Spectrogram(
-        x, NFFT=params["NFFT"], noverlap=params["noverlap"], pad_to=params["pad_to"]
+        x_dev, fft_size=params["NFFT"], noverlap=params["noverlap"], pad_to=params["pad_to"]
     ).compile(queue.device)
 
-    x_dev = Array.from_host(queue, x)
     spectre_dev = Array.empty_like(queue.device, specgram_reikna.parameter.output)
     specgram_reikna(queue, spectre_dev, x_dev)
     spectre_reikna = spectre_dev.get(queue)
 
-    assert numpy.allclose(spectre, spectre_reikna, atol=1e-4, rtol=1e-4)
+    assert numpy.allclose(spectre, spectre_reikna, atol=1e-4, rtol=1e-4)  # noqa: S101
 
     s = fig.add_subplot(2, 1, 2)
     im = s.imshow(

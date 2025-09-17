@@ -12,14 +12,7 @@ import sys
 
 import numpy
 
-from reikna.helpers import ignore_integer_overflow
-
-major, _, _, _, _ = sys.version_info
-if major < 3:
-    long_int = long
-else:
-    long_int = int
-
+from reikna.helpers import IgnoreIntegerOverflow
 
 # Rotation constants:
 THREEFRY_ROTATION = {
@@ -72,91 +65,91 @@ THREEFRY_ROTATION = {
 THREEFRY_KS_PARITY = {64: 0x1BD11BDAA9FC1A22, 32: 0x1BD11BDA}
 
 
-def threefry_rotate(W, R, x):
+def threefry_rotate(bits, shift, x):
     # Cast to uint is required by numpy coercion rules.
-    # "% W" is technically redundant since R < W always.
-    s1 = numpy.uint32(R % W)
-    s2 = numpy.uint32((W - R) % W)
+    # "% bits" is technically redundant since shift < bits always.
+    s1 = numpy.uint32(shift % bits)
+    s2 = numpy.uint32((bits - shift) % bits)
     return (x << s1) | (x >> s2)
 
 
-def threefry(W, N, ctr, key, Nrounds=None):
+def threefry(bits, words, ctr, key, rounds=None):
     """
-    W: word length (32, 64)
-    N: number of generated items, 2 or 4
-    Nrounds: number of rounds (up to 72)
-    ctr: counter, array(N, numpy.uint${W})
-    key: key, array(N, numpy.uint${W})
-    returns: array(N, numpy.uint${W})
+    bits: word length (32, 64)
+    words: number of generated items, 2 or 4
+    rounds: number of rounds (up to 72)
+    ctr: counter, array(words, numpy.uint${bits})
+    key: key, array(words, numpy.uint${bits})
+    returns: array(words, numpy.uint${bits})
 
-    Note: for W=64, N=4 and Nrounds=72 it is the same as Threefish algorithm from Skein,
+    Note: for bits=64, words=4 and rounds=72 it is the same as Threefish algorithm from Skein,
     only without the 128-bit "tweak" which is applied to the key.
     With this tweak it is possible to upgrade this algorithm from PRNG to QRNG.
     """
-    assert W in (32, 64)
-    assert N in (2, 4)
+    assert bits in (32, 64)
+    assert words in (2, 4)
 
-    if Nrounds is None:
-        Nrounds = 20
+    if rounds is None:
+        rounds = 20
 
-    dtype = numpy.uint32 if W == 32 else numpy.uint64
+    dtype = numpy.uint32 if bits == 32 else numpy.uint64
 
-    if N == 2:
-        assert Nrounds <= 32
+    if words == 2:
+        assert rounds <= 32
         ks = numpy.empty(3, dtype)
     else:
-        assert Nrounds <= 72
+        assert rounds <= 72
         ks = numpy.empty(5, dtype)
 
-    X = numpy.empty(N, dtype)
-    assert ctr.size == key.size == N
+    result = numpy.empty(words, dtype)
+    assert ctr.size == key.size == words
 
-    ks[N] = THREEFRY_KS_PARITY[W]
-    for i in range(N):
+    ks[words] = THREEFRY_KS_PARITY[bits]
+    for i in range(words):
         ks[i] = key[i]
-        X[i] = ctr[i]
-        ks[N] ^= key[i]
+        result[i] = ctr[i]
+        ks[words] ^= key[i]
 
     # Insert initial key before round 0
-    for i in range(N):
-        X[i] += ks[i]
+    for i in range(words):
+        result[i] += ks[i]
 
-    R = THREEFRY_ROTATION[(W, N)]
+    rotation = THREEFRY_ROTATION[(bits, words)]
 
-    with ignore_integer_overflow():
-        for rnd in range(Nrounds):
-            # FIXME: In the current version of Random123 (1.06),
-            # there is a bug in R_idx calculation for N == 2, where
-            #    R_idx = rnd % 8 if rnd < 20 else (rnd - 4) % 8
+    with IgnoreIntegerOverflow():
+        for rnd in range(rounds):
+            # TODO: In the current version of Random123 (1.06),
+            # there is a bug in r_idx calculation for words == 2, where
+            #    r_idx = rnd % 8 if rnd < 20 else (rnd - 4) % 8
             # instead of what goes below.
             # When this bug is fixed, Random123 and this implementation
             # will start to produce identical results again,
             # and this comment can be removed.
-            R_idx = rnd % 8
+            r_idx = rnd % 8
 
-            if N == 2:
-                X[0] += X[1]
-                X[1] = threefry_rotate(W, R[R_idx, 0], X[1])
-                X[1] ^= X[0]
+            if words == 2:
+                result[0] += result[1]
+                result[1] = threefry_rotate(bits, rotation[r_idx, 0], result[1])
+                result[1] ^= result[0]
             else:
                 idx1 = 1 if rnd % 2 == 0 else 3
                 idx2 = 3 if rnd % 2 == 0 else 1
 
-                X[0] += X[idx1]
-                X[idx1] = threefry_rotate(W, R[R_idx, 0], X[idx1])
-                X[idx1] ^= X[0]
+                result[0] += result[idx1]
+                result[idx1] = threefry_rotate(bits, rotation[r_idx, 0], result[idx1])
+                result[idx1] ^= result[0]
 
-                X[2] += X[idx2]
-                X[idx2] = threefry_rotate(W, R[R_idx, 1], X[idx2])
-                X[idx2] ^= X[2]
+                result[2] += result[idx2]
+                result[idx2] = threefry_rotate(bits, rotation[r_idx, 1], result[idx2])
+                result[idx2] ^= result[2]
 
             if rnd % 4 == 3:
-                for i in range(N):
-                    X[i] += ks[(rnd // 4 + i + 1) % (N + 1)]
+                for i in range(words):
+                    result[i] += ks[(rnd // 4 + i + 1) % (words + 1)]
 
-                X[N - 1] += dtype(rnd // 4 + 1)
+                result[words - 1] += dtype(rnd // 4 + 1)
 
-    return X
+    return result
 
 
 PHILOX_W = {
@@ -178,25 +171,25 @@ PHILOX_M = {
 }
 
 
-def philox_mulhilo(W, x, y):
-    res = long_int(x) * long_int(y)
-    return numpy.asarray(res // (2**W), x.dtype), numpy.asarray(res % (2**W), x.dtype)
+def philox_mulhilo(bits, x, y):
+    res = int(x) * int(y)
+    return numpy.asarray(res // (2**bits), x.dtype), numpy.asarray(res % (2**bits), x.dtype)
 
 
-def philox_round(W, N, rnd, ctr, key):
+def philox_round(bits, words, rnd, ctr, key):
     ctr = ctr.copy()
     rnd = numpy.asarray(rnd, ctr.dtype)
 
-    if N == 2:
-        key0 = key[0] + PHILOX_W[W][0] * rnd
-        hi, lo = philox_mulhilo(W, PHILOX_M[(W, N)][0], ctr[0])
+    if words == 2:
+        key0 = key[0] + PHILOX_W[bits][0] * rnd
+        hi, lo = philox_mulhilo(bits, PHILOX_M[(bits, words)][0], ctr[0])
         ctr[0] = hi ^ key0 ^ ctr[1]
         ctr[1] = lo
     else:
-        key0 = key[0] + PHILOX_W[W][0] * rnd
-        key1 = key[1] + PHILOX_W[W][1] * rnd
-        hi0, lo0 = philox_mulhilo(W, PHILOX_M[(W, N)][0], ctr[0])
-        hi1, lo1 = philox_mulhilo(W, PHILOX_M[(W, N)][1], ctr[2])
+        key0 = key[0] + PHILOX_W[bits][0] * rnd
+        key1 = key[1] + PHILOX_W[bits][1] * rnd
+        hi0, lo0 = philox_mulhilo(bits, PHILOX_M[(bits, words)][0], ctr[0])
+        hi1, lo1 = philox_mulhilo(bits, PHILOX_M[(bits, words)][1], ctr[2])
         ctr[0] = hi1 ^ ctr[1] ^ key0
         ctr[1] = lo1
         ctr[2] = hi0 ^ ctr[3] ^ key1
@@ -205,26 +198,26 @@ def philox_round(W, N, rnd, ctr, key):
     return ctr
 
 
-def philox(W, N, ctr, key, Nrounds=None):
+def philox(bits, words, ctr, key, rounds=None):
     """
-    W: word length (32, 64)
-    N: number of generated items, 2 or 4
-    Nrounds: number of rounds (up to 16)
-    inn: counter, array(N, numpy.uint${W}) --- counter
-    k: key, array(N/2, numpy.uint${W}) --- key
-    returns: array(N, numpy.uint${W})
+    bits: word length (32, 64)
+    words: number of generated items, 2 or 4
+    rounds: number of rounds (up to 16)
+    inn: counter, array(words, numpy.uint${bits}) --- counter
+    k: key, array(words/2, numpy.uint${bits}) --- key
+    returns: array(words, numpy.uint${bits})
     """
-    assert W in (32, 64)
-    assert N in (2, 4)
+    assert bits in (32, 64)
+    assert words in (2, 4)
 
-    if Nrounds is None:
-        Nrounds = 10
+    if rounds is None:
+        rounds = 10
 
-    assert Nrounds <= 16
+    assert rounds <= 16
 
-    with ignore_integer_overflow():
-        for rnd in range(Nrounds):
-            ctr = philox_round(W, N, rnd, ctr, key)
+    with IgnoreIntegerOverflow():
+        for rnd in range(rounds):
+            ctr = philox_round(bits, words, rnd, ctr, key)
 
     return ctr
 
@@ -240,25 +233,25 @@ def myhex(x):
 def test(name):
     kk = numpy.array([123, 456, 789, 101112])
 
-    for W in (32, 64):
-        for N in (2, 4):
-            dtype = numpy.uint32 if W == 32 else numpy.uint64
+    for bits in (32, 64):
+        for words in (2, 4):
+            dtype = numpy.uint32 if bits == 32 else numpy.uint64
             if name == "threefry":
-                key = kk[:N].astype(dtype)
-                rounds = 72 if N == 4 else 32
+                key = kk[:words].astype(dtype)
+                rounds = 72 if words == 4 else 32
                 func = threefry
             elif name == "philox":
-                key = kk[: N // 2].astype(dtype)
+                key = kk[: words // 2].astype(dtype)
                 rounds = 10
                 func = philox
 
-            ctr = numpy.zeros(N).astype(dtype)
+            ctr = numpy.zeros(words).astype(dtype)
 
-            print(name, ": W =", W, "N =", N)
+            print(f"{name}: bits = {bits}, words = {words}")  # noqa: T201
             for i in range(5):
                 ctr[0] = i
-                res = func(W, N, ctr, key, Nrounds=rounds)
-                print("ctr " + str(i) + ": " + " ".join([myhex(i) for i in res]))
+                res = func(bits, words, ctr, key, rounds=rounds)
+                print(f"ctr {i}: " + " ".join([myhex(i) for i in res]))  # noqa: T201
 
 
 if __name__ == "__main__":

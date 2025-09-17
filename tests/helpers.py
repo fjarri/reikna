@@ -14,39 +14,41 @@ DOUBLE_RTOL = 1e-11
 DOUBLE_ATOL = 1e-11
 
 
-def get_test_array_like(arr, **kwds):
-    kwds["strides"] = arr.strides
-    kwds["offset"] = arr.offset
-    return get_test_array(arr.shape, arr.dtype, **kwds)
+def get_test_array_like(arr, **_kwds):
+    metadata = arr.as_array_metadata()
+    return get_test_array(
+        shape=metadata.shape,
+        dtype=metadata.dtype,
+        strides=metadata.strides,
+        offset=metadata.first_element_offset,
+    )
 
 
-def get_test_array(shape, dtype, strides=None, offset=0, no_zeros=False, high=None):
+def get_test_array(shape, dtype, strides=None, offset=0, high=None, *, no_zeros=False):
     shape = wrap_in_tuple(shape)
     dtype = numpy.dtype(dtype)
 
     if offset != 0:
-        raise NotImplementedError()
+        raise NotImplementedError("Non-zero offsets are not supported")
 
     if dtype.names is not None:
         result = numpy.empty(shape, dtype)
         for name in dtype.names:
             result[name] = get_test_array(shape, dtype[name], no_zeros=no_zeros, high=high)
     else:
+        rng = numpy.random.default_rng()
         if dtypes.is_integer(dtype):
             low = 1 if no_zeros else 0
             if high is None:
                 high = 100  # will work even with signed chars
-            get_arr = lambda: numpy.random.randint(low, high, shape).astype(dtype)
+            get_arr = lambda: rng.integers(low, high, shape, dtype=dtype)
         else:
             low = 0.01 if no_zeros else 0
             if high is None:
                 high = 1.0
-            get_arr = lambda: numpy.random.uniform(low, high, shape).astype(dtype)
+            get_arr = lambda: rng.uniform(low, high, shape).astype(dtype)
 
-        if dtypes.is_complex(dtype):
-            result = get_arr() + 1j * get_arr()
-        else:
-            result = get_arr()
+        result = get_arr() + 1j * get_arr() if dtypes.is_complex(dtype) else get_arr()
 
     if strides is not None:
         result = as_strided(result, result.shape, strides)
@@ -54,7 +56,7 @@ def get_test_array(shape, dtype, strides=None, offset=0, no_zeros=False, high=No
     return result
 
 
-def diff_is_negligible(m, m_ref, atol=None, rtol=None, verbose=True):
+def diff_is_negligible(m, m_ref, atol=None, rtol=None, *, verbose=True):
     if m.dtype.names is not None:
         return all(diff_is_negligible(m[name], m_ref[name]) for name in m.dtype.names)
 
@@ -74,17 +76,13 @@ def diff_is_negligible(m, m_ref, atol=None, rtol=None, verbose=True):
         return True
 
     if verbose:
-        far_idxs = numpy.vstack(numpy.where(close == False)).T
-        print(
-            (
-                "diff_is_negligible() with atol={atol} and rtol={rtol} "
-                + "found {diffs} differences, first ones are:"
-            ).format(atol=atol, rtol=rtol, diffs=str(far_idxs.shape[0]))
+        far_idxs = numpy.vstack(numpy.where(close)).T
+        print(  # noqa: T201
+            f"diff_is_negligible() with atol={atol} and rtol={rtol} "
+            f"found {far_idxs.shape[0]} differences, first ones are:"
         )
-        for idx, _ in zip(far_idxs, range(10)):
-            idx = tuple(idx)
-            print(
-                "idx: {idx}, test: {test}, ref: {ref}".format(idx=idx, test=m[idx], ref=m_ref[idx])
-            )
+        for idx, _ in zip(far_idxs, range(10), strict=True):
+            t_idx = tuple(idx)
+            print(f"idx: {t_idx}, test: {m[t_idx]}, ref: {m_ref[t_idx]}")  # noqa: T201
 
     return False

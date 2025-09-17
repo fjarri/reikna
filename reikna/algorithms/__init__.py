@@ -41,5 +41,6 @@ Predicates
 from .predicates import Predicate, predicate_sum
 from .pureparallel import PureParallel
 from .reduce import Reduce
+from .roll import Roll, RollInplace
 from .scan import Scan
 from .transpose import Transpose

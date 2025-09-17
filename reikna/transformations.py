@@ -1,36 +1,53 @@
-"""
-This module contains a number of pre-created transformations.
-"""
+"""A collection of pre-created transformations."""
 
-import grunnur.dtypes as dtypes
-import grunnur.functions as functions
+from typing import Any
+
 import numpy
+from grunnur import ArrayMetadata, AsArrayMetadata, dtypes, functions
 
-from .core import Annotation, Parameter, Transformation, Type
+from .core import Annotation, Parameter, Transformation
 
 
-def copy(arr_t, out_arr_t=None):
+def copy(arr_t: AsArrayMetadata, out_arr_t: AsArrayMetadata | None = None) -> Transformation:
     """
     Returns an identity transformation (1 output, 1 input): ``output = input``.
     Output array type ``out_arr_t`` may have different strides,
     but must have the same shape and data type.
     """
-    if out_arr_t is None:
-        out_arr_t = arr_t
-    else:
-        if out_arr_t.shape != arr_t.shape or out_arr_t.dtype != arr_t.dtype:
-            raise ValueError("Input and output arrays must have the same shape and data type")
+    input_ = arr_t.as_array_metadata()
+    output = out_arr_t.as_array_metadata() if out_arr_t is not None else input_
+
+    if output.shape != input_.shape or output.dtype != input_.dtype:
+        raise ValueError("Input and output arrays must have the same shape and data type")
 
     return Transformation(
         [
-            Parameter("output", Annotation(out_arr_t, "o")),
-            Parameter("input", Annotation(arr_t, "i")),
+            Parameter("output", Annotation(output, "o")),
+            Parameter("input", Annotation(input_, "i")),
         ],
         "${output.store_same}(${input.load_same});",
     )
 
 
-def copy_broadcasted(arr_t, out_arr_t=None):
+def _broadcastable_to(source: ArrayMetadata, dest: ArrayMetadata) -> bool:
+    """
+    Returns ``True`` if the shape of this metadata is broadcastable to ``other``,
+    that is its dimensions either coincide with the innermost dimensions of ``other.shape``,
+    or are equal to 1.
+    """
+    if len(source.shape) > len(dest.shape):
+        return False
+
+    for i in range(1, len(source.shape) + 1):
+        if not (source.shape[-i] == 1 or source.shape[-i] == dest.shape[-i]):
+            return False
+
+    return True
+
+
+def copy_broadcasted(
+    arr_t: AsArrayMetadata, out_arr_t: AsArrayMetadata | None = None
+) -> Transformation:
     """
     Returns an identity transformation (1 output, 1 input): ``output = input``,
     where ``input`` may be broadcasted (with the same semantics as ``numpy.broadcast_to()``).
@@ -41,22 +58,19 @@ def copy_broadcasted(arr_t, out_arr_t=None):
 
         This is an input-only transformation.
     """
+    input_ = arr_t.as_array_metadata()
+    output = out_arr_t.as_array_metadata() if out_arr_t is not None else input_
 
-    if out_arr_t is None:
-        out_arr_t = arr_t
-
-    if out_arr_t.dtype != arr_t.dtype:
+    if output.dtype != input_.dtype:
         raise ValueError("Input and output arrays must have the same data type")
 
-    in_tp = Type.from_value(arr_t)
-    out_tp = Type.from_value(out_arr_t)
-    if not in_tp.broadcastable_to(out_tp):
+    if not _broadcastable_to(input_, output):
         raise ValueError("Input is not broadcastable to output")
 
     return Transformation(
         [
-            Parameter("output", Annotation(out_arr_t, "o")),
-            Parameter("input", Annotation(arr_t, "i")),
+            Parameter("output", Annotation(output, "o")),
+            Parameter("input", Annotation(input_, "i")),
         ],
         """
         ${output.store_same}(${input.load_idx}(
@@ -76,126 +90,134 @@ def copy_broadcasted(arr_t, out_arr_t=None):
     )
 
 
-def cast(arr_t, dtype):
+def cast(arr_t: AsArrayMetadata, dtype: numpy.dtype[Any]) -> Transformation:
     """
     Returns a typecast transformation of ``arr_t`` to ``dtype``
     (1 output, 1 input): ``output = cast[dtype](input)``.
     """
-    dest = Type.like(arr_t).with_dtype(dtype)
+    input_ = arr_t.as_array_metadata()
+    output = input_.with_(dtype=dtype)
     return Transformation(
-        [Parameter("output", Annotation(dest, "o")), Parameter("input", Annotation(arr_t, "i"))],
+        [Parameter("output", Annotation(output, "o")), Parameter("input", Annotation(input_, "i"))],
         "${output.store_same}(${cast}(${input.load_same}));",
-        render_kwds=dict(cast=functions.cast(dtype, arr_t.dtype)),
+        render_kwds=dict(cast=functions.cast(dtype, input_.dtype)),
     )
 
 
-def add_param(arr_t, param_dtype):
+def add_param(arr_t: AsArrayMetadata, param_dtype: numpy.dtype[Any]) -> Transformation:
     """
     Returns an addition transformation with a dynamic parameter (1 output, 1 input, 1 scalar):
     ``output = input + param``.
     """
+    input_ = arr_t.as_array_metadata()
     return Transformation(
         [
-            Parameter("output", Annotation(arr_t, "o")),
-            Parameter("input", Annotation(arr_t, "i")),
+            Parameter("output", Annotation(input_, "o")),
+            Parameter("input", Annotation(input_, "i")),
             Parameter("param", Annotation(param_dtype)),
         ],
         "${output.store_same}(${add}(${input.load_same}, ${param}));",
-        render_kwds=dict(add=functions.add(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype)),
+        render_kwds=dict(add=functions.add(input_.dtype, param_dtype, out_dtype=input_.dtype)),
     )
 
 
-def add_const(arr_t, param):
+def add_const(arr_t: AsArrayMetadata, param: complex | numpy.number[Any]) -> Transformation:
     """
     Returns an addition transformation with a fixed parameter (1 output, 1 input):
     ``output = input + param``.
     """
+    input_ = arr_t.as_array_metadata()
     param_dtype = dtypes.min_scalar_type(param)
     return Transformation(
-        [Parameter("output", Annotation(arr_t, "o")), Parameter("input", Annotation(arr_t, "i"))],
+        [Parameter("output", Annotation(input_, "o")), Parameter("input", Annotation(input_, "i"))],
         "${output.store_same}(${add}(${input.load_same}, ${param}));",
         render_kwds=dict(
-            add=functions.add(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype),
+            add=functions.add(input_.dtype, param_dtype, out_dtype=input_.dtype),
             param=dtypes.c_constant(param, dtype=param_dtype),
         ),
     )
 
 
-def mul_param(arr_t, param_dtype):
+def mul_param(arr_t: AsArrayMetadata, param_dtype: numpy.dtype[Any]) -> Transformation:
     """
     Returns a scaling transformation with a dynamic parameter (1 output, 1 input, 1 scalar):
     ``output = input * param``.
     """
+    input_ = arr_t.as_array_metadata()
     return Transformation(
         [
-            Parameter("output", Annotation(arr_t, "o")),
-            Parameter("input", Annotation(arr_t, "i")),
+            Parameter("output", Annotation(input_, "o")),
+            Parameter("input", Annotation(input_, "i")),
             Parameter("param", Annotation(param_dtype)),
         ],
         "${output.store_same}(${mul}(${input.load_same}, ${param}));",
-        render_kwds=dict(mul=functions.mul(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype)),
+        render_kwds=dict(mul=functions.mul(input_.dtype, param_dtype, out_dtype=input_.dtype)),
     )
 
 
-def mul_const(arr_t, param):
+def mul_const(arr_t: AsArrayMetadata, param: complex | numpy.number[Any]) -> Transformation:
     """
     Returns a scaling transformation with a fixed parameter (1 output, 1 input):
     ``output = input * param``.
     """
+    input_ = arr_t.as_array_metadata()
     param_dtype = dtypes.min_scalar_type(param)
     return Transformation(
-        [Parameter("output", Annotation(arr_t, "o")), Parameter("input", Annotation(arr_t, "i"))],
+        [Parameter("output", Annotation(input_, "o")), Parameter("input", Annotation(input_, "i"))],
         "${output.store_same}(${mul}(${input.load_same}, ${param}));",
         render_kwds=dict(
-            mul=functions.mul(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype),
+            mul=functions.mul(input_.dtype, param_dtype, out_dtype=input_.dtype),
             param=dtypes.c_constant(param, dtype=param_dtype),
         ),
     )
 
 
-def div_param(arr_t, param_dtype):
+def div_param(arr_t: AsArrayMetadata, param_dtype: numpy.dtype[Any]) -> Transformation:
     """
     Returns a scaling transformation with a dynamic parameter (1 output, 1 input, 1 scalar):
     ``output = input / param``.
     """
+    input_ = arr_t.as_array_metadata()
     return Transformation(
         [
-            Parameter("output", Annotation(arr_t, "o")),
-            Parameter("input", Annotation(arr_t, "i")),
+            Parameter("output", Annotation(input_, "o")),
+            Parameter("input", Annotation(input_, "i")),
             Parameter("param", Annotation(param_dtype)),
         ],
         "${output.store_same}(${div}(${input.load_same}, ${param}));",
-        render_kwds=dict(div=functions.div(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype)),
+        render_kwds=dict(div=functions.div(input_.dtype, param_dtype, out_dtype=input_.dtype)),
     )
 
 
-def div_const(arr_t, param):
+def div_const(arr_t: AsArrayMetadata, param: complex | numpy.number[Any]) -> Transformation:
     """
     Returns a scaling transformation with a fixed parameter (1 output, 1 input):
     ``output = input / param``.
     """
+    input_ = arr_t.as_array_metadata()
     param_dtype = dtypes.min_scalar_type(param)
     return Transformation(
-        [Parameter("output", Annotation(arr_t, "o")), Parameter("input", Annotation(arr_t, "i"))],
+        [Parameter("output", Annotation(input_, "o")), Parameter("input", Annotation(input_, "i"))],
         "${output.store_same}(${div}(${input.load_same}, ${param}));",
         render_kwds=dict(
-            div=functions.div(arr_t.dtype, param_dtype, out_dtype=arr_t.dtype),
+            div=functions.div(input_.dtype, param_dtype, out_dtype=input_.dtype),
             param=dtypes.c_constant(param, dtype=param_dtype),
         ),
     )
 
 
-def split_complex(input_arr_t):
+def split_complex(input_arr_t: AsArrayMetadata) -> Transformation:
     """
     Returns a transformation that splits complex input into two real outputs
     (2 outputs, 1 input): ``real = Re(input), imag = Im(input)``.
     """
-    output_t = Type.array(dtypes.real_for(input_arr_t.dtype), shape=input_arr_t.shape)
+    input_ = input_arr_t.as_array_metadata()
+    output = ArrayMetadata(shape=input_.shape, dtype=dtypes.real_for(input_.dtype))
     return Transformation(
         [
-            Parameter("real", Annotation(output_t, "o")),
-            Parameter("imag", Annotation(output_t, "o")),
-            Parameter("input", Annotation(input_arr_t, "i")),
+            Parameter("real", Annotation(output, "o")),
+            Parameter("imag", Annotation(output, "o")),
+            Parameter("input", Annotation(input_, "i")),
         ],
         """
             ${real.store_same}(${input.load_same}.x);
@@ -204,17 +226,18 @@ def split_complex(input_arr_t):
     )
 
 
-def combine_complex(output_arr_t):
+def combine_complex(output_arr_t: AsArrayMetadata) -> Transformation:
     """
     Returns a transformation that joins two real inputs into complex output
     (1 output, 2 inputs): ``output = real + 1j * imag``.
     """
-    input_t = Type.array(dtypes.real_for(output_arr_t.dtype), shape=output_arr_t.shape)
+    output = output_arr_t.as_array_metadata()
+    input_ = ArrayMetadata(shape=output.shape, dtype=dtypes.real_for(output.dtype))
     return Transformation(
         [
-            Parameter("output", Annotation(output_arr_t, "o")),
-            Parameter("real", Annotation(input_t, "i")),
-            Parameter("imag", Annotation(input_t, "i")),
+            Parameter("output", Annotation(output, "o")),
+            Parameter("real", Annotation(input_, "i")),
+            Parameter("imag", Annotation(input_, "i")),
         ],
         """
         ${output.store_same}(
@@ -225,20 +248,20 @@ def combine_complex(output_arr_t):
     )
 
 
-def norm_const(arr_t, order):
+def norm_const(arr_t: AsArrayMetadata, order: float) -> Transformation:
     """
     Returns a transformation that calculates the ``order``-norm
     (1 output, 1 input): ``output = abs(input) ** order``.
     """
-    if dtypes.is_complex(arr_t.dtype):
-        out_dtype = dtypes.real_for(arr_t.dtype)
-    else:
-        out_dtype = arr_t.dtype
+    input_ = arr_t.as_array_metadata()
+    out_dtype = dtypes.real_for(input_.dtype) if dtypes.is_complex(input_.dtype) else input_.dtype
 
     return Transformation(
         [
-            Parameter("output", Annotation(Type.array(out_dtype, arr_t.shape), "o")),
-            Parameter("input", Annotation(arr_t, "i")),
+            Parameter(
+                "output", Annotation(ArrayMetadata(shape=input_.shape, dtype=out_dtype), "o")
+            ),
+            Parameter("input", Annotation(input_, "i")),
         ],
         """
         ${input.ctype} val = ${input.load_same};
@@ -248,25 +271,25 @@ def norm_const(arr_t, order):
         %endif
         ${output.store_same}(norm);
         """,
-        render_kwds=dict(norm=functions.norm(arr_t.dtype), order=order, dtypes=dtypes),
+        render_kwds=dict(norm=functions.norm(input_.dtype), order=order, dtypes=dtypes),
     )
 
 
-def norm_param(arr_t):
+def norm_param(arr_t: AsArrayMetadata) -> Transformation:
     """
     Returns a transformation that calculates the ``order``-norm
     (1 output, 1 input, 1 param): ``output = abs(input) ** order``.
     """
-    if dtypes.is_complex(arr_t.dtype):
-        out_dtype = dtypes.real_for(arr_t.dtype)
-    else:
-        out_dtype = arr_t.dtype
+    input_ = arr_t.as_array_metadata()
+    out_dtype = dtypes.real_for(input_.dtype) if dtypes.is_complex(input_.dtype) else input_.dtype
 
     return Transformation(
         [
-            Parameter("output", Annotation(Type.array(out_dtype, arr_t.shape), "o")),
-            Parameter("input", Annotation(arr_t, "i")),
-            Parameter("order", Annotation(Type.scalar(out_dtype))),
+            Parameter(
+                "output", Annotation(ArrayMetadata(shape=input_.shape, dtype=out_dtype), "o")
+            ),
+            Parameter("input", Annotation(input_, "i")),
+            Parameter("order", Annotation(out_dtype)),
         ],
         """
         ${input.ctype} val = ${input.load_same};
@@ -274,32 +297,31 @@ def norm_param(arr_t):
         norm = pow(norm, ${order} / 2);
         ${output.store_same}(norm);
         """,
-        render_kwds=dict(norm=functions.norm(arr_t.dtype)),
+        render_kwds=dict(norm=functions.norm(input_.dtype)),
     )
 
 
-def ignore(arr_t):
-    """
-    Returns a transformation that ignores the output it is attached to.
-    """
+def ignore(arr_t: AsArrayMetadata) -> Transformation:
+    """Returns a transformation that ignores the output it is attached to."""
     return Transformation(
-        [Parameter("input", Annotation(arr_t, "i"))],
+        [Parameter("input", Annotation(arr_t.as_array_metadata(), "i"))],
         """
         // Ignoring intentionally
         """,
     )
 
 
-def broadcast_const(arr_t, val):
+def broadcast_const(arr_t: AsArrayMetadata, val: Any) -> Transformation:
     """
     Returns a transformation that broadcasts the given constant to the array output
     (1 output): ``output = val``.
     """
-    val = numpy.asarray(val, arr_t.dtype)
+    input_ = arr_t.as_array_metadata()
+    val = numpy.asarray(val, input_.dtype)
     if len(val.shape) != 0:
         raise ValueError("The constant must be a scalar")
     return Transformation(
-        [Parameter("output", Annotation(arr_t, "o"))],
+        [Parameter("output", Annotation(input_, "o"))],
         """
         const ${output.ctype} val = ${dtypes.c_constant(val)};
         ${output.store_same}(val);
@@ -308,15 +330,16 @@ def broadcast_const(arr_t, val):
     )
 
 
-def broadcast_param(arr_t):
+def broadcast_param(arr_t: AsArrayMetadata) -> Transformation:
     """
     Returns a transformation that broadcasts the free parameter to the array output
     (1 output, 1 param): ``output = param``.
     """
+    input_ = arr_t.as_array_metadata()
     return Transformation(
         [
-            Parameter("output", Annotation(arr_t, "o")),
-            Parameter("param", Annotation(Type.scalar(arr_t.dtype))),
+            Parameter("output", Annotation(input_, "o")),
+            Parameter("param", Annotation(input_.dtype)),
         ],
         """
         ${output.store_same}(${param});

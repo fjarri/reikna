@@ -1,13 +1,24 @@
-import grunnur.dtypes as dtypes
+from collections.abc import Callable, Iterable, Sequence
+from typing import Any, cast
+
 import numpy
+from grunnur import ArrayMetadata, AsArrayMetadata, DeviceParameters, dtypes
 from numpy.polynomial import Hermite
+from numpy.typing import NDArray
 
 from .algorithms import Transpose
-from .core import Annotation, Computation, Parameter, Type
+from .core import (
+    Annotation,
+    Computation,
+    ComputationPlan,
+    KernelArgument,
+    KernelArguments,
+    Parameter,
+)
 from .linalg import MatrixMul
 
 
-def factorial(num):
+def factorial(num: int) -> int:
     """
     Replacement of ``scipy.misc.factorial()``.
     First, it avoids requiring scipy; second, it returns integer instead of float
@@ -19,22 +30,22 @@ def factorial(num):
     return res
 
 
-def hermite(mode):
+def hermite(mode: int) -> Callable[[NDArray[numpy.float64]], NDArray[numpy.float64]]:
     """Returns an orthonormal Hermite polynomial"""
+    poly = Hermite([0] * mode + [1])
 
-    def func(x_coord):
-        norm = 1.0 / (numpy.pi**0.25) / numpy.sqrt(float(factorial(mode) * 2**mode))
-        return Hermite([0] * mode + [1])(x_coord) * norm
+    def func(x_coord: NDArray[numpy.float64]) -> NDArray[numpy.float64]:
+        norm: NDArray[numpy.float64] = 1.0 / (numpy.pi**0.25) / (factorial(mode) * 2**mode) ** 0.5
+        return cast("NDArray[numpy.float64]", poly(x_coord)) * norm
 
     return func
 
 
-def h_roots(order):
+def h_roots(order: int) -> tuple[NDArray[numpy.float64], NDArray[numpy.float64]]:
     """
     Recursive root finding algorithm, taken from Numerical Recipes.
     More accurate than the standard h_roots() from scipy.
     """
-
     eps = 1.0e-14
     pim4 = numpy.pi ** (-0.25)
     max_iter = 20  # Maximum iterations.
@@ -49,11 +60,11 @@ def h_roots(order):
         # Initial guesses for the following roots
         if i == 1:
             curr_root -= 1.14 * order**0.426 / curr_root
-        elif i == 2:
+        elif i == 2:  # noqa: PLR2004
             curr_root = 1.86 * curr_root + 0.86 * roots[0]
-        elif i == 3:
+        elif i == 3:  # noqa: PLR2004
             curr_root = 1.91 * curr_root + 0.91 * roots[1]
-        elif i > 3:
+        elif i > 3:  # noqa: PLR2004
             curr_root = 2.0 * curr_root + roots[i - 2]
 
         # Refinement by Newton's method
@@ -80,7 +91,7 @@ def h_roots(order):
             if abs(curr_root - prev_root) <= eps:
                 break
         else:
-            raise Exception("Too many iterations")
+            raise RuntimeError("Too many iterations")
 
         roots[order - 1 - i] = curr_root
         roots[i] = -curr_root
@@ -90,7 +101,7 @@ def h_roots(order):
     return roots, weights
 
 
-def get_spatial_points(modes, order, add_points=0):
+def get_spatial_points(modes: int, order: int, add_points: int = 0) -> int:
     """
     Returns the number of points in coordinate space
     which allows the calculation of up to ``order`` of any function
@@ -113,10 +124,10 @@ def get_spatial_points(modes, order, add_points=0):
     return points
 
 
-def get_spatial_grid_and_weights(modes, order, add_points=0):
-    """
-    Returns a pair of arrays ``(points, weights)`` for Gauss-Hermite quadrature.
-    """
+def get_spatial_grid_and_weights(
+    modes: int, order: int, add_points: int = 0
+) -> tuple[NDArray[numpy.float64], NDArray[numpy.float64]]:
+    """Returns a pair of arrays ``(points, weights)`` for Gauss-Hermite quadrature."""
     points = get_spatial_points(modes, order, add_points=add_points)
     roots, weights = h_roots(points)
 
@@ -125,7 +136,7 @@ def get_spatial_grid_and_weights(modes, order, add_points=0):
     )
 
 
-def get_spatial_grid(modes, order, add_points=0):
+def get_spatial_grid(modes: int, order: int, add_points: int = 0) -> NDArray[numpy.float64]:
     """
     Returns the spatial grid required to calculate the ``order`` power of a function
     defined in the harmonic mode space of the size ``modes``.
@@ -135,11 +146,11 @@ def get_spatial_grid(modes, order, add_points=0):
     return get_spatial_grid_and_weights(modes, order, add_points=add_points)[0]
 
 
-def get_spatial_weights(modes, order, add_points=0):
+def get_spatial_weights(modes: int, order: int, add_points: int = 0) -> NDArray[numpy.float64]:
     return get_spatial_grid_and_weights(modes, order, add_points=add_points)[1]
 
 
-def harmonic(mode):
+def harmonic(mode: int) -> Callable[[NDArray[numpy.float64]], NDArray[numpy.float64]]:
     r"""
     Returns an eigenfunction of order :math:`n = \mathrm{mode}` for the harmonic oscillator:
 
@@ -154,7 +165,7 @@ def harmonic(mode):
     return lambda x_coord: polynomial(x_coord) * numpy.exp(-(x_coord**2) / 2)
 
 
-def get_transformation_matrix(modes, order, add_points):
+def get_transformation_matrix(modes: int, order: int, add_points: int) -> NDArray[numpy.float64]:
     """
     Returns the the matrix of values of mode functions taken at
     points of the spatial grid.
@@ -171,8 +182,6 @@ def get_transformation_matrix(modes, order, add_points):
 
 class DHT(Computation):
     r"""
-    Bases: :py:class:`~reikna.core.Computation`
-
     Discrete transform to and from harmonic oscillator modes.
     With ``inverse=True`` transforms a function defined by its expansion
     :math:`C_m,\,m=0 \ldots M-1` in the mode space with mode functions
@@ -211,17 +220,21 @@ class DHT(Computation):
             and ``add_points``, and the dtype of ``mode_arr``.
     """
 
-    def __init__(self, mode_arr, add_points=None, inverse=False, order=1, axes=None):
-        if axes is None:
-            axes = tuple(range(len(mode_arr.shape)))
-        else:
-            axes = tuple(axes)
-        self._axes = list(sorted(axes))
+    def __init__(
+        self,
+        mode_arr_t: AsArrayMetadata,
+        *,
+        add_points: Iterable[int] | None = None,
+        inverse: bool = False,
+        order: int = 1,
+        axes: Iterable[int] | None = None,
+    ):
+        mode_arr = mode_arr_t.as_array_metadata()
 
-        if add_points is None:
-            add_points = [0] * len(mode_arr.shape)
-        else:
-            add_points = list(add_points)
+        axes = tuple(range(len(mode_arr.shape)) if axes is None else axes)
+        self._axes = sorted(axes)
+
+        add_points = [0] * len(mode_arr.shape) if add_points is None else list(add_points)
         self._add_points = add_points
 
         coord_shape = list(mode_arr.shape)
@@ -230,7 +243,7 @@ class DHT(Computation):
                 coord_shape[axis] = get_spatial_points(
                     mode_arr.shape[axis], order, add_points=add_points[axis]
                 )
-        coord_arr = Type.array(mode_arr.dtype, shape=coord_shape)
+        coord_arr = ArrayMetadata(coord_shape, mode_arr.dtype)
 
         self._inverse = inverse
         self._order = order
@@ -248,7 +261,9 @@ class DHT(Computation):
 
         Computation.__init__(self, parameters)
 
-    def _get_transformation_matrix(self, dtype, modes, add_points):
+    def _get_transformation_matrix(
+        self, dtype: numpy.dtype[Any], modes: int, add_points: int
+    ) -> NDArray[numpy.float64]:
         p_matrix = get_transformation_matrix(modes, self._order, add_points)
         p_matrix = p_matrix.astype(dtype)
 
@@ -259,19 +274,24 @@ class DHT(Computation):
 
         return p_matrix
 
-    def _add_transpose(self, plan, current_mem, current_axes, axis):
-        """
-        Transpose the current array so that the ``axis`` is in the end of axes list.
-        """
-
-        seq_axes = list(range(len(current_axes)))
+    def _add_transpose(
+        self,
+        plan: ComputationPlan,
+        current_mem: KernelArgument,
+        current_axes: tuple[int, ...],
+        axis: int,
+    ) -> tuple[KernelArgument, tuple[int, ...]]:
+        """Transpose the current array so that the ``axis`` is in the end of axes list."""
+        seq_axes = tuple(range(len(current_axes)))
 
         cur_pos = current_axes.index(axis)
-        if cur_pos != len(current_axes) - 1:
-            # We can move the target axis to the end in different ways,
-            # but this one will require only one transpose kernel.
-            optimal_transpose = lambda seq: seq[:cur_pos] + seq[cur_pos + 1 :] + [seq[cur_pos]]
 
+        # We can move the target axis to the end in different ways,
+        # but this one will require only one transpose kernel.
+        def optimal_transpose(seq: tuple[int, ...]) -> tuple[int, ...]:
+            return seq[:cur_pos] + seq[cur_pos + 1 :] + (seq[cur_pos],)
+
+        if cur_pos != len(current_axes) - 1:
             tr_axes = optimal_transpose(seq_axes)
             new_axes = optimal_transpose(current_axes)
 
@@ -284,8 +304,20 @@ class DHT(Computation):
 
         return current_mem, current_axes
 
-    def _build_plan(self, plan_factory, _device_params, output_arr, input_arr):
+    def _build_plan(
+        self,
+        plan_factory: Callable[[], ComputationPlan],
+        _device_params: DeviceParameters,
+        args: KernelArguments,
+    ) -> ComputationPlan:
         plan = plan_factory()
+
+        if self._inverse:
+            output_arr = args.coords
+            input_arr = args.modes
+        else:
+            output_arr = args.modes
+            input_arr = args.coords
 
         dtype = input_arr.dtype
         p_dtype = dtypes.real_for(dtype) if dtypes.is_complex(dtype) else dtype
@@ -293,8 +325,8 @@ class DHT(Computation):
         mode_shape = input_arr.shape if self._inverse else output_arr.shape
 
         current_mem = input_arr
-        seq_axes = list(range(len(input_arr.shape)))
-        current_axes = list(range(len(input_arr.shape)))
+        seq_axes = tuple(range(len(input_arr.shape)))
+        current_axes = tuple(range(len(input_arr.shape)))
 
         for i, axis in enumerate(self._axes):
             current_mem, current_axes = self._add_transpose(plan, current_mem, current_axes, axis)
@@ -319,6 +351,6 @@ class DHT(Computation):
         if current_axes != seq_axes:
             tr_axes = [current_axes.index(i) for i in range(len(current_axes))]
             transpose = Transpose(current_mem, output_arr_t=output_arr, axes=tr_axes)
-            plan.add_computation(transpose, output_arr, current_mem)
+            plan.computation_call(transpose, output_arr, current_mem)
 
         return plan

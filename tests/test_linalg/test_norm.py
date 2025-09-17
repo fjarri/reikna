@@ -2,7 +2,7 @@ import numpy
 import pytest
 from grunnur import Array
 
-from helpers import *
+from helpers import diff_is_negligible, get_test_array
 from reikna.linalg import EntrywiseNorm
 
 
@@ -18,8 +18,7 @@ def reference_norm(arr, order=1, axes=None):
         arr = arr.sum(axis, keepdims=True)
 
     # explicit cast to preven numpy promoting arr to float64 from float32 if it is 0-dimensional
-    res = arr ** numpy.asarray(1.0 / order, out_dtype)
-    return res
+    return arr ** numpy.asarray(1.0 / order, out_dtype)
 
 
 def check_norm(queue, shape, dtype, order, axes):

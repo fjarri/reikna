@@ -1,5 +1,5 @@
 """
-This example shows how to implement an n-dimensional FFT over arbitrary axes
+An example showing how to implement an n-dimensional FFT over arbitrary axes
 using a 1D FFT over the innermost dimension and transpositions.
 
 At the moment of the writing, testing shows that the performance of this approach
@@ -12,32 +12,43 @@ because it will greatly simplify the FFT computation.
 """
 
 import time
+from collections.abc import Callable, Sequence
 
 import numpy
-from grunnur import Array, Context, Queue, any_api
+from grunnur import API, Array, AsArrayMetadata, Context, DeviceParameters, Queue
 
 from reikna.algorithms import Transpose
-from reikna.core import Annotation, Computation, Parameter
+from reikna.core import Annotation, Computation, ComputationPlan, KernelArguments, Parameter
 from reikna.fft import FFT
 
 
 class FFTWithTranspose(Computation):
-    def __init__(self, arr_t, axes=None):
+    def __init__(self, arr: AsArrayMetadata, axes: None | Sequence[int] = None):
+        metadata = arr.as_array_metadata()
         Computation.__init__(
             self,
             [
-                Parameter("output", Annotation(arr_t, "o")),
-                Parameter("input", Annotation(arr_t, "i")),
+                Parameter("output", Annotation(metadata, "o")),
+                Parameter("input", Annotation(metadata, "i")),
                 Parameter("inverse", Annotation(numpy.int32), default=0),
             ],
         )
 
         if axes is None:
-            axes = range(len(arr_t.shape))
+            axes = range(len(metadata.shape))
         self._axes = tuple(sorted(axes))
 
-    def _build_plan(self, plan_factory, device_params, output, input_, inverse):
+    def _build_plan(
+        self,
+        plan_factory: Callable[[], ComputationPlan],
+        _device_params: DeviceParameters,
+        args: KernelArguments,
+    ) -> ComputationPlan:
         plan = plan_factory()
+
+        output = args.output
+        input_ = args.input
+        inverse = args.inverse
 
         num_axes = len(input_.shape)
 
@@ -99,16 +110,16 @@ class FFTWithTranspose(Computation):
 
         # If the axes are not in the original order, there is one last transposition required
         if current_axes != list(range(num_axes)):
-            pairs = list(zip(current_axes, list(range(num_axes))))
+            pairs = list(zip(current_axes, list(range(num_axes)), strict=True))
             tr_axes = [local_axis for _, local_axis in sorted(pairs)]
-            tr = Transpose(current_output, tr_axes)
+            tr = Transpose(current_output, axes=tr_axes)
             plan.computation_call(tr, output, current_output)
 
         return plan
 
 
 if __name__ == "__main__":
-    context = Context.from_devices([any_api.platforms[0].devices[0]])
+    context = Context.from_devices([API.any().platforms[0].devices[0]])
     queue = Queue(context.device)
 
     dtype = numpy.complex64
@@ -116,22 +127,23 @@ if __name__ == "__main__":
     shape = (1024, 16, 16, 16)
     axes = (1, 2, 3)
 
-    data = numpy.random.normal(size=shape) + 1j * numpy.random.normal(size=shape)
+    rng = numpy.random.default_rng()
+    data = rng.normal(size=shape) + 1j * rng.normal(size=shape)
     data = data.astype(dtype)
-
-    fft = FFT(data, axes=axes)
-    fftc = fft.compile(queue.device)
-
-    fft2 = FFTWithTranspose(data, axes=axes)
-    fft2c = fft2.compile(queue.device)
 
     data_dev = Array.from_host(queue.device, data)
     res_dev = Array.empty_like(queue.device, data_dev)
 
+    fft = FFT(data_dev, axes=axes)
+    fftc = fft.compile(queue.device)
+
+    fft2 = FFTWithTranspose(data_dev, axes=axes)
+    fft2c = fft2.compile(queue.device)
+
     for comp, tag in [(fftc, "original FFT"), (fft2c, "transposition-based FFT")]:
         attempts = 10
         ts = []
-        for i in range(attempts):
+        for _ in range(attempts):
             t1 = time.time()
             comp(queue, res_dev, data_dev)
             queue.synchronize()
@@ -139,6 +151,6 @@ if __name__ == "__main__":
             ts.append(t2 - t1)
 
         fwd_ref = numpy.fft.fftn(data, axes=axes).astype(dtype)
-        assert numpy.allclose(res_dev.get(queue), fwd_ref, atol=1e-4, rtol=1e-4)
+        assert numpy.allclose(res_dev.get(queue), fwd_ref, atol=1e-4, rtol=1e-4)  # noqa: S101
 
-        print(tag, min(ts), "s")
+        print(tag, min(ts), "s")  # noqa: T201

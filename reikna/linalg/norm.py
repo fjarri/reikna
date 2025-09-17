@@ -1,14 +1,16 @@
+from collections.abc import Callable, Iterable
+
+from grunnur import ArrayMetadata, AsArrayMetadata, DeviceParameters
+
 from ..algorithms import Reduce, predicate_sum
-from ..core import Annotation, Computation, Parameter, Type
+from ..core import Annotation, Computation, ComputationPlan, KernelArguments, Parameter
 from ..transformations import norm_const
 
 
 class EntrywiseNorm(Computation):
     r"""
-    Bases: :py:class:`~reikna.core.Computation`
-
     Calculates the entrywise matrix norm (same as ``numpy.linalg.norm``)
-    of an arbitrary order :math:`r`:
+    of an arbitrary order :math:`r`.
 
     .. math::
 
@@ -26,17 +28,23 @@ class EntrywiseNorm(Computation):
             with its shape missing axes from ``axes``.
     """
 
-    def __init__(self, arr_t, order=2, axes=None):
-        tr_elems = norm_const(arr_t, order)
-        out_dtype = tr_elems.output.dtype
+    def __init__(self, arr_t: AsArrayMetadata, order: float = 2, axes: Iterable[int] | None = None):
+        input_ = arr_t.as_array_metadata()
 
-        rd = Reduce(Type.array(out_dtype, arr_t.shape), predicate_sum(out_dtype), axes=axes)
+        tr_elems = norm_const(input_, order)
+        out_dtype = tr_elems.parameter.output.dtype
+
+        rd = Reduce(ArrayMetadata(input_.shape, out_dtype), predicate_sum(out_dtype), axes=axes)
 
         res_t = rd.parameter.output
         tr_sum = norm_const(res_t, 1.0 / order)
 
-        rd.parameter.input.connect(tr_elems, tr_elems.output, input_prime=tr_elems.input)
-        rd.parameter.output.connect(tr_sum, tr_sum.input, output_prime=tr_sum.output)
+        rd.parameter.input.connect(
+            tr_elems, tr_elems.parameter.output, input_prime=tr_elems.parameter.input
+        )
+        rd.parameter.output.connect(
+            tr_sum, tr_sum.parameter.input, output_prime=tr_sum.parameter.output
+        )
 
         self._rd = rd
 
@@ -44,11 +52,16 @@ class EntrywiseNorm(Computation):
             self,
             [
                 Parameter("output", Annotation(res_t, "o")),
-                Parameter("input", Annotation(arr_t, "i")),
+                Parameter("input", Annotation(input_, "i")),
             ],
         )
 
-    def _build_plan(self, plan_factory, device_params, output, input_):
+    def _build_plan(
+        self,
+        plan_factory: Callable[[], ComputationPlan],
+        device_params: DeviceParameters,  # noqa: ARG002
+        args: KernelArguments,
+    ) -> ComputationPlan:
         plan = plan_factory()
-        plan.computation_call(self._rd, output, input_)
+        plan.computation_call(self._rd, args.output, args.input)
         return plan

@@ -4,8 +4,8 @@ import numpy
 import pytest
 from grunnur import Array, Snippet, dtypes
 
-import reikna.helpers as helpers
-from helpers import *
+from helpers import diff_is_negligible, get_test_array
+from reikna import helpers
 from reikna.algorithms import Predicate, Scan, predicate_sum
 
 perf_shapes = [(1024 * 1024,), (1024 * 1024 * 8,), (1024 * 1024 * 64,)]
@@ -34,7 +34,7 @@ def seq_size(request):
     return request.param
 
 
-def ref_scan(arr, axes=None, exclusive=False):
+def ref_scan(arr, axes=None, *, exclusive=False):
     if axes is None:
         res = numpy.cumsum(arr).reshape(arr.shape)
     else:
@@ -43,7 +43,7 @@ def ref_scan(arr, axes=None, exclusive=False):
         unchanged_ndim = arr.ndim - len(axes)
         temp = arr.transpose(transpose_to)
         temp2 = temp.reshape(
-            temp.shape[:unchanged_ndim] + (helpers.product(temp.shape[unchanged_ndim:]),)
+            (*temp.shape[:unchanged_ndim], helpers.product(temp.shape[unchanged_ndim:]))
         )
         temp2 = numpy.cumsum(temp2, axis=-1)
         res = temp2.reshape(temp.shape).transpose(transpose_from)
@@ -58,12 +58,13 @@ def check_scan(
     queue,
     shape,
     axes,
-    exclusive=False,
-    measure_time=False,
     dtype=numpy.int64,
     max_work_group_size=None,
     predicate=None,
     seq_size=None,
+    *,
+    exclusive=False,
+    measure_time=False,
 ):
     # Note: the comparison will only work if the custom predicate is
     # functionally equivalent to `predicate_sum`.
@@ -71,9 +72,10 @@ def check_scan(
         predicate = predicate_sum(dtype)
 
     arr = get_test_array(shape, dtype)
+    arr_dev = Array.from_host(queue, arr)
 
     scan = Scan(
-        arr,
+        arr_dev,
         predicate,
         axes=axes,
         exclusive=exclusive,
@@ -81,14 +83,13 @@ def check_scan(
         seq_size=seq_size,
     ).compile(queue.device)
 
-    arr_dev = Array.from_host(queue, arr)
     res_dev = Array.from_host(queue, numpy.ones_like(arr) * (-1))
     queue.synchronize()
 
     if measure_time:
         attempts = 10
         times = []
-        for i in range(attempts):
+        for _ in range(attempts):
             t1 = time.time()
             scan(queue, res_dev, arr_dev)
             queue.synchronize()
@@ -126,7 +127,7 @@ def test_scan_non_innermost_axes(queue):
 
 
 def test_scan_custom_predicate(queue):
-    predicate = Predicate(Snippet.from_callable(lambda v1, v2: "return ${v1} + ${v2};"), 0)
+    predicate = Predicate(Snippet.from_string(["v1", "v2"], "return ${v1} + ${v2};"), 0)
     check_scan(queue, (10, 20, 30, 40), axes=(1, 2), predicate=predicate)
 
 
@@ -160,8 +161,9 @@ def test_scan_structure_type(queue, exclusive):
     b_ref["i2"] = ref_scan(a["i2"], axes=0, exclusive=exclusive)
 
     predicate = Predicate(
-        Snippet.from_callable(
-            lambda v1, v2: """
+        Snippet.from_string(
+            ["v1", "v2"],
+            """
             ${ctype} result = ${v1};
             result.i1 += ${v2}.i1;
             result.nested.v += ${v2}.nested.v;
@@ -187,9 +189,7 @@ def test_scan_structure_type(queue, exclusive):
 @pytest.mark.perf
 @pytest.mark.returns("GB/s")
 def test_large_scan_performance(queue, large_perf_shape, exclusive):
-    """
-    Large problem sizes.
-    """
+    """Large problem sizes."""
     dtype = numpy.dtype("int64")
     min_time = check_scan(
         queue, large_perf_shape, dtype=dtype, axes=None, exclusive=exclusive, measure_time=True
@@ -200,9 +200,7 @@ def test_large_scan_performance(queue, large_perf_shape, exclusive):
 @pytest.mark.perf
 @pytest.mark.returns("GB/s")
 def test_small_scan_performance(queue, exclusive, seq_size):
-    """
-    Small problem sizes, big batches.
-    """
+    """Small problem sizes, big batches."""
     dtype = numpy.dtype("complex64")
     shape = (500, 2, 2, 256)
     min_time = check_scan(

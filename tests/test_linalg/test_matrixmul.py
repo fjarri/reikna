@@ -2,9 +2,9 @@ import time
 
 import numpy
 import pytest
-from grunnur import Array, dtypes
+from grunnur import Array, ArrayMetadata, dtypes
 
-from helpers import *
+from helpers import diff_is_negligible, get_test_array
 from reikna.helpers import product
 from reikna.linalg import MatrixMul
 
@@ -18,11 +18,7 @@ def pytest_generate_tests(metafunc):
     if "perf_shape" in metafunc.fixturenames:
         mem_limit = 2**20
         sizes = [16, 32, 64, 256, 512, 25]
-
-        perf_shapes = []
-
-        for size in sizes:
-            perf_shapes.append((mem_limit // size**2, size))
+        perf_shapes = [(mem_limit // size**2, size) for size in sizes]
 
         ids = []
         for batch, size in perf_shapes:
@@ -57,7 +53,7 @@ def ref_dot(a, b):
     a_batch = product(a.shape[:-2])
     b_batch = product(b.shape[:-2])
 
-    assert a_batch == b_batch or a_batch == 1 or b_batch == 1
+    assert a_batch == b_batch or a_batch == 1 or b_batch == 1  # noqa: PLR1714
 
     a = a.reshape(a_batch, a.shape[-2], a.shape[-1])
     b = b.reshape(b_batch, b.shape[-2], b.shape[-1])
@@ -84,7 +80,9 @@ def transpose(m):
     return m.transpose(*axes)
 
 
-def check_errors(queue, a_shape, a_dtype, b_shape, b_dtype, transposed_a=False, transposed_b=False):
+def check_errors(
+    queue, a_shape, a_dtype, b_shape, b_dtype, *, transposed_a=False, transposed_b=False
+):
     a = get_test_array(a_shape, a_dtype)
     b = get_test_array(b_shape, b_dtype)
 
@@ -98,7 +96,7 @@ def check_errors(queue, a_shape, a_dtype, b_shape, b_dtype, transposed_a=False, 
     res_dev = Array.empty_like(queue.device, res_ref)
 
     dot = MatrixMul(
-        a_dev, b_dev, out_arr=res_dev, transposed_a=transposed_a, transposed_b=transposed_b
+        a_dev, b_dev, out_arr_t=res_dev, transposed_a=transposed_a, transposed_b=transposed_b
     )
     dotc = dot.compile(queue.device)
     dotc(queue, res_dev, a_dev, b_dev)
@@ -121,15 +119,8 @@ def test_transposed(queue, sizes, transposed_a, transposed_b):
     a_batch = (10,)
     b_batch = (10,)
 
-    if transposed_a:
-        a_shape = (convolution_size, a_size)
-    else:
-        a_shape = (a_size, convolution_size)
-
-    if transposed_b:
-        b_shape = (b_size, convolution_size)
-    else:
-        b_shape = (convolution_size, b_size)
+    a_shape = (convolution_size, a_size) if transposed_a else (a_size, convolution_size)
+    b_shape = (b_size, convolution_size) if transposed_b else (convolution_size, b_size)
 
     check_errors(
         queue,
@@ -153,13 +144,13 @@ def test_dtypes(queue, arg_dtypes):
 
 
 def test_out_arr_shape():
-    a = numpy.empty((1, 22, 33), numpy.float32)
-    b = numpy.empty((2, 3, 33, 44), numpy.float32)
+    a = ArrayMetadata((1, 22, 33), numpy.float32)
+    b = ArrayMetadata((2, 3, 33, 44), numpy.float32)
     dot = MatrixMul(a, b)
     assert dot.parameter.output.shape == (2, 3, 22, 44)
 
 
-def check_performance(queue, perf_shape, bwo=None, transposed_a=False, transposed_b=False):
+def check_performance(queue, perf_shape, bwo=None, *, transposed_a=False, transposed_b=False):
     # TODO: check double performance
 
     dtype = numpy.float32
@@ -181,7 +172,7 @@ def check_performance(queue, perf_shape, bwo=None, transposed_a=False, transpose
     dot = MatrixMul(
         a_dev,
         b_dev,
-        out_arr=res_dev,
+        out_arr_t=res_dev,
         block_width_override=bwo,
         transposed_a=transposed_a,
         transposed_b=transposed_b,
@@ -194,7 +185,7 @@ def check_performance(queue, perf_shape, bwo=None, transposed_a=False, transpose
 
     attempts = 10
     times = []
-    for i in range(attempts):
+    for _ in range(attempts):
         t1 = time.time()
         dotc(queue, res_dev, a_dev, b_dev)
         queue.synchronize()

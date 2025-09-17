@@ -1,14 +1,13 @@
-"""
-Test standard transformations
-"""
+"""Test standard transformations."""
 
+import numpy
 import pytest
-from grunnur import Array, Snippet
+from grunnur import Array, ArrayMetadata, Snippet, dtypes
 
 import reikna.transformations as tr
-from helpers import *
+from helpers import diff_is_negligible, get_test_array
 from reikna.algorithms import PureParallel
-from reikna.core import Annotation, Parameter, Type
+from reikna.core import Annotation, Parameter
 
 
 def pytest_generate_tests(metafunc):
@@ -117,8 +116,8 @@ def test_cast(some_queue):
     data = get_test_array((1000,), numpy.float32, high=10)
     data_dev = Array.from_host(some_queue, data)
 
-    test = get_test_computation(Type.array(numpy.int32, (1000,)))
-    cast = tr.cast(data, numpy.int32)
+    test = get_test_computation(ArrayMetadata(1000, numpy.int32))
+    cast = tr.cast(data_dev, numpy.int32)
 
     test.parameter.input.connect(cast, cast.output, input_prime=cast.input)
     testc = test.compile(some_queue.device)
@@ -131,10 +130,10 @@ def test_cast(some_queue):
 
 
 def test_add_param(some_queue, any_dtype):
-    input = get_test_array((1000,), any_dtype)
+    input_ = get_test_array((1000,), any_dtype)
     p1 = get_test_array((1,), any_dtype)[0]
     p2 = get_test_array((1,), any_dtype)[0]
-    input_dev = Array.from_host(some_queue, input)
+    input_dev = Array.from_host(some_queue, input_)
     output_dev = Array.empty_like(some_queue.device, input_dev)
 
     test = get_test_computation(input_dev)
@@ -145,14 +144,14 @@ def test_add_param(some_queue, any_dtype):
     testc = test.compile(some_queue.device)
 
     testc(some_queue, output_dev, p1, input_dev, p2)
-    assert diff_is_negligible(output_dev.get(some_queue), input + p1 + p2)
+    assert diff_is_negligible(output_dev.get(some_queue), input_ + p1 + p2)
 
 
 def test_add_const(some_queue, any_dtype):
-    input = get_test_array((1000,), any_dtype)
+    input_ = get_test_array((1000,), any_dtype)
     p1 = get_test_array((1,), any_dtype)[0]
     p2 = get_test_array((1,), any_dtype)[0]
-    input_dev = Array.from_host(some_queue, input)
+    input_dev = Array.from_host(some_queue, input_)
     output_dev = Array.empty_like(some_queue.device, input_dev)
 
     test = get_test_computation(input_dev)
@@ -164,14 +163,14 @@ def test_add_const(some_queue, any_dtype):
     testc = test.compile(some_queue.device)
 
     testc(some_queue, output_dev, input_dev)
-    assert diff_is_negligible(output_dev.get(some_queue), input + p1 + p2)
+    assert diff_is_negligible(output_dev.get(some_queue), input_ + p1 + p2)
 
 
 def test_mul_param(some_queue, any_dtype):
-    input = get_test_array((1000,), any_dtype)
+    input_ = get_test_array((1000,), any_dtype)
     p1 = get_test_array((1,), any_dtype)[0]
     p2 = get_test_array((1,), any_dtype)[0]
-    input_dev = Array.from_host(some_queue, input)
+    input_dev = Array.from_host(some_queue, input_)
     output_dev = Array.empty_like(some_queue.device, input_dev)
 
     test = get_test_computation(input_dev)
@@ -182,14 +181,14 @@ def test_mul_param(some_queue, any_dtype):
     testc = test.compile(some_queue.device)
 
     testc(some_queue, output_dev, p1, input_dev, p2)
-    assert diff_is_negligible(output_dev.get(some_queue), input * p1 * p2)
+    assert diff_is_negligible(output_dev.get(some_queue), input_ * p1 * p2)
 
 
 def test_mul_const(some_queue, any_dtype):
-    input = get_test_array((1000,), any_dtype)
+    input_ = get_test_array((1000,), any_dtype)
     p1 = get_test_array((1,), any_dtype)[0]
     p2 = get_test_array((1,), any_dtype)[0]
-    input_dev = Array.from_host(some_queue, input)
+    input_dev = Array.from_host(some_queue, input_)
     output_dev = Array.empty_like(some_queue.device, input_dev)
 
     test = get_test_computation(input_dev)
@@ -201,16 +200,16 @@ def test_mul_const(some_queue, any_dtype):
     testc = test.compile(some_queue.device)
 
     testc(some_queue, output_dev, input_dev)
-    assert diff_is_negligible(output_dev.get(some_queue), input * p1 * p2)
+    assert diff_is_negligible(output_dev.get(some_queue), input_ * p1 * p2)
 
 
 def test_div_param(some_queue):
     dtype = numpy.float32
 
-    input = get_test_array((1000,), dtype)
+    input_ = get_test_array((1000,), dtype)
     p1 = get_test_array((1,), dtype)[0]
     p2 = get_test_array((1,), dtype)[0]
-    input_dev = Array.from_host(some_queue, input)
+    input_dev = Array.from_host(some_queue, input_)
     output_dev = Array.empty_like(some_queue.device, input_dev)
 
     test = get_test_computation(input_dev)
@@ -221,16 +220,16 @@ def test_div_param(some_queue):
     testc = test.compile(some_queue.device)
 
     testc(some_queue, output_dev, p1, input_dev, p2)
-    assert diff_is_negligible(output_dev.get(some_queue), input / p1 / p2)
+    assert diff_is_negligible(output_dev.get(some_queue), input_ / p1 / p2)
 
 
 def test_div_const(some_queue):
     dtype = numpy.float32
 
-    input = get_test_array((1000,), dtype)
+    input_ = get_test_array((1000,), dtype)
     p1 = get_test_array((1,), dtype)[0]
     p2 = get_test_array((1,), dtype)[0]
-    input_dev = Array.from_host(some_queue, input)
+    input_dev = Array.from_host(some_queue, input_)
     output_dev = Array.empty_like(some_queue.device, input_dev)
 
     test = get_test_computation(input_dev)
@@ -242,7 +241,7 @@ def test_div_const(some_queue):
     testc = test.compile(some_queue.device)
 
     testc(some_queue, output_dev, input_dev)
-    assert diff_is_negligible(output_dev.get(some_queue), input / p1 / p2)
+    assert diff_is_negligible(output_dev.get(some_queue), input_ / p1 / p2)
 
 
 def test_split_combine_complex(some_queue):
@@ -253,7 +252,7 @@ def test_split_combine_complex(some_queue):
     o1_dev = Array.empty_like(some_queue.device, i1)
     o2_dev = Array.empty_like(some_queue.device, i2)
 
-    base_t = Type.array(numpy.complex64, shape=1000)
+    base_t = ArrayMetadata(1000, numpy.complex64)
     test = get_test_computation(base_t)
     combine = tr.combine_complex(base_t)
     split = tr.split_complex(base_t)

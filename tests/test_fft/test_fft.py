@@ -3,15 +3,15 @@ import time
 
 import numpy
 import pytest
-from grunnur import Array, dtypes
+from grunnur import Array, ArrayMetadata, dtypes
 
-from helpers import *
+from helpers import diff_is_negligible, get_test_array
 from reikna.fft import FFT
 from reikna.helpers import product
 from reikna.transformations import mul_param
 
 
-def pytest_generate_tests(metafunc):
+def pytest_generate_tests(metafunc):  # noqa: PLR0915, PLR0912, C901
     perf_log_shapes = [
         (4,),
         (10,),
@@ -55,8 +55,7 @@ def pytest_generate_tests(metafunc):
 
             for s in (size, pad_test_size):
                 # testing batch = 1, non-multiple batch and power of 2 batch
-                for b in (1, batch - 1, batch):
-                    vals.append(((b, s), (1,)))
+                vals.extend(((b, s), (1,)) for b in (1, batch - 1, batch))
 
         metafunc.parametrize("local_shape_and_axes", vals, ids=list(map(idgen, vals)))
 
@@ -119,7 +118,7 @@ def pytest_generate_tests(metafunc):
         for log_shape in perf_log_shapes:
             shape = tuple(2**x for x in log_shape)
             batch = perf_mem_limit // (2 ** sum(log_shape))
-            vals.append(((batch,) + shape, tuple(range(1, len(shape) + 1))))
+            vals.append(((batch, *shape), tuple(range(1, len(shape) + 1))))
             ids.append(str(batch) + "x" + str(shape))
 
         metafunc.parametrize("perf_shape_and_axes", vals, ids=ids)
@@ -131,15 +130,15 @@ def pytest_generate_tests(metafunc):
             for modifier in (1, -1):
                 shape = tuple(2 ** (x - 1) + modifier for x in log_shape)
                 batch = perf_mem_limit // (2 ** sum(log_shape))
-                vals.append(((batch,) + shape, tuple(range(1, len(shape) + 1))))
+                vals.append(((batch, *shape), tuple(range(1, len(shape) + 1))))
                 ids.append(str(batch) + "x" + str(shape))
 
         metafunc.parametrize("non2problem_perf_shape_and_axes", vals, ids=ids)
 
 
 def test_typecheck():
-    with pytest.raises(ValueError):
-        fft = FFT(get_test_array(100, numpy.float32))
+    with pytest.raises(ValueError, match="FFT computation requires array of a complex dtype"):
+        FFT(ArrayMetadata(shape=100, dtype=numpy.float32))
 
 
 # Since we're using single precision for tests (for compatibility reasons),
@@ -152,14 +151,14 @@ def check_errors(queue, shape_and_axes, atol=2e-5, rtol=1e-3):
     shape, axes = shape_and_axes
 
     data = get_test_array(shape, dtype)
+    data_dev = Array.from_host(queue, data)
 
-    fft = FFT(data, axes=axes)
+    fft = FFT(data_dev, axes=axes)
     fftc = fft.compile(queue.device)
 
     # forward transform
     # Testing inplace transformation, because if this works,
     # then the out of place one will surely work too.
-    data_dev = Array.from_host(queue, data)
     fftc(queue, data_dev, data_dev)
     fwd_ref = numpy.fft.fftn(data, axes=axes).astype(dtype)
     assert diff_is_negligible(data_dev.get(queue), fwd_ref, atol=atol, rtol=rtol)
@@ -223,7 +222,7 @@ def check_performance(queue, shape_and_axes, fast_math):
 
     attempts = 10
     times = []
-    for i in range(attempts):
+    for _ in range(attempts):
         t1 = time.time()
         fftc(queue, res_dev, data_dev)
         queue.synchronize()
