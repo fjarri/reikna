@@ -18,7 +18,8 @@ from .cbrng_ref import threefry as threefry_ref
 
 
 def uniform_discrete_mean_and_std(a, b):
-    return (a + b) / 2.0, numpy.sqrt(((b - a + 1) ** 2 - 1.0) / 12)
+    """The range is [a, b)"""
+    return (a + b - 1) / 2.0, numpy.sqrt(((b - a) ** 2 - 1.0) / 12)
 
 
 def uniform_mean_and_std(a, b):
@@ -26,13 +27,15 @@ def uniform_mean_and_std(a, b):
 
 
 class UniformIntegerHelper:
+    """The range is [min_, max_)"""
+
     def __init__(self, min_, max_):
         self.extent = (min_, max_)
         self.mean, self.std = uniform_discrete_mean_and_std(*self.extent)
         self.name = "uniform_integer"
 
     def get_sampler(self, bijection, dtype):
-        return uniform_integer(bijection, dtype, self.extent[0], self.extent[1] + 1)
+        return uniform_integer(bijection, dtype, self.extent[0], self.extent[1])
 
 
 class UniformFloatHelper:
